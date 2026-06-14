@@ -1,0 +1,26 @@
+name = "orbit"
+main = "src/worker.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# 前端静态资源（vite build 输出目录）
+[assets]
+directory = "web/dist"
+
+# D1 数据库（替换 database_id 为实际值）
+[[d1_databases]]
+binding = "DB"
+database_name = "orbit-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# R2 存储桶
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "orbit-media"
+
+[vars]
+BETTER_AUTH_URL = "https://orbit.your-domain.workers.dev"
+# 在 wrangler secret put 中设置：BETTER_AUTH_SECRET
+
+# 本地开发时的 D1 绑定（wrangler dev 自动使用本地 SQLite）
+# 无需额外配置

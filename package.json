@@ -1,0 +1,30 @@
+{
+  "name": "orbit",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run web\"",
+    "server": "tsx src/server/index.ts",
+    "web": "npm run dev --prefix web",
+    "migrate": "tsx scripts/migrate.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:import": "tsx scripts/import-md.ts"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.2.3",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.21.0"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.9",
+    "better-auth": "^1.6.18",
+    "better-sqlite3": "^12.10.1",
+    "drizzle-orm": "^0.45.2",
+    "heic-convert": "^2.1.0",
+    "hono": "^4.11.9",
+    "sharp": "^0.34.5"
+  }
+}
