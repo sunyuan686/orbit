@@ -1,11 +1,13 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fetchEntry, saveEntry, createEntry, TYPE_LABEL } from "../lib/api";
+import { fetchEntry, saveEntry, createEntry, TYPE_LABEL, getApiErrorMessage } from "../lib/api";
+import { useToast } from "../lib/useToast";
 import { TiptapEditor } from "../components/TiptapEditor";
 
 export function ArticleEdit() {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
+  const toast = useToast();
   const isNew = id === "new";
 
   const [title, setTitle] = useState("");
@@ -23,12 +25,17 @@ export function ArticleEdit() {
       setLoaded(true);
       return;
     }
-    fetchEntry(id).then((entry) => {
-      setTitle(entry.title || "");
-      setBody(entry.body);
-      setLoaded(true);
-    });
-  }, [id, isNew]);
+    fetchEntry(id)
+      .then((entry) => {
+        setTitle(entry.title || "");
+        setBody(entry.body);
+        setLoaded(true);
+      })
+      .catch((err) => {
+        toast.error(getApiErrorMessage(err, "加载失败，内容可能不存在"));
+        setLoaded(true);
+      });
+  }, [id, isNew, toast]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -42,47 +49,64 @@ export function ArticleEdit() {
           title,
           body: bodyRef.current,
         });
+        toast.success("已创建");
         navigate(`/${type}/${result.id}`, { replace: true });
       } else {
         await saveEntry(id!, { title, body: bodyRef.current });
+        toast.success("已保存");
         navigate(`/${type}/${id}`);
       }
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "保存失败，请稍后重试"));
     } finally {
       setSaving(false);
     }
   };
 
-  if (!loaded) return <p className="text-stone-400">加载中...</p>;
+  if (!loaded) return <p style={{ color: "var(--color-text-muted)" }}>加载中…</p>;
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-semibold">
+    <div style={{ maxWidth: "720px", margin: "0 auto" }}>
+      {/* 顶部操作栏 */}
+      <div className="flex items-center justify-between mb-6 gap-4">
+        <h2 className="orbit-page-title">
           {isNew ? `新建${TYPE_LABEL[type || ""] || ""}` : "编辑"}
         </h2>
-        <div className="flex gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="px-4 py-2 text-sm border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors"
-          >
+        <div className="flex gap-2">
+          <button onClick={() => navigate(-1)} className="orbit-btn">
             取消
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 text-sm bg-stone-800 dark:bg-stone-200 text-white dark:text-stone-800 rounded-lg hover:bg-stone-700 dark:hover:bg-stone-300 disabled:opacity-50 transition-colors"
+            className="orbit-btn orbit-btn-primary"
+            style={{ opacity: saving ? 0.6 : 1 }}
           >
-            {saving ? "保存中..." : "保存"}
+            {saving ? "保存中…" : "保存"}
           </button>
         </div>
       </div>
 
+      {/* 标题输入 */}
       <input
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="标题"
-        className="w-full mb-4 px-4 py-3 text-lg border border-stone-200 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-300 dark:focus:ring-stone-600 text-base"
+        style={{
+          width: "100%",
+          marginBottom: "1rem",
+          padding: "0.625rem 0.875rem",
+          fontSize: "var(--type-title)",
+          fontFamily: "var(--font-heading)",
+          fontWeight: 400,
+          border: "none",
+          borderBottom: "1px solid var(--color-border-light)",
+          background: "transparent",
+          color: "var(--color-text-primary)",
+          outline: "none",
+          lineHeight: "var(--leading-heading)",
+        }}
       />
 
       <TiptapEditor

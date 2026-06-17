@@ -19,9 +19,31 @@ function generateId(prefix: string): string {
   return `${prefix}_${suffix}`;
 }
 
-// GET /api/articles?type=diary|message|letter|memo
+function mapEntrySummary(row: {
+  id: string;
+  type: string;
+  title: string | null;
+  author: string;
+  entryDate: number | null;
+  createdAt: number;
+  parentId: string | null;
+}) {
+  return {
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    author: row.author || null,
+    entryDate: row.entryDate,
+    createdAt: row.createdAt,
+    parentId: row.parentId,
+  };
+}
+
+// GET /api/articles?type=diary|timeline|message|letter|memo
+// letter 默认只返回主信（parentId=null）；?roots=0 返回全部
 articles.get("/", async (c) => {
   const type = c.req.query("type");
+  const rootsOnly = c.req.query("roots") !== "0";
 
   if (type === "memo") {
     const memos = await db
@@ -48,20 +70,51 @@ articles.get("/", async (c) => {
   if (type && type !== "all") {
     conditions.push(eq(entry.type, type));
   }
+  if (type === "letter" && rootsOnly) {
+    conditions.push(isNull(entry.parentId));
+  }
 
   const entries = await db
     .select({
       id: entry.id,
       type: entry.type,
       title: entry.title,
+      author: entry.author,
       entryDate: entry.entryDate,
       createdAt: entry.createdAt,
+      parentId: entry.parentId,
     })
     .from(entry)
     .where(and(...conditions))
     .orderBy(desc(entry.entryDate), desc(entry.createdAt));
 
-  return c.json(entries);
+  return c.json(entries.map(mapEntrySummary));
+});
+
+// GET /api/articles/:id/replies — 某封信的回信列表
+articles.get("/:id/replies", async (c) => {
+  const parentId = c.req.param("id");
+
+  const replies = await db
+    .select({
+      id: entry.id,
+      type: entry.type,
+      title: entry.title,
+      author: entry.author,
+      entryDate: entry.entryDate,
+      createdAt: entry.createdAt,
+      parentId: entry.parentId,
+    })
+    .from(entry)
+    .where(
+      and(
+        eq(entry.parentId, parentId),
+        isNull(entry.deletedAt)
+      )
+    )
+    .orderBy(asc(entry.entryDate), asc(entry.createdAt));
+
+  return c.json(replies.map(mapEntrySummary));
 });
 
 // GET /api/articles/:id
@@ -97,9 +150,11 @@ articles.get("/:id", async (c) => {
   return c.json({
     id: row.id,
     type: row.type,
-    title: row.title ?? "",
+    title: row.title,
+    author: row.author || null,
     body: row.body ?? "",
     entryDate: row.entryDate,
+    parentId: row.parentId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   });
@@ -107,11 +162,13 @@ articles.get("/:id", async (c) => {
 
 // POST /api/articles — 新建
 articles.post("/", async (c) => {
-  const { type, title, body, entryDate } = await c.req.json<{
+  const { type, title, body, entryDate, author, parentId } = await c.req.json<{
     type: string;
     title?: string;
     body?: string;
     entryDate?: number;
+    author?: string;
+    parentId?: string | null;
   }>();
 
   if (type === "memo") {
@@ -131,9 +188,11 @@ articles.post("/", async (c) => {
   await db.insert(entry).values({
     id,
     type,
-    title: title ?? "",
+    author: author ?? "",
+    title: title ?? null,
     body: body ?? "",
     entryDate: entryDate ?? null,
+    parentId: parentId ?? null,
     createdAt: now(),
     updatedAt: now(),
   });
@@ -143,10 +202,11 @@ articles.post("/", async (c) => {
 // PUT /api/articles/:id — 更新
 articles.put("/:id", async (c) => {
   const id = c.req.param("id");
-  const { title, body, entryDate } = await c.req.json<{
+  const { title, body, entryDate, author } = await c.req.json<{
     title?: string;
     body?: string;
     entryDate?: number;
+    author?: string;
   }>();
 
   // 检查是否是 memo
@@ -172,6 +232,7 @@ articles.put("/:id", async (c) => {
     .update(entry)
     .set({
       title: title ?? undefined,
+      author: author ?? undefined,
       body: body ?? undefined,
       entryDate: entryDate ?? undefined,
       updatedAt: now(),

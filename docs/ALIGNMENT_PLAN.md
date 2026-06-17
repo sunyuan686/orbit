@@ -48,7 +48,7 @@ MCP 端点（AI 操作）
 CREATE TABLE entry (
   id           TEXT PRIMARY KEY,          -- nanoid，如 "ent_k3m9x2"
   type         TEXT NOT NULL,             -- diary | message | letter
-  author       TEXT NOT NULL,             -- sunyuan | linzhi（仅署名，不做权限控制）
+  author       TEXT NOT NULL,             -- sunyuan | 辛麟芝（仅署名，不做权限控制）
   title        TEXT,                      -- 可选标题
   body         TEXT,                      -- Markdown 原文（AI 可读写）
   body_html    TEXT,                      -- 预渲染 HTML（展示用）

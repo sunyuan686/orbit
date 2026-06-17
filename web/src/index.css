@@ -4,145 +4,491 @@
 /* Tailwind v4: dark mode 基于 .dark 类 */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ──────────────────────────────────────────────────────────
+   Design Tokens — Jant-aligned
+   ────────────────────────────────────────────────────────── */
+:root {
+  /* Font stacks */
+  --font-heading:
+    "New York Small", "New York", "Iowan Old Style", Charter,
+    "Bitstream Charter", "Source Serif 4", Georgia,
+    "Songti SC", STSong, SimSun, ui-serif, serif;
+  --font-body:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans CJK SC", sans-serif;
+  --font-mono:
+    ui-monospace, Menlo, Monaco, Consolas, "Courier New", monospace;
+
+  /* Type scale */
+  --type-display: 2rem;
+  --type-title: 1.5rem;
+  --type-subtitle: 1.2rem;
+  --type-body: 1rem;
+  --type-secondary: 0.875rem;
+  --type-sm: 0.8125rem;
+  --type-xs: 0.75rem;
+
+  /* Line heights */
+  --leading-body: 1.75;
+  --leading-heading: 1.25;
+
+  /* Spacing rhythm */
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3.5rem;
+
+  /* Light mode colors — stone palette */
+  --color-bg: oklch(0.99 0.002 80);
+  --color-surface: oklch(1 0 0);
+  --color-surface-raised: oklch(0.975 0.004 80);
+  --color-border: oklch(0.88 0.005 80);
+  --color-border-light: oklch(0.93 0.003 80);
+  --color-text-primary: oklch(0.18 0.01 80);
+  --color-text-secondary: oklch(0.52 0.015 80);
+  --color-text-muted: oklch(0.68 0.01 80);
+  --color-accent: oklch(0.32 0.02 80);
+
+  /* Sidebar specific */
+  --sidebar-bg: oklch(0.97 0.003 80);
+  --sidebar-border: oklch(0.9 0.005 80);
+  --sidebar-nav-active-bg: oklch(0.93 0.007 80);
+  --sidebar-nav-hover-bg: oklch(0.95 0.004 80);
+}
+
+/* Dark mode overrides — 暖灰色调，避免纯黑 */
+.dark {
+  --color-bg: oklch(0.2 0.01 60);
+  --color-surface: oklch(0.23 0.012 60);
+  --color-surface-raised: oklch(0.27 0.014 60);
+  --color-border: oklch(0.36 0.015 60);
+  --color-border-light: oklch(0.3 0.012 60);
+  --color-text-primary: oklch(0.93 0.006 80);
+  --color-text-secondary: oklch(0.68 0.014 80);
+  --color-text-muted: oklch(0.52 0.012 80);
+  --color-accent: oklch(0.82 0.012 80);
+
+  --sidebar-bg: oklch(0.18 0.01 60);
+  --sidebar-border: oklch(0.3 0.015 60);
+  --sidebar-nav-active-bg: oklch(0.28 0.018 60);
+  --sidebar-nav-hover-bg: oklch(0.24 0.014 60);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Base styles
+   ────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
+  font-family: var(--font-body);
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+  color: var(--color-text-primary);
+  background: var(--color-bg);
 }
 
-/* Milkdown 编辑器标题样式 */
-.milkdown-wrapper .milkdown .editor h1 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  margin-top: 1.5rem;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #e7e5e4;
-  line-height: 1.3;
+/* Heading font */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  line-height: var(--leading-heading);
+  font-weight: 400;
 }
 
-.milkdown-wrapper .milkdown .editor h2 {
-  font-size: 1.35rem;
-  font-weight: 600;
-  margin-top: 1.25rem;
-  margin-bottom: 0.5rem;
-  line-height: 1.35;
+/* ──────────────────────────────────────────────────────────
+   Orbit Layout overrides — hook CSS tokens into Tailwind classes
+   ────────────────────────────────────────────────────────── */
+
+/* Main layout background */
+.orbit-layout {
+  background: var(--color-bg);
+  color: var(--color-text-primary);
 }
 
-.milkdown-wrapper .milkdown .editor h3 {
-  font-size: 1.15rem;
-  font-weight: 600;
-  margin-top: 1rem;
-  margin-bottom: 0.4rem;
-  line-height: 1.4;
+/* Sidebar */
+.orbit-sidebar {
+  background: var(--sidebar-bg);
+  border-right-color: var(--sidebar-border);
 }
 
-.milkdown-wrapper .milkdown .editor h4 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin-top: 0.75rem;
-  margin-bottom: 0.25rem;
+/* Sidebar title */
+.orbit-sidebar-title {
+  font-family: var(--font-heading);
+  font-size: var(--type-title);
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }
 
-.milkdown-wrapper .milkdown .editor p {
-  margin-bottom: 0.6rem;
-  line-height: 1.7;
+/* Header bar */
+.orbit-header {
+  background: var(--color-surface);
+  border-bottom-color: var(--color-border);
 }
 
-.milkdown-wrapper .milkdown .editor img {
-  max-width: 100%;
+/* Nav items */
+.orbit-nav-item {
+  font-size: var(--type-secondary);
+  color: var(--color-text-secondary);
+  border-radius: 6px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.orbit-nav-item:hover {
+  background: var(--sidebar-nav-hover-bg);
+  color: var(--color-text-primary);
+}
+
+.orbit-nav-item.active {
+  background: var(--sidebar-nav-active-bg);
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* ──────────────────────────────────────────────────────────
+   Article list
+   ────────────────────────────────────────────────────────── */
+.orbit-entry-card {
+  display: block;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
   border-radius: 8px;
-  margin: 0;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.12s, background 0.12s;
 }
 
-/* 可折叠图片 */
-.orbit-image-overlay {
-  background: linear-gradient(transparent, rgba(255, 255, 255, 0.95));
+.orbit-entry-card:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface-raised);
 }
 
-.orbit-image-toggle {
-  color: #78716c;
+.orbit-entry-title {
+  font-size: var(--type-secondary);
+  font-weight: 500;
+  color: var(--color-text-primary);
 }
 
-.dark .orbit-image-overlay {
-  background: linear-gradient(transparent, rgba(28, 25, 23, 0.95));
+.orbit-entry-date {
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
-.dark .orbit-image-toggle {
-  color: #a8a29e;
+/* ──────────────────────────────────────────────────────────
+   Page heading
+   ────────────────────────────────────────────────────────── */
+.orbit-page-title {
+  font-family: var(--font-heading);
+  font-size: var(--type-title);
+  font-weight: 400;
+  color: var(--color-text-primary);
 }
 
-.milkdown-wrapper .milkdown .editor hr {
-  margin: 1.5rem 0;
-  border-color: #d6d3d1;
+/* ──────────────────────────────────────────────────────────
+   Buttons
+   ────────────────────────────────────────────────────────── */
+.orbit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.4rem 0.875rem;
+  font-size: var(--type-secondary);
+  font-family: var(--font-body);
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
-.milkdown-wrapper .milkdown .editor blockquote {
-  border-left: 3px solid #d6d3d1;
-  padding-left: 1rem;
-  color: #78716c;
-  margin: 0.75rem 0;
+.orbit-btn:hover {
+  background: var(--color-surface-raised);
+  border-color: var(--color-border);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.07);
 }
 
-/* ── 暗色模式：Milkdown 编辑器 ── */
-.dark .milkdown-wrapper .milkdown .editor h1 {
-  border-bottom-color: #44403c;
+.orbit-btn-primary {
+  background: var(--color-text-primary);
+  color: var(--color-bg);
+  border-color: transparent;
 }
 
-.dark .milkdown-wrapper .milkdown .editor hr {
-  border-color: #44403c;
+.orbit-btn-primary:hover {
+  background: var(--color-accent);
+  border-color: transparent;
 }
 
-.dark .milkdown-wrapper .milkdown .editor blockquote {
-  border-left-color: #57534e;
-  color: #a8a29e;
+/* ──────────────────────────────────────────────────────────
+   TipTap prose editor
+   ────────────────────────────────────────────────────────── */
+
+/* orbit-prose: 统一的 prose 容器，用于编辑和阅读 */
+.orbit-prose {
+  outline: none;
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  min-height: 200px;
 }
 
-/* Milkdown nord 主题暗色覆盖 */
-.dark .milkdown .editor {
-  color: #e7e5e4;
-}
-
-.dark .milkdown {
-  --nord-background: transparent;
-  --nord-foreground: #e7e5e4;
-}
-
-/* ── TipTap 编辑器 ── */
 .ProseMirror {
   outline: none;
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+  color: var(--color-text-primary);
+}
+
+/* 编辑器和阅读视图共用排版规则 */
+.orbit-prose h1, .ProseMirror h1,
+.orbit-prose h2, .ProseMirror h2,
+.orbit-prose h3, .ProseMirror h3,
+.orbit-prose h4, .ProseMirror h4 {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  line-height: var(--leading-heading);
+  color: var(--color-text-primary);
+  margin-top: 1.75rem;
+  margin-bottom: 0.6rem;
+}
+.orbit-prose h1, .ProseMirror h1 { font-size: 1.65rem; margin-top: 0; }
+.orbit-prose h2, .ProseMirror h2 { font-size: 1.35rem; border-bottom: 1px solid var(--color-border-light); padding-bottom: 0.35rem; }
+.orbit-prose h3, .ProseMirror h3 { font-size: 1.12rem; }
+.orbit-prose h4, .ProseMirror h4 { font-size: 1rem; font-weight: 500; }
+
+.orbit-prose p, .ProseMirror p { margin: 0 0 0.9rem; }
+
+.orbit-prose strong, .ProseMirror strong { font-weight: 600; }
+.orbit-prose em, .ProseMirror em { font-style: italic; }
+
+.orbit-prose a, .ProseMirror a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--color-border);
+  text-underline-offset: 2px;
+  transition: text-decoration-color 0.12s;
+}
+.orbit-prose a:hover, .ProseMirror a:hover {
+  text-decoration-color: var(--color-text-secondary);
+}
+
+.orbit-prose blockquote, .ProseMirror blockquote {
+  border-left: 3px solid var(--color-border);
+  padding-left: 1rem;
+  margin: 1rem 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.orbit-prose hr, .ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--color-border-light);
+  margin: 2rem 0;
+}
+
+.orbit-prose ul, .ProseMirror ul,
+.orbit-prose ol, .ProseMirror ol {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0 1rem;
+}
+.orbit-prose li, .ProseMirror li { margin-bottom: 0.25rem; }
+
+.orbit-prose code, .ProseMirror code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-light);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+
+.orbit-prose pre, .ProseMirror pre {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+.orbit-prose pre code, .ProseMirror pre code {
+  background: none;
+  border: none;
+  padding: 0;
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: #a8a29e;
+  color: var(--color-text-muted);
   pointer-events: none;
   height: 0;
+  font-style: italic;
 }
 
-.dark .ProseMirror p.is-editor-empty:first-child::before {
-  color: #57534e;
-}
 
-/* TipTap 图片样式 */
-.ProseMirror img {
+/* Images */
+.ProseMirror img,
+.orbit-prose-img {
   max-width: 100%;
-  border-radius: 0.5rem;
-  margin: 0.75rem 0;
+  border-radius: 8px;
+  margin: 1rem 0;
   display: block;
 }
 
-/* TipTap 选中状态 */
 .ProseMirror img.ProseMirror-selectednode {
-  outline: 2px solid #78716c;
+  outline: 2px solid var(--color-border);
   outline-offset: 2px;
 }
 
-/* 移动端键盘弹出时工具栏保持可见 */
+/* ──────────────────────────────────────────────────────────
+   Read view prose (view mode uses .prose class from @tailwindcss/typography)
+   We override some prose defaults to match our tokens.
+   ────────────────────────────────────────────────────────── */
+.prose {
+  --tw-prose-body: var(--color-text-primary);
+  --tw-prose-headings: var(--color-text-primary);
+  --tw-prose-links: var(--color-text-primary);
+  --tw-prose-bold: var(--color-text-primary);
+  --tw-prose-code: var(--color-text-primary);
+  --tw-prose-quotes: var(--color-text-secondary);
+  --tw-prose-hr: var(--color-border-light);
+  --tw-prose-invert-body: var(--color-text-primary);
+  --tw-prose-invert-headings: var(--color-text-primary);
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  font-family: var(--font-heading);
+  font-weight: 400;
+}
+
+/* ──────────────────────────────────────────────────────────
+   Scrollbar (subtle)
+   ────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Mobile
+   ────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+
   .tiptap-mobile-toolbar {
     position: sticky;
     bottom: 0;
     z-index: 20;
   }
+}
+
+/* ──────────────────────────────────────────────────────────
+   Toast
+   ────────────────────────────────────────────────────────── */
+.orbit-toast-stack {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  pointer-events: none;
+  width: min(92vw, 22rem);
+}
+
+.orbit-toast {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border-radius: 10px;
+  font-size: var(--type-secondary);
+  line-height: 1.4;
+  border: 1px solid var(--color-border-light);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: 0 8px 24px oklch(0 0 0 / 0.12);
+  opacity: 0;
+  transform: translateY(0.5rem);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.orbit-toast--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.orbit-toast--success {
+  border-color: oklch(0.82 0.06 145);
+}
+
+.orbit-toast--error {
+  border-color: oklch(0.78 0.08 27);
+}
+
+.orbit-toast-icon {
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.orbit-toast--success .orbit-toast-icon {
+  background: oklch(0.92 0.04 145);
+  color: oklch(0.42 0.1 145);
+}
+
+.orbit-toast--error .orbit-toast-icon {
+  background: oklch(0.92 0.04 27);
+  color: oklch(0.48 0.14 27);
+}
+
+.orbit-toast-message {
+  flex: 1;
+  min-width: 0;
 }

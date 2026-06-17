@@ -1,5 +1,12 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import {
+  sqliteTable,
+  text,
+  integer,
+  index,
+  check,
+} from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
+import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 
 // ─── better-auth 标准表 ────────────────────────────────────────────────────────
 
@@ -60,15 +67,71 @@ export const verification = sqliteTable("verification", {
 });
 
 /**
- * 核心内容表（日记、留言、信件）
+ * 核心内容表
+ * type: diary（日记事件）| timeline（里程碑）| message（留言板）| letter（信件）
+ * parentId: letter 用于关联同轮回信（一封可有多条回信）；message 用于链式回复
  */
-export const entry = sqliteTable("entry", {
+export const entry = sqliteTable(
+  "entry",
+  {
+    id: text("id").primaryKey(),
+    type: text("type").notNull(),
+    userId: text("user_id").references(() => user.id),
+    /** 留言/信件作者：小圆子 | 小麟子 */
+    author: text("author").notNull().default(""),
+    title: text("title"),
+    body: text("body"),
+    bodyText: text("body_text"),
+    entryDate: integer("entry_date"),
+    parentId: text("parent_id").references(
+      (): AnySQLiteColumn => entry.id
+    ),
+    createdAt: integer("created_at")
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .default(sql`(unixepoch())`),
+    deletedAt: integer("deleted_at"),
+  },
+  (t) => [
+    check(
+      "entry_type_check",
+      sql`${t.type} IN ('diary', 'timeline', 'message', 'letter')`
+    ),
+    index("idx_entry_type_date").on(t.type, t.entryDate),
+    index("idx_entry_parent").on(t.parentId),
+  ]
+);
+
+/**
+ * 图片/文件资产表
+ * 不存完整 URL，运行时由 storageKey + ASSETS_BASE_URL 拼接
+ */
+export const asset = sqliteTable("asset", {
   id: text("id").primaryKey(),
-  type: text("type").notNull(),
-  author: text("author"),
-  title: text("title"),
+  entryId: text("entry_id").references(() => entry.id),
+  storageKey: text("storage_key").notNull(),
+  mimeType: text("mime_type").notNull().default("image/jpeg"),
+  width: integer("width"),
+  height: integer("height"),
+  size: integer("size"),
+  position: text("position").notNull().default("a0"),
+  createdAt: integer("created_at")
+    .notNull()
+    .default(sql`(unixepoch())`),
+  deletedAt: integer("deleted_at"),
+});
+
+/**
+ * 备忘录表（长期维护的活文档，如关于辛芝芝、恋爱原则等）
+ * 通过 key 直接访问，不按日期列表
+ */
+export const memo = sqliteTable("memo", {
+  id: text("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  title: text("title").notNull(),
   body: text("body"),
-  entryDate: integer("entry_date"),
   createdAt: integer("created_at")
     .notNull()
     .default(sql`(unixepoch())`),
@@ -79,39 +142,13 @@ export const entry = sqliteTable("entry", {
 });
 
 /**
- * 图片/文件资产表
- */
-export const asset = sqliteTable("asset", {
-  id: text("id").primaryKey(),
-  entryId: text("entry_id").references(() => entry.id),
-  storageKey: text("storage_key").notNull(),
-  url: text("url").notNull(),
-  mimeType: text("mime_type").notNull().default("image/jpeg"),
-  width: integer("width"),
-  height: integer("height"),
-  size: integer("size"),
-  createdAt: integer("created_at")
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
-
-/**
- * 备忘录表（长期维护的文档，如关于我们、恋爱原则等）
- */
-export const memo = sqliteTable("memo", {
-  id: text("id").primaryKey(),
-  key: text("key").notNull().unique(),
-  title: text("title").notNull(),
-  body: text("body"),
-  updatedAt: integer("updated_at")
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
-
-/**
  * 全局配置表
  */
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
+  updatedAt: integer("updated_at")
+    .notNull()
+    .default(sql`(unixepoch())`),
 });
+

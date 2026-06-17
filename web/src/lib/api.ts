@@ -11,24 +11,32 @@ export interface EntrySummary {
   id: string;
   type: string;
   title: string | null;
+  author: string | null;
   entryDate: number | null;
+  parentId: string | null;
 }
 
 export interface EntryDetail {
   id: string;
   type: string;
-  title: string;
+  title: string | null;
+  author: string | null;
   body: string;
   entryDate: number | null;
+  parentId: string | null;
   updatedAt?: number;
 }
 
 /** 类型 → 中文名 */
 export const TYPE_LABEL: Record<string, string> = {
   diary: "日记",
+  timeline: "时间线",
   message: "留言板",
   letter: "信箱",
   memo: "备忘录",
+  // 兼容旧路径
+  messages: "留言板",
+  letters: "信箱",
 };
 
 /** 格式化 Unix 时间戳为 YYYY-MM-DD */
@@ -40,15 +48,63 @@ export function formatDate(ts: number): string {
   return `${y}-${m}-${day}`;
 }
 
-export async function fetchEntries(type: string): Promise<EntrySummary[]> {
-  const res = await fetch(`${BASE}/api/articles?type=${type}`);
-  if (!res.ok) throw new Error("fetch failed");
+export class ApiError extends Error {
+  status?: number;
+
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+export function getApiErrorMessage(err: unknown, fallback = "操作失败，请稍后重试"): string {
+  if (err instanceof ApiError) return err.message;
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
+async function parseApiError(res: Response, fallback: string): Promise<ApiError> {
+  let message = fallback;
+  try {
+    const data = (await res.json()) as { error?: string };
+    if (data.error === "Unauthorized") message = "请先登录后再操作";
+    else if (typeof data.error === "string") message = data.error;
+  } catch {
+    // ignore parse errors
+  }
+  if (res.status === 401) message = "请先登录后再操作";
+  else if (res.status >= 500) message = "服务器错误，请稍后重试";
+  return new ApiError(message, res.status);
+}
+
+async function assertOk(res: Response, fallback: string): Promise<void> {
+  if (res.ok) return;
+  throw await parseApiError(res, fallback);
+}
+
+export async function fetchEntries(
+  type: string,
+  opts?: { roots?: boolean }
+): Promise<EntrySummary[]> {
+  const params = new URLSearchParams({ type });
+  if (opts?.roots === false) params.set("roots", "0");
+  const res = await fetch(`${BASE}/api/articles?${params}`);
+  await assertOk(res, "加载列表失败");
+  return res.json();
+}
+
+export async function fetchReplies(parentId: string): Promise<EntrySummary[]> {
+  const res = await fetch(
+    `${BASE}/api/articles/${encodeURIComponent(parentId)}/replies`
+  );
+  await assertOk(res, "加载回复失败");
   return res.json();
 }
 
 export async function fetchEntry(id: string): Promise<EntryDetail> {
   const res = await fetch(`${BASE}/api/articles/${encodeURIComponent(id)}`);
-  if (!res.ok) throw new Error("not found");
+  await assertOk(res, "内容不存在或加载失败");
   return res.json();
 }
 
@@ -56,12 +112,13 @@ export async function saveEntry(
   id: string,
   data: { title?: string; body?: string; entryDate?: number }
 ): Promise<void> {
-  await fetch(`${BASE}/api/articles/${encodeURIComponent(id)}`, {
+  const res = await fetch(`${BASE}/api/articles/${encodeURIComponent(id)}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify(data),
   });
+  await assertOk(res, "保存失败，请稍后重试");
 }
 
 export async function createEntry(data: {
@@ -76,14 +133,16 @@ export async function createEntry(data: {
     credentials: "include",
     body: JSON.stringify(data),
   });
+  await assertOk(res, "创建失败，请稍后重试");
   return res.json();
 }
 
 export async function deleteEntry(id: string): Promise<void> {
-  await fetch(`${BASE}/api/articles/${encodeURIComponent(id)}`, {
+  const res = await fetch(`${BASE}/api/articles/${encodeURIComponent(id)}`, {
     method: "DELETE",
     credentials: "include",
   });
+  await assertOk(res, "删除失败，请稍后重试");
 }
 
 export async function uploadImage(
@@ -98,6 +157,7 @@ export async function uploadImage(
     credentials: "include",
     body: form,
   });
+  await assertOk(res, "图片上传失败");
   const data = await res.json();
   return data.url as string;
 }

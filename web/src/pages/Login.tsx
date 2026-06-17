@@ -1,21 +1,21 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authClient } from "../lib/api";
+import { useToast } from "../lib/useToast";
 
 type Mode = "signin" | "signup";
 
 export function Login() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     setLoading(true);
 
     try {
@@ -26,7 +26,7 @@ export function Login() {
           fetchOptions: { credentials: "include" },
         });
         if (error) {
-          setError("邮箱或密码错误，请重试。");
+          toast.error("邮箱或密码错误，请重试");
           return;
         }
       } else {
@@ -37,17 +37,18 @@ export function Login() {
           fetchOptions: { credentials: "include" },
         });
         if (error) {
-          setError(
+          toast.error(
             error.message?.includes("closed")
-              ? "注册已关闭，这里只为两个人准备。"
-              : "注册失败，请检查信息后重试。"
+              ? "注册已关闭，这里只为两个人准备"
+              : "注册失败，请检查信息后重试"
           );
           return;
         }
       }
+      toast.success(mode === "signin" ? "登录成功" : "注册成功");
       navigate("/diary", { replace: true });
     } catch {
-      setError("网络错误，请稍后重试。");
+      toast.error("网络错误，请稍后重试");
     } finally {
       setLoading(false);
     }
@@ -72,7 +73,7 @@ export function Login() {
               <button
                 key={m}
                 type="button"
-                onClick={() => { setMode(m); setError(""); }}
+                onClick={() => setMode(m)}
                 className={[
                   "flex-1 py-2 rounded-md text-sm font-medium transition-all",
                   mode === m
@@ -129,10 +130,6 @@ export function Login() {
                 className="w-full px-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-base focus:outline-none focus:ring-2 focus:ring-stone-400 dark:focus:ring-stone-500 transition-colors"
               />
             </div>
-
-            {error && (
-              <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
-            )}
 
             <button
               type="submit"

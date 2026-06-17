@@ -60,7 +60,6 @@ assets.post("/upload", async (c) => {
       id: generateId("ast"),
       entryId: entryId || null,
       storageKey: filename,
-      url,
       mimeType,
       size: buf.length,
       createdAt: Math.floor(Date.now() / 1000),
