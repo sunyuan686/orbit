@@ -5,12 +5,13 @@ import {
   TYPE_LABEL,
   formatDate,
   getApiErrorMessage,
+  shouldToastApiError,
   type EntrySummary,
 } from "../lib/api";
 import { useToast } from "../lib/useToast";
 
 function EntryRow({ entry, type }: { entry: EntrySummary; type: string }) {
-  const showAuthor = type === "message" || type === "letter";
+  const showAuthor = Boolean(entry.author);
 
   return (
     <Link
@@ -107,7 +108,9 @@ export function ArticleList() {
     fetchEntries(type, type === "letter" ? { roots: false } : undefined)
       .then(setEntries)
       .catch((err) => {
-        toast.error(getApiErrorMessage(err, "加载失败，请稍后重试"));
+        if (shouldToastApiError(err)) {
+          toast.error(getApiErrorMessage(err, "加载失败，请稍后重试"));
+        }
         setEntries([]);
       })
       .finally(() => setLoading(false));

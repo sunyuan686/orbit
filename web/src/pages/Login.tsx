@@ -1,18 +1,42 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { authClient } from "../lib/api";
+import { CANONICAL_AUTHORS, type CanonicalAuthor } from "../lib/authors";
+import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../lib/useToast";
 
 type Mode = "signin" | "signup";
 
 export function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
+  const { data: session, isPending, refetch } = authClient.useSession();
   const [mode, setMode] = useState<Mode>("signin");
-  const [name, setName] = useState("");
+  const [author, setAuthor] = useState<CanonicalAuthor | "">("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const from =
+    (location.state as { from?: { pathname: string } } | null)?.from?.pathname ??
+    "/diary";
+
+  useEffect(() => {
+    setPageTitle("登录");
+  }, []);
+
+  if (isPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-stone-500">
+        加载中…
+      </div>
+    );
+  }
+
+  if (session) {
+    return <Navigate to={from} replace />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,8 +54,12 @@ export function Login() {
           return;
         }
       } else {
+        if (!author) {
+          toast.error("请选择你的身份：小圆子或小麟子");
+          return;
+        }
         const { error } = await authClient.signUp.email({
-          name: name || email.split("@")[0],
+          name: author,
           email,
           password,
           fetchOptions: { credentials: "include" },
@@ -40,13 +68,16 @@ export function Login() {
           toast.error(
             error.message?.includes("closed")
               ? "注册已关闭，这里只为两个人准备"
-              : "注册失败，请检查信息后重试"
+              : error.message?.includes("小圆子") || error.message?.includes("身份")
+                ? "请选择身份：小圆子或小麟子"
+                : "注册失败，请检查信息后重试"
           );
           return;
         }
       }
       toast.success(mode === "signin" ? "登录成功" : "注册成功");
-      navigate("/diary", { replace: true });
+      await refetch();
+      navigate(from, { replace: true });
     } catch {
       toast.error("网络错误，请稍后重试");
     } finally {
@@ -90,15 +121,28 @@ export function Login() {
             {mode === "signup" && (
               <div>
                 <label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1.5">
-                  昵称
+                  身份
                 </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="你的名字"
-                  className="w-full px-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-base focus:outline-none focus:ring-2 focus:ring-stone-400 dark:focus:ring-stone-500 transition-colors"
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  {CANONICAL_AUTHORS.map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setAuthor(value)}
+                      className={[
+                        "py-3 rounded-xl border text-sm font-medium transition-colors",
+                        author === value
+                          ? "border-stone-800 dark:border-stone-200 bg-stone-800 dark:bg-stone-200 text-white dark:text-stone-900"
+                          : "border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-stone-400",
+                      ].join(" ")}
+                    >
+                      {value}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-stone-400 dark:text-stone-500">
+                  注册后用于内容署名，与另一位不可重复
+                </p>
               </div>
             )}
 

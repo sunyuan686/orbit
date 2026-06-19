@@ -132,6 +132,8 @@ export const memo = sqliteTable("memo", {
   key: text("key").notNull().unique(),
   title: text("title").notNull(),
   body: text("body"),
+  /** 最后编辑者：小圆子 | 小麟子 */
+  author: text("author").notNull().default(""),
   createdAt: integer("created_at")
     .notNull()
     .default(sql`(unixepoch())`),

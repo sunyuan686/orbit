@@ -72,7 +72,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const push = useCallback((kind: ToastKind, message: string) => {
     const id = Date.now() + Math.random();
-    setItems((prev) => [...prev.slice(-2), { id, kind, message }]);
+    setItems((prev) => {
+      if (prev.some((t) => t.kind === kind && t.message === message)) return prev;
+      return [...prev.slice(-2), { id, kind, message }];
+    });
   }, []);
 
   const success = useCallback((message: string) => push("success", message), [push]);

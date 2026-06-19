@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { TYPE_LABEL } from "../lib/api";
+import { TYPE_LABEL, authClient } from "../lib/api";
+import { setPageTitle } from "../lib/pageTitle";
 import { useTheme, type Theme } from "../lib/useTheme";
+import { UserAccount } from "./UserAccount";
 
 const navItems = [
   { to: "/diary", label: TYPE_LABEL.diary, icon: "📖" },
@@ -29,9 +31,19 @@ export function Layout() {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const { theme, setTheme } = useTheme();
+  const { data: session } = authClient.useSession();
 
   useEffect(() => {
     setOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const segment = location.pathname.split("/").filter(Boolean)[0];
+    if (!segment || segment === "login") return;
+    if (segment === "new" || location.pathname.endsWith("/edit")) return;
+    if (/^[a-z]+$/.test(segment) && TYPE_LABEL[segment]) {
+      setPageTitle(TYPE_LABEL[segment]);
+    }
   }, [location.pathname]);
 
   const toggleCollapsed = () => {
@@ -197,15 +209,8 @@ export function Layout() {
           ))}
         </nav>
 
-        {/* 底部 */}
-        {!collapsed && (
-          <div
-            className="px-4 py-3 text-xs"
-            style={{ borderTop: "1px solid var(--color-border-light)", color: "var(--color-text-muted)" }}
-          >
-            v0.1.0
-          </div>
-        )}
+        {/* 账号 */}
+        <UserAccount collapsed={collapsed} />
       </aside>
 
       {/* 拖拽手柄 */}
@@ -237,8 +242,17 @@ export function Layout() {
             <span className="md:hidden text-sm font-medium" style={{ fontFamily: "var(--font-heading)" }}>Orbit</span>
           </div>
 
-          {/* 主题切换 */}
-          <button
+          <div className="flex items-center gap-2">
+            {session?.user && (
+              <span
+                className="hidden sm:inline text-xs truncate max-w-[140px]"
+                style={{ color: "var(--color-text-muted)" }}
+                title={session.user.email}
+              >
+                {session.user.name}
+              </span>
+            )}
+            <button
             onClick={() => {
               const order: Theme[] = ["light", "dark", "system"];
               const next = order[(order.indexOf(theme) + 1) % order.length];
@@ -250,6 +264,7 @@ export function Layout() {
           >
             {themeIcons[theme]}
           </button>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto px-4 md:px-8 py-6 md:py-8">

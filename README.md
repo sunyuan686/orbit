@@ -17,8 +17,10 @@
 
 ```bash
 cd /Users/sunyuan/Desktop/project/orbit
-npm run dev        # 同时启动 Node.js Server（:3001）+ Vite 前端（:5173）
+npm ci
+npm ci --prefix web
 
+npm run dev        # 同时启动 Node.js Server（:3001）+ Vite 前端（:5173）
 
 npm run server   # 仅后端
 npm run web      # 仅前端
@@ -29,7 +31,15 @@ npm run web      # 仅前端
 ```bash
 npm run db:generate   # 生成 Drizzle 迁移文件
 npm run db:push       # 推送 schema 到本地 SQLite
-npm run db:import     # 从 Markdown 文件导入历史数据（可选）
+npm run db:import     # 从 content/ Markdown 导入历史数据（可选）
+```
+
+**常用检查**
+
+```bash
+npm run typecheck
+npm run web:build
+npm run web:lint
 ```
 
 **部署到 Cloudflare（生产环境）**
@@ -57,6 +67,7 @@ push 到 `main` 分支 → GitHub Actions 自动构建并部署到 Cloudflare Wo
 - AI功能
 - 恋爱地图
 - 移动端APP
+- 共同爱好记录（书、音、影）
 
 ---
 
@@ -78,6 +89,7 @@ push 到 `main` 分支 → GitHub Actions 自动构建并部署到 Cloudflare Wo
 
 - **本地**：`src/server/index.ts`，`better-sqlite3` 驱动
 - **生产**：`src/worker.ts`，Cloudflare D1 + R2 绑定
+- **共享 API**：`src/api/`，Node.js Server 和 Worker 复用同一套路由
 - **认证**：`better-auth`，邮箱 + 密码登录，最多注册 2 个账号（情侣专属）
 - **部署**：push 到 `main` 分支自动触发 GitHub Actions → `wrangler deploy`
 
@@ -148,20 +160,32 @@ orbit/
 ├── src/                        # 后端代码
 │   ├── server/                 # Node.js 本地开发 Server
 │   │   ├── index.ts
+│   │   ├── auth.ts             # 本地 better-auth 实例
 │   │   └── routes/
+│   │       ├── articles.ts     # 本地挂载共享文章路由
+│   │       └── assets.ts       # 本地图片存储适配
 │   ├── api/                    # Node / Worker 共享 API 路由
+│   │   ├── articles.ts
+│   │   └── assets.ts
 │   ├── worker.ts               # Cloudflare Workers 生产入口
 │   ├── db/
+│   │   ├── index.ts            # 本地 SQLite / Drizzle 实例
 │   │   ├── schema.ts           # Drizzle 表定义
 │   │   └── migrations/         # SQL 迁移文件
-│   └── auth.ts                 # better-auth 共享配置工厂
+│   ├── auth.ts                 # better-auth 共享配置工厂
+│   └── types/                  # 本地类型声明
 ├── web/                        # 前端代码（Vite + React）
 │   └── src/
 │       ├── pages/              # ArticleList / ArticleView / ArticleEdit / Login
 │       ├── components/         # Layout / TiptapEditor / MilkdownEditor
 │       └── lib/api.ts          # fetch 封装
-├── scripts/
-│   └── import-md.ts            # 历史 Markdown 数据导入脚本
+├── scripts/                    # 数据迁移、导入、校验和维护脚本
+│   ├── README.md
+│   ├── import-md.ts            # 从 content/ 导入到本地 SQLite
+│   ├── migrate.ts              # 一次性旧资料迁移到 content/
+│   ├── migrate-to-r2.sh        # 本地图片批量上传到 R2
+│   ├── normalize-*.py          # 历史 Markdown 格式维护
+│   └── verify-import.py        # 导入结果校验
 ├── content/                    # 可提交的 Markdown 内容源
 │   ├── diary/
 │   ├── messages/
@@ -171,7 +195,10 @@ orbit/
 │   ├── orbit.db                # 本地 SQLite 数据库
 │   └── assets/                 # 本地上传图片
 ├── backups/                    # 本地历史备份快照（.gitignore 排除）
+├── docs/                       # 技术设计和阶段规划文档
 ├── drizzle.config.ts
+├── package.json
+├── tsconfig.json
 ├── wrangler.toml               # Cloudflare 部署配置
 └── .github/workflows/
     └── deploy.yml              # 自动部署

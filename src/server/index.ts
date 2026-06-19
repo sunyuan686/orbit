@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import type { Context, Next } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
@@ -28,33 +29,23 @@ app.use(
 // better-auth 路由（/api/auth/*）
 app.on(["GET", "POST"], "/api/auth/**", (c) => auth.handler(c.req.raw));
 
-// 写操作认证中间件：POST/PUT/DELETE 需要登录，GET 公开
-app.use("/api/articles/*", async (c, next) => {
-  if (c.req.method === "GET") return next();
+async function requireAuth(c: Context, next: Next) {
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!session) return c.json({ error: "Unauthorized" }, 401);
   return next();
-});
+}
 
-app.use("/api/articles", async (c, next) => {
-  if (c.req.method === "GET") return next();
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session) return c.json({ error: "Unauthorized" }, 401);
-  return next();
-});
-
-// 图片上传也需要登录
-app.use("/api/assets/*", async (c, next) => {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session) return c.json({ error: "Unauthorized" }, 401);
-  return next();
-});
+// 所有内容 API 与媒体资源均需登录
+app.use("/api/articles/*", requireAuth);
+app.use("/api/articles", requireAuth);
+app.use("/api/assets/*", requireAuth);
+app.use("/assets/*", requireAuth);
 
 // API 路由
 app.route("/api/articles", articles);
 app.route("/api/assets", assets);
 
-// 静态文件：图片资源（公开访问）
+// 静态文件：图片资源（需登录，见上方 /assets/* 中间件）
 app.use(
   "/assets/*",
   serveStatic({

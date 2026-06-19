@@ -17,6 +17,7 @@ import * as schema from "./db/schema.js";
 import { createAuth } from "./auth.js";
 import { createArticlesRoutes } from "./api/articles.js";
 import { createAssetsRoutes } from "./api/assets.js";
+import { getSessionAuthor } from "./api/session-author.js";
 
 export interface Env {
   DB: D1Database;
@@ -65,21 +66,19 @@ async function requireAuth(c: Context<HonoEnv>, next: () => Promise<void>) {
   return next();
 }
 
-app.use("/api/articles/*", async (c, next) => {
-  if (c.req.method === "GET") return next();
-  return requireAuth(c, next);
-});
-
-app.use("/api/articles", async (c, next) => {
-  if (c.req.method === "GET") return next();
-  return requireAuth(c, next);
-});
-
+app.use("/api/articles/*", requireAuth);
+app.use("/api/articles", requireAuth);
 app.use("/api/assets/*", requireAuth);
 
 // ─── Shared API routes ───────────────────────────────────────────────────────
 
-app.route("/api/articles", createArticlesRoutes(getDb));
+app.route("/api/articles", createArticlesRoutes(getDb, {
+  getSessionAuthor: (c) =>
+    getSessionAuthor(c, createAuth(getDb(c), {
+      secret: c.env.BETTER_AUTH_SECRET,
+      baseURL: c.env.BETTER_AUTH_URL,
+    }), getDb),
+}));
 app.route(
   "/api/assets",
   createAssetsRoutes(getDb, {
@@ -92,8 +91,8 @@ app.route(
   })
 );
 
-// R2 媒体文件代理（通过 Worker 提供）
-app.get("/media/:filename", async (c) => {
+// R2 媒体文件代理（需登录）
+app.get("/media/:filename", requireAuth, async (c) => {
   const filename = c.req.param("filename");
   const object = await c.env.R2.get(filename);
   if (!object) return c.json({ error: "not found" }, 404);

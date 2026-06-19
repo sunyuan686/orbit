@@ -1,9 +1,32 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { eq, and, isNull, asc, desc } from "drizzle-orm";
+import { resolveAuthorForWrite, type CanonicalAuthor } from "../authors.js";
 import { entry, memo } from "../db/schema.js";
+import type { SessionAuthor } from "./session-author.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
+
+export interface ArticleRouteOptions {
+  getSessionAuthor?: (c: Context) => Promise<SessionAuthor | null>;
+}
+
+function authorRequiredResponse(c: Context) {
+  return c.json(
+    { error: "账号身份无效，请使用「小圆子」或「小麟子」注册/登录" },
+    400
+  );
+}
+
+async function requireSessionAuthor(
+  c: Context,
+  getSessionAuthor?: ArticleRouteOptions["getSessionAuthor"]
+): Promise<SessionAuthor | null | Response> {
+  if (!getSessionAuthor) return null;
+  const sessionAuthor = await getSessionAuthor(c);
+  if (!sessionAuthor) return authorRequiredResponse(c);
+  return sessionAuthor;
+}
 
 function now(): number {
   return Math.floor(Date.now() / 1000);
@@ -39,7 +62,8 @@ function mapEntrySummary(row: {
   };
 }
 
-export function createArticlesRoutes(getDb: DbProvider) {
+export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOptions = {}) {
+  const { getSessionAuthor } = options;
   const articles = new Hono();
 
   // GET /api/articles?type=diary|timeline|message|letter|memo
@@ -55,16 +79,18 @@ export function createArticlesRoutes(getDb: DbProvider) {
           id: memo.id,
           type: memo.key,
           title: memo.title,
+          author: memo.author,
           entryDate: memo.updatedAt,
         })
         .from(memo)
         .orderBy(asc(memo.title));
 
       return c.json(
-        memos.map((m: { id: string; title: string; entryDate: number }) => ({
+        memos.map((m: { id: string; title: string; author: string; entryDate: number }) => ({
           id: m.id,
           type: "memo",
           title: m.title,
+          author: m.author || null,
           entryDate: m.entryDate,
         }))
       );
@@ -129,6 +155,7 @@ export function createArticlesRoutes(getDb: DbProvider) {
         id: memoRow.id,
         type: "memo",
         title: memoRow.title,
+        author: memoRow.author || null,
         body: memoRow.body ?? "",
         entryDate: memoRow.updatedAt,
       });
@@ -158,16 +185,22 @@ export function createArticlesRoutes(getDb: DbProvider) {
   // POST /api/articles — 新建
   articles.post("/", async (c) => {
     const db = await getDb(c);
-    const { type, title, body, entryDate, author, parentId } = await c.req.json<{
+    const sessionResult = await requireSessionAuthor(c, getSessionAuthor);
+    if (sessionResult instanceof Response) return sessionResult;
+    const sessionAuthor = sessionResult as SessionAuthor | null;
+
+    const { type, title, body, entryDate, parentId } = await c.req.json<{
       type: string;
       title?: string;
       body?: string;
       entryDate?: number;
-      author?: string;
       parentId?: string | null;
     }>();
 
+    const author = sessionAuthor?.author as CanonicalAuthor | undefined;
+
     if (type === "memo") {
+      if (!author) return authorRequiredResponse(c);
       const key = title?.trim() || `memo-${Date.now()}`;
       const id = generateId("mem");
       await db.insert(memo).values({
@@ -175,16 +208,20 @@ export function createArticlesRoutes(getDb: DbProvider) {
         key,
         title: title ?? key,
         body: body ?? "",
+        author,
         updatedAt: now(),
       });
       return c.json({ id });
     }
 
+    if (!author) return authorRequiredResponse(c);
+
     const id = generateId("ent");
     await db.insert(entry).values({
       id,
       type,
-      author: author ?? "",
+      userId: sessionAuthor!.userId,
+      author,
       title: title ?? null,
       body: body ?? "",
       entryDate: entryDate ?? null,
@@ -198,34 +235,52 @@ export function createArticlesRoutes(getDb: DbProvider) {
   // PUT /api/articles/:id — 更新
   articles.put("/:id", async (c) => {
     const db = await getDb(c);
+    const sessionResult = await requireSessionAuthor(c, getSessionAuthor);
+    if (sessionResult instanceof Response) return sessionResult;
+    const sessionAuthor = sessionResult as SessionAuthor | null;
+
     const id = c.req.param("id");
-    const { title, body, entryDate, author } = await c.req.json<{
+    const { title, body, entryDate } = await c.req.json<{
       title?: string;
       body?: string;
       entryDate?: number;
-      author?: string;
     }>();
 
-    const memoRow = await db.select({ id: memo.id }).from(memo).where(eq(memo.id, id)).get();
+    const author = sessionAuthor?.author as CanonicalAuthor | undefined;
+    if (!author) return authorRequiredResponse(c);
+
+    const memoRow = await db
+      .select({ id: memo.id, author: memo.author })
+      .from(memo)
+      .where(eq(memo.id, id))
+      .get();
     if (memoRow) {
       await db
         .update(memo)
         .set({
           title: title ?? undefined,
           body: body ?? undefined,
+          author: resolveAuthorForWrite(memoRow.author, author),
           updatedAt: now(),
         })
         .where(eq(memo.id, id));
       return c.json({ ok: true });
     }
 
+    const existing = await db
+      .select({ author: entry.author })
+      .from(entry)
+      .where(eq(entry.id, id))
+      .get();
+
     await db
       .update(entry)
       .set({
         title: title ?? undefined,
-        author: author ?? undefined,
+        author: resolveAuthorForWrite(existing?.author, author),
         body: body ?? undefined,
         entryDate: entryDate ?? undefined,
+        userId: sessionAuthor!.userId,
         updatedAt: now(),
       })
       .where(eq(entry.id, id));

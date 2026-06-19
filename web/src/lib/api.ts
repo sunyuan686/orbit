@@ -1,10 +1,10 @@
-import { createAuthClient } from "better-auth/client";
+import { createAuthClient } from "better-auth/react";
 
 const BASE = "";
 
 // better-auth 客户端（处理登录/登出/会话）
 export const authClient = createAuthClient({
-  baseURL: "http://localhost:3001",
+  baseURL: "",
 });
 
 export interface EntrySummary {
@@ -64,6 +64,11 @@ export function getApiErrorMessage(err: unknown, fallback = "操作失败，请�
   return fallback;
 }
 
+/** 401 由路由守卫处理，不需要弹 toast */
+export function shouldToastApiError(err: unknown): boolean {
+  return !(err instanceof ApiError && err.status === 401);
+}
+
 async function parseApiError(res: Response, fallback: string): Promise<ApiError> {
   let message = fallback;
   try {
@@ -89,21 +94,26 @@ export async function fetchEntries(
 ): Promise<EntrySummary[]> {
   const params = new URLSearchParams({ type });
   if (opts?.roots === false) params.set("roots", "0");
-  const res = await fetch(`${BASE}/api/articles?${params}`);
+  const res = await fetch(`${BASE}/api/articles?${params}`, {
+    credentials: "include",
+  });
   await assertOk(res, "加载列表失败");
   return res.json();
 }
 
 export async function fetchReplies(parentId: string): Promise<EntrySummary[]> {
   const res = await fetch(
-    `${BASE}/api/articles/${encodeURIComponent(parentId)}/replies`
+    `${BASE}/api/articles/${encodeURIComponent(parentId)}/replies`,
+    { credentials: "include" }
   );
   await assertOk(res, "加载回复失败");
   return res.json();
 }
 
 export async function fetchEntry(id: string): Promise<EntryDetail> {
-  const res = await fetch(`${BASE}/api/articles/${encodeURIComponent(id)}`);
+  const res = await fetch(`${BASE}/api/articles/${encodeURIComponent(id)}`, {
+    credentials: "include",
+  });
   await assertOk(res, "内容不存在或加载失败");
   return res.json();
 }

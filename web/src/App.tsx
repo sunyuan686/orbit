@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "./components/Layout";
+import { RequireAuth } from "./components/RequireAuth";
 import { ArticleList } from "./pages/ArticleList";
 import { ArticleView } from "./pages/ArticleView";
 import { ArticleEdit } from "./pages/ArticleEdit";
@@ -9,7 +10,13 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route element={<Layout />}>
+      <Route
+        element={
+          <RequireAuth>
+            <Layout />
+          </RequireAuth>
+        }
+      >
         <Route index element={<Navigate to="/diary" replace />} />
         <Route path="/:type" element={<ArticleList />} />
         <Route path="/:type/new" element={<ArticleEdit />} />
