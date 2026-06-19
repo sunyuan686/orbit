@@ -85,7 +85,7 @@ def normalize_file(path: Path) -> tuple[int, int]:
 
 
 def main() -> None:
-    root = Path(__file__).resolve().parents[1] / "data"
+    root = Path(__file__).resolve().parents[1] / "content"
     targets = [
         root / "messages" / "留言板.md",
         root / "letters" / "信箱.md",

@@ -52,9 +52,11 @@ push 到 `main` 分支 → GitHub Actions 自动构建并部署到 Cloudflare Wo
 - MCP 端点（Claude / Cursor 直接操作内容）
 - Telegram Bot（随手记录）
 - 记账、热力图、电子相册、立体书（待定）
-- 评论
+- 评论（选中评论）
 - 分词、搜索
 - AI功能
+- 恋爱地图
+- 移动端APP
 
 ---
 
@@ -66,7 +68,7 @@ push 到 `main` 分支 → GitHub Actions 自动构建并部署到 Cloudflare Wo
 本地开发：
 浏览器 UI ──fetch──→ Node.js Server（Hono, :3001）──Drizzle──→ SQLite（data/orbit.db）
                                                                 ↑
-                                                       本地磁盘图片（data/uploads/）
+                                                       本地磁盘图片（data/assets/）
 
 生产部署：
 浏览器 UI ──fetch──→ Cloudflare Worker（Hono）──Drizzle──→ D1 数据库
@@ -147,11 +149,12 @@ orbit/
 │   ├── server/                 # Node.js 本地开发 Server
 │   │   ├── index.ts
 │   │   └── routes/
+│   ├── api/                    # Node / Worker 共享 API 路由
 │   ├── worker.ts               # Cloudflare Workers 生产入口
 │   ├── db/
 │   │   ├── schema.ts           # Drizzle 表定义
 │   │   └── migrations/         # SQL 迁移文件
-│   └── auth.ts                 # better-auth 配置（本地）
+│   └── auth.ts                 # better-auth 共享配置工厂
 ├── web/                        # 前端代码（Vite + React）
 │   └── src/
 │       ├── pages/              # ArticleList / ArticleView / ArticleEdit / Login
@@ -159,9 +162,15 @@ orbit/
 │       └── lib/api.ts          # fetch 封装
 ├── scripts/
 │   └── import-md.ts            # 历史 Markdown 数据导入脚本
-├── data/                       # 运行时数据（.gitignore 排除）
+├── content/                    # 可提交的 Markdown 内容源
+│   ├── diary/
+│   ├── messages/
+│   ├── letters/
+│   └── memo/
+├── data/                       # 本地运行时数据（.gitignore 排除）
 │   ├── orbit.db                # 本地 SQLite 数据库
-│   └── uploads/                # 本地图片
+│   └── assets/                 # 本地上传图片
+├── backups/                    # 本地历史备份快照（.gitignore 排除）
 ├── drizzle.config.ts
 ├── wrangler.toml               # Cloudflare 部署配置
 └── .github/workflows/

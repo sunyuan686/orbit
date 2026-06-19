@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-对比 data-back-0616（修改前备份）与当前 data/*.md + orbit.db 导入结果。
+对比 backups/data-0616（修改前备份）与当前 content/*.md + orbit.db 导入结果。
 忽略格式差异（marker、标题空格、缩进、章节头），只比实质内容与资产引用。
 """
 
@@ -14,8 +14,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-BACKUP = ROOT / "data-back-0616"
-CURRENT = ROOT / "data"
+BACKUP = ROOT / "backups" / "data-0616"
+CURRENT = ROOT / "content"
 DB_PATH = ROOT / "data" / "orbit.db"
 
 AUTHOR_ALIASES = {
@@ -443,13 +443,13 @@ def compare_sets(
 
 def compare_assets():
     issues = []
-    for name in ("data-back-0616/assets", "data/assets"):
+    for name in ("backups/data-0616/assets", "data/assets"):
         p = ROOT / name
         if not p.exists():
             issues.append(f"缺少目录 {name}")
             continue
     b_assets = set(
-        f.name for f in (ROOT / "data-back-0616" / "assets").glob("*") if f.is_file()
+        f.name for f in (ROOT / "backups" / "data-0616" / "assets").glob("*") if f.is_file()
     )
     c_assets = set(f.name for f in (ROOT / "data" / "assets").glob("*") if f.is_file())
     if b_assets != c_assets:
@@ -505,7 +505,7 @@ def main():
     asset_issues = compare_assets()
 
     print("=" * 60)
-    print("Orbit 数据校验：data-back-0616 vs data/ vs orbit.db")
+    print("Orbit 数据校验：backups/data-0616 vs content/ vs orbit.db")
     print("=" * 60)
     for r in reports:
         print(f"\n【{r['label']}】")

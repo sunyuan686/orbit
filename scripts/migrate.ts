@@ -4,6 +4,7 @@ import { createHash } from "crypto";
 import convert from "heic-convert";
 
 const ROOT = join(import.meta.dirname, "..");
+const CONTENT = join(ROOT, "content");
 const DATA = join(ROOT, "data");
 const ASSETS = join(DATA, "assets");
 
@@ -275,10 +276,10 @@ function writeTarget(
   filename: string,
   content: string
 ): void {
-  const dir = join(DATA, subdir);
+  const dir = join(CONTENT, subdir);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, filename), content, "utf-8");
-  console.log(`  → data/${subdir}/${filename}`);
+  console.log(`  → content/${subdir}/${filename}`);
 }
 
 // ─── 7. 删除源文件 ───
@@ -294,10 +295,10 @@ function deleteSourceFiles(): void {
 
 // ─── 8. 校验 ───
 function verifySync(): void {
-  const dirs = ["journals", "messages", "letters"];
+  const dirs = ["diary", "messages", "letters", "memo"];
   let cdnCount = 0;
   for (const d of dirs) {
-    const dir = join(DATA, d);
+    const dir = join(CONTENT, d);
     if (!existsSync(dir)) continue;
     const files = readdirSync(dir).filter((f: string) => f.endsWith(".md"));
     for (const f of files) {
@@ -336,17 +337,17 @@ async function main() {
   // 4+5+6. 清洗 + frontmatter + 写入
   console.log("[4-7] 清洗 Markdown + 写入目标目录...");
 
-  // LoveLog → journals/timeline.md + journals/daily.md
+  // LoveLog → diary/timeline.md + diary/daily.md
   const cleanTimeline = cleanMarkdown(timeline, urlMap);
   writeTarget(
-    "journals",
+    "diary",
     "timeline.md",
     addFrontmatter(cleanTimeline, "journal", "恋爱时间线")
   );
 
   const cleanDaily = cleanMarkdown(daily, urlMap);
   writeTarget(
-    "journals",
+    "diary",
     "daily.md",
     addFrontmatter(cleanDaily, "journal", "恋爱日志")
   );
@@ -367,20 +368,20 @@ async function main() {
     addFrontmatter(cleanMarkdown(letterRaw, urlMap), "letter", "信箱")
   );
 
-  // 恋爱原则 → journals/
+  // 恋爱原则 → memo/
   const rulesRaw = readFileSync(join(ROOT, "恋爱原则.md"), "utf-8");
   writeTarget(
-    "journals",
+    "memo",
     "恋爱原则.md",
-    addFrontmatter(cleanMarkdown(rulesRaw, urlMap), "journal", "恋爱原则")
+    addFrontmatter(cleanMarkdown(rulesRaw, urlMap), "memo", "恋爱原则")
   );
 
-  // 关于辛芝芝 → journals/
+  // 关于辛芝芝 → memo/
   const aboutRaw = readFileSync(join(ROOT, "关于辛芝芝.md"), "utf-8");
   writeTarget(
-    "journals",
+    "memo",
     "关于辛芝芝.md",
-    addFrontmatter(cleanMarkdown(aboutRaw, urlMap), "journal", "关于辛芝芝")
+    addFrontmatter(cleanMarkdown(aboutRaw, urlMap), "memo", "关于辛芝芝")
   );
 
   // 8. 删除源文件

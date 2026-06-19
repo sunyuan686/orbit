@@ -2,11 +2,11 @@
  * 把现有 .md 文件导入 SQLite 数据库
  *
  * 处理：
- *   data/diary/daily.md       → entry（type: diary），按 ## YYYYMMDD 拆分
- *   data/diary/timeline.md    → entry（type: timeline），按 ## YYYYMMDD 拆分
- *   data/messages/留言板.md   → entry（type: message），按 <!-- msg | ... --> 拆分
- *   data/letters/信箱.md      → entry（type: letter），按 <!-- letter | ... --> 拆分
- *   data/memo/*.md            → memo 表，每个文件一条记录
+ *   content/diary/daily.md       → entry（type: diary），按 ## YYYYMMDD 拆分
+ *   content/diary/timeline.md    → entry（type: timeline），按 ## YYYYMMDD 拆分
+ *   content/messages/留言板.md   → entry（type: message），按 <!-- msg | ... --> 拆分
+ *   content/letters/信箱.md      → entry（type: letter），按 <!-- letter | ... --> 拆分
+ *   content/memo/*.md            → memo 表，每个文件一条记录
  *
  * 信件 parentId：同一 round 的第一封信 parentId=null，后续回信指向该 round 第一封
  * 留言 parentId：均为 null（平铺按日期展示）
@@ -23,10 +23,11 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { readFileSync, readdirSync, existsSync } from "fs";
+import { readFileSync, readdirSync, existsSync, mkdirSync } from "fs";
 import { join, basename } from "path";
 import * as schema from "../src/db/schema.js";
 
+const CONTENT = join(process.cwd(), "content");
 const DATA = join(process.cwd(), "data");
 const DB_PATH = join(DATA, "orbit.db");
 const MIGRATIONS_PATH = join(process.cwd(), "src/db/migrations");
@@ -397,6 +398,7 @@ let sqlite: Database.Database | null = null;
 const now = Math.floor(Date.now() / 1000);
 
 if (!DRY_RUN) {
+  mkdirSync(DATA, { recursive: true });
   sqlite = new Database(DB_PATH);
   sqlite.pragma("journal_mode = WAL");
   sqlite.pragma("foreign_keys = ON");
@@ -420,34 +422,34 @@ if (!DRY_RUN) {
   db.delete(schema.settings).run();
 }
 
-const dailyPath = join(DATA, "diary", "daily.md");
+const dailyPath = join(CONTENT, "diary", "daily.md");
 if (existsSync(dailyPath)) {
   const sections = splitBySections(readFileSync(dailyPath, "utf-8"));
   importSections(db, sections, "diary", now);
   console.log(`→ daily.md：${sections.length} 条 diary`);
 }
 
-const timelinePath = join(DATA, "diary", "timeline.md");
+const timelinePath = join(CONTENT, "diary", "timeline.md");
 if (existsSync(timelinePath)) {
   const sections = splitBySections(readFileSync(timelinePath, "utf-8"));
   importSections(db, sections, "timeline", now);
   console.log(`→ timeline.md：${sections.length} 条 timeline`);
 }
 
-const msgPath = join(DATA, "messages", "留言板.md");
+const msgPath = join(CONTENT, "messages", "留言板.md");
 if (existsSync(msgPath)) {
   const count = importMessages(db, readFileSync(msgPath, "utf-8"), now);
   console.log(`→ 留言板.md：${count} 条 message`);
 }
 
-const letterPath = join(DATA, "letters", "信箱.md");
+const letterPath = join(CONTENT, "letters", "信箱.md");
 if (existsSync(letterPath)) {
   const count = importLetters(db, readFileSync(letterPath, "utf-8"), now);
   console.log(`→ 信箱.md：${count} 条 letter`);
 }
 
 if (!DRY_RUN) {
-  const memoDir = join(DATA, "memo");
+  const memoDir = join(CONTENT, "memo");
   if (existsSync(memoDir)) {
     const memoFiles = readdirSync(memoDir).filter((f) => f.endsWith(".md"));
     for (const file of memoFiles) {
