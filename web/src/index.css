@@ -492,3 +492,32 @@ h1, h2, h3, h4, h5, h6 {
   flex: 1;
   min-width: 0;
 }
+
+/* ── Search highlights (Jant-aligned) ─────────────────── */
+:root {
+  --search-mark-bg: oklch(0.92 0.14 90 / 0.55);
+  --search-mark-color: oklch(0.35 0.09 70);
+}
+
+.dark {
+  --search-mark-bg: oklch(0.45 0.1 85 / 0.5);
+  --search-mark-color: oklch(0.92 0.08 90);
+}
+
+.search-snippet,
+.search-snippet-primary {
+  color: var(--color-text-secondary);
+  line-height: var(--leading-body);
+}
+
+.search-snippet-primary {
+  color: var(--color-text-primary);
+}
+
+.search-snippet mark,
+.search-snippet-primary mark {
+  background: var(--search-mark-bg);
+  color: var(--search-mark-color);
+  border-radius: 0.15em;
+  padding: 0 0.1em;
+}

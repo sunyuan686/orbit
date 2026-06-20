@@ -26,6 +26,10 @@ npm run server   # 仅后端
 npm run web      # 仅前端
 ```
 
+测试环境账号密码：
+sunyuan608@gmail.com
+12345678
+
 **数据库初始化**（首次运行自动执行，无需手动操作）
 
 ```bash

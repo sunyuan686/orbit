@@ -7,6 +7,7 @@ import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { join } from "path";
 import { articles } from "./routes/articles.js";
 import { assets } from "./routes/assets.js";
+import { search } from "./routes/search.js";
 import { auth } from "./auth.js";
 import { db } from "../db/index.js";
 
@@ -38,11 +39,14 @@ async function requireAuth(c: Context, next: Next) {
 // 所有内容 API 与媒体资源均需登录
 app.use("/api/articles/*", requireAuth);
 app.use("/api/articles", requireAuth);
+app.use("/api/search/*", requireAuth);
+app.use("/api/search", requireAuth);
 app.use("/api/assets/*", requireAuth);
 app.use("/assets/*", requireAuth);
 
 // API 路由
 app.route("/api/articles", articles);
+app.route("/api/search", search);
 app.route("/api/assets", assets);
 
 // 静态文件：图片资源（需登录，见上方 /assets/* 中间件）

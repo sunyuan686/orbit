@@ -27,6 +27,15 @@ export interface EntryDetail {
   updatedAt?: number;
 }
 
+export interface SearchResult {
+  id: string;
+  type: string;
+  title: string | null;
+  author: string | null;
+  entryDate: number | null;
+  snippet?: string;
+}
+
 /** 类型 → 中文名 */
 export const TYPE_LABEL: Record<string, string> = {
   diary: "日记",
@@ -153,6 +162,22 @@ export async function deleteEntry(id: string): Promise<void> {
     credentials: "include",
   });
   await assertOk(res, "删除失败，请稍后重试");
+}
+
+export async function fetchSearch(
+  query: string,
+  opts?: { type?: string; limit?: number; offset?: number }
+): Promise<{ query: string; results: SearchResult[]; count: number }> {
+  const params = new URLSearchParams({ q: query });
+  if (opts?.type) params.set("type", opts.type);
+  if (opts?.limit != null) params.set("limit", String(opts.limit));
+  if (opts?.offset != null) params.set("offset", String(opts.offset));
+
+  const res = await fetch(`${BASE}/api/search?${params}`, {
+    credentials: "include",
+  });
+  await assertOk(res, "搜索失败，请稍后重试");
+  return res.json();
 }
 
 export async function uploadImage(

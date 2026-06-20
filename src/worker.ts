@@ -17,6 +17,7 @@ import * as schema from "./db/schema.js";
 import { createAuth } from "./auth.js";
 import { createArticlesRoutes } from "./api/articles.js";
 import { createAssetsRoutes } from "./api/assets.js";
+import { createSearchRoutes } from "./api/search.js";
 import { getSessionAuthor } from "./api/session-author.js";
 
 export interface Env {
@@ -68,10 +69,13 @@ async function requireAuth(c: Context<HonoEnv>, next: () => Promise<void>) {
 
 app.use("/api/articles/*", requireAuth);
 app.use("/api/articles", requireAuth);
+app.use("/api/search/*", requireAuth);
+app.use("/api/search", requireAuth);
 app.use("/api/assets/*", requireAuth);
 
 // ─── Shared API routes ───────────────────────────────────────────────────────
 
+app.route("/api/search", createSearchRoutes(getDb));
 app.route("/api/articles", createArticlesRoutes(getDb, {
   getSessionAuthor: (c) =>
     getSessionAuthor(c, createAuth(getDb(c), {

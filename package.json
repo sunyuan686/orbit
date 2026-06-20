@@ -13,7 +13,8 @@
     "migrate": "tsx scripts/migrate.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:import": "tsx scripts/import-md.ts"
+    "db:import": "tsx scripts/import-md.ts",
+    "db:search-status": "tsx scripts/search-status.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260619.1",

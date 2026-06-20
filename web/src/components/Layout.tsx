@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { TYPE_LABEL, authClient } from "../lib/api";
 import { setPageTitle } from "../lib/pageTitle";
 import { useTheme, type Theme } from "../lib/useTheme";
@@ -30,6 +30,7 @@ export function Layout() {
   const [dragging, setDragging] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
+  const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const { data: session } = authClient.useSession();
 
@@ -40,6 +41,10 @@ export function Layout() {
   useEffect(() => {
     const segment = location.pathname.split("/").filter(Boolean)[0];
     if (!segment || segment === "login") return;
+    if (segment === "search") {
+      setPageTitle("搜索");
+      return;
+    }
     if (segment === "new" || location.pathname.endsWith("/edit")) return;
     if (/^[a-z]+$/.test(segment) && TYPE_LABEL[segment]) {
       setPageTitle(TYPE_LABEL[segment]);
@@ -229,17 +234,50 @@ export function Layout() {
             borderBottom: "1px solid var(--color-border-light)",
           }}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
               onClick={() => setOpen(true)}
-              className="md:hidden p-1.5 rounded-md cursor-pointer"
+              className="md:hidden p-1.5 rounded-md cursor-pointer shrink-0"
               style={{ color: "var(--color-text-secondary)" }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
                 <path d="M3 12h18M3 6h18M3 18h18" />
               </svg>
             </button>
-            <span className="md:hidden text-sm font-medium" style={{ fontFamily: "var(--font-heading)" }}>Orbit</span>
+            <span className="md:hidden text-sm font-medium shrink-0" style={{ fontFamily: "var(--font-heading)" }}>Orbit</span>
+
+            <form
+              className="hidden sm:flex items-center gap-2 flex-1 max-w-md ml-auto mr-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                const q = String(fd.get("q") ?? "").trim();
+                navigate(q ? `/search?q=${encodeURIComponent(q)}` : "/search");
+              }}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                className="shrink-0"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-3-3" />
+              </svg>
+              <input
+                type="search"
+                name="q"
+                defaultValue={location.pathname === "/search" ? new URLSearchParams(location.search).get("q") ?? "" : ""}
+                key={location.pathname + location.search}
+                placeholder="搜索…"
+                className="flex-1 min-w-0 bg-transparent text-sm outline-none"
+                style={{ color: "var(--color-text-primary)" }}
+              />
+            </form>
           </div>
 
           <div className="flex items-center gap-2">

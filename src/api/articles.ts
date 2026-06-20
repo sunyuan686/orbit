@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { eq, and, isNull, asc, desc } from "drizzle-orm";
 import { resolveAuthorForWrite, type CanonicalAuthor } from "../authors.js";
+import { toPlainText } from "../lib/plain-text.js";
 import { entry, memo } from "../db/schema.js";
 import type { SessionAuthor } from "./session-author.js";
 
@@ -217,13 +218,15 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     if (!author) return authorRequiredResponse(c);
 
     const id = generateId("ent");
+    const bodyValue = body ?? "";
     await db.insert(entry).values({
       id,
       type,
       userId: sessionAuthor!.userId,
       author,
       title: title ?? null,
-      body: body ?? "",
+      body: bodyValue,
+      bodyText: bodyValue ? toPlainText(bodyValue) : "",
       entryDate: entryDate ?? null,
       parentId: parentId ?? null,
       createdAt: now(),
@@ -273,17 +276,19 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       .where(eq(entry.id, id))
       .get();
 
-    await db
-      .update(entry)
-      .set({
-        title: title ?? undefined,
-        author: resolveAuthorForWrite(existing?.author, author),
-        body: body ?? undefined,
-        entryDate: entryDate ?? undefined,
-        userId: sessionAuthor!.userId,
-        updatedAt: now(),
-      })
-      .where(eq(entry.id, id));
+    const entryUpdates: Record<string, unknown> = {
+      title: title ?? undefined,
+      author: resolveAuthorForWrite(existing?.author, author),
+      entryDate: entryDate ?? undefined,
+      userId: sessionAuthor!.userId,
+      updatedAt: now(),
+    };
+    if (body !== undefined) {
+      entryUpdates.body = body;
+      entryUpdates.bodyText = body ? toPlainText(body) : "";
+    }
+
+    await db.update(entry).set(entryUpdates).where(eq(entry.id, id));
 
     return c.json({ ok: true });
   });
