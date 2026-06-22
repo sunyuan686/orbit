@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { eq, and, isNull, asc, desc } from "drizzle-orm";
 import { resolveAuthorForWrite, type CanonicalAuthor } from "../authors.js";
-import { toPlainText } from "../lib/plain-text.js";
+import { toPlainText, isEmptyBody } from "../lib/plain-text.js";
 import { entry, memo } from "../db/schema.js";
 import type { SessionAuthor } from "./session-author.js";
 
@@ -17,6 +17,10 @@ function authorRequiredResponse(c: Context) {
     { error: "账号身份无效，请使用「小圆子」或「小麟子」注册/登录" },
     400
   );
+}
+
+function bodyRequiredResponse(c: Context) {
+  return c.json({ error: "内容不能为空" }, 400);
 }
 
 async function requireSessionAuthor(
@@ -41,6 +45,14 @@ function generateId(prefix: string): string {
     suffix += chars[byte % chars.length];
   }
   return `${prefix}_${suffix}`;
+}
+
+function logWrite(action: string, details: Record<string, unknown>) {
+  const now = new Date();
+  const stamp =
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}` +
+    ` ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+  console.info(`${stamp} [write:${action}]`, details);
 }
 
 function mapEntrySummary(row: {
@@ -84,6 +96,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
           entryDate: memo.updatedAt,
         })
         .from(memo)
+        .where(isNull(memo.deletedAt))
         .orderBy(asc(memo.title));
 
       return c.json(
@@ -149,7 +162,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const db = await getDb(c);
     const id = c.req.param("id");
 
-    const memoRow = await db.select().from(memo).where(eq(memo.id, id)).get();
+    const memoRow = await db.select().from(memo).where(and(eq(memo.id, id), isNull(memo.deletedAt))).get();
 
     if (memoRow) {
       return c.json({
@@ -202,6 +215,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
 
     if (type === "memo") {
       if (!author) return authorRequiredResponse(c);
+      if (isEmptyBody(body)) return bodyRequiredResponse(c);
       const key = title?.trim() || `memo-${Date.now()}`;
       const id = generateId("mem");
       await db.insert(memo).values({
@@ -212,10 +226,18 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
         author,
         updatedAt: now(),
       });
+      logWrite("article.create", {
+        id,
+        type,
+        author,
+        titleLength: title?.length ?? 0,
+        bodyLength: body?.length ?? 0,
+      });
       return c.json({ id });
     }
 
     if (!author) return authorRequiredResponse(c);
+    if (isEmptyBody(body)) return bodyRequiredResponse(c);
 
     const id = generateId("ent");
     const bodyValue = body ?? "";
@@ -227,10 +249,19 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       title: title ?? null,
       body: bodyValue,
       bodyText: bodyValue ? toPlainText(bodyValue) : "",
-      entryDate: entryDate ?? null,
+      entryDate: entryDate ?? now(),
       parentId: parentId ?? null,
       createdAt: now(),
       updatedAt: now(),
+    });
+    logWrite("article.create", {
+      id,
+      type,
+      author,
+      titleLength: title?.length ?? 0,
+      bodyLength: bodyValue.length,
+      entryDate: entryDate ?? null,
+      parentId: parentId ?? null,
     });
     return c.json({ id });
   });
@@ -251,11 +282,15 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
 
     const author = sessionAuthor?.author as CanonicalAuthor | undefined;
     if (!author) return authorRequiredResponse(c);
+    // 传了 body 且为空时拒绝；未传 body 视为不修改（如只改标题）
+    if (body !== undefined && isEmptyBody(body)) {
+      return bodyRequiredResponse(c);
+    }
 
     const memoRow = await db
       .select({ id: memo.id, author: memo.author })
       .from(memo)
-      .where(eq(memo.id, id))
+      .where(and(eq(memo.id, id), isNull(memo.deletedAt)))
       .get();
     if (memoRow) {
       await db
@@ -267,14 +302,26 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
           updatedAt: now(),
         })
         .where(eq(memo.id, id));
+      logWrite("article.update", {
+        id,
+        type: "memo",
+        author,
+        titleLength: title?.length ?? null,
+        bodyLength: body?.length ?? null,
+      });
       return c.json({ ok: true });
     }
 
     const existing = await db
       .select({ author: entry.author })
       .from(entry)
-      .where(eq(entry.id, id))
+      .where(and(eq(entry.id, id), isNull(entry.deletedAt)))
       .get();
+
+    if (!existing) {
+      logWrite("article.update.miss", { id, type: "entry" });
+      return c.json({ error: "not found" }, 404);
+    }
 
     const entryUpdates: Record<string, unknown> = {
       title: title ?? undefined,
@@ -289,23 +336,49 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     }
 
     await db.update(entry).set(entryUpdates).where(eq(entry.id, id));
+    logWrite("article.update", {
+      id,
+      type: "entry",
+      author,
+      titleLength: title?.length ?? null,
+      bodyLength: body?.length ?? null,
+      entryDate: entryDate ?? null,
+    });
 
     return c.json({ ok: true });
   });
 
-  // DELETE /api/articles/:id — 软删除（memo 是硬删除）
+  // DELETE /api/articles/:id — 统一软删除
+  // FTS 索引无需手动清理：external content 模式下物理行仍存在故不可删，
+  // 但 search.ts 所有查询均 JOIN 源表并过滤 deleted_at IS NULL，软删除行搜不到。
   articles.delete("/:id", async (c) => {
     const db = await getDb(c);
     const id = c.req.param("id");
 
-    const memoRow = await db.select({ id: memo.id }).from(memo).where(eq(memo.id, id)).get();
+    const memoRow = await db
+      .select({ id: memo.id })
+      .from(memo)
+      .where(and(eq(memo.id, id), isNull(memo.deletedAt)))
+      .get();
 
     if (memoRow) {
-      await db.delete(memo).where(eq(memo.id, id));
+      await db.update(memo).set({ deletedAt: now() }).where(eq(memo.id, id));
+      logWrite("article.delete", { id, type: "memo" });
       return c.json({ ok: true });
     }
 
+    const entryRow = await db
+      .select({ id: entry.id })
+      .from(entry)
+      .where(and(eq(entry.id, id), isNull(entry.deletedAt)))
+      .get();
+
+    if (!entryRow) {
+      return c.json({ error: "not found" }, 404);
+    }
+
     await db.update(entry).set({ deletedAt: now() }).where(eq(entry.id, id));
+    logWrite("article.delete", { id, type: "entry" });
 
     return c.json({ ok: true });
   });

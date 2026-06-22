@@ -36,6 +36,29 @@ export interface SearchResult {
   snippet?: string;
 }
 
+export type CommentKind = "bottom" | "inline";
+export type CommentTargetType = "entry" | "memo";
+
+export interface CommentItem {
+  id: string;
+  targetType: CommentTargetType;
+  targetId: string;
+  kind: CommentKind;
+  author: string | null;
+  body: string;
+  quote: string | null;
+  anchorFrom: number | null;
+  anchorTo: number | null;
+  parentId: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CommentGroups {
+  bottom: CommentItem[];
+  inline: CommentItem[];
+}
+
 /** 类型 → 中文名 */
 export const TYPE_LABEL: Record<string, string> = {
   diary: "日记",
@@ -195,4 +218,54 @@ export async function uploadImage(
   await assertOk(res, "图片上传失败");
   const data = await res.json();
   return data.url as string;
+}
+
+export async function fetchComments(
+  targetType: CommentTargetType,
+  targetId: string
+): Promise<CommentGroups> {
+  const params = new URLSearchParams({ targetType, targetId });
+  const res = await fetch(`${BASE}/api/comments?${params}`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载评论失败");
+  return res.json();
+}
+
+export async function createComment(data: {
+  targetType: CommentTargetType;
+  targetId: string;
+  kind: CommentKind;
+  body: string;
+  quote?: string;
+  anchorFrom?: number;
+  anchorTo?: number;
+  parentId?: string | null;
+}): Promise<{ id: string }> {
+  const res = await fetch(`${BASE}/api/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  await assertOk(res, "评论失败，请稍后重试");
+  return res.json();
+}
+
+export async function updateComment(id: string, body: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/comments/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ body }),
+  });
+  await assertOk(res, "保存评论失败");
+}
+
+export async function deleteComment(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/comments/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  await assertOk(res, "删除评论失败");
 }

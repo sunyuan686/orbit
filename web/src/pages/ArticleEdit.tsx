@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { authClient, fetchEntry, saveEntry, createEntry, TYPE_LABEL, getApiErrorMessage, shouldToastApiError } from "../lib/api";
+import { isEmptyBody } from "../lib/content";
 import { setPageTitle } from "../lib/pageTitle";
 import { CANONICAL_AUTHORS } from "../lib/authors";
 import { useToast } from "../lib/useToast";
@@ -19,12 +20,28 @@ function resolveEditorAuthor(
   return null;
 }
 
+/** Unix 秒 → YYYY-MM-DD（本地时区） */
+function toDateInput(ts: number): string {
+  const d = new Date(ts * 1000);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** YYYY-MM-DD → 当地 00:00 的 Unix 秒 */
+function fromDateInput(s: string): number {
+  const [y, m, d] = s.split("-").map(Number);
+  return Math.floor(new Date(y, m - 1, d).getTime() / 1000);
+}
+
 export function ArticleEdit() {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
   const toast = useToast();
   const { data: session } = authClient.useSession();
-  const isNew = id === "new";
+  // id 缺失、为 "new"、或非法（如 "undefined"）时都视为新建
+  const isNew = !id || id === "new" || id === "undefined";
 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -33,6 +50,11 @@ export function ArticleEdit() {
   const [saving, setSaving] = useState(false);
   const bodyRef = useRef(body);
   const displayAuthor = resolveEditorAuthor(entryAuthor, session?.user?.name);
+  const isMemo = type === "memo";
+  // 发生日期：新建默认今天；memo 不展示
+  const [entryDate, setEntryDate] = useState<number>(() =>
+    Math.floor(Date.now() / 1000)
+  );
 
   useEffect(() => {
     bodyRef.current = body;
@@ -53,6 +75,7 @@ export function ArticleEdit() {
         setTitle(entry.title || "");
         setBody(entry.body);
         setEntryAuthor(entry.author);
+        if (entry.entryDate) setEntryDate(entry.entryDate);
         setLoaded(true);
       })
       .catch((err) => {
@@ -68,21 +91,35 @@ export function ArticleEdit() {
       toast.error("无法识别作者身份，请使用「小圆子」或「小麟子」账号登录");
       return;
     }
+    if (isEmptyBody(bodyRef.current)) {
+      toast.error("内容不能为空");
+      return;
+    }
     setSaving(true);
     try {
       if (isNew) {
         const result = await createEntry({
           type: type === "diary" ? "diary"
+            : type === "timeline" ? "timeline"
             : type === "message" ? "message"
             : type === "memo" ? "memo"
             : "letter",
           title,
           body: bodyRef.current,
+          entryDate: isMemo ? undefined : entryDate,
         });
+        if (!result?.id) {
+          toast.error("创建失败：服务器未返回有效内容 ID");
+          return;
+        }
         toast.success("已创建");
         navigate(`/${type}/${result.id}`, { replace: true });
       } else {
-        await saveEntry(id!, { title, body: bodyRef.current });
+        await saveEntry(id!, {
+          title,
+          body: bodyRef.current,
+          entryDate: isMemo ? undefined : entryDate,
+        });
         toast.success("已保存");
         navigate(`/${type}/${id}`);
       }
@@ -167,6 +204,33 @@ export function ArticleEdit() {
           lineHeight: "var(--leading-heading)",
         }}
       />
+
+      {!isMemo && (
+        <div style={{ marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <label
+            htmlFor="entry-date"
+            style={{ color: "var(--color-text-muted)", fontSize: "var(--type-secondary)" }}
+          >
+            日期
+          </label>
+          <input
+            id="entry-date"
+            type="date"
+            value={toDateInput(entryDate)}
+            onChange={(e) => setEntryDate(fromDateInput(e.target.value))}
+            style={{
+              padding: "0.375rem 0.625rem",
+              fontSize: "var(--type-secondary)",
+              fontFamily: "var(--font-body)",
+              border: "1px solid var(--color-border-light)",
+              borderRadius: "0.375rem",
+              background: "transparent",
+              color: "var(--color-text-primary)",
+              outline: "none",
+            }}
+          />
+        </div>
+      )}
 
       <TiptapEditor
         defaultValue={body}

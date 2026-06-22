@@ -1,32 +1,86 @@
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { fetchEntry, formatDate, getApiErrorMessage, shouldToastApiError, TYPE_LABEL, type EntryDetail } from "../lib/api";
+import {
+  createComment,
+  deleteComment,
+  deleteEntry,
+  fetchComments,
+  fetchEntry,
+  formatDate,
+  getApiErrorMessage,
+  shouldToastApiError,
+  TYPE_LABEL,
+  type CommentGroups,
+  type EntryDetail,
+} from "../lib/api";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../lib/useToast";
 import { TiptapEditor } from "../components/TiptapEditor";
+import { CommentSection } from "../components/CommentSection";
 import { TableOfContents, MobileToc, extractToc } from "../components/TableOfContents";
+import { getCommentCapabilities } from "../lib/commentCapabilities";
 
 export function ArticleView() {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
   const toast = useToast();
   const [entry, setEntry] = useState<EntryDetail | null>(null);
+  const [comments, setComments] = useState<CommentGroups>({ bottom: [], inline: [] });
+  const [inlineDraft, setInlineDraft] = useState<{
+    quote: string;
+    anchorFrom: number;
+    anchorTo: number;
+  } | null>(null);
+  const [activeInlineCommentId, setActiveInlineCommentId] = useState<string | null>(null);
   const [error, setError] = useState(false);
+
+  const capabilities = getCommentCapabilities(entry?.type ?? type);
+  const targetType = entry?.type === "memo" ? "memo" : "entry";
+
+  const loadComments = useCallback(
+    async (targetId: string, nextTargetType: "entry" | "memo") => {
+      const groups = await fetchComments(nextTargetType, targetId);
+      setComments(groups);
+    },
+    []
+  );
 
   useEffect(() => {
     if (!id) return;
-    fetchEntry(id)
-      .then((entry) => {
-        setEntry(entry);
-        setPageTitle(entry.title || TYPE_LABEL[type || ""] || "详情");
-      })
-      .catch((err) => {
+    let cancelled = false;
+
+    async function loadEntry() {
+      try {
+        const nextEntry = await fetchEntry(id!);
+        if (cancelled) return;
+
+        setError(false);
+        setEntry(nextEntry);
+        setComments({ bottom: [], inline: [] });
+        setPageTitle(nextEntry.title || TYPE_LABEL[type || ""] || "详情");
+
+        try {
+          await loadComments(nextEntry.id, nextEntry.type === "memo" ? "memo" : "entry");
+        } catch (err) {
+          if (!cancelled && shouldToastApiError(err)) {
+            toast.error("评论加载失败");
+          }
+        }
+      } catch (err) {
+        if (cancelled) return;
         setError(true);
         if (shouldToastApiError(err)) {
           toast.error(getApiErrorMessage(err, "加载失败"));
         }
-      });
-  }, [id, type, toast]);
+      }
+    }
+
+    void loadEntry();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, loadComments, type, toast]);
 
   const toc = useMemo(
     () => (entry ? extractToc(entry.body) : []),
@@ -35,6 +89,70 @@ export function ArticleView() {
 
   if (error) return <p style={{ color: "oklch(0.55 0.18 27)" }}>文章不存在</p>;
   if (!entry) return <p style={{ color: "var(--color-text-muted)" }}>加载中…</p>;
+
+  async function refreshComments() {
+    if (!entry) return;
+    await loadComments(entry.id, targetType);
+  }
+
+  async function handleCreateBottom(body: string, parentId?: string | null) {
+    if (!entry) return;
+    try {
+      await createComment({
+        targetType,
+        targetId: entry.id,
+        kind: "bottom",
+        body,
+        parentId: parentId ?? null,
+      });
+      await refreshComments();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "评论失败"));
+    }
+  }
+
+  async function handleCreateInline(body: string) {
+    if (!entry || !inlineDraft) return;
+    try {
+      const result = await createComment({
+        targetType,
+        targetId: entry.id,
+        kind: "inline",
+        body,
+        quote: inlineDraft.quote,
+        anchorFrom: inlineDraft.anchorFrom,
+        anchorTo: inlineDraft.anchorTo,
+      });
+      setInlineDraft(null);
+      setActiveInlineCommentId(result.id);
+      await refreshComments();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "添加边注失败"));
+    }
+  }
+
+  async function handleDeleteComment(commentId: string) {
+    try {
+      await deleteComment(commentId);
+      if (activeInlineCommentId === commentId) setActiveInlineCommentId(null);
+      await refreshComments();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "删除评论失败"));
+    }
+  }
+
+  async function handleDeleteArticle() {
+    if (!entry) return;
+    const confirmed = window.confirm("确定删除这条内容吗？删除后无法恢复。");
+    if (!confirmed) return;
+    try {
+      await deleteEntry(entry.id);
+      toast.success("已删除");
+      navigate(type ? `/${type}` : "/", { replace: true });
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "删除失败"));
+    }
+  }
 
   return (
     <div className="flex gap-8" style={{ maxWidth: "900px", margin: "0 auto" }}>
@@ -72,11 +190,57 @@ export function ArticleView() {
               <p className="orbit-entry-date">{entry.author}</p>
             )}
           </div>
-          <Link to={`/${type}/${entry.id}/edit`} className="orbit-btn shrink-0">
-            编辑
-          </Link>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link to={`/${type}/${entry.id}/edit`} className="orbit-btn">
+              编辑
+            </Link>
+            <button
+              type="button"
+              onClick={handleDeleteArticle}
+              className="orbit-btn"
+              aria-label="删除"
+              title="删除"
+              style={{ color: "var(--color-danger, oklch(0.55 0.2 27))" }}
+            >
+              删除
+            </button>
+          </div>
         </div>
-        <TiptapEditor defaultValue={entry.body} readonly />
+        <TiptapEditor
+          defaultValue={entry.body}
+          readonly
+          inlineComments={comments.inline}
+          enableInlineComments={capabilities.inline}
+          activeInlineCommentId={activeInlineCommentId}
+          onCreateInlineComment={(draft) => {
+            setInlineDraft(draft);
+            setActiveInlineCommentId(null);
+            window.setTimeout(() => {
+              document.querySelector(".orbit-inline-draft textarea")?.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+              });
+            }, 0);
+          }}
+          onSelectInlineComment={setActiveInlineCommentId}
+        />
+
+        {(capabilities.bottom || capabilities.inline) && (
+          <CommentSection
+            comments={comments.bottom}
+            inlineComments={comments.inline}
+            activeInlineCommentId={activeInlineCommentId}
+            enableBottom={capabilities.bottom}
+            enableInline={capabilities.inline}
+            inlineDraft={inlineDraft}
+            onCreateBottom={(body) => handleCreateBottom(body)}
+            onCreateInline={handleCreateInline}
+            onCancelInlineDraft={() => setInlineDraft(null)}
+            onReplyBottom={(parentId, body) => handleCreateBottom(body, parentId)}
+            onDelete={handleDeleteComment}
+            onSelectInline={setActiveInlineCommentId}
+          />
+        )}
       </div>
 
       {/* 桌面端：右侧 TOC */}
