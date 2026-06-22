@@ -2,16 +2,23 @@ import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useMemo, useRef, useState } from "react";
 import { uploadImage, getApiErrorMessage } from "../lib/api";
+import type { CommentItem } from "../lib/api";
 import { normalizeBodyForEditor } from "../lib/content";
 import { useToast } from "../lib/useToast";
+import { CommentHighlight } from "../extensions/CommentHighlight";
 
 interface Props {
   defaultValue?: string;
   onChange?: (html: string) => void;
   readonly?: boolean;
   entryId?: string;
+  inlineComments?: CommentItem[];
+  enableInlineComments?: boolean;
+  activeInlineCommentId?: string | null;
+  onCreateInlineComment?: (draft: { quote: string; anchorFrom: number; anchorTo: number }) => void;
+  onSelectInlineComment?: (id: string) => void;
 }
 
 function ToolbarButton({
@@ -152,9 +159,35 @@ function Toolbar({
   );
 }
 
-export function TiptapEditor({ defaultValue, onChange, readonly, entryId }: Props) {
+export function TiptapEditor({
+  defaultValue,
+  onChange,
+  readonly,
+  entryId,
+  inlineComments = [],
+  enableInlineComments = false,
+  activeInlineCommentId,
+  onCreateInlineComment,
+  onSelectInlineComment,
+}: Props) {
   const editorRef = useRef<Editor | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
+  const [selectionMenu, setSelectionMenu] = useState<{
+    top: number;
+    left: number;
+    quote: string;
+    anchorFrom: number;
+    anchorTo: number;
+  } | null>(null);
+
+  const inlineCommentKey = useMemo(
+    () =>
+      inlineComments
+        .map((comment) => `${comment.id}:${comment.anchorFrom}:${comment.anchorTo}`)
+        .join("|"),
+    [inlineComments]
+  );
 
   const uploadImageToEditor = useCallback(
     async (ed: Editor, file: File) => {
@@ -197,6 +230,7 @@ export function TiptapEditor({ defaultValue, onChange, readonly, entryId }: Prop
   const editor = useEditor({
     extensions: [
       StarterKit,
+      CommentHighlight,
       Image.configure({
         inline: false,
         allowBase64: false,
@@ -211,6 +245,16 @@ export function TiptapEditor({ defaultValue, onChange, readonly, entryId }: Prop
     },
     editorProps: {
       attributes: { class: "orbit-prose" },
+      handleClick: (_view, _pos, event) => {
+        const target = event.target as HTMLElement | null;
+        const mark = target?.closest?.("[data-comment-id]") as HTMLElement | null;
+        const commentId = mark?.dataset.commentId;
+        if (commentId) {
+          onSelectInlineComment?.(commentId);
+          return true;
+        }
+        return false;
+      },
       handlePaste: (_view, event) => {
         const items = event.clipboardData?.items;
         if (!items) return false;
@@ -259,9 +303,123 @@ export function TiptapEditor({ defaultValue, onChange, readonly, entryId }: Prop
     }
   }, [defaultValue, editor]);
 
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || !readonly) return;
+    const updateSelectionMenu = () => {
+      if (!enableInlineComments || !onCreateInlineComment) {
+        setSelectionMenu(null);
+        return;
+      }
+
+      const { from, to, empty } = editor.state.selection;
+      if (empty || from === to) {
+        setSelectionMenu(null);
+        return;
+      }
+
+      const quote = editor.state.doc.textBetween(from, to, " ").trim();
+      if (!quote) {
+        setSelectionMenu(null);
+        return;
+      }
+
+      const wrapperRect = wrapperRef.current?.getBoundingClientRect();
+      const coords = editor.view.coordsAtPos(to);
+      if (!wrapperRect) return;
+
+      setSelectionMenu({
+        top: coords.top - wrapperRect.top - 38,
+        left: Math.min(Math.max(coords.left - wrapperRect.left - 48, 0), wrapperRect.width - 110),
+        quote,
+        anchorFrom: from,
+        anchorTo: to,
+      });
+    };
+
+    const hideSelectionMenu = () => {
+      window.setTimeout(() => setSelectionMenu(null), 160);
+    };
+
+    editor.on("selectionUpdate", updateSelectionMenu);
+    editor.on("blur", hideSelectionMenu);
+
+    return () => {
+      editor.off("selectionUpdate", updateSelectionMenu);
+      editor.off("blur", hideSelectionMenu);
+    };
+  }, [editor, enableInlineComments, onCreateInlineComment, readonly]);
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || !readonly) return;
+
+    const markType = editor.schema.marks.commentHighlight;
+    if (!markType) return;
+
+    let tr = editor.state.tr;
+    tr = tr.removeMark(0, editor.state.doc.content.size, markType);
+
+    for (const comment of inlineComments) {
+      if (
+        typeof comment.anchorFrom !== "number" ||
+        typeof comment.anchorTo !== "number" ||
+        comment.anchorFrom >= comment.anchorTo ||
+        comment.anchorTo > editor.state.doc.content.size
+      ) {
+        continue;
+      }
+      tr = tr.addMark(
+        comment.anchorFrom,
+        comment.anchorTo,
+        markType.create({ commentId: comment.id })
+      );
+    }
+
+    if (tr.docChanged) {
+      editor.view.dispatch(tr);
+    }
+  }, [editor, inlineCommentKey, inlineComments, readonly]);
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || !activeInlineCommentId) return;
+    const target = inlineComments.find((comment) => comment.id === activeInlineCommentId);
+    if (!target || typeof target.anchorFrom !== "number") return;
+
+    try {
+      const coords = editor.view.coordsAtPos(target.anchorFrom);
+      window.scrollTo({
+        top: window.scrollY + coords.top - 140,
+        behavior: "smooth",
+      });
+    } catch {
+      // Stale anchors are still useful in the comment panel via quote fallback.
+    }
+  }, [activeInlineCommentId, editor, inlineComments]);
+
   if (readonly) {
     // 只读模式：直接渲染内容，无边框无背景
-    return <EditorContent editor={editor} />;
+    return (
+      <div ref={wrapperRef} className="orbit-read-editor">
+        <EditorContent editor={editor} />
+        {selectionMenu && (
+          <button
+            type="button"
+            className="orbit-selection-comment-btn"
+            style={{ top: selectionMenu.top, left: selectionMenu.left }}
+            onMouseDown={(event) => {
+              event.preventDefault();
+              onCreateInlineComment?.({
+                quote: selectionMenu.quote,
+                anchorFrom: selectionMenu.anchorFrom,
+                anchorTo: selectionMenu.anchorTo,
+              });
+              setSelectionMenu(null);
+            }}
+          >
+            添加边注
+          </button>
+        )}
+      </div>
+    );
   }
 
   return (

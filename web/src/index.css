@@ -359,6 +359,219 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ──────────────────────────────────────────────────────────
+   Comments
+   ────────────────────────────────────────────────────────── */
+.orbit-read-editor {
+  position: relative;
+}
+
+.orbit-comment-highlight {
+  background: oklch(0.9 0.08 92 / 0.58);
+  color: inherit;
+  border-bottom: 1px solid oklch(0.72 0.11 85 / 0.8);
+  border-radius: 0.16em;
+  padding: 0 0.08em;
+  cursor: pointer;
+}
+
+.dark .orbit-comment-highlight {
+  background: oklch(0.48 0.08 82 / 0.5);
+  border-bottom-color: oklch(0.76 0.08 85 / 0.7);
+}
+
+.orbit-selection-comment-btn {
+  position: absolute;
+  z-index: 30;
+  min-width: 96px;
+  height: 32px;
+  padding: 0 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-text-primary);
+  color: var(--color-bg);
+  font-size: var(--type-xs);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 24px oklch(0 0 0 / 0.14);
+}
+
+.orbit-comments {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.orbit-comments-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.orbit-comments-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.orbit-comments-heading h3 {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--type-secondary);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.orbit-comments-heading span {
+  color: var(--color-text-muted);
+  font-size: var(--type-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.orbit-comment-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.orbit-comment-composer textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 74px;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--type-secondary);
+  line-height: 1.55;
+}
+
+.orbit-comment-composer textarea:focus {
+  outline: none;
+  border-color: var(--color-border);
+  box-shadow: 0 0 0 3px oklch(0 0 0 / 0.035);
+}
+
+.orbit-comment-composer-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.orbit-comment-composer-actions .orbit-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.orbit-comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.orbit-comment-item {
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--color-border-light);
+}
+
+.orbit-comment-item:first-child {
+  border-top: 0;
+}
+
+.orbit-comment-item-active {
+  background: var(--color-surface-raised);
+  margin: 0 -0.75rem;
+  padding: 0.85rem 0.75rem;
+  border-radius: 8px;
+}
+
+.orbit-comment-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+  color: var(--color-text-muted);
+  font-size: var(--type-xs);
+}
+
+.orbit-comment-meta span {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.orbit-comment-body {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--type-secondary);
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.orbit-comment-quote {
+  margin: 0 0 0.65rem;
+  padding: 0.45rem 0.7rem;
+  border-left: 3px solid oklch(0.72 0.11 85 / 0.75);
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  font-size: var(--type-xs);
+  line-height: 1.55;
+  border-radius: 0 6px 6px 0;
+}
+
+.orbit-comment-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+}
+
+.orbit-comment-actions button,
+.orbit-inline-draft > button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--type-xs);
+  cursor: pointer;
+}
+
+.orbit-comment-actions button:hover,
+.orbit-inline-draft > button:hover {
+  color: var(--color-text-primary);
+}
+
+.orbit-comment-reply-box {
+  margin-top: 0.7rem;
+}
+
+.orbit-comment-replies {
+  margin-top: 0.7rem;
+  margin-left: 1rem;
+  padding-left: 1rem;
+  border-left: 1px solid var(--color-border-light);
+}
+
+.orbit-inline-draft {
+  padding: 0.85rem;
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  background: var(--color-surface-raised);
+}
+
+.orbit-inline-draft > button {
+  margin-top: 0.45rem;
+}
+
+.orbit-comments-empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--type-secondary);
+}
+
+/* ──────────────────────────────────────────────────────────
    Read view prose (view mode uses .prose class from @tailwindcss/typography)
    We override some prose defaults to match our tokens.
    ────────────────────────────────────────────────────────── */

@@ -144,6 +144,43 @@ export const memo = sqliteTable("memo", {
 });
 
 /**
+ * 评论表
+ * kind: bottom（底部评论）| inline（选中评论 / 文本边注）
+ * targetType: entry | memo；targetId 对应 entry.id 或 memo.id
+ */
+export const comment = sqliteTable(
+  "comment",
+  {
+    id: text("id").primaryKey(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id").notNull(),
+    kind: text("kind").notNull(),
+    userId: text("user_id").references(() => user.id),
+    author: text("author").notNull().default(""),
+    body: text("body").notNull(),
+    quote: text("quote"),
+    anchorFrom: integer("anchor_from"),
+    anchorTo: integer("anchor_to"),
+    parentId: text("parent_id").references(
+      (): AnySQLiteColumn => comment.id
+    ),
+    createdAt: integer("created_at")
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .default(sql`(unixepoch())`),
+    deletedAt: integer("deleted_at"),
+  },
+  (t) => [
+    check("comment_target_type_check", sql`${t.targetType} IN ('entry', 'memo')`),
+    check("comment_kind_check", sql`${t.kind} IN ('bottom', 'inline')`),
+    index("idx_comment_target").on(t.targetType, t.targetId, t.kind),
+    index("idx_comment_parent").on(t.parentId),
+  ]
+);
+
+/**
  * 全局配置表
  */
 export const settings = sqliteTable("settings", {
@@ -153,4 +190,3 @@ export const settings = sqliteTable("settings", {
     .notNull()
     .default(sql`(unixepoch())`),
 });
-
