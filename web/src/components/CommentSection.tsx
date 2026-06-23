@@ -60,6 +60,7 @@ function CommentRow({
   comment,
   replies,
   active,
+  currentAuthor,
   onReply,
   onDelete,
   onSelect,
@@ -67,11 +68,13 @@ function CommentRow({
   comment: CommentItem;
   replies?: CommentItem[];
   active?: boolean;
+  currentAuthor?: string | null;
   onReply?: (parentId: string, body: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onSelect?: (id: string) => void;
 }) {
   const [replying, setReplying] = useState(false);
+  const canDelete = !!comment.author && comment.author === currentAuthor;
 
   return (
     <article
@@ -92,9 +95,11 @@ function CommentRow({
             回复
           </button>
         )}
-        <button type="button" onClick={() => void onDelete(comment.id)}>
-          删除
-        </button>
+        {canDelete && (
+          <button type="button" onClick={() => void onDelete(comment.id)}>
+            删除
+          </button>
+        )}
       </div>
       {replying && onReply && (
         <div className="orbit-comment-reply-box">
@@ -114,6 +119,7 @@ function CommentRow({
             <CommentRow
               key={reply.id}
               comment={reply}
+              currentAuthor={currentAuthor}
               onDelete={onDelete}
             />
           ))}
@@ -127,6 +133,7 @@ export function CommentSection({
   comments,
   inlineComments,
   activeInlineCommentId,
+  currentAuthor,
   enableBottom,
   enableInline,
   inlineDraft,
@@ -140,9 +147,16 @@ export function CommentSection({
   comments: CommentItem[];
   inlineComments: CommentItem[];
   activeInlineCommentId: string | null;
+  currentAuthor?: string | null;
   enableBottom: boolean;
   enableInline: boolean;
-  inlineDraft: { quote: string; anchorFrom: number; anchorTo: number } | null;
+  inlineDraft: {
+    quote: string;
+    anchorFrom: number;
+    anchorTo: number;
+    anchorPrefix: string;
+    anchorSuffix: string;
+  } | null;
   onCreateBottom: (body: string) => Promise<void>;
   onCreateInline: (body: string) => Promise<void>;
   onCancelInlineDraft: () => void;
@@ -193,6 +207,7 @@ export function CommentSection({
                   key={comment.id}
                   comment={comment}
                   active={comment.id === activeInlineCommentId}
+                  currentAuthor={currentAuthor}
                   onDelete={onDelete}
                   onSelect={onSelectInline}
                 />
@@ -222,6 +237,7 @@ export function CommentSection({
                   key={comment.id}
                   comment={comment}
                   replies={repliesByParent.get(comment.id)}
+                  currentAuthor={currentAuthor}
                   onReply={onReplyBottom}
                   onDelete={onDelete}
                 />

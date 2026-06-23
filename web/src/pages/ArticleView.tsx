@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
+  authClient,
   createComment,
   deleteComment,
   deleteEntry,
@@ -24,18 +25,24 @@ export function ArticleView() {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
   const toast = useToast();
+  const { data: session } = authClient.useSession();
   const [entry, setEntry] = useState<EntryDetail | null>(null);
   const [comments, setComments] = useState<CommentGroups>({ bottom: [], inline: [] });
   const [inlineDraft, setInlineDraft] = useState<{
     quote: string;
     anchorFrom: number;
     anchorTo: number;
+    anchorPrefix: string;
+    anchorSuffix: string;
   } | null>(null);
   const [activeInlineCommentId, setActiveInlineCommentId] = useState<string | null>(null);
   const [error, setError] = useState(false);
 
   const capabilities = getCommentCapabilities(entry?.type ?? type);
   const targetType = entry?.type === "memo" ? "memo" : "entry";
+  // 当前登录作者，只取决于会话本身（user.name 即规范作者「小圆子/小麟子」）
+  const currentAuthor = session?.user?.name ?? null;
+  const canEditEntry = !!entry?.author && entry.author === currentAuthor;
 
   const loadComments = useCallback(
     async (targetId: string, nextTargetType: "entry" | "memo") => {
@@ -122,6 +129,8 @@ export function ArticleView() {
         quote: inlineDraft.quote,
         anchorFrom: inlineDraft.anchorFrom,
         anchorTo: inlineDraft.anchorTo,
+        anchorPrefix: inlineDraft.anchorPrefix,
+        anchorSuffix: inlineDraft.anchorSuffix,
       });
       setInlineDraft(null);
       setActiveInlineCommentId(result.id);
@@ -190,21 +199,23 @@ export function ArticleView() {
               <p className="orbit-entry-date">{entry.author}</p>
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Link to={`/${type}/${entry.id}/edit`} className="orbit-btn">
-              编辑
-            </Link>
-            <button
-              type="button"
-              onClick={handleDeleteArticle}
-              className="orbit-btn"
-              aria-label="删除"
-              title="删除"
-              style={{ color: "var(--color-danger, oklch(0.55 0.2 27))" }}
-            >
-              删除
-            </button>
-          </div>
+          {canEditEntry && (
+            <div className="flex items-center gap-2 shrink-0">
+              <Link to={`/${type}/${entry.id}/edit`} className="orbit-btn">
+                编辑
+              </Link>
+              <button
+                type="button"
+                onClick={handleDeleteArticle}
+                className="orbit-btn"
+                aria-label="删除"
+                title="删除"
+                style={{ color: "var(--color-danger, oklch(0.55 0.2 27))" }}
+              >
+                删除
+              </button>
+            </div>
+          )}
         </div>
         <TiptapEditor
           defaultValue={entry.body}
@@ -230,6 +241,7 @@ export function ArticleView() {
             comments={comments.bottom}
             inlineComments={comments.inline}
             activeInlineCommentId={activeInlineCommentId}
+            currentAuthor={currentAuthor}
             enableBottom={capabilities.bottom}
             enableInline={capabilities.inline}
             inlineDraft={inlineDraft}

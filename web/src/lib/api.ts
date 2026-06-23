@@ -49,6 +49,10 @@ export interface CommentItem {
   quote: string | null;
   anchorFrom: number | null;
   anchorTo: number | null;
+  /** 选中文本前面最多 50 个字符（位置漂移后消歧用） */
+  anchorPrefix: string | null;
+  /** 选中文本后面最多 50 个字符（位置漂移后消歧用） */
+  anchorSuffix: string | null;
   parentId: string | null;
   createdAt: number;
   updatedAt: number;
@@ -97,6 +101,13 @@ export function getApiErrorMessage(err: unknown, fallback = "操作失败，请�
 }
 
 /** 401 由路由守卫处理，不需要弹 toast */
+/** 文章保存时一并提交的边注位置重映射 */
+export interface CommentPositionMapping {
+  id: string;
+  anchorFrom: number;
+  anchorTo: number;
+}
+
 export function shouldToastApiError(err: unknown): boolean {
   return !(err instanceof ApiError && err.status === 401);
 }
@@ -152,7 +163,13 @@ export async function fetchEntry(id: string): Promise<EntryDetail> {
 
 export async function saveEntry(
   id: string,
-  data: { title?: string; body?: string; entryDate?: number }
+  data: {
+    title?: string;
+    body?: string;
+    entryDate?: number;
+    /** 边注位置重映射（文章编辑后同步更新） */
+    commentMappings?: CommentPositionMapping[];
+  }
 ): Promise<void> {
   const res = await fetch(`${BASE}/api/articles/${encodeURIComponent(id)}`, {
     method: "PUT",
@@ -240,6 +257,8 @@ export async function createComment(data: {
   quote?: string;
   anchorFrom?: number;
   anchorTo?: number;
+  anchorPrefix?: string;
+  anchorSuffix?: string;
   parentId?: string | null;
 }): Promise<{ id: string }> {
   const res = await fetch(`${BASE}/api/comments`, {

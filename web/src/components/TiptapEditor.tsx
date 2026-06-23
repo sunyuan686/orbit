@@ -8,6 +8,7 @@ import type { CommentItem } from "../lib/api";
 import { normalizeBodyForEditor } from "../lib/content";
 import { useToast } from "../lib/useToast";
 import { CommentHighlight } from "../extensions/CommentHighlight";
+import { resolveCommentPosition, getAnchorContext } from "../lib/anchor";
 
 interface Props {
   defaultValue?: string;
@@ -17,8 +18,16 @@ interface Props {
   inlineComments?: CommentItem[];
   enableInlineComments?: boolean;
   activeInlineCommentId?: string | null;
-  onCreateInlineComment?: (draft: { quote: string; anchorFrom: number; anchorTo: number }) => void;
+  onCreateInlineComment?: (draft: {
+    quote: string;
+    anchorFrom: number;
+    anchorTo: number;
+    anchorPrefix: string;
+    anchorSuffix: string;
+  }) => void;
   onSelectInlineComment?: (id: string) => void;
+  /** 编辑器就绪后回调，用于父组件访问 editor 实例 */
+  onEditorCreate?: (editor: Editor) => void;
 }
 
 function ToolbarButton({
@@ -169,6 +178,7 @@ export function TiptapEditor({
   activeInlineCommentId,
   onCreateInlineComment,
   onSelectInlineComment,
+  onEditorCreate,
 }: Props) {
   const editorRef = useRef<Editor | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -179,6 +189,8 @@ export function TiptapEditor({
     quote: string;
     anchorFrom: number;
     anchorTo: number;
+    anchorPrefix: string;
+    anchorSuffix: string;
   } | null>(null);
 
   const inlineCommentKey = useMemo(
@@ -293,7 +305,10 @@ export function TiptapEditor({
 
   useEffect(() => {
     editorRef.current = editor;
-  }, [editor]);
+    if (editor) {
+      onEditorCreate?.(editor);
+    }
+  }, [editor, onEditorCreate]);
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
@@ -323,6 +338,8 @@ export function TiptapEditor({
         return;
       }
 
+      const { prefix, suffix } = getAnchorContext(editor, from, to);
+
       const wrapperRect = wrapperRef.current?.getBoundingClientRect();
       const coords = editor.view.coordsAtPos(to);
       if (!wrapperRect) return;
@@ -333,6 +350,8 @@ export function TiptapEditor({
         quote,
         anchorFrom: from,
         anchorTo: to,
+        anchorPrefix: prefix,
+        anchorSuffix: suffix,
       });
     };
 
@@ -356,26 +375,59 @@ export function TiptapEditor({
     if (!markType) return;
 
     let tr = editor.state.tr;
+    // 先清除所有已有的高亮 mark（data-comment-id 标记的也可能来自其他渲染）
     tr = tr.removeMark(0, editor.state.doc.content.size, markType);
 
+    let orphanCount = 0;
+    let positionHitCount = 0;
+    let textSearchCount = 0;
+
     for (const comment of inlineComments) {
-      if (
-        typeof comment.anchorFrom !== "number" ||
-        typeof comment.anchorTo !== "number" ||
-        comment.anchorFrom >= comment.anchorTo ||
-        comment.anchorTo > editor.state.doc.content.size
-      ) {
-        continue;
+      // 使用混合锚定算法查找正确位置
+      const resolved = resolveCommentPosition(editor, {
+        anchorFrom: comment.anchorFrom,
+        anchorTo: comment.anchorTo,
+        quote: comment.quote,
+        anchorPrefix: comment.anchorPrefix,
+        anchorSuffix: comment.anchorSuffix,
+      });
+
+      if (!resolved) {
+        orphanCount++;
+        continue; // 无法定位，仅展示在边注面板中
       }
+
+      // 统计命中方式
+      if (
+        typeof comment.anchorFrom === "number" &&
+        typeof comment.anchorTo === "number" &&
+        resolved.from === comment.anchorFrom &&
+        resolved.to === comment.anchorTo
+      ) {
+        positionHitCount++;
+      } else {
+        textSearchCount++;
+      }
+
       tr = tr.addMark(
-        comment.anchorFrom,
-        comment.anchorTo,
+        resolved.from,
+        resolved.to,
         markType.create({ commentId: comment.id })
       );
     }
 
     if (tr.docChanged) {
       editor.view.dispatch(tr);
+    }
+
+    // 开发环境下打印锚定统计
+    if (inlineComments.length > 0) {
+      const total = inlineComments.length;
+      if (orphanCount > 0 || textSearchCount > 0) {
+        console.debug(
+          `[anchor] ${total} 边注: ${positionHitCount} 位置命中, ${textSearchCount} 文本搜索, ${orphanCount} 孤儿`
+        );
+      }
     }
   }, [editor, inlineCommentKey, inlineComments, readonly]);
 
@@ -411,6 +463,8 @@ export function TiptapEditor({
                 quote: selectionMenu.quote,
                 anchorFrom: selectionMenu.anchorFrom,
                 anchorTo: selectionMenu.anchorTo,
+                anchorPrefix: selectionMenu.anchorPrefix,
+                anchorSuffix: selectionMenu.anchorSuffix,
               });
               setSelectionMenu(null);
             }}

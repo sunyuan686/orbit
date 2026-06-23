@@ -1,24 +1,13 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { authClient, fetchEntry, saveEntry, createEntry, TYPE_LABEL, getApiErrorMessage, shouldToastApiError } from "../lib/api";
+import { authClient, fetchEntry, saveEntry, createEntry, fetchComments, TYPE_LABEL, getApiErrorMessage, shouldToastApiError, type CommentItem, type CommentPositionMapping } from "../lib/api";
+import { resolveCommentPosition } from "../lib/anchor";
 import { isEmptyBody } from "../lib/content";
 import { setPageTitle } from "../lib/pageTitle";
-import { CANONICAL_AUTHORS } from "../lib/authors";
+import { resolveEditorAuthor } from "../lib/authors";
 import { useToast } from "../lib/useToast";
+import type { Editor } from "@tiptap/react";
 import { TiptapEditor } from "../components/TiptapEditor";
-
-function resolveEditorAuthor(
-  entryAuthor: string | null | undefined,
-  sessionName: string | undefined
-): string | null {
-  if (entryAuthor && CANONICAL_AUTHORS.includes(entryAuthor as (typeof CANONICAL_AUTHORS)[number])) {
-    return entryAuthor;
-  }
-  if (sessionName && CANONICAL_AUTHORS.includes(sessionName as (typeof CANONICAL_AUTHORS)[number])) {
-    return sessionName;
-  }
-  return null;
-}
 
 /** Unix 秒 → YYYY-MM-DD（本地时区） */
 function toDateInput(ts: number): string {
@@ -49,6 +38,9 @@ export function ArticleEdit() {
   const [loaded, setLoaded] = useState(isNew);
   const [saving, setSaving] = useState(false);
   const bodyRef = useRef(body);
+  // 边注位置重映射：保存时用混合锚定算法重新查找位置
+  const inlineCommentsRef = useRef<CommentItem[]>([]);
+  const editorRef = useRef<Editor | null>(null);
   const displayAuthor = resolveEditorAuthor(entryAuthor, session?.user?.name);
   const isMemo = type === "memo";
   // 发生日期：新建默认今天；memo 不展示
@@ -70,12 +62,19 @@ export function ArticleEdit() {
       setLoaded(true);
       return;
     }
-    fetchEntry(id)
-      .then((entry) => {
+    const targetType = type === "memo" ? "memo" as const : "entry" as const;
+
+    Promise.all([
+      fetchEntry(id),
+      // 加载边注以便保存时重算位置
+      fetchComments(targetType, id).catch(() => ({ bottom: [], inline: [] })),
+    ])
+      .then(([entry, commentGroups]) => {
         setTitle(entry.title || "");
         setBody(entry.body);
         setEntryAuthor(entry.author);
         if (entry.entryDate) setEntryDate(entry.entryDate);
+        inlineCommentsRef.current = commentGroups.inline;
         setLoaded(true);
       })
       .catch((err) => {
@@ -84,7 +83,11 @@ export function ArticleEdit() {
         }
         setLoaded(true);
       });
-  }, [id, isNew, toast]);
+  }, [id, isNew, toast, type]);
+
+  const handleEditorCreate = (editor: Editor) => {
+    editorRef.current = editor;
+  };
 
   const handleSave = async () => {
     if (!displayAuthor) {
@@ -115,11 +118,59 @@ export function ArticleEdit() {
         toast.success("已创建");
         navigate(`/${type}/${result.id}`, { replace: true });
       } else {
+        // 边注位置重映射：用混合锚定算法重新查找每个边注的位置
+        let commentMappings: CommentPositionMapping[] | undefined;
+        const editor = editorRef.current;
+        const comments = inlineCommentsRef.current;
+        if (editor && comments.length > 0) {
+          try {
+            commentMappings = comments
+              .map((c) => {
+                const resolved = resolveCommentPosition(editor, {
+                  anchorFrom: c.anchorFrom,
+                  anchorTo: c.anchorTo,
+                  quote: c.quote,
+                  anchorPrefix: c.anchorPrefix,
+                  anchorSuffix: c.anchorSuffix,
+                });
+                if (!resolved) return null;
+                // 仅记录实际发生变化的位置
+                if (
+                  resolved.from === c.anchorFrom &&
+                  resolved.to === c.anchorTo
+                ) {
+                  return null;
+                }
+                return {
+                  id: c.id,
+                  anchorFrom: resolved.from,
+                  anchorTo: resolved.to,
+                };
+              })
+              .filter((m): m is CommentPositionMapping => m !== null);
+
+            if (commentMappings.length === 0) {
+              commentMappings = undefined;
+            }
+          } catch (err) {
+            console.warn("[anchor] 位置重算失败，跳过", err);
+            commentMappings = undefined;
+          }
+        }
+
         await saveEntry(id!, {
           title,
           body: bodyRef.current,
           entryDate: isMemo ? undefined : entryDate,
+          commentMappings,
         });
+
+        if (commentMappings && commentMappings.length > 0) {
+          console.debug(
+            `[anchor] 保存时重映射了 ${commentMappings.length} 个边注位置`
+          );
+        }
+
         toast.success("已保存");
         navigate(`/${type}/${id}`);
       }
@@ -236,6 +287,7 @@ export function ArticleEdit() {
         defaultValue={body}
         onChange={(val) => { bodyRef.current = val; }}
         entryId={isNew ? undefined : id}
+        onEditorCreate={isNew ? undefined : handleEditorCreate}
       />
     </div>
   );

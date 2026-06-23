@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { eq, and, isNull, asc, desc } from "drizzle-orm";
-import { resolveAuthorForWrite, type CanonicalAuthor } from "../authors.js";
+import { resolveAuthorForWrite, normalizeAuthor, isCanonicalAuthor, type CanonicalAuthor } from "../authors.js";
 import { toPlainText, isEmptyBody } from "../lib/plain-text.js";
-import { entry, memo } from "../db/schema.js";
+import { entry, memo, comment } from "../db/schema.js";
 import type { SessionAuthor } from "./session-author.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
@@ -31,6 +31,13 @@ async function requireSessionAuthor(
   const sessionAuthor = await getSessionAuthor(c);
   if (!sessionAuthor) return authorRequiredResponse(c);
   return sessionAuthor;
+}
+
+/** 归属判断：existing 规范化后是否等于当前会话作者 */
+function isOwner(existingAuthor: string | null | undefined, sessionAuthor: string): boolean {
+  const normalized = existingAuthor ? normalizeAuthor(existingAuthor) : "";
+  if (!isCanonicalAuthor(normalized)) return false;
+  return normalized === sessionAuthor;
 }
 
 function now(): number {
@@ -266,7 +273,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     return c.json({ id });
   });
 
-  // PUT /api/articles/:id — 更新
+  // PUT /api/articles/:id — 更新（可选附带边注位置重映射）
   articles.put("/:id", async (c) => {
     const db = await getDb(c);
     const sessionResult = await requireSessionAuthor(c, getSessionAuthor);
@@ -274,10 +281,12 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const sessionAuthor = sessionResult as SessionAuthor | null;
 
     const id = c.req.param("id");
-    const { title, body, entryDate } = await c.req.json<{
+    const { title, body, entryDate, commentMappings } = await c.req.json<{
       title?: string;
       body?: string;
       entryDate?: number;
+      /** 边注位置重映射数组 */
+      commentMappings?: { id: string; anchorFrom: number; anchorTo: number }[];
     }>();
 
     const author = sessionAuthor?.author as CanonicalAuthor | undefined;
@@ -293,6 +302,9 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       .where(and(eq(memo.id, id), isNull(memo.deletedAt)))
       .get();
     if (memoRow) {
+      if (!isOwner(memoRow.author, author)) {
+        return c.json({ error: "只能编辑自己创建的内容" }, 403);
+      }
       await db
         .update(memo)
         .set({
@@ -323,6 +335,10 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       return c.json({ error: "not found" }, 404);
     }
 
+    if (!isOwner(existing?.author, author)) {
+      return c.json({ error: "只能编辑自己创建的内容" }, 403);
+    }
+
     const entryUpdates: Record<string, unknown> = {
       title: title ?? undefined,
       author: resolveAuthorForWrite(existing?.author, author),
@@ -336,6 +352,44 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     }
 
     await db.update(entry).set(entryUpdates).where(eq(entry.id, id));
+
+    // 边注位置重映射：校验归属后批量更新
+    if (commentMappings && commentMappings.length > 0) {
+      for (const mapping of commentMappings) {
+        if (
+          typeof mapping.id !== "string" ||
+          typeof mapping.anchorFrom !== "number" ||
+          typeof mapping.anchorTo !== "number" ||
+          mapping.anchorFrom < 0 ||
+          mapping.anchorTo < 0 ||
+          mapping.anchorFrom >= mapping.anchorTo
+        ) {
+          continue; // 跳过无效条目
+        }
+        // 仅更新属于本篇文章的 inline 边注
+        await db
+          .update(comment)
+          .set({
+            anchorFrom: mapping.anchorFrom,
+            anchorTo: mapping.anchorTo,
+            updatedAt: now(),
+          })
+          .where(
+            and(
+              eq(comment.id, mapping.id),
+              eq(comment.targetType, "entry"),
+              eq(comment.targetId, id),
+              eq(comment.kind, "inline"),
+              isNull(comment.deletedAt)
+            )
+          );
+      }
+      logWrite("article.update.commentPositions", {
+        id,
+        count: commentMappings.length,
+      });
+    }
+
     logWrite("article.update", {
       id,
       type: "entry",
@@ -343,38 +397,65 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       titleLength: title?.length ?? null,
       bodyLength: body?.length ?? null,
       entryDate: entryDate ?? null,
+      commentMappingsCount: commentMappings?.length ?? 0,
     });
 
     return c.json({ ok: true });
   });
 
-  // DELETE /api/articles/:id — 统一软删除
+  // DELETE /api/articles/:id — 统一软删除（仅作者本人）
   // FTS 索引无需手动清理：external content 模式下物理行仍存在故不可删，
   // 但 search.ts 所有查询均 JOIN 源表并过滤 deleted_at IS NULL，软删除行搜不到。
   articles.delete("/:id", async (c) => {
     const db = await getDb(c);
+    const sessionResult = await requireSessionAuthor(c, getSessionAuthor);
+    if (sessionResult instanceof Response) return sessionResult;
+    const sessionAuthor = sessionResult as SessionAuthor | null;
+
+    const author = sessionAuthor?.author as CanonicalAuthor | undefined;
+    if (!author) return authorRequiredResponse(c);
+
     const id = c.req.param("id");
 
     const memoRow = await db
-      .select({ id: memo.id })
+      .select({ id: memo.id, author: memo.author })
       .from(memo)
       .where(and(eq(memo.id, id), isNull(memo.deletedAt)))
       .get();
 
     if (memoRow) {
+      if (!isOwner(memoRow.author, author)) {
+        return c.json({ error: "只能删除自己创建的内容" }, 403);
+      }
       await db.update(memo).set({ deletedAt: now() }).where(eq(memo.id, id));
       logWrite("article.delete", { id, type: "memo" });
       return c.json({ ok: true });
     }
 
     const entryRow = await db
-      .select({ id: entry.id })
+      .select({ id: entry.id, type: entry.type, author: entry.author, parentId: entry.parentId })
       .from(entry)
       .where(and(eq(entry.id, id), isNull(entry.deletedAt)))
       .get();
 
     if (!entryRow) {
       return c.json({ error: "not found" }, 404);
+    }
+
+    if (!isOwner(entryRow.author, author)) {
+      return c.json({ error: "只能删除自己创建的内容" }, 403);
+    }
+
+    // letter 主信保护：若已有对方回信，删除会留下孤儿回信，禁止
+    if (entryRow.type === "letter" && !entryRow.parentId) {
+      const reply = await db
+        .select({ id: entry.id })
+        .from(entry)
+        .where(and(eq(entry.parentId, id), isNull(entry.deletedAt)))
+        .get();
+      if (reply) {
+        return c.json({ error: "该信件已有回信，无法直接删除" }, 400);
+      }
     }
 
     await db.update(entry).set({ deletedAt: now() }).where(eq(entry.id, id));

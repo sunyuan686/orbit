@@ -54,6 +54,8 @@ function mapComment(row: {
   quote: string | null;
   anchorFrom: number | null;
   anchorTo: number | null;
+  anchorPrefix: string | null;
+  anchorSuffix: string | null;
   parentId: string | null;
   createdAt: number;
   updatedAt: number;
@@ -68,6 +70,8 @@ function mapComment(row: {
     quote: row.quote,
     anchorFrom: row.anchorFrom,
     anchorTo: row.anchorTo,
+    anchorPrefix: row.anchorPrefix,
+    anchorSuffix: row.anchorSuffix,
     parentId: row.parentId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -126,6 +130,8 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
         quote: comment.quote,
         anchorFrom: comment.anchorFrom,
         anchorTo: comment.anchorTo,
+        anchorPrefix: comment.anchorPrefix,
+        anchorSuffix: comment.anchorSuffix,
         parentId: comment.parentId,
         createdAt: comment.createdAt,
         updatedAt: comment.updatedAt,
@@ -161,6 +167,8 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
       quote?: string;
       anchorFrom?: number;
       anchorTo?: number;
+      anchorPrefix?: string;
+      anchorSuffix?: string;
       parentId?: string | null;
     }>();
 
@@ -187,6 +195,13 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
         !payload.quote?.trim()
       ) {
         return c.json({ error: "选中评论需要有效的文本范围" }, 400);
+      }
+      // 截断 prefix/suffix 到 50 字符防止滥用
+      if (payload.anchorPrefix) {
+        payload.anchorPrefix = payload.anchorPrefix.trim().slice(-50);
+      }
+      if (payload.anchorSuffix) {
+        payload.anchorSuffix = payload.anchorSuffix.trim().slice(0, 50);
       }
     }
 
@@ -224,6 +239,8 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
       quote: kind === "inline" ? payload.quote!.trim() : null,
       anchorFrom: kind === "inline" ? payload.anchorFrom : null,
       anchorTo: kind === "inline" ? payload.anchorTo : null,
+      anchorPrefix: kind === "inline" ? payload.anchorPrefix?.slice(-50) ?? null : null,
+      anchorSuffix: kind === "inline" ? payload.anchorSuffix?.slice(0, 50) ?? null : null,
       parentId: kind === "bottom" ? payload.parentId ?? null : null,
       createdAt: now(),
       updatedAt: now(),
@@ -236,16 +253,28 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
     const db = await getDb(c);
     const sessionResult = await requireSessionAuthor(c, getSessionAuthor);
     if (sessionResult instanceof Response) return sessionResult;
+    const sessionAuthor = sessionResult;
 
     const id = c.req.param("id");
     const { body } = await c.req.json<{ body?: string }>();
     const nextBody = body?.trim();
     if (!nextBody) return c.json({ error: "评论内容不能为空" }, 400);
 
+    // 归属校验：仅作者本人可编辑自己的评论
+    const existing = await db
+      .select({ author: comment.author })
+      .from(comment)
+      .where(and(eq(comment.id, id), isNull(comment.deletedAt)))
+      .get();
+    if (!existing) return c.json({ error: "评论不存在或已删除" }, 404);
+    if (existing.author !== sessionAuthor.author) {
+      return c.json({ error: "只能编辑自己的评论" }, 403);
+    }
+
     await db
       .update(comment)
       .set({ body: nextBody, updatedAt: now() })
-      .where(and(eq(comment.id, id), isNull(comment.deletedAt)));
+      .where(and(eq(comment.id, id), eq(comment.author, sessionAuthor.author), isNull(comment.deletedAt)));
 
     return c.json({ ok: true });
   });
@@ -254,12 +283,25 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
     const db = await getDb(c);
     const sessionResult = await requireSessionAuthor(c, getSessionAuthor);
     if (sessionResult instanceof Response) return sessionResult;
+    const sessionAuthor = sessionResult;
 
     const id = c.req.param("id");
+
+    // 归属校验：仅作者本人可删除自己的评论
+    const existing = await db
+      .select({ author: comment.author })
+      .from(comment)
+      .where(and(eq(comment.id, id), isNull(comment.deletedAt)))
+      .get();
+    if (!existing) return c.json({ error: "评论不存在或已删除" }, 404);
+    if (existing.author !== sessionAuthor.author) {
+      return c.json({ error: "只能删除自己的评论" }, 403);
+    }
+
     await db
       .update(comment)
       .set({ deletedAt: now(), updatedAt: now() })
-      .where(eq(comment.id, id));
+      .where(and(eq(comment.id, id), eq(comment.author, sessionAuthor.author), isNull(comment.deletedAt)));
 
     return c.json({ ok: true });
   });

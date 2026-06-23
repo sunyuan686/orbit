@@ -161,6 +161,10 @@ export const comment = sqliteTable(
     quote: text("quote"),
     anchorFrom: integer("anchor_from"),
     anchorTo: integer("anchor_to"),
+    /** 选中文本前面最多 50 个字符，用于位置漂移后消歧 */
+    anchorPrefix: text("anchor_prefix"),
+    /** 选中文本后面最多 50 个字符，用于位置漂移后消歧 */
+    anchorSuffix: text("anchor_suffix"),
     parentId: text("parent_id").references(
       (): AnySQLiteColumn => comment.id
     ),
