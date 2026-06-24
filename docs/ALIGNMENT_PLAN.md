@@ -1,5 +1,8 @@
 # Orbit 技术对齐计划
 
+> ⚠️ **历史文档**：Phase 1–4 已于 2026-03 完成。
+> 当前功能进度见 [ROADMAP.md](./ROADMAP.md)，架构见 [ARCHITECTURE.md](./ARCHITECTURE.md)，版本记录见 [CHANGELOG.md](../CHANGELOG.md)。
+
 参考 [Jant](https://github.com/jant-me/jant) 项目，系统性升级 Orbit 的技术架构。
 
 ---
