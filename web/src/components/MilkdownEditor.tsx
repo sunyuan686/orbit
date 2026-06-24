@@ -61,9 +61,7 @@ export const MilkdownEditor: FC<Props> = (props) => {
   return (
     <MilkdownProvider>
       <div
-        className={`milkdown-wrapper border border-stone-200 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-800 min-h-[300px] p-4 ${
-          props.readonly ? "cursor-default" : ""
-        }`}
+        className={`milkdown-wrapper orbit-milkdown-shell${props.readonly ? " cursor-default" : ""}`}
         onPaste={
           props.readonly
             ? undefined

@@ -123,41 +123,29 @@ export function Layout() {
   };
 
   return (
-    <div
-      className="flex h-screen transition-colors"
-      style={{ background: "var(--color-bg)", color: "var(--color-text-primary)" }}
-    >
-      {/* 移动端遮罩 */}
+    <div className="orbit-shell flex h-screen transition-colors">
       {open && (
         <div
-          className="fixed inset-0 z-40 md:hidden"
-          style={{ background: "oklch(0 0 0 / 0.35)" }}
+          className="orbit-overlay-scrim fixed inset-0 z-40 md:hidden"
           onClick={() => setOpen(false)}
         />
       )}
 
-      {/* 侧边栏 */}
       <aside
         ref={sidebarRef}
-        style={{
-          width: effectiveWidth,
-          background: "var(--sidebar-bg)",
-          borderRightColor: "var(--sidebar-border)",
-        }}
+        style={{ width: effectiveWidth }}
         className={`
-          fixed inset-y-0 left-0 z-50 border-r flex flex-col overflow-hidden
+          orbit-sidebar-panel fixed inset-y-0 left-0 z-50 border-r flex flex-col overflow-hidden
           md:static md:translate-x-0 md:shrink-0
           ${open ? "translate-x-0" : "-translate-x-full"}
           ${dragging ? "" : "transition-[width] duration-200 ease-in-out"}
         `}
       >
-        {/* 顶部标题 */}
         <div className={`flex items-center justify-between py-5 ${collapsed ? "px-2" : "px-4"}`}>
           {collapsed ? (
             <button
               onClick={toggleCollapsed}
-              className="w-full flex justify-center p-1.5 rounded-md transition-colors cursor-pointer"
-              style={{ color: "var(--color-text-muted)" }}
+              className="orbit-icon-btn w-full flex justify-center p-1.5 cursor-pointer"
               title="展开侧边栏"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
@@ -168,14 +156,11 @@ export function Layout() {
             <>
               <div className="min-w-0">
                 <h1 className="orbit-sidebar-title tracking-tight">Orbit</h1>
-                <p className="text-xs mt-0.5 truncate" style={{ color: "var(--color-text-muted)" }}>
-                  两个人的时间轨道
-                </p>
+                <p className="orbit-sidebar-tagline mt-0.5 truncate">两个人的时间轨道</p>
               </div>
               <button
                 onClick={toggleCollapsed}
-                className="hidden md:flex p-1.5 rounded-md transition-colors cursor-pointer shrink-0"
-                style={{ color: "var(--color-text-muted)" }}
+                className="orbit-icon-btn hidden md:flex p-1.5 cursor-pointer shrink-0"
                 title="折叠侧边栏"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
@@ -184,8 +169,7 @@ export function Layout() {
               </button>
               <button
                 onClick={() => setOpen(false)}
-                className="md:hidden p-1.5 rounded-md cursor-pointer"
-                style={{ color: "var(--color-text-muted)" }}
+                className="orbit-icon-btn md:hidden p-1.5 cursor-pointer"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
                   <path d="M18 6L6 18M6 6l12 12" />
@@ -209,7 +193,7 @@ export function Layout() {
               title={collapsed ? item.label : undefined}
             >
               <span className="text-base">{item.icon}</span>
-              {!collapsed && <span style={{ fontSize: "var(--type-secondary)" }}>{item.label}</span>}
+              {!collapsed && <span className="orbit-nav-label">{item.label}</span>}
             </NavLink>
           ))}
         </nav>
@@ -218,33 +202,23 @@ export function Layout() {
         <UserAccount collapsed={collapsed} />
       </aside>
 
-      {/* 拖拽手柄 */}
       <div
         onMouseDown={handleMouseDown}
-        className="hidden md:block w-px -ml-px cursor-col-resize z-10 shrink-0 transition-colors hover:bg-stone-300 dark:hover:bg-stone-600"
+        className="orbit-resize-handle hidden md:block w-px -ml-px cursor-col-resize z-10 shrink-0"
       />
 
-      {/* 主内容区 */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* 顶栏 */}
-        <header
-          className="flex items-center justify-between px-4 md:px-6 py-2.5"
-          style={{
-            background: "var(--color-surface)",
-            borderBottom: "1px solid var(--color-border-light)",
-          }}
-        >
+        <header className="orbit-header-bar flex items-center justify-between px-4 md:px-6 py-2.5">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
               onClick={() => setOpen(true)}
-              className="md:hidden p-1.5 rounded-md cursor-pointer shrink-0"
-              style={{ color: "var(--color-text-secondary)" }}
+              className="orbit-icon-btn orbit-icon-btn--secondary md:hidden p-1.5 cursor-pointer shrink-0"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
                 <path d="M3 12h18M3 6h18M3 18h18" />
               </svg>
             </button>
-            <span className="md:hidden text-sm font-medium shrink-0" style={{ fontFamily: "var(--font-heading)" }}>Orbit</span>
+            <span className="orbit-heading md:hidden text-sm font-medium shrink-0">Orbit</span>
 
             <form
               className="hidden sm:flex items-center gap-2 flex-1 max-w-md ml-auto mr-2"
@@ -262,8 +236,8 @@ export function Layout() {
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.75"
-                className="shrink-0"
-                style={{ color: "var(--color-text-muted)" }}
+                className="orbit-search-icon"
+                aria-hidden
               >
                 <circle cx="11" cy="11" r="7" />
                 <path d="M20 20l-3-3" />
@@ -274,8 +248,7 @@ export function Layout() {
                 defaultValue={location.pathname === "/search" ? new URLSearchParams(location.search).get("q") ?? "" : ""}
                 key={location.pathname + location.search}
                 placeholder="搜索…"
-                className="flex-1 min-w-0 bg-transparent text-sm outline-none"
-                style={{ color: "var(--color-text-primary)" }}
+                className="orbit-header-search flex-1 min-w-0 bg-transparent text-sm outline-none"
               />
             </form>
           </div>
@@ -283,8 +256,7 @@ export function Layout() {
           <div className="flex items-center gap-2">
             {session?.user && (
               <span
-                className="hidden sm:inline text-xs truncate max-w-[140px]"
-                style={{ color: "var(--color-text-muted)" }}
+                className="orbit-sidebar-tagline hidden sm:inline truncate max-w-[140px]"
                 title={session.user.email}
               >
                 {session.user.name}
@@ -296,8 +268,7 @@ export function Layout() {
               const next = order[(order.indexOf(theme) + 1) % order.length];
               setTheme(next);
             }}
-            className="p-1.5 rounded-md transition-colors cursor-pointer"
-            style={{ color: "var(--color-text-muted)" }}
+            className="orbit-icon-btn p-1.5 cursor-pointer"
             title={theme === "light" ? "浅色模式" : theme === "dark" ? "深色模式" : "跟随系统"}
           >
             {themeIcons[theme]}

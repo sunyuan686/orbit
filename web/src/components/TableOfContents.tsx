@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type CSSProperties } from "react";
 
 export interface TocItem {
   level: number;
@@ -11,19 +11,16 @@ export function extractToc(content: string): TocItem[] {
   const items: TocItem[] = [];
   let idx = 0;
 
-  // HTML 格式（TipTap 输出）
   if (content.trimStart().startsWith("<")) {
     const matches = content.matchAll(/<h([1-4])[^>]*>(.*?)<\/h\1>/gi);
     for (const m of matches) {
       const level = parseInt(m[1]);
-      // 去除内嵌 HTML 标签
       const text = m[2].replace(/<[^>]+>/g, "").trim();
       if (text) items.push({ level, text, id: `toc-${idx++}` });
     }
     return items;
   }
 
-  // Markdown 格式（旧数据兼容）
   for (const line of content.split("\n")) {
     const match = line.match(/^(#{1,4})\s+(.+)$/);
     if (match) {
@@ -35,7 +32,6 @@ export function extractToc(content: string): TocItem[] {
   return items;
 }
 
-/** 计算当前 index 之前，有多少个同 level + 同 text 的项 */
 function countPrevSame(items: TocItem[], index: number): number {
   let count = 0;
   for (let i = 0; i < index; i++) {
@@ -45,8 +41,6 @@ function countPrevSame(items: TocItem[], index: number): number {
   }
   return count;
 }
-
-// ─── 跳转 + 滚动高亮逻辑（共用） ───
 
 function useScrollHighlight(items: TocItem[]) {
   const [activeId, setActiveId] = useState("");
@@ -105,8 +99,6 @@ function useScrollHighlight(items: TocItem[]) {
   return { activeId, handleClick };
 }
 
-// ─── 目录列表（纯展示） ───
-
 function TocList({
   items,
   activeId,
@@ -123,13 +115,10 @@ function TocList({
       {items.map((item, index) => (
         <button
           key={item.id}
+          type="button"
           onClick={() => onItemClick(item, index)}
-          className={`block w-full text-left text-sm py-1.5 rounded transition-colors truncate ${
-            activeId === item.id
-              ? "text-stone-900 dark:text-stone-100 font-medium"
-              : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
-          }`}
-          style={{ paddingLeft: `${(item.level - minLevel) * 12 + 4}px` }}
+          className={`orbit-toc-link${activeId === item.id ? " orbit-toc-link--active" : ""}`}
+          style={{ "--toc-indent": `${(item.level - minLevel) * 12 + 4}px` } as CSSProperties}
           title={item.text}
         >
           {item.text}
@@ -138,8 +127,6 @@ function TocList({
     </nav>
   );
 }
-
-// ─── 桌面端：右侧栏 ───
 
 interface Props {
   items: TocItem[];
@@ -152,9 +139,7 @@ export function TableOfContents({ items }: Props) {
 
   return (
     <div>
-      <p className="text-xs font-medium text-stone-400 dark:text-stone-500 uppercase tracking-wider mb-2">
-        目录
-      </p>
+      <p className="orbit-toc-heading">目录</p>
       <TocList
         items={items}
         activeId={activeId}
@@ -164,8 +149,6 @@ export function TableOfContents({ items }: Props) {
   );
 }
 
-// ─── 移动端：浮动按钮 + 底部抽屉 ───
-
 export function MobileToc({ items }: Props) {
   const [open, setOpen] = useState(false);
   const { activeId, handleClick } = useScrollHighlight(items);
@@ -174,50 +157,45 @@ export function MobileToc({ items }: Props) {
 
   return (
     <>
-      {/* 浮动按钮 */}
       <button
+        type="button"
         onClick={() => setOpen(true)}
-        className="fixed right-4 bottom-6 z-30 w-11 h-11 rounded-full bg-stone-800 dark:bg-stone-200 text-white dark:text-stone-800 shadow-lg flex items-center justify-center hover:bg-stone-700 dark:hover:bg-stone-300 active:scale-95 transition-all xl:hidden"
+        className="orbit-toc-fab xl:hidden"
         aria-label="打开目录"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
           <path d="M3 6h18M3 12h12M3 18h18" />
         </svg>
       </button>
 
-      {/* 遮罩 */}
       {open && (
         <div
-          className="fixed inset-0 bg-black/30 z-40 xl:hidden"
+          className="orbit-overlay-scrim fixed inset-0 z-40 xl:hidden"
           onClick={() => setOpen(false)}
+          aria-hidden
         />
       )}
 
-      {/* 底部抽屉 */}
-      <div
-        className={`fixed inset-x-0 bottom-0 z-50 xl:hidden transition-transform duration-250 ease-out ${
-          open ? "translate-y-0" : "translate-y-full"
-        }`}
-      >
-        <div className="bg-white dark:bg-stone-800 rounded-t-2xl max-h-[60vh] flex flex-col shadow-2xl">
-          {/* 拖拽指示条 + 标题 */}
-          <div className="flex items-center justify-between px-5 pt-3 pb-2 border-b border-stone-100 dark:border-stone-700">
+      <div className={`orbit-toc-drawer xl:hidden${open ? " orbit-toc-drawer--open" : ""}`}>
+        <div className="orbit-toc-drawer-panel">
+          <div className="orbit-toc-drawer-header">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-1 rounded-full bg-stone-300 dark:bg-stone-600" />
-              <span className="text-sm font-medium text-stone-500 dark:text-stone-400">目录</span>
+              <div className="orbit-toc-drawer-handle" aria-hidden />
+              <span className="orbit-toc-drawer-title">目录</span>
             </div>
             <button
+              type="button"
               onClick={() => setOpen(false)}
-              className="p-1 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
+              className="orbit-icon-btn p-1 cursor-pointer"
+              aria-label="关闭目录"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                 <path d="M18 6L6 18M6 6l12 12" />
               </svg>
             </button>
           </div>
 
-          {/* 目录列表 */}
-          <div className="overflow-y-auto px-4 py-3">
+          <div className="orbit-toc-drawer-body">
             <TocList
               items={items}
               activeId={activeId}

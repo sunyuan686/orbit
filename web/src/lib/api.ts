@@ -21,9 +21,11 @@ export interface EntryDetail {
   type: string;
   title: string | null;
   author: string | null;
+  modifiedBy: string | null;
   body: string;
   entryDate: number | null;
   parentId: string | null;
+  createdAt?: number;
   updatedAt?: number;
 }
 
@@ -82,6 +84,43 @@ export function formatDate(ts: number): string {
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
   const day = String(d.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+/** 格式化 Unix 时间戳为 YYYY-MM-DD HH:mm（本地时区） */
+export function formatDateTime(ts: number): string {
+  const d = new Date(ts * 1000);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const h = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${y}-${m}-${day} ${h}:${min}`;
+}
+
+/** 格式化 Unix 时间戳为中文日期（与 formatDate 同日界，用于标题区展示） */
+export function formatDateCn(ts: number): string {
+  const d = new Date(ts * 1000);
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth() + 1;
+  const day = d.getUTCDate();
+  return `${y}年${m}月${day}日`;
+}
+
+/** Whether updatedAt differs meaningfully from createdAt */
+export function wasEdited(createdAt?: number, updatedAt?: number): boolean {
+  if (createdAt == null || updatedAt == null) return false;
+  return updatedAt - createdAt > 1;
+}
+
+/** Same local calendar day (for entryDate vs createdAt dedup) */
+export function isSameLocalDay(a: number, b: number): boolean {
+  const da = new Date(a * 1000);
+  const db = new Date(b * 1000);
+  return (
+    da.getFullYear() === db.getFullYear() &&
+    da.getMonth() === db.getMonth() &&
+    da.getDate() === db.getDate()
+  );
 }
 
 export class ApiError extends Error {

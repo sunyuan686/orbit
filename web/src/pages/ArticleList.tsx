@@ -14,51 +14,15 @@ function EntryRow({ entry, type }: { entry: EntrySummary; type: string }) {
   const showAuthor = Boolean(entry.author);
 
   return (
-    <Link
-      to={`/${type}/${entry.id}`}
-      className="orbit-entry-card"
-      style={{
-        display: "flex",
-        alignItems: "baseline",
-        justifyContent: "space-between",
-        gap: "1rem",
-        padding: "0.625rem 0.875rem",
-        border: "1px solid var(--color-border-light)",
-        textDecoration: "none",
-      }}
-    >
-      <span
-        style={{
-          flex: 1,
-          minWidth: 0,
-          display: "flex",
-          alignItems: "baseline",
-          gap: "0.5rem",
-          overflow: "hidden",
-        }}
-      >
+    <Link to={`/${type}/${entry.id}`} className="orbit-entry-card">
+      <span className="orbit-entry-card-main">
         {entry.title && (
-          <span
-            className="orbit-entry-title"
-            style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
+          <span className="orbit-entry-title orbit-entry-title-truncate">
             {entry.title}
           </span>
         )}
         {showAuthor && entry.author && (
-          <span
-            style={{
-              fontSize: "var(--type-secondary)",
-              color: "var(--color-text-muted)",
-              flexShrink: 0,
-            }}
-          >
-            {entry.author}
-          </span>
+          <span className="orbit-entry-author">{entry.author}</span>
         )}
       </span>
       {entry.entryDate && (
@@ -123,7 +87,7 @@ export function ArticleList() {
   );
 
   return (
-    <div style={{ maxWidth: "680px", margin: "0 auto" }}>
+    <div className="orbit-content">
       <div className="flex items-center justify-between mb-6">
         <h2 className="orbit-page-title">{label}</h2>
         <Link to={`/${type}/new`} className="orbit-btn orbit-btn-primary">
@@ -132,36 +96,24 @@ export function ArticleList() {
       </div>
 
       {loading ? (
-        <p style={{ color: "var(--color-text-muted)", fontSize: "var(--type-secondary)" }}>
-          加载中…
-        </p>
+        <p className="orbit-muted">加载中…</p>
       ) : entries.length === 0 ? (
-        <div style={{ color: "var(--color-text-muted)", fontSize: "var(--type-secondary)" }}>
+        <div className="orbit-muted">
           <p>还没有内容。</p>
           <p>
-            <Link to={`/${type}/new`} style={{ color: "var(--color-text-primary)", textDecoration: "underline" }}>
+            <Link to={`/${type}/new`} className="orbit-text-link">
               写下第一篇
             </Link>
             ，记录这一刻。
           </p>
         </div>
       ) : type === "letter" ? (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        <ul className="orbit-list-plain flex flex-col gap-2">
           {letterTree.map(({ root, replies }) => (
             <li key={root.id}>
               <EntryRow entry={root} type="letter" />
               {replies.length > 0 && (
-                <ul
-                  style={{
-                    listStyle: "none",
-                    margin: "0.25rem 0 0 0",
-                    padding: "0 0 0 1.25rem",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "0.25rem",
-                    borderLeft: "2px solid var(--color-border-light)",
-                  }}
-                >
+                <ul className="orbit-list-plain orbit-letter-replies">
                   {replies.map((reply) => (
                     <li key={reply.id}>
                       <EntryRow entry={reply} type="letter" />
@@ -173,7 +125,7 @@ export function ArticleList() {
           ))}
         </ul>
       ) : (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+        <ul className="orbit-list-plain orbit-entry-list">
           {entries.map((entry) => (
             <li key={entry.id}>
               <EntryRow entry={entry} type={type || "diary"} />

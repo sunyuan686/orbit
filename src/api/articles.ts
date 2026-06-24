@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { eq, and, isNull, asc, desc } from "drizzle-orm";
-import { resolveAuthorForWrite, normalizeAuthor, isCanonicalAuthor, type CanonicalAuthor } from "../authors.js";
+import { resolveAuthorForWrite, type CanonicalAuthor } from "../authors.js";
+import { canEditContent, canDeleteContent } from "../content-policies.js";
 import { toPlainText, isEmptyBody } from "../lib/plain-text.js";
 import { entry, memo, comment } from "../db/schema.js";
 import type { SessionAuthor } from "./session-author.js";
@@ -31,13 +32,6 @@ async function requireSessionAuthor(
   const sessionAuthor = await getSessionAuthor(c);
   if (!sessionAuthor) return authorRequiredResponse(c);
   return sessionAuthor;
-}
-
-/** 归属判断：existing 规范化后是否等于当前会话作者 */
-function isOwner(existingAuthor: string | null | undefined, sessionAuthor: string): boolean {
-  const normalized = existingAuthor ? normalizeAuthor(existingAuthor) : "";
-  if (!isCanonicalAuthor(normalized)) return false;
-  return normalized === sessionAuthor;
 }
 
 function now(): number {
@@ -177,8 +171,11 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
         type: "memo",
         title: memoRow.title,
         author: memoRow.author || null,
+        modifiedBy: memoRow.modifiedBy || memoRow.author || null,
         body: memoRow.body ?? "",
-        entryDate: memoRow.updatedAt,
+        entryDate: null,
+        createdAt: memoRow.createdAt,
+        updatedAt: memoRow.updatedAt,
       });
     }
 
@@ -195,6 +192,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       type: row.type,
       title: row.title,
       author: row.author || null,
+      modifiedBy: row.modifiedBy || row.author || null,
       body: row.body ?? "",
       entryDate: row.entryDate,
       parentId: row.parentId,
@@ -231,6 +229,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
         title: title ?? key,
         body: body ?? "",
         author,
+        modifiedBy: author,
         updatedAt: now(),
       });
       logWrite("article.create", {
@@ -253,6 +252,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       type,
       userId: sessionAuthor!.userId,
       author,
+      modifiedBy: author,
       title: title ?? null,
       body: bodyValue,
       bodyText: bodyValue ? toPlainText(bodyValue) : "",
@@ -302,8 +302,8 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       .where(and(eq(memo.id, id), isNull(memo.deletedAt)))
       .get();
     if (memoRow) {
-      if (!isOwner(memoRow.author, author)) {
-        return c.json({ error: "只能编辑自己创建的内容" }, 403);
+      if (!canEditContent("memo", memoRow.author, author)) {
+        return c.json({ error: "无权编辑此内容" }, 403);
       }
       await db
         .update(memo)
@@ -311,6 +311,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
           title: title ?? undefined,
           body: body ?? undefined,
           author: resolveAuthorForWrite(memoRow.author, author),
+          modifiedBy: author,
           updatedAt: now(),
         })
         .where(eq(memo.id, id));
@@ -325,7 +326,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     }
 
     const existing = await db
-      .select({ author: entry.author })
+      .select({ author: entry.author, type: entry.type })
       .from(entry)
       .where(and(eq(entry.id, id), isNull(entry.deletedAt)))
       .get();
@@ -335,13 +336,14 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       return c.json({ error: "not found" }, 404);
     }
 
-    if (!isOwner(existing?.author, author)) {
-      return c.json({ error: "只能编辑自己创建的内容" }, 403);
+    if (!canEditContent(existing.type, existing.author, author)) {
+      return c.json({ error: "无权编辑此内容" }, 403);
     }
 
     const entryUpdates: Record<string, unknown> = {
       title: title ?? undefined,
       author: resolveAuthorForWrite(existing?.author, author),
+      modifiedBy: author,
       entryDate: entryDate ?? undefined,
       userId: sessionAuthor!.userId,
       updatedAt: now(),
@@ -424,7 +426,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       .get();
 
     if (memoRow) {
-      if (!isOwner(memoRow.author, author)) {
+      if (!canDeleteContent(memoRow.author, author)) {
         return c.json({ error: "只能删除自己创建的内容" }, 403);
       }
       await db.update(memo).set({ deletedAt: now() }).where(eq(memo.id, id));
@@ -442,7 +444,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       return c.json({ error: "not found" }, 404);
     }
 
-    if (!isOwner(entryRow.author, author)) {
+    if (!canDeleteContent(entryRow.author, author)) {
       return c.json({ error: "只能删除自己创建的内容" }, 403);
     }
 

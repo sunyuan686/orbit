@@ -17,6 +17,7 @@
 | 文档 | 说明 |
 |------|------|
 | [docs/ROADMAP.md](docs/ROADMAP.md) | **功能清单与迭代进度**（单一进度源） |
+| [DESIGN.md](DESIGN.md) | **视觉设计标准**（Design Tokens、组件、文案；AI Agent 可读） |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架构、技术栈、数据库、目录结构 |
 | [CHANGELOG.md](CHANGELOG.md) | 版本发布记录（Conventional Commits 自动生成） |
 | [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | 提交规范、文档维护、发布流程 |

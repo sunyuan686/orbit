@@ -63,6 +63,7 @@ BREAKING CHANGE: /api/import-md removed, use db:import script
 |------|----------|----------|
 | [docs/ROADMAP.md](./ROADMAP.md) | 功能状态变化、排期调整 | ✅ 手改 |
 | [docs/ARCHITECTURE.md](./ARCHITECTURE.md) | 架构、表结构、目录变更 | ✅ 手改 |
+| [DESIGN.md](../DESIGN.md) | 视觉 token、组件、文案规则变更 | ✅ 手改，并同步 `web/src/index.css` |
 | [CHANGELOG.md](../CHANGELOG.md) | 每次发布 | ❌ **由 release-please 自动生成** |
 | [README.md](../README.md) | 启动方式、项目定位变化 | ✅ 手改 |
 
@@ -71,8 +72,39 @@ BREAKING CHANGE: /api/import-md removed, use db:import script
 功能 PR 合并前请确认：
 
 - [ ] 若涉及功能增减，已更新 `docs/ROADMAP.md` 对应行状态
+- [ ] 若改 UI，已对照 [DESIGN.md](../DESIGN.md)，并同步 `web/src/index.css` tokens
 - [ ] commit message 符合 Conventional Commits
 - [ ] 若改架构，已更新 `docs/ARCHITECTURE.md`
+
+---
+
+## UI / 设计
+
+视觉规范以根目录 **[DESIGN.md](../DESIGN.md)** 为准（[Google DESIGN.md](https://github.com/google-labs-code/design.md) 格式）。参考系来自 [getdesign.md](https://getdesign.md/) 上的 [Notion](https://getdesign.md/notion/design-md) 与 [Vercel Geist](https://vercel.com/design.md)，并针对 Orbit「克制、浪漫、高级」的内容产品定位做了裁剪。
+
+**改 UI 时**
+
+1. 先读 `DESIGN.md` 的 Overview 与 Do's and Don'ts
+2. 使用 `web/src/index.css` 中的 CSS 变量（`--color-*`、`--type-*`）或 `.orbit-*` 类
+3. 不要在组件里硬编码 `oklch()` / `#hex` 颜色或任意 `fontSize`
+4. 新增 token 时同时更新 `DESIGN.md` YAML 与 `index.css`
+
+**常用工具类**
+
+| 类名 | 用途 |
+|------|------|
+| `.orbit-content` | 列表/搜索 680px 居中列 |
+| `.orbit-editor-layout` | 编辑页 720px 居中列 |
+| `.orbit-muted` | 次要说明 / 加载中 |
+| `.orbit-btn-primary` | 每页唯一主操作 |
+| `.orbit-btn-danger` | 删除等破坏性操作 |
+| `.orbit-entry-card` | 列表卡片行 |
+| `.orbit-input` / `.orbit-title-input` | 表单输入 |
+| `.orbit-editor-chrome` | TipTap 编辑外壳 |
+| `.orbit-auth-page` / `.orbit-auth-panel` | 登录注册页 |
+| `.orbit-toc-link` / `.orbit-toc-fab` | 文章目录 |
+
+Agent skill：[.cursor/skills/orbit-design/SKILL.md](../.cursor/skills/orbit-design/SKILL.md)
 
 ---
 

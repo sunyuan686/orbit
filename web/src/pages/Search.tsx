@@ -22,10 +22,8 @@ function SearchResultCard({ result }: { result: SearchResult }) {
 
   return (
     <article className="py-4 first:pt-0 last:pb-0">
-      <div className="flex items-center gap-2 text-xs mb-1" style={{ color: "var(--color-text-muted)" }}>
-        <span className="px-1.5 py-0.5 rounded border" style={{ borderColor: "var(--color-border-light)" }}>
-          {typeLabel}
-        </span>
+      <div className="orbit-search-meta flex items-center gap-2 mb-1">
+        <span className="orbit-badge">{typeLabel}</span>
         {result.author && <span>{result.author}</span>}
         {result.entryDate != null && (
           <time dateTime={String(result.entryDate)}>{formatDate(result.entryDate)}</time>
@@ -33,7 +31,7 @@ function SearchResultCard({ result }: { result: SearchResult }) {
       </div>
 
       {result.title ? (
-        <h3 className="font-semibold text-lg mb-1" style={{ fontFamily: "var(--font-heading)" }}>
+        <h3 className="orbit-heading font-semibold text-lg mb-1">
           <Link to={href} className="hover:underline">
             {result.title}
           </Link>
@@ -49,7 +47,7 @@ function SearchResultCard({ result }: { result: SearchResult }) {
         </Link>
       ) : (
         !result.title && (
-          <Link to={href} className="text-sm hover:underline" style={{ color: "var(--color-text-muted)" }}>
+          <Link to={href} className="orbit-muted text-sm hover:underline">
             查看内容
           </Link>
         )
@@ -97,10 +95,8 @@ export function SearchPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto" data-page="search">
-      <h1 className="text-2xl font-semibold mb-6" style={{ fontFamily: "var(--font-heading)" }}>
-        搜索
-      </h1>
+    <div className="orbit-content" data-page="search">
+      <h1 className="orbit-page-title mb-6">搜索</h1>
 
       <form onSubmit={handleSubmit} className="mb-8">
         <div className="flex gap-2">
@@ -108,23 +104,11 @@ export function SearchPage() {
             type="search"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            className="flex-1 px-3 py-2 rounded-md border text-sm"
-            style={{
-              background: "var(--color-surface)",
-              borderColor: "var(--color-border)",
-              color: "var(--color-text-primary)",
-            }}
+            className="orbit-input flex-1"
             placeholder="搜索日记、留言、信件、备忘录…"
             autoFocus={!query}
           />
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-md text-sm cursor-pointer"
-            style={{
-              background: "var(--color-text-primary)",
-              color: "var(--color-bg)",
-            }}
-          >
+          <button type="submit" className="orbit-btn orbit-btn-primary shrink-0">
             搜索
           </button>
         </div>
@@ -133,19 +117,17 @@ export function SearchPage() {
       {query && (
         <div>
           {loading ? (
-            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-              搜索中…
-            </p>
+            <p className="orbit-muted text-sm">搜索中…</p>
           ) : (
             <>
-              <p className="text-sm mb-4" style={{ color: "var(--color-text-muted)" }}>
+              <p className="orbit-muted text-sm mb-4">
                 {results.length === 0
                   ? "没有找到相关内容，试试其他关键词。"
                   : `找到 ${results.length} 条结果`}
               </p>
 
               {results.length > 0 && (
-                <div className="flex flex-col divide-y" style={{ borderColor: "var(--color-border-light)" }}>
+                <div className="flex flex-col divide-y orbit-divide-border">
                   {results.map((result) => (
                     <SearchResultCard key={`${result.type}-${result.id}`} result={result} />
                   ))}

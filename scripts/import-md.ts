@@ -249,6 +249,7 @@ interface EntryInsert {
   parentId: string | null;
   createdAt: number;
   updatedAt: number;
+  modifiedBy?: string;
 }
 
 interface DryRunRow {
@@ -282,7 +283,10 @@ function insertEntry(db: Db | null, row: EntryInsert, assetKeys: string[]) {
     return;
   }
 
-  db!.insert(schema.entry).values(row).run();
+  db!.insert(schema.entry).values({
+    ...row,
+    modifiedBy: row.modifiedBy ?? row.author,
+  }).run();
   for (const key of assetKeys) {
     assetCount++;
     db!.insert(schema.asset)

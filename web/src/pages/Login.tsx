@@ -28,8 +28,8 @@ export function Login() {
 
   if (isPending) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-stone-500">
-        加载中…
+      <div className="orbit-auth-page">
+        <p className="orbit-muted">加载中…</p>
       </div>
     );
   }
@@ -75,7 +75,7 @@ export function Login() {
           return;
         }
       }
-      toast.success(mode === "signin" ? "登录成功" : "注册成功");
+      toast.success(mode === "signin" ? "已登录" : "已注册");
       await refetch();
       navigate(from, { replace: true });
     } catch {
@@ -86,31 +86,23 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-light text-stone-800 dark:text-stone-200 tracking-wide">
-            Orbit
-          </h1>
-          <p className="mt-2 text-sm text-stone-500 dark:text-stone-500">
-            属于两个人的空间
-          </p>
+    <div className="orbit-auth-page">
+      <div className="orbit-auth-wrap">
+        <div>
+          <h1 className="orbit-auth-brand">Orbit</h1>
+          <p className="orbit-auth-tagline">属于两个人的空间</p>
         </div>
 
-        <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-sm border border-stone-200 dark:border-stone-800 p-8">
-          {/* 模式切换 */}
-          <div className="flex rounded-lg border border-stone-200 dark:border-stone-700 p-1 mb-6">
+        <div className="orbit-auth-panel">
+          <div className="orbit-auth-tabs" role="tablist" aria-label="登录或注册">
             {(["signin", "signup"] as const).map((m) => (
               <button
                 key={m}
                 type="button"
+                role="tab"
+                aria-selected={mode === m}
                 onClick={() => setMode(m)}
-                className={[
-                  "flex-1 py-2 rounded-md text-sm font-medium transition-all",
-                  mode === m
-                    ? "bg-stone-800 dark:bg-stone-200 text-white dark:text-stone-900"
-                    : "text-stone-500 hover:text-stone-700 dark:hover:text-stone-300",
-                ].join(" ")}
+                className={`orbit-auth-tab${mode === m ? " orbit-auth-tab--active" : ""}`}
               >
                 {m === "signin" ? "登录" : "注册"}
               </button>
@@ -119,66 +111,61 @@ export function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "signup" && (
-              <div>
-                <label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1.5">
-                  身份
-                </label>
-                <div className="grid grid-cols-2 gap-2">
+              <div className="orbit-auth-field">
+                <span className="orbit-auth-label">身份</span>
+                <div className="orbit-auth-choices">
                   {CANONICAL_AUTHORS.map((value) => (
                     <button
                       key={value}
                       type="button"
                       onClick={() => setAuthor(value)}
-                      className={[
-                        "py-3 rounded-xl border text-sm font-medium transition-colors",
-                        author === value
-                          ? "border-stone-800 dark:border-stone-200 bg-stone-800 dark:bg-stone-200 text-white dark:text-stone-900"
-                          : "border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-stone-400",
-                      ].join(" ")}
+                      className={`orbit-auth-choice${author === value ? " orbit-auth-choice--active" : ""}`}
                     >
                       {value}
                     </button>
                   ))}
                 </div>
-                <p className="mt-2 text-xs text-stone-400 dark:text-stone-500">
-                  注册后用于内容署名，与另一位不可重复
-                </p>
+                <p className="orbit-auth-hint">注册后用于内容署名，与另一位不可重复</p>
               </div>
             )}
 
-            <div>
-              <label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1.5">
+            <div className="orbit-auth-field">
+              <label className="orbit-auth-label" htmlFor="login-email">
                 邮箱
               </label>
               <input
+                id="login-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
                 required
-                className="w-full px-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-base focus:outline-none focus:ring-2 focus:ring-stone-400 dark:focus:ring-stone-500 transition-colors"
+                className="orbit-input"
+                autoComplete="email"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1.5">
+            <div className="orbit-auth-field">
+              <label className="orbit-auth-label" htmlFor="login-password">
                 密码
               </label>
               <input
+                id="login-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="至少 8 位"
                 required
                 minLength={8}
-                className="w-full px-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-base focus:outline-none focus:ring-2 focus:ring-stone-400 dark:focus:ring-stone-500 transition-colors"
+                className="orbit-input"
+                autoComplete={mode === "signin" ? "current-password" : "new-password"}
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl bg-stone-800 dark:bg-stone-200 text-white dark:text-stone-900 text-sm font-medium hover:bg-stone-700 dark:hover:bg-stone-300 disabled:opacity-50 transition-colors mt-2"
+              className="orbit-btn orbit-btn-primary orbit-auth-submit"
             >
               {loading ? "处理中…" : mode === "signin" ? "登录" : "注册"}
             </button>

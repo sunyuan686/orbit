@@ -77,8 +77,10 @@ export const entry = sqliteTable(
     id: text("id").primaryKey(),
     type: text("type").notNull(),
     userId: text("user_id").references(() => user.id),
-    /** 留言/信件作者：小圆子 | 小麟子 */
+    /** 创建者署名：小圆子 | 小麟子 */
     author: text("author").notNull().default(""),
+    /** 最后编辑者署名 */
+    modifiedBy: text("modified_by").notNull().default(""),
     title: text("title"),
     body: text("body"),
     bodyText: text("body_text"),
@@ -132,8 +134,10 @@ export const memo = sqliteTable("memo", {
   key: text("key").notNull().unique(),
   title: text("title").notNull(),
   body: text("body"),
-  /** 最后编辑者：小圆子 | 小麟子 */
+  /** 创建者署名：小圆子 | 小麟子 */
   author: text("author").notNull().default(""),
+  /** 最后编辑者署名 */
+  modifiedBy: text("modified_by").notNull().default(""),
   createdAt: integer("created_at")
     .notNull()
     .default(sql`(unixepoch())`),

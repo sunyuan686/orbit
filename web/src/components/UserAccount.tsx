@@ -31,8 +31,7 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
   if (isPending) {
     return (
       <div
-        className={`${collapsed ? "px-2 py-3 flex justify-center" : "px-4 py-3 text-xs"}`}
-        style={{ color: "var(--color-text-muted)", borderTop: "1px solid var(--color-border-light)" }}
+        className={`orbit-sidebar-footer orbit-muted ${collapsed ? "px-2 py-3 flex justify-center" : "px-4 py-3 text-xs"}`}
       >
         {collapsed ? "…" : "加载账号…"}
       </div>
@@ -43,13 +42,9 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
 
   if (collapsed) {
     return (
-      <div
-        className="px-2 py-3 flex flex-col items-center gap-2"
-        style={{ borderTop: "1px solid var(--color-border-light)" }}
-      >
+      <div className="orbit-sidebar-footer px-2 py-3 flex flex-col items-center gap-2">
         <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium"
-          style={{ background: "var(--color-border-light)", color: "var(--color-text-secondary)" }}
+          className="orbit-avatar w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium"
           title={`${user.name}\n${user.email}`}
         >
           {user.name.slice(0, 1)}
@@ -58,8 +53,7 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
           type="button"
           onClick={handleSignOut}
           disabled={signingOut}
-          className="p-1.5 rounded-md cursor-pointer"
-          style={{ color: "var(--color-text-muted)" }}
+          className="orbit-icon-btn p-1.5 cursor-pointer"
           title="退出登录"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
@@ -73,15 +67,10 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
   }
 
   return (
-    <div
-      className="px-4 py-3 space-y-3"
-      style={{ borderTop: "1px solid var(--color-border-light)" }}
-    >
+    <div className="orbit-sidebar-footer px-4 py-3 space-y-3">
       <div className="min-w-0">
         <p className="text-sm font-medium truncate">{user.name}</p>
-        <p className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>
-          {user.email}
-        </p>
+        <p className="orbit-sidebar-tagline truncate">{user.email}</p>
       </div>
 
       <button

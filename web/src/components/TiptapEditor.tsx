@@ -52,30 +52,7 @@ function ToolbarButton({
       }}
       disabled={disabled}
       title={title}
-      style={{
-        minWidth: "32px",
-        height: "32px",
-        padding: "0 0.4rem",
-        borderRadius: "5px",
-        fontSize: "var(--type-secondary)",
-        fontWeight: 500,
-        border: "none",
-        cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.3 : 1,
-        background: active ? "var(--color-border)" : "transparent",
-        color: active ? "var(--color-text-primary)" : "var(--color-text-secondary)",
-        transition: "background 0.1s, color 0.1s",
-      }}
-      onMouseEnter={(e) => {
-        if (!disabled && !active) {
-          (e.currentTarget as HTMLButtonElement).style.background = "var(--color-surface-raised)";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!active) {
-          (e.currentTarget as HTMLButtonElement).style.background = active ? "var(--color-border)" : "transparent";
-        }
-      }}
+      className={`orbit-toolbar-btn${active ? " orbit-toolbar-btn--active" : ""}`}
     >
       {children}
     </button>
@@ -101,25 +78,10 @@ function Toolbar({
 
   if (!editor) return null;
 
-  const sep = (
-    <div style={{ width: "1px", height: "18px", background: "var(--color-border-light)", margin: "0 4px" }} />
-  );
+  const sep = <div className="orbit-toolbar-sep" role="separator" />;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        alignItems: "center",
-        gap: "2px",
-        padding: "0.4rem 0.5rem",
-        borderBottom: "1px solid var(--color-border-light)",
-        background: "var(--color-surface)",
-        position: "sticky",
-        top: 0,
-        zIndex: 10,
-      }}
-    >
+    <div className="orbit-toolbar tiptap-mobile-toolbar">
       <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="粗体">
         <strong>B</strong>
       </ToolbarButton>
@@ -127,7 +89,7 @@ function Toolbar({
         <em>I</em>
       </ToolbarButton>
       <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive("strike")} title="删除线">
-        <span style={{ textDecoration: "line-through" }}>S</span>
+        <span className="orbit-toolbar-strike">S</span>
       </ToolbarButton>
       {sep}
       <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive("heading", { level: 2 })} title="二级标题">
@@ -477,18 +439,9 @@ export function TiptapEditor({
   }
 
   return (
-    <div
-      style={{
-        border: "1px solid var(--color-border-light)",
-        borderRadius: "10px",
-        overflow: "hidden",
-        background: "var(--color-surface)",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
+    <div className="orbit-editor-chrome">
       <Toolbar editor={editor} onUploadImage={handleImageUpload} />
-      <div style={{ padding: "0.75rem 1rem" }}>
+      <div className="orbit-editor-body">
         <EditorContent editor={editor} />
       </div>
     </div>

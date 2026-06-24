@@ -64,7 +64,8 @@ user / session / account / verification  — better-auth 标准表
 | 字段 | 说明 |
 |------|------|
 | `type` | `diary` \| `timeline` \| `message` \| `letter` |
-| `author` | 规范名：`小圆子` 或 `小麟子` |
+| `author` | 创建者署名 |
+| `modifiedBy` | 最后编辑者署名 |
 | `body` | TipTap 输出的 HTML |
 | `bodyText` | 纯文本，供 FTS 索引 |
 | `entryDate` | 记录日期（Unix 时间戳） |
@@ -110,6 +111,17 @@ user / session / account / verification  — better-auth 标准表
 | message | ❌ | ❌ |
 
 行内边注采用混合锚定（位置 + 文本 + 上下文），编辑正文时自动重映射：`web/src/lib/anchor.ts`。
+
+### 编辑权限矩阵
+
+配置：`src/content-policies.ts`（前端镜像：`web/src/lib/contentPolicies.ts`）
+
+| 内容类型 | 编辑 | 删除 |
+|----------|------|------|
+| diary / timeline / message / letter | 仅作者（`author`） | 仅作者 |
+| memo | 双方（`couple`） | 仅作者 |
+
+新增类型时改 `editScopeByType` 配置即可，无需散落 `if` 分支。
 
 ---
 

@@ -7,10 +7,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
 
   if (isPending) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ color: "var(--color-text-muted)" }}
-      >
+      <div className="min-h-screen flex items-center justify-center orbit-muted">
         加载中…
       </div>
     );

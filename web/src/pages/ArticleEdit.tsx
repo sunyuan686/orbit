@@ -5,6 +5,7 @@ import { resolveCommentPosition } from "../lib/anchor";
 import { isEmptyBody } from "../lib/content";
 import { setPageTitle } from "../lib/pageTitle";
 import { resolveEditorAuthor } from "../lib/authors";
+import { canEditContent } from "../lib/contentPolicies";
 import { useToast } from "../lib/useToast";
 import type { Editor } from "@tiptap/react";
 import { TiptapEditor } from "../components/TiptapEditor";
@@ -70,6 +71,13 @@ export function ArticleEdit() {
       fetchComments(targetType, id).catch(() => ({ bottom: [], inline: [] })),
     ])
       .then(([entry, commentGroups]) => {
+        const sessionAuthor = session?.user?.name ?? null;
+        const contentType = entry.type || type || "";
+        if (!canEditContent(contentType, entry.author, sessionAuthor)) {
+          toast.error("无权编辑此内容");
+          navigate(`/${type}/${id}`, { replace: true });
+          return;
+        }
         setTitle(entry.title || "");
         setBody(entry.body);
         setEntryAuthor(entry.author);
@@ -83,7 +91,7 @@ export function ArticleEdit() {
         }
         setLoaded(true);
       });
-  }, [id, isNew, toast, type]);
+  }, [id, isNew, toast, type, navigate, session?.user?.name]);
 
   const handleEditorCreate = (editor: Editor) => {
     editorRef.current = editor;
@@ -193,10 +201,10 @@ export function ArticleEdit() {
     navigate(-1);
   };
 
-  if (!loaded) return <p style={{ color: "var(--color-text-muted)" }}>加载中…</p>;
+  if (!loaded) return <p className="orbit-muted">加载中…</p>;
 
   return (
-    <div style={{ maxWidth: "720px", margin: "0 auto" }}>
+    <div className="orbit-editor-layout">
       {/* 顶部操作栏 */}
       <div className="flex items-center justify-between mb-6 gap-4">
         <div>
@@ -204,7 +212,7 @@ export function ArticleEdit() {
             {isNew ? `新建${TYPE_LABEL[type || ""] || ""}` : "编辑"}
           </h2>
           {displayAuthor && (
-            <p className="orbit-entry-date" style={{ marginTop: "0.25rem" }}>
+            <p className="orbit-entry-date mt-1">
               作者：{displayAuthor}
             </p>
           )}
@@ -227,7 +235,6 @@ export function ArticleEdit() {
             onClick={handleSave}
             disabled={saving}
             className="orbit-btn orbit-btn-primary"
-            style={{ opacity: saving ? 0.6 : 1 }}
           >
             {saving ? "保存中…" : "保存"}
           </button>
@@ -240,28 +247,12 @@ export function ArticleEdit() {
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="标题"
-        style={{
-          width: "100%",
-          marginBottom: "1rem",
-          padding: "0.625rem 0.875rem",
-          fontSize: "var(--type-title)",
-          fontFamily: "var(--font-heading)",
-          fontWeight: 400,
-          border: "none",
-          borderBottom: "1px solid var(--color-border-light)",
-          background: "transparent",
-          color: "var(--color-text-primary)",
-          outline: "none",
-          lineHeight: "var(--leading-heading)",
-        }}
+        className="orbit-title-input"
       />
 
       {!isMemo && (
-        <div style={{ marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <label
-            htmlFor="entry-date"
-            style={{ color: "var(--color-text-muted)", fontSize: "var(--type-secondary)" }}
-          >
+        <div className="orbit-form-row">
+          <label htmlFor="entry-date" className="orbit-form-label">
             日期
           </label>
           <input
@@ -269,16 +260,7 @@ export function ArticleEdit() {
             type="date"
             value={toDateInput(entryDate)}
             onChange={(e) => setEntryDate(fromDateInput(e.target.value))}
-            style={{
-              padding: "0.375rem 0.625rem",
-              fontSize: "var(--type-secondary)",
-              fontFamily: "var(--font-body)",
-              border: "1px solid var(--color-border-light)",
-              borderRadius: "0.375rem",
-              background: "transparent",
-              color: "var(--color-text-primary)",
-              outline: "none",
-            }}
+            className="orbit-input-date"
           />
         </div>
       )}

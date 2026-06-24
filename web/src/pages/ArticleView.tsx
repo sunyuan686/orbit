@@ -7,7 +7,6 @@ import {
   deleteEntry,
   fetchComments,
   fetchEntry,
-  formatDate,
   getApiErrorMessage,
   shouldToastApiError,
   TYPE_LABEL,
@@ -17,9 +16,11 @@ import {
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../lib/useToast";
 import { TiptapEditor } from "../components/TiptapEditor";
+import { ArticleMetadata } from "../components/ArticleMetadata";
 import { CommentSection } from "../components/CommentSection";
 import { TableOfContents, MobileToc, extractToc } from "../components/TableOfContents";
 import { getCommentCapabilities } from "../lib/commentCapabilities";
+import { canEditContent, canDeleteContent } from "../lib/contentPolicies";
 
 export function ArticleView() {
   const { type, id } = useParams<{ type: string; id: string }>();
@@ -42,7 +43,8 @@ export function ArticleView() {
   const targetType = entry?.type === "memo" ? "memo" : "entry";
   // 当前登录作者，只取决于会话本身（user.name 即规范作者「小圆子/小麟子」）
   const currentAuthor = session?.user?.name ?? null;
-  const canEditEntry = !!entry?.author && entry.author === currentAuthor;
+  const canEditEntry = canEditContent(entry?.type ?? type ?? "", entry?.author, currentAuthor);
+  const canDeleteEntry = canDeleteContent(entry?.author, currentAuthor);
 
   const loadComments = useCallback(
     async (targetId: string, nextTargetType: "entry" | "memo") => {
@@ -94,8 +96,8 @@ export function ArticleView() {
     [entry]
   );
 
-  if (error) return <p style={{ color: "oklch(0.55 0.18 27)" }}>文章不存在</p>;
-  if (!entry) return <p style={{ color: "var(--color-text-muted)" }}>加载中…</p>;
+  if (error) return <p className="orbit-danger-text">文章不存在</p>;
+  if (!entry) return <p className="orbit-muted">加载中…</p>;
 
   async function refreshComments() {
     if (!entry) return;
@@ -164,9 +166,8 @@ export function ArticleView() {
   }
 
   return (
-    <div className="flex gap-8" style={{ maxWidth: "900px", margin: "0 auto" }}>
-      {/* 文章主体 */}
-      <div className="flex-1 min-w-0" style={{ maxWidth: "680px" }}>
+    <div className="orbit-article-layout flex gap-8">
+      <div className="orbit-read-column">
         <button
           type="button"
           onClick={() => (type ? navigate(`/${type}`) : navigate(-1))}
@@ -183,37 +184,35 @@ export function ArticleView() {
         <div className="flex items-start justify-between mb-8 gap-4">
           <div>
             {entry.title && (
-              <h2 className="orbit-page-title" style={{ marginBottom: "0.25rem" }}>
+              <h2 className="orbit-page-title orbit-page-title--tight">
                 {entry.title}
               </h2>
             )}
-            {entry.entryDate && (
-              <p className="orbit-entry-date" style={{ marginTop: entry.title ? undefined : 0 }}>
-                {formatDate(entry.entryDate)}
-                {entry.author && (
-                  <span style={{ marginLeft: "0.75rem" }}>{entry.author}</span>
-                )}
-              </p>
-            )}
-            {!entry.entryDate && entry.author && (
-              <p className="orbit-entry-date">{entry.author}</p>
-            )}
+            <ArticleMetadata
+              type={entry.type}
+              author={entry.author}
+              modifiedBy={entry.modifiedBy ?? null}
+              entryDate={entry.entryDate}
+              createdAt={entry.createdAt}
+              updatedAt={entry.updatedAt}
+            />
           </div>
           {canEditEntry && (
             <div className="flex items-center gap-2 shrink-0">
               <Link to={`/${type}/${entry.id}/edit`} className="orbit-btn">
                 编辑
               </Link>
-              <button
-                type="button"
-                onClick={handleDeleteArticle}
-                className="orbit-btn"
-                aria-label="删除"
-                title="删除"
-                style={{ color: "var(--color-danger, oklch(0.55 0.2 27))" }}
-              >
-                删除
-              </button>
+              {canDeleteEntry && (
+                <button
+                  type="button"
+                  onClick={handleDeleteArticle}
+                  className="orbit-btn orbit-btn-danger"
+                  aria-label="删除"
+                  title="删除"
+                >
+                  删除
+                </button>
+              )}
             </div>
           )}
         </div>
