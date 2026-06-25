@@ -9,6 +9,8 @@ import { articles } from "./routes/articles.js";
 import { assets } from "./routes/assets.js";
 import { search } from "./routes/search.js";
 import { comments } from "./routes/comments.js";
+import { space } from "./routes/space.js";
+import { settings } from "./routes/settings.js";
 import { auth } from "./auth.js";
 import { db } from "../db/index.js";
 
@@ -45,6 +47,10 @@ app.use("/api/search", requireAuth);
 app.use("/api/comments/*", requireAuth);
 app.use("/api/comments", requireAuth);
 app.use("/api/assets/*", requireAuth);
+app.use("/api/space/*", requireAuth);
+app.use("/api/space", requireAuth);
+app.use("/api/settings/*", requireAuth);
+app.use("/api/settings", requireAuth);
 app.use("/assets/*", requireAuth);
 
 // API 路由
@@ -52,6 +58,8 @@ app.route("/api/articles", articles);
 app.route("/api/search", search);
 app.route("/api/comments", comments);
 app.route("/api/assets", assets);
+app.route("/api/space", space);
+app.route("/api/settings", settings);
 
 // 静态文件：图片资源（需登录，见上方 /assets/* 中间件）
 app.use(

@@ -324,11 +324,14 @@ Notion `card-base` pattern: white/stone surface, hairline border, 8px radius. Ti
 
 Edit and read modes **must share** the same heading sizes, blockquote, code, and image rules. Images: `max-width: 100%`, `border-radius: 8px`.
 
-### Comments (`.orbit-comment-*`)
+### Comments & marginalia
 
-- Bottom thread: divider-top section below article
-- Inline anchor: amber `highlight-comment` background—warm, not system yellow
-- Quote block: left border + `surface-raised` fill
+- **Bottom comments** (`.orbit-comments`): thread below article; `--space-section` top margin
+- **Marginalia** (`.orbit-marginalia-*`): desktop right collapsible rail; mobile FAB + sheet; quote + body cards; no replies
+- **Inline highlight** in prose: amber `highlight-comment`—warm, not system yellow
+- Quote block: left border + `surface-raised` fill (`.orbit-comment-quote`)
+
+Detail: [docs/MARGINALIA-LAYOUT.md](docs/MARGINALIA-LAYOUT.md)
 
 ### Forms
 
@@ -345,12 +348,13 @@ Short confirmation; success/error vary border color only. No "成功" wording—
 |-------|---------|
 | `.orbit-content` | 680px centered column |
 | `.orbit-editor-layout` | 720px centered column |
-| `.orbit-article-layout` | 900px centered with TOC |
+| `.orbit-article-layout` | 900px read view; left TOC rail + center column + right marginalia rail |
 | `.orbit-muted` | secondary copy styling |
 | `.orbit-danger-text` | error inline text |
 | `.orbit-text-link` | underlined text link |
 | `.orbit-auth-*` | login / register page |
-| `.orbit-toc-*` | article table of contents |
+| `.orbit-toc-*` | collapsible TOC rail (left desktop, FAB mobile) |
+| `.orbit-marginalia-*` | collapsible marginalia rail (right desktop, FAB mobile) |
 
 ## Voice & Content
 

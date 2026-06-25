@@ -29,7 +29,7 @@ disable-model-invocation: true
 |------|-------|
 | List page column | `.orbit-content` |
 | Edit page column | `.orbit-editor-layout` |
-| Read + TOC | `.orbit-article-layout`, `.orbit-read-column` |
+| Read + rails | `.orbit-article-layout`, `.orbit-read-column`, `.orbit-toc-rail`, `.orbit-marginalia-rail` |
 | Muted copy / loading | `.orbit-muted` |
 | Error text | `.orbit-danger-text` |
 | Text link | `.orbit-text-link` |
@@ -39,7 +39,9 @@ disable-model-invocation: true
 | Search UI | `.orbit-badge`, `.orbit-search-meta` |
 | Shell / layout | `.orbit-shell`, `.orbit-header-bar`, `.orbit-icon-btn` |
 | Auth | `.orbit-auth-page`, `.orbit-auth-panel`, `.orbit-auth-tab` |
-| TOC | `.orbit-toc-link`, `.orbit-toc-fab`, `.orbit-toc-drawer` |
+| TOC | `.orbit-toc-rail`, `.orbit-toc-link`, `.orbit-toc-fab`, `.orbit-toc-drawer` |
+| Marginalia | `.orbit-marginalia-gutter`, `.orbit-marginalia-marker`, `.orbit-marginalia-rail`, `.orbit-marginalia-fab` |
+| Comments (bottom) | `.orbit-comments`, `.orbit-comment-*` |
 | TipTap | `.orbit-editor-chrome`, `.orbit-toolbar`, `.orbit-toolbar-btn` |
 
 Full list: `index.css` or DESIGN.md Components section.
@@ -69,5 +71,6 @@ Full list: `index.css` or DESIGN.md Components section.
 ## References
 
 - Spec: [DESIGN.md](../../DESIGN.md)
+- Layout: [docs/MARGINALIA-LAYOUT.md](../../docs/MARGINALIA-LAYOUT.md)
 - Index: [docs/DESIGN.md](../../docs/DESIGN.md)
 - Aesthetic refs: [Notion](https://getdesign.md/notion/design-md), [Geist](https://vercel.com/design.md) (structure only)

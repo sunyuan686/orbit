@@ -2,9 +2,18 @@ import { useNavigate } from "react-router-dom";
 import { authClient } from "../lib/api";
 import { useToast } from "../lib/useToast";
 import { useState } from "react";
+import { LogoutIcon } from "./OrbitIcons";
 
 interface UserAccountProps {
   collapsed?: boolean;
+}
+
+function UserAvatar({ name, title }: { name: string; title: string }) {
+  return (
+    <div className="orbit-avatar orbit-sidebar-account-avatar shrink-0" title={title}>
+      {name.slice(0, 1)}
+    </div>
+  );
 }
 
 export function UserAccount({ collapsed = false }: UserAccountProps) {
@@ -14,6 +23,7 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
   const [signingOut, setSigningOut] = useState(false);
 
   const user = session?.user;
+  const profileTitle = user ? `${user.name}\n${user.email}` : "";
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -31,7 +41,7 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
   if (isPending) {
     return (
       <div
-        className={`orbit-sidebar-footer orbit-muted ${collapsed ? "px-2 py-3 flex justify-center" : "px-4 py-3 text-xs"}`}
+        className={`orbit-sidebar-footer orbit-muted ${collapsed ? "orbit-sidebar-footer--collapsed" : "px-4 py-3 text-xs"}`}
       >
         {collapsed ? "…" : "加载账号…"}
       </div>
@@ -42,42 +52,39 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
 
   if (collapsed) {
     return (
-      <div className="orbit-sidebar-footer px-2 py-3 flex flex-col items-center gap-2">
-        <div
-          className="orbit-avatar w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium"
-          title={`${user.name}\n${user.email}`}
-        >
-          {user.name.slice(0, 1)}
-        </div>
+      <div className="orbit-sidebar-footer orbit-sidebar-footer--collapsed">
+        <UserAvatar name={user.name} title={profileTitle} />
         <button
           type="button"
           onClick={handleSignOut}
           disabled={signingOut}
-          className="orbit-icon-btn p-1.5 cursor-pointer"
+          className="orbit-icon-btn p-2 cursor-pointer w-full flex justify-center"
           title="退出登录"
+          aria-label="退出登录"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
+          <LogoutIcon />
         </button>
       </div>
     );
   }
 
   return (
-    <div className="orbit-sidebar-footer px-4 py-3 space-y-3">
-      <div className="min-w-0">
-        <p className="text-sm font-medium truncate">{user.name}</p>
-        <p className="orbit-sidebar-tagline truncate">{user.email}</p>
+    <div className="orbit-sidebar-footer px-3 py-3">
+      <div className="orbit-sidebar-account-identity">
+        <UserAvatar name={user.name} title={profileTitle} />
+        <div className="orbit-sidebar-account-meta min-w-0">
+          <p className="orbit-sidebar-account-name truncate">{user.name}</p>
+          <p className="orbit-sidebar-tagline truncate" title={user.email}>
+            {user.email}
+          </p>
+        </div>
       </div>
 
       <button
         type="button"
         onClick={handleSignOut}
         disabled={signingOut}
-        className="orbit-btn w-full"
+        className="orbit-btn orbit-sidebar-logout-btn w-full mt-2.5"
       >
         {signingOut ? "退出中…" : "退出登录"}
       </button>

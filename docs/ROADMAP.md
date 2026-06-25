@@ -6,7 +6,7 @@
 >
 > 架构说明见 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 >
-> 最后更新：2026-06-25 · 当前版本：[v0.0.1](../CHANGELOG.md#001---2026-06-24)
+> 最后更新：2026-06-26 · 当前版本：[v0.0.1](../CHANGELOG.md#001---2026-06-24)
 
 ---
 
@@ -31,11 +31,11 @@
 | 阶段        | 名称     | 状态  | 说明                                          |
 | --------- | ------ | --- | ------------------------------------------- |
 | Phase 1–4 | 核心平台   | ✅   | 数据层、认证、CRUD、TipTap、Cloudflare 部署            |
-| Phase A   | 体验补齐   | 🚧  | 元数据展示、设计风格已落地；设置页、审计日志、PWA 待做                          |
+| Phase A   | 体验补齐   | 🚧  | 空间档案、设置页、路由错误边界已落地；结构化日志、审计日志、**组件细节打磨**、PWA 待做 |
 | Phase B   | 外部集成   | 📋  | API Token、GitHub 同步、MCP、Telegram Bot、飞书 Bot |
 | Phase C   | 协作增强   | 📋  | 版本历史、双人联署、消息通知                              |
 | Phase D   | AI 与扩展 | 💡  | AI 聊天助手、智能总结、恋爱地图、共同爱好等                             |
-| Phase E   | 可视化趣味  | 💡  | 热力图、相册、记账、立体书                               |
+| Phase E   | 可视化趣味  | 💡  | 热力图、相册、记账、立体书、彩蛋惊喜                           |
 
 
 ---
@@ -72,8 +72,8 @@
 
 | 功能      | 状态  | 说明                 | 相关代码                                       |
 | ------- | --- | ------------------ | ------------------------------------------ |
-| 底部评论    | ✅   | 嵌套回复一层，按类型开放       | `src/api/comments.ts`                      |
-| 选中文字边注  | ✅   | 混合锚定，编辑时自动重映射      | `web/src/lib/anchor.ts`，`CommentHighlight` |
+| 底部评论    | ✅   | 嵌套回复一层，按类型开放       | `src/api/comments.ts`，`CommentSection.tsx` |
+| 选中文字边注  | ✅   | 混合锚定；桌面右侧可折叠边注轨（默认收起）+ 移动 FAB/Sheet；与底部评论分区 | `MarginaliaRail.tsx`，`InlineMarginaliaPopover.tsx`，`web/src/lib/inlineComment.ts` |
 | 评论编辑 UI | ⚠️  | 后端 API 已有，前端未接编辑入口 | `PUT /api/comments/:id`                    |
 
 
@@ -107,7 +107,7 @@
 | CI/CD 部署      | ✅   | push main 自动部署          | `.github/workflows/deploy.yml`  |
 | Markdown 历史导入 | ✅   | `content/` → SQLite     | `scripts/import-md.ts`          |
 | 响应式 + 暗色主题    | ✅   | 移动端布局、主题切换              | `web/src/components/Layout.tsx` |
-| 文章目录 TOC      | ✅   | 桌面侧栏 + 移动抽屉             | `TableOfContents.tsx`           |
+| 文章目录 TOC      | ✅   | 桌面左侧可折叠 TOC 轨（默认收起）+ 移动 FAB/抽屉 | `TableOfContents.tsx`，`railPreferences.ts`；见 [MARGINALIA-LAYOUT.md](./MARGINALIA-LAYOUT.md) |
 
 
 ---
@@ -120,8 +120,38 @@
 | 固定设计风格 | ✅ | Design Tokens + 组件规范见根目录 [DESIGN.md](../DESIGN.md) |
 | Design Tokens 体系 | ✅ | `web/src/index.css` 与 `DESIGN.md` YAML 对齐；禁止组件内硬编码色值 |
 | 设计规范文档 | ✅ | [DESIGN.md](../DESIGN.md)（规范源）+ [docs/DESIGN.md](./DESIGN.md)（索引） |
-| 主题定制 | ⚠️ | 亮 / 暗 / 跟随系统已支持；`settings` 主题色、纪念日氛围等未接入 |
+| 主题定制 | ✅ | 亮 / 暗 / 跟随系统（本设备 `localStorage`）；主题色 accent 四档预设（双方共用，`/settings`） |
+| 组件细节打磨 | 📋 | 在 Tokens 体系已建立基础上，统一优化 **按钮**（主次/危险态、尺寸、focus）、**动效**（`--motion-*` 过渡、抽屉/FAB、hover）、**图标**（侧栏 emoji → 统一 SVG 体系、`OrbitIcons` 补全）；边注/目录/表单等高频控件优先；对照 [DESIGN.md](../DESIGN.md) Do's and Don'ts |
+| 彩蛋惊喜 | 💡 | 隐藏交互与小惊喜：纪念日 / 相识日触发的动效或文案、Logo / 侧栏等隐秘手势解锁小动画或留言、写作里程碑（如第 100 篇）的轻量庆祝；不打扰日常使用，**优先级低**，待 Phase A–C 与核心体验稳定后再做 |
 
+
+---
+
+## 空间与首页
+
+
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 空间档案 | ✅ | `GET/PUT /api/space`（底层复用 `settings` 表）；`/space` 编辑页；侧栏常驻展示纪念日；MVP 不做昵称爱称 |
+| 首页 / 仪表盘 | 💡 | 有个人特点的首页：纪念日、精选照片、近期动态等；布局与信息架构尚未定稿，待空间档案落地后再设计 |
+| 侧栏纪念日展示 | ✅ | 依赖空间档案 API；点击可进入 `/space` 编辑 |
+
+
+空间身份（纪念日、slogan、封面图等）与偏好设置（主题色、账号）分开展示与编辑，见下方「设置页」。
+
+---
+
+## 可观测性与日志
+
+
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 路由错误边界 | ✅ | `RouteErrorBoundary` 包裹 `<Outlet />`；白屏改为错误页 + 重试 / 返回；开发环境展示 stack |
+| 前端排障文档 | ✅ | [DEBUGGING.md](./DEBUGGING.md)：白屏清单、TipTap 陷阱、`[anchor]` 日志约定；已知 Bug 见 [BUGS.md](./BUGS.md) |
+| 开发环境全局错误钩子 | ✅ | `main.tsx`：`window.error` / `unhandledrejection` → `console.error` |
+| 前端结构化日志 | 📋 | 统一 log level、模块前缀（`[anchor]` / `[api]` / `[route]`）、DEV 可开关；可选接入 Sentry 等等级 |
+| 后端结构化日志 | 📋 | 请求 id、用户 id、耗时；替代零散 `console.info` |
+| 审计日志（持久化） | 📋 | `audit_log` 表：谁、何时、对哪条内容、何种操作（创建 / 编辑 / 删除 / 评论）；查询 API；当前仅 `console.info` |
 
 ---
 
@@ -135,8 +165,7 @@
 | 创建人 / 修改人     | ✅   | 展示作者；有编辑且修改者与作者不同时展示修改人 |
 | 双人联署作者        | 📋  | 每篇仅一个 `author`；memo 通过 `couple` 编辑权限共同维护 |
 | 编辑变更 / 版本历史   | 📋  | 无 revision 表、无 diff                            |
-| 审计日志（持久化）     | 📋  | 仅 `console.info`，无 `audit_log` 表               |
-| 全局设置页         | 📋  | `settings` 表存在，无 API / UI                      |
+| 设置页 | ✅ | `/settings`：主题色 accent、明暗模式、改密 / 改邮箱；API Token、LLM Key 归 Phase B |
 
 
 ---
@@ -162,7 +191,7 @@
 | 集成 AI 聊天助手 | 📋 | 站内对话界面（侧栏 / 浮层），基于日记、留言、备忘录等内容上下文问答；支持回忆检索、关系脉络梳理、写作灵感与润色建议；会话可关联当前文章或全局；依赖 Phase B API Token / MCP |
 | 智能总结 | 💡 | 按日 / 周 / 月 / 年聚合内容，生成恋爱日记式回顾 |
 | AI 辅助编辑 | 💡 | 编辑器内选中段落改写、续写、提炼标题；与边注能力可组合 |
-| 模型与密钥配置 | 📋 | 支持配置 LLM 提供商与 API Key（`settings` 或环境变量），情侣空间内私有 |
+| 模型与密钥配置 | 📋 | 支持配置 LLM 提供商与 API Key（设置页或环境变量），情侣空间内私有 |
 
 
 ---
@@ -178,7 +207,8 @@
 | 热力图                   | 💡  | 按日写作活跃度            |
 | 电子相册                  | 💡  | 从 `asset` 聚合独立浏览   |
 | 记账                    | 💡  | 独立模块               |
-| 立体书                   | 💡  | 创意展示，优先级最低         |
+| 立体书                   | 💡  | 创意展示，优先级较低         |
+| 彩蛋惊喜                  | 💡  | 见「设计与体验」；隐藏交互与惊喜时刻，优先级最低 |
 | 移动端 APP               | 💡  | PWA 优先，原生壳待定       |
 
 
@@ -190,10 +220,16 @@
 
 1. [x] 文章详情展示创建时间、最近修改时间、作者（Phase A）
 2. [x] 固定设计风格：Design Tokens + 组件规范 + `DESIGN.md`（Phase A）
-3. [ ] `settings` API + 设置页：纪念日、昵称、主题色（Phase A）
-4. [ ] 持久化审计日志表 + 查询接口（Phase A）
-5. [ ] 评论编辑 UI（Phase A）
-6. [ ] API Token + REST 规范化（Phase B）
+3. [x] 空间档案：`GET/PUT /api/space` + `/space` 页 + 侧栏纪念日展示；昵称 MVP 跳过（Phase A）
+4. [x] 设置页：主题色 accent + 账号安全；API Token 放 Phase B（Phase A）
+5. [x] 路由错误边界 + 排障文档（Phase A）
+6. [ ] 持久化审计日志表 + 查询接口（Phase A）
+7. [ ] 前端 / 后端结构化日志（Phase A）
+8. [ ] 评论编辑 UI（Phase A）
+9. [ ] 组件细节打磨：按钮 / 动效 / 图标统一（Phase A，见「设计与体验」）
+10. [ ] API Token + REST 规范化（Phase B）
+
+**后续方向（未排期）**：首页 / 仪表盘（纪念日、照片、近期内容等，展示形式待定，依赖空间档案与 `asset` 数据）；彩蛋惊喜（隐藏交互、纪念日动效等，见「设计与体验」，优先级最低）。
 
 ---
 

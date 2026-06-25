@@ -1,9 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { TYPE_LABEL, authClient } from "../lib/api";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { TYPE_LABEL, formatSpaceTagline } from "../lib/api";
 import { setPageTitle } from "../lib/pageTitle";
 import { useTheme, type Theme } from "../lib/useTheme";
+import { SpaceProvider, useSpace } from "../lib/spaceContext";
+import { AppSettingsProvider } from "../lib/appSettingsContext";
 import { UserAccount } from "./UserAccount";
+import { SettingsIcon } from "./OrbitIcons";
+import { RouteErrorBoundary } from "./RouteErrorBoundary";
 
 const navItems = [
   { to: "/diary", label: TYPE_LABEL.diary, icon: "📖" },
@@ -21,6 +25,16 @@ const MAX_WIDTH = 280;
 const COLLAPSE_THRESHOLD = 100;
 
 export function Layout() {
+  return (
+    <SpaceProvider>
+      <AppSettingsProvider>
+        <LayoutShell />
+      </AppSettingsProvider>
+    </SpaceProvider>
+  );
+}
+
+function LayoutShell() {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === "true");
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -32,7 +46,7 @@ export function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
-  const { data: session } = authClient.useSession();
+  const { profile, loading: spaceLoading } = useSpace();
 
   useEffect(() => {
     setOpen(false);
@@ -43,6 +57,14 @@ export function Layout() {
     if (!segment || segment === "login") return;
     if (segment === "search") {
       setPageTitle("搜索");
+      return;
+    }
+    if (segment === "space") {
+      setPageTitle("我们的空间");
+      return;
+    }
+    if (segment === "settings") {
+      setPageTitle("设置");
       return;
     }
     if (segment === "new" || location.pathname.endsWith("/edit")) return;
@@ -154,10 +176,16 @@ export function Layout() {
             </button>
           ) : (
             <>
-              <div className="min-w-0">
+              <Link
+                to="/space"
+                className="orbit-sidebar-brand-link min-w-0 flex-1"
+                title="我们的空间"
+              >
                 <h1 className="orbit-sidebar-title tracking-tight">Orbit</h1>
-                <p className="orbit-sidebar-tagline mt-0.5 truncate">两个人的时间轨道</p>
-              </div>
+                <p className="orbit-sidebar-tagline truncate mt-0.5">
+                  {spaceLoading ? "加载中…" : formatSpaceTagline(profile)}
+                </p>
+              </Link>
               <button
                 onClick={toggleCollapsed}
                 className="orbit-icon-btn hidden md:flex p-1.5 cursor-pointer shrink-0"
@@ -253,15 +281,15 @@ export function Layout() {
             </form>
           </div>
 
-          <div className="flex items-center gap-2">
-            {session?.user && (
-              <span
-                className="orbit-sidebar-tagline hidden sm:inline truncate max-w-[140px]"
-                title={session.user.email}
-              >
-                {session.user.name}
-              </span>
-            )}
+          <div className="flex items-center gap-1 shrink-0">
+            <Link
+              to="/settings"
+              className="orbit-icon-btn p-1.5 cursor-pointer"
+              title="设置"
+              aria-label="设置"
+            >
+              <SettingsIcon />
+            </Link>
             <button
             onClick={() => {
               const order: Theme[] = ["light", "dark", "system"];
@@ -277,7 +305,9 @@ export function Layout() {
         </header>
 
         <main className="flex-1 overflow-y-auto px-4 md:px-8 py-6 md:py-8">
-          <Outlet />
+          <RouteErrorBoundary>
+            <Outlet />
+          </RouteErrorBoundary>
         </main>
       </div>
     </div>

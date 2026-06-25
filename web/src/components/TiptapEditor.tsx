@@ -2,13 +2,17 @@ import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useEffect, useCallback, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useCallback, useMemo, useRef, useState } from "react";
 import { uploadImage, getApiErrorMessage } from "../lib/api";
 import type { CommentItem } from "../lib/api";
 import { normalizeBodyForEditor } from "../lib/content";
 import { useToast } from "../lib/useToast";
 import { CommentHighlight } from "../extensions/CommentHighlight";
 import { resolveCommentPosition, getAnchorContext } from "../lib/anchor";
+import type { InlineDraft } from "../lib/inlineComment";
+import { InlineMarginaliaPopover } from "./InlineMarginaliaPopover";
+
+const INLINE_DRAFT_MARK_ID = "__draft__";
 
 interface Props {
   defaultValue?: string;
@@ -18,13 +22,11 @@ interface Props {
   inlineComments?: CommentItem[];
   enableInlineComments?: boolean;
   activeInlineCommentId?: string | null;
-  onCreateInlineComment?: (draft: {
-    quote: string;
-    anchorFrom: number;
-    anchorTo: number;
-    anchorPrefix: string;
-    anchorSuffix: string;
-  }) => void;
+  inlineDraft?: InlineDraft | null;
+  currentAuthor?: string | null;
+  onCreateInlineComment?: (draft: InlineDraft) => void;
+  onCancelInlineDraft?: () => void;
+  onSubmitInlineComment?: (body: string) => Promise<void>;
   onSelectInlineComment?: (id: string) => void;
   /** 编辑器就绪后回调，用于父组件访问 editor 实例 */
   onEditorCreate?: (editor: Editor) => void;
@@ -138,7 +140,11 @@ export function TiptapEditor({
   inlineComments = [],
   enableInlineComments = false,
   activeInlineCommentId,
+  inlineDraft = null,
+  currentAuthor,
   onCreateInlineComment,
+  onCancelInlineDraft,
+  onSubmitInlineComment,
   onSelectInlineComment,
   onEditorCreate,
 }: Props) {
@@ -154,6 +160,8 @@ export function TiptapEditor({
     anchorPrefix: string;
     anchorSuffix: string;
   } | null>(null);
+  const [draftPopover, setDraftPopover] = useState<{ top: number; left: number } | null>(null);
+  const startingInlineDraftRef = useRef(false);
 
   const inlineCommentKey = useMemo(
     () =>
@@ -213,23 +221,52 @@ export function TiptapEditor({
       Placeholder.configure({ placeholder: "开始写作…" }),
     ],
     content: normalizeBodyForEditor(defaultValue || ""),
-    editable: !readonly,
-    onUpdate: ({ editor }) => {
-      onChange?.(editor.getHTML());
+    editable: !readonly || enableInlineComments,
+    shouldRerenderOnTransaction: !readonly,
+    onUpdate: ({ editor: currentEditor }) => {
+      if (readonly) {
+        return;
+      }
+      onChange?.(currentEditor.getHTML());
     },
     editorProps: {
-      attributes: { class: "orbit-prose" },
+      attributes: {
+        class: "orbit-prose",
+        ...(readonly ? { "data-readonly": "true" } : {}),
+      },
+      handleKeyDown: (_view, event) => {
+        if (!readonly) {
+          return false;
+        }
+        if (event.metaKey || event.ctrlKey) {
+          const key = event.key.toLowerCase();
+          if (key === "a" || key === "c") {
+            return false;
+          }
+          return true;
+        }
+        if (event.key === "Backspace" || event.key === "Delete" || event.key === "Enter") {
+          return true;
+        }
+        if (event.key.length === 1) {
+          return true;
+        }
+        return false;
+      },
       handleClick: (_view, _pos, event) => {
         const target = event.target as HTMLElement | null;
         const mark = target?.closest?.("[data-comment-id]") as HTMLElement | null;
         const commentId = mark?.dataset.commentId;
-        if (commentId) {
+        if (commentId && commentId !== INLINE_DRAFT_MARK_ID) {
           onSelectInlineComment?.(commentId);
           return true;
         }
         return false;
       },
       handlePaste: (_view, event) => {
+        if (readonly) {
+          return true;
+        }
         const items = event.clipboardData?.items;
         if (!items) return false;
         for (const item of Array.from(items)) {
@@ -247,6 +284,9 @@ export function TiptapEditor({
         return false;
       },
       handleDrop: (_view, event) => {
+        if (readonly) {
+          return true;
+        }
         const files = event.dataTransfer?.files;
         if (!files?.length) return false;
         for (const file of Array.from(files)) {
@@ -266,6 +306,13 @@ export function TiptapEditor({
   });
 
   useEffect(() => {
+    if (!editor || editor.isDestroyed) {
+      return;
+    }
+    editor.setEditable(!readonly || enableInlineComments);
+  }, [editor, enableInlineComments, readonly]);
+
+  useEffect(() => {
     editorRef.current = editor;
     if (editor) {
       onEditorCreate?.(editor);
@@ -273,62 +320,166 @@ export function TiptapEditor({
   }, [editor, onEditorCreate]);
 
   useEffect(() => {
-    if (!editor || editor.isDestroyed) return;
+    if (!editor || editor.isDestroyed || readonly) return;
     const current = editor.getHTML();
     if (defaultValue !== undefined && defaultValue !== current) {
       editor.commands.setContent(normalizeBodyForEditor(defaultValue || ""));
     }
-  }, [defaultValue, editor]);
+  }, [defaultValue, editor, readonly]);
 
-  useEffect(() => {
-    if (!editor || editor.isDestroyed || !readonly) return;
-    const updateSelectionMenu = () => {
-      if (!enableInlineComments || !onCreateInlineComment) {
-        setSelectionMenu(null);
-        return;
-      }
+  const updateSelectionMenu = useCallback(() => {
+    const currentEditor = editorRef.current;
+    if (!currentEditor || currentEditor.isDestroyed || !readonly) {
+      return;
+    }
+    if (!enableInlineComments || !onCreateInlineComment || inlineDraft) {
+      setSelectionMenu(null);
+      return;
+    }
 
-      const { from, to, empty } = editor.state.selection;
-      if (empty || from === to) {
-        setSelectionMenu(null);
-        return;
-      }
+    const { from, to, empty } = currentEditor.state.selection;
+    if (empty || from === to) {
+      setSelectionMenu(null);
+      return;
+    }
 
-      const quote = editor.state.doc.textBetween(from, to, " ").trim();
-      if (!quote) {
-        setSelectionMenu(null);
-        return;
-      }
+    const quote = currentEditor.state.doc.textBetween(from, to, " ").trim();
+    if (!quote) {
+      setSelectionMenu(null);
+      return;
+    }
 
-      const { prefix, suffix } = getAnchorContext(editor, from, to);
+    const { prefix, suffix } = getAnchorContext(currentEditor, from, to);
+    const wrapperRect = wrapperRef.current?.getBoundingClientRect();
+    if (!wrapperRect) {
+      return;
+    }
 
-      const wrapperRect = wrapperRef.current?.getBoundingClientRect();
-      const coords = editor.view.coordsAtPos(to);
-      if (!wrapperRect) return;
-
+    try {
+      const coords = currentEditor.view.coordsAtPos(to);
       setSelectionMenu({
-        top: coords.top - wrapperRect.top - 38,
-        left: Math.min(Math.max(coords.left - wrapperRect.left - 48, 0), wrapperRect.width - 110),
+        top: coords.bottom - wrapperRect.top + 8,
+        left: Math.min(Math.max(coords.left - wrapperRect.left, 0), wrapperRect.width - 110),
         quote,
         anchorFrom: from,
         anchorTo: to,
         anchorPrefix: prefix,
         anchorSuffix: suffix,
       });
-    };
+    } catch {
+      setSelectionMenu(null);
+    }
+  }, [enableInlineComments, inlineDraft, onCreateInlineComment, readonly]);
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || !readonly || !enableInlineComments) {
+      return;
+    }
 
     const hideSelectionMenu = () => {
-      window.setTimeout(() => setSelectionMenu(null), 160);
+      window.setTimeout(() => {
+        const currentEditor = editorRef.current;
+        if (!currentEditor || currentEditor.isDestroyed) {
+          return;
+        }
+        const { empty } = currentEditor.state.selection;
+        if (empty) {
+          setSelectionMenu(null);
+        }
+      }, 160);
+    };
+
+    const scheduleSelectionMenuUpdate = () => {
+      window.requestAnimationFrame(() => updateSelectionMenu());
+    };
+
+    const handleTransaction = ({ transaction }: { transaction: { selectionSet: boolean } }) => {
+      if (transaction.selectionSet) {
+        scheduleSelectionMenuUpdate();
+      }
     };
 
     editor.on("selectionUpdate", updateSelectionMenu);
+    editor.on("transaction", handleTransaction);
     editor.on("blur", hideSelectionMenu);
+
+    const dom = editor.view.dom;
+    dom.addEventListener("mouseup", scheduleSelectionMenuUpdate);
+    dom.addEventListener("keyup", scheduleSelectionMenuUpdate);
 
     return () => {
       editor.off("selectionUpdate", updateSelectionMenu);
+      editor.off("transaction", handleTransaction);
       editor.off("blur", hideSelectionMenu);
+      dom.removeEventListener("mouseup", scheduleSelectionMenuUpdate);
+      dom.removeEventListener("keyup", scheduleSelectionMenuUpdate);
     };
-  }, [editor, enableInlineComments, onCreateInlineComment, readonly]);
+  }, [editor, enableInlineComments, readonly, updateSelectionMenu]);
+
+  const updateDraftPopover = useCallback(() => {
+    const currentEditor = editorRef.current;
+    if (!inlineDraft || !currentEditor || currentEditor.isDestroyed) {
+      setDraftPopover(null);
+      return;
+    }
+
+    const wrapperRect = wrapperRef.current?.getBoundingClientRect();
+    if (!wrapperRect) {
+      return;
+    }
+
+    try {
+      const coords = currentEditor.view.coordsAtPos(inlineDraft.anchorTo);
+      setDraftPopover({
+        top: coords.bottom - wrapperRect.top + 8,
+        left: Math.min(Math.max(coords.left - wrapperRect.left, 0), wrapperRect.width - 300),
+      });
+    } catch (err) {
+      console.warn("[marginalia] Failed to position inline draft popover", err);
+      setDraftPopover(null);
+    }
+  }, [inlineDraft]);
+
+  useLayoutEffect(() => {
+    updateDraftPopover();
+
+    const main = document.querySelector("main");
+    main?.addEventListener("scroll", updateDraftPopover, { passive: true });
+    window.addEventListener("resize", updateDraftPopover);
+
+    const editorRoot = document.querySelector(".orbit-read-editor");
+    const resizeObserver =
+      editorRoot && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => updateDraftPopover())
+        : null;
+    if (editorRoot && resizeObserver) {
+      resizeObserver.observe(editorRoot);
+    }
+
+    return () => {
+      main?.removeEventListener("scroll", updateDraftPopover);
+      window.removeEventListener("resize", updateDraftPopover);
+      resizeObserver?.disconnect();
+    };
+  }, [updateDraftPopover]);
+
+  useEffect(() => {
+    if (!inlineDraft) {
+      return;
+    }
+    setSelectionMenu(null);
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as Node | null;
+      if (!target || wrapperRef.current?.contains(target)) {
+        return;
+      }
+      onCancelInlineDraft?.();
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [inlineDraft, onCancelInlineDraft]);
 
   useEffect(() => {
     if (!editor || editor.isDestroyed || !readonly) return;
@@ -371,15 +522,39 @@ export function TiptapEditor({
         textSearchCount++;
       }
 
-      tr = tr.addMark(
-        resolved.from,
-        resolved.to,
-        markType.create({ commentId: comment.id })
-      );
+      try {
+        tr = tr.addMark(
+          resolved.from,
+          resolved.to,
+          markType.create({ commentId: comment.id })
+        );
+      } catch (err) {
+        orphanCount++;
+        console.warn("[anchor] Failed to apply inline highlight mark", comment.id, err);
+      }
+    }
+
+    if (inlineDraft) {
+      try {
+        tr = tr.addMark(
+          inlineDraft.anchorFrom,
+          inlineDraft.anchorTo,
+          markType.create({ commentId: INLINE_DRAFT_MARK_ID })
+        );
+      } catch (err) {
+        console.warn("[anchor] Failed to apply draft highlight mark", err);
+      }
     }
 
     if (tr.docChanged) {
-      editor.view.dispatch(tr);
+      try {
+        editor.view.dispatch(tr);
+        if (inlineDraft) {
+          window.requestAnimationFrame(() => updateDraftPopover());
+        }
+      } catch (err) {
+        console.warn("[anchor] Failed to dispatch inline highlight marks", err);
+      }
     }
 
     // 开发环境下打印锚定统计
@@ -391,7 +566,7 @@ export function TiptapEditor({
         );
       }
     }
-  }, [editor, inlineCommentKey, inlineComments, readonly]);
+  }, [editor, inlineCommentKey, inlineComments, inlineDraft, readonly, updateDraftPopover]);
 
   useEffect(() => {
     if (!editor || editor.isDestroyed || !activeInlineCommentId) return;
@@ -409,10 +584,42 @@ export function TiptapEditor({
     }
   }, [activeInlineCommentId, editor, inlineComments]);
 
+  useEffect(() => {
+    if (!readonly) return;
+    const editorRoot = document.querySelector(".orbit-read-editor");
+    if (!editorRoot) return;
+
+    editorRoot.querySelectorAll(".orbit-comment-highlight").forEach((node) => {
+      const element = node as HTMLElement;
+      const commentId = element.dataset.commentId;
+      const isActive =
+        commentId === activeInlineCommentId || commentId === INLINE_DRAFT_MARK_ID;
+      element.classList.toggle("orbit-comment-highlight--active", isActive);
+    });
+  }, [activeInlineCommentId, inlineComments, inlineDraft, readonly]);
+
+  const startInlineDraftFromSelection = useCallback(() => {
+    if (!selectionMenu || !onCreateInlineComment || startingInlineDraftRef.current) {
+      return;
+    }
+    startingInlineDraftRef.current = true;
+    onCreateInlineComment({
+      quote: selectionMenu.quote,
+      anchorFrom: selectionMenu.anchorFrom,
+      anchorTo: selectionMenu.anchorTo,
+      anchorPrefix: selectionMenu.anchorPrefix,
+      anchorSuffix: selectionMenu.anchorSuffix,
+    });
+    setSelectionMenu(null);
+    window.setTimeout(() => {
+      startingInlineDraftRef.current = false;
+    }, 0);
+  }, [onCreateInlineComment, selectionMenu]);
+
   if (readonly) {
     // 只读模式：直接渲染内容，无边框无背景
     return (
-      <div ref={wrapperRef} className="orbit-read-editor">
+      <div ref={wrapperRef} className="orbit-read-editor" data-readonly={readonly ? "true" : undefined}>
         <EditorContent editor={editor} />
         {selectionMenu && (
           <button
@@ -421,18 +628,32 @@ export function TiptapEditor({
             style={{ top: selectionMenu.top, left: selectionMenu.left }}
             onMouseDown={(event) => {
               event.preventDefault();
-              onCreateInlineComment?.({
-                quote: selectionMenu.quote,
-                anchorFrom: selectionMenu.anchorFrom,
-                anchorTo: selectionMenu.anchorTo,
-                anchorPrefix: selectionMenu.anchorPrefix,
-                anchorSuffix: selectionMenu.anchorSuffix,
-              });
-              setSelectionMenu(null);
+              event.stopPropagation();
+              startInlineDraftFromSelection();
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              startInlineDraftFromSelection();
             }}
           >
             添加边注
           </button>
+        )}
+        {inlineDraft && onSubmitInlineComment && (
+          <div
+            className="orbit-inline-marginalia-popover-anchor"
+            style={
+              draftPopover
+                ? { top: draftPopover.top, left: draftPopover.left }
+                : { top: 0, left: 0, visibility: "hidden" as const }
+            }
+          >
+            <InlineMarginaliaPopover
+              authorName={currentAuthor}
+              onSubmit={onSubmitInlineComment}
+              onCancel={() => onCancelInlineDraft?.()}
+            />
+          </div>
         )}
       </div>
     );

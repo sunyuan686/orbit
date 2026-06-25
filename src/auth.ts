@@ -35,6 +35,13 @@ export function createAuth(db: any, options: { secret?: string; baseURL: string 
       },
     },
 
+    user: {
+      changeEmail: {
+        enabled: true,
+        updateEmailWithoutVerification: true,
+      },
+    },
+
     databaseHooks: {
       user: {
         create: {

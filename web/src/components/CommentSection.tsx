@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { CommentItem } from "../lib/api";
 import { formatDate } from "../lib/api";
+import { CommentComposer } from "./CommentComposer";
 
 function formatCommentTime(ts: number): string {
   const date = formatDate(ts);
@@ -10,80 +11,24 @@ function formatCommentTime(ts: number): string {
   return `${date} ${hh}:${mm}`;
 }
 
-function CommentComposer({
-  placeholder,
-  submitLabel,
-  onSubmit,
-}: {
-  placeholder: string;
-  submitLabel: string;
-  onSubmit: (body: string) => Promise<void>;
-}) {
-  const [body, setBody] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  async function handleSubmit() {
-    const next = body.trim();
-    if (!next || submitting) return;
-    setSubmitting(true);
-    try {
-      await onSubmit(next);
-      setBody("");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div className="orbit-comment-composer">
-      <textarea
-        value={body}
-        onChange={(event) => setBody(event.target.value)}
-        placeholder={placeholder}
-        rows={3}
-      />
-      <div className="orbit-comment-composer-actions">
-        <button
-          type="button"
-          className="orbit-btn orbit-btn-primary"
-          disabled={!body.trim() || submitting}
-          onClick={() => void handleSubmit()}
-        >
-          {submitting ? "发送中" : submitLabel}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function CommentRow({
   comment,
   replies,
-  active,
   currentAuthor,
   onReply,
   onDelete,
-  onSelect,
 }: {
   comment: CommentItem;
   replies?: CommentItem[];
-  active?: boolean;
   currentAuthor?: string | null;
   onReply?: (parentId: string, body: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onSelect?: (id: string) => void;
 }) {
   const [replying, setReplying] = useState(false);
   const canDelete = !!comment.author && comment.author === currentAuthor;
 
   return (
-    <article
-      className={`orbit-comment-item${active ? " orbit-comment-item-active" : ""}`}
-      onClick={() => onSelect?.(comment.id)}
-    >
-      {comment.quote && (
-        <blockquote className="orbit-comment-quote">{comment.quote}</blockquote>
-      )}
+    <article className="orbit-comment-item">
       <div className="orbit-comment-meta">
         <span>{comment.author || "匿名"}</span>
         <time>{formatCommentTime(comment.createdAt)}</time>
@@ -131,38 +76,16 @@ function CommentRow({
 
 export function CommentSection({
   comments,
-  inlineComments,
-  activeInlineCommentId,
   currentAuthor,
-  enableBottom,
-  enableInline,
-  inlineDraft,
   onCreateBottom,
-  onCreateInline,
-  onCancelInlineDraft,
   onReplyBottom,
   onDelete,
-  onSelectInline,
 }: {
   comments: CommentItem[];
-  inlineComments: CommentItem[];
-  activeInlineCommentId: string | null;
   currentAuthor?: string | null;
-  enableBottom: boolean;
-  enableInline: boolean;
-  inlineDraft: {
-    quote: string;
-    anchorFrom: number;
-    anchorTo: number;
-    anchorPrefix: string;
-    anchorSuffix: string;
-  } | null;
   onCreateBottom: (body: string) => Promise<void>;
-  onCreateInline: (body: string) => Promise<void>;
-  onCancelInlineDraft: () => void;
   onReplyBottom: (parentId: string, body: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onSelectInline: (id: string) => void;
 }) {
   const bottomRoots = useMemo(
     () => comments.filter((comment) => !comment.parentId),
@@ -181,73 +104,33 @@ export function CommentSection({
 
   return (
     <section className="orbit-comments">
-      {enableInline && (
-        <div className="orbit-comments-block">
-          <div className="orbit-comments-heading">
-            <h3>边注</h3>
-            <span>{inlineComments.length}</span>
-          </div>
-          {inlineDraft && (
-            <div className="orbit-inline-draft">
-              <blockquote className="orbit-comment-quote">{inlineDraft.quote}</blockquote>
-              <CommentComposer
-                placeholder="给选中的文字写一条边注..."
-                submitLabel="添加边注"
-                onSubmit={onCreateInline}
+      <div className="orbit-comments-block">
+        <div className="orbit-comments-heading">
+          <h3>评论</h3>
+          <span>{comments.length}</span>
+        </div>
+        <CommentComposer
+          placeholder="写一条评论..."
+          submitLabel="评论"
+          onSubmit={onCreateBottom}
+        />
+        {bottomRoots.length > 0 ? (
+          <div className="orbit-comment-list">
+            {bottomRoots.map((comment) => (
+              <CommentRow
+                key={comment.id}
+                comment={comment}
+                replies={repliesByParent.get(comment.id)}
+                currentAuthor={currentAuthor}
+                onReply={onReplyBottom}
+                onDelete={onDelete}
               />
-              <button type="button" onClick={onCancelInlineDraft}>
-                取消
-              </button>
-            </div>
-          )}
-          {inlineComments.length > 0 ? (
-            <div className="orbit-comment-list">
-              {inlineComments.map((comment) => (
-                <CommentRow
-                  key={comment.id}
-                  comment={comment}
-                  active={comment.id === activeInlineCommentId}
-                  currentAuthor={currentAuthor}
-                  onDelete={onDelete}
-                  onSelect={onSelectInline}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="orbit-comments-empty">还没有边注。</p>
-          )}
-        </div>
-      )}
-
-      {enableBottom && (
-        <div className="orbit-comments-block">
-          <div className="orbit-comments-heading">
-            <h3>评论</h3>
-            <span>{comments.length}</span>
+            ))}
           </div>
-          <CommentComposer
-            placeholder="写一条评论..."
-            submitLabel="评论"
-            onSubmit={onCreateBottom}
-          />
-          {bottomRoots.length > 0 ? (
-            <div className="orbit-comment-list">
-              {bottomRoots.map((comment) => (
-                <CommentRow
-                  key={comment.id}
-                  comment={comment}
-                  replies={repliesByParent.get(comment.id)}
-                  currentAuthor={currentAuthor}
-                  onReply={onReplyBottom}
-                  onDelete={onDelete}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="orbit-comments-empty">还没有评论。</p>
-          )}
-        </div>
-      )}
+        ) : (
+          <p className="orbit-comments-empty">还没有评论。</p>
+        )}
+      </div>
     </section>
   );
 }

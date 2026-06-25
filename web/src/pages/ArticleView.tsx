@@ -18,7 +18,8 @@ import { useToast } from "../lib/useToast";
 import { TiptapEditor } from "../components/TiptapEditor";
 import { ArticleMetadata } from "../components/ArticleMetadata";
 import { CommentSection } from "../components/CommentSection";
-import { TableOfContents, MobileToc, extractToc } from "../components/TableOfContents";
+import { MarginaliaRail, MobileMarginalia } from "../components/MarginaliaRail";
+import { TocRail, MobileToc, extractToc } from "../components/TableOfContents";
 import { getCommentCapabilities } from "../lib/commentCapabilities";
 import { canEditContent, canDeleteContent } from "../lib/contentPolicies";
 
@@ -37,11 +38,11 @@ export function ArticleView() {
     anchorSuffix: string;
   } | null>(null);
   const [activeInlineCommentId, setActiveInlineCommentId] = useState<string | null>(null);
+  const [marginaliaOpen, setMarginaliaOpen] = useState(false);
   const [error, setError] = useState(false);
 
   const capabilities = getCommentCapabilities(entry?.type ?? type);
   const targetType = entry?.type === "memo" ? "memo" : "entry";
-  // 当前登录作者，只取决于会话本身（user.name 即规范作者「小圆子/小麟子」）
   const currentAuthor = session?.user?.name ?? null;
   const canEditEntry = canEditContent(entry?.type ?? type ?? "", entry?.author, currentAuthor);
   const canDeleteEntry = canDeleteContent(entry?.author, currentAuthor);
@@ -136,6 +137,7 @@ export function ArticleView() {
       });
       setInlineDraft(null);
       setActiveInlineCommentId(result.id);
+      setMarginaliaOpen(true);
       await refreshComments();
     } catch (err) {
       toast.error(getApiErrorMessage(err, "添加边注失败"));
@@ -165,13 +167,30 @@ export function ArticleView() {
     }
   }
 
+  function handleSelectInline(commentId: string) {
+    setActiveInlineCommentId(commentId);
+    setMarginaliaOpen(true);
+  }
+
+  function handleCreateInlineDraft(draft: {
+    quote: string;
+    anchorFrom: number;
+    anchorTo: number;
+    anchorPrefix: string;
+    anchorSuffix: string;
+  }) {
+    setInlineDraft(draft);
+    setActiveInlineCommentId(null);
+    setMarginaliaOpen(true);
+  }
+
   return (
-    <div className="orbit-article-layout flex gap-8">
-      <div className="orbit-read-column">
+    <div className="orbit-article-layout flex gap-4 xl:gap-5">
+      <div className="orbit-article-main min-w-0 flex-1 flex flex-col">
         <button
           type="button"
           onClick={() => (type ? navigate(`/${type}`) : navigate(-1))}
-          className="orbit-btn mb-4"
+          className="orbit-back-link mb-4"
           aria-label="返回列表"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
@@ -216,52 +235,64 @@ export function ArticleView() {
             </div>
           )}
         </div>
-        <TiptapEditor
-          defaultValue={entry.body}
-          readonly
-          inlineComments={comments.inline}
-          enableInlineComments={capabilities.inline}
-          activeInlineCommentId={activeInlineCommentId}
-          onCreateInlineComment={(draft) => {
-            setInlineDraft(draft);
-            setActiveInlineCommentId(null);
-            window.setTimeout(() => {
-              document.querySelector(".orbit-inline-draft textarea")?.scrollIntoView({
-                behavior: "smooth",
-                block: "center",
-              });
-            }, 0);
-          }}
-          onSelectInlineComment={setActiveInlineCommentId}
-        />
 
-        {(capabilities.bottom || capabilities.inline) && (
-          <CommentSection
-            comments={comments.bottom}
-            inlineComments={comments.inline}
-            activeInlineCommentId={activeInlineCommentId}
-            currentAuthor={currentAuthor}
-            enableBottom={capabilities.bottom}
-            enableInline={capabilities.inline}
-            inlineDraft={inlineDraft}
-            onCreateBottom={(body) => handleCreateBottom(body)}
-            onCreateInline={handleCreateInline}
-            onCancelInlineDraft={() => setInlineDraft(null)}
-            onReplyBottom={(parentId, body) => handleCreateBottom(body, parentId)}
-            onDelete={handleDeleteComment}
-            onSelectInline={setActiveInlineCommentId}
-          />
-        )}
+        <div className="orbit-article-body-row">
+          <TocRail items={toc} />
+
+          <div className="flex flex-1 min-w-0 flex-col">
+            <div className="orbit-prose-row flex min-w-0 w-full">
+              <div className="flex-1 min-w-0">
+                <TiptapEditor
+                  defaultValue={entry.body}
+                  readonly
+                  inlineComments={comments.inline}
+                  enableInlineComments={capabilities.inline}
+                  activeInlineCommentId={activeInlineCommentId}
+                  inlineDraft={inlineDraft}
+                  currentAuthor={currentAuthor}
+                  onCreateInlineComment={handleCreateInlineDraft}
+                  onCancelInlineDraft={() => setInlineDraft(null)}
+                  onSubmitInlineComment={handleCreateInline}
+                  onSelectInlineComment={handleSelectInline}
+                />
+              </div>
+
+              {capabilities.inline && (
+                <MarginaliaRail
+                  inlineComments={comments.inline}
+                  activeInlineCommentId={activeInlineCommentId}
+                  currentAuthor={currentAuthor}
+                  onDelete={handleDeleteComment}
+                  onSelectInline={handleSelectInline}
+                />
+              )}
+            </div>
+
+            {capabilities.bottom && (
+              <CommentSection
+                comments={comments.bottom}
+                currentAuthor={currentAuthor}
+                onCreateBottom={(body) => handleCreateBottom(body)}
+                onReplyBottom={(parentId, body) => handleCreateBottom(body, parentId)}
+                onDelete={handleDeleteComment}
+              />
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* 桌面端：右侧 TOC */}
-      {toc.length > 0 && (
-        <aside className="hidden xl:block w-56 shrink-0 sticky top-8 self-start max-h-[calc(100vh-6rem)] overflow-y-auto">
-          <TableOfContents items={toc} />
-        </aside>
+      {capabilities.inline && (
+        <MobileMarginalia
+          open={marginaliaOpen}
+          onOpenChange={setMarginaliaOpen}
+          inlineComments={comments.inline}
+          activeInlineCommentId={activeInlineCommentId}
+          currentAuthor={currentAuthor}
+          onDelete={handleDeleteComment}
+          onSelectInline={handleSelectInline}
+        />
       )}
 
-      {/* 移动端：浮动按钮 + 底部抽屉 */}
       <MobileToc items={toc} />
     </div>
   );

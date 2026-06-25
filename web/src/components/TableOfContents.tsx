@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, type CSSProperties } from "react";
+import { TOC_RAIL_STORAGE_KEY, useRailExpanded } from "../lib/railPreferences";
 
 export interface TocItem {
   level: number;
@@ -99,6 +100,11 @@ function useScrollHighlight(items: TocItem[]) {
   return { activeId, handleClick };
 }
 
+function dashWidth(level: number, minLevel: number): number {
+  const depth = level - minLevel;
+  return Math.max(10, 18 - depth * 4);
+}
+
 function TocList({
   items,
   activeId,
@@ -132,20 +138,69 @@ interface Props {
   items: TocItem[];
 }
 
-export function TableOfContents({ items }: Props) {
+export function TocRail({ items }: Props) {
+  const [expanded, setExpanded] = useRailExpanded(TOC_RAIL_STORAGE_KEY, false);
   const { activeId, handleClick } = useScrollHighlight(items);
 
   if (items.length === 0) return null;
 
+  const minLevel = Math.min(...items.map((item) => item.level));
+
   return (
-    <div>
-      <p className="orbit-toc-heading">目录</p>
-      <TocList
-        items={items}
-        activeId={activeId}
-        onItemClick={(item, index) => handleClick(item, index)}
-      />
-    </div>
+    <aside
+      className={`orbit-toc-rail hidden xl:flex shrink-0${
+        expanded ? " orbit-toc-rail--expanded" : " orbit-toc-rail--collapsed"
+      }`}
+    >
+      {!expanded ? (
+        <div className="orbit-toc-rail-collapsed">
+          <button
+            type="button"
+            className="orbit-toc-rail-pin"
+            onClick={() => setExpanded(true)}
+            aria-label="展开目录"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path d="M3 6h18M3 12h12M3 18h18" />
+            </svg>
+          </button>
+          <div className="orbit-toc-dashes" role="navigation" aria-label="目录">
+            {items.map((item, index) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`orbit-toc-dash orbit-toc-dash--level-${item.level}${
+                  activeId === item.id ? " orbit-toc-dash--active" : ""
+                }`}
+                style={{ width: `${dashWidth(item.level, minLevel)}px` }}
+                onClick={() => handleClick(item, index)}
+                title={item.text}
+                aria-label={item.text}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="orbit-toc-rail-body">
+          <div className="orbit-rail-header">
+            <button
+              type="button"
+              className="orbit-rail-collapse orbit-rail-collapse--left"
+              onClick={() => setExpanded(false)}
+              aria-label="收起目录"
+            >
+              &laquo;
+            </button>
+            <h3 className="orbit-rail-header-title">目录</h3>
+          </div>
+          <TocList
+            items={items}
+            activeId={activeId}
+            onItemClick={(item, index) => handleClick(item, index)}
+          />
+        </div>
+      )}
+    </aside>
   );
 }
 

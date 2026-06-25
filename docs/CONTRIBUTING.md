@@ -63,6 +63,8 @@ BREAKING CHANGE: /api/import-md removed, use db:import script
 |------|----------|----------|
 | [docs/ROADMAP.md](./ROADMAP.md) | 功能状态变化、排期调整 | ✅ 手改 |
 | [docs/ARCHITECTURE.md](./ARCHITECTURE.md) | 架构、表结构、目录变更 | ✅ 手改 |
+| [docs/DEBUGGING.md](./DEBUGGING.md) | 白屏/边注等排障案例、日志约定 | ✅ 手改 |
+| [docs/BUGS.md](./BUGS.md) | 已知 Bug 清单与回归记录 | ✅ 手改 |
 | [DESIGN.md](../DESIGN.md) | 视觉 token、组件、文案规则变更 | ✅ 手改，并同步 `web/src/index.css` |
 | [CHANGELOG.md](../CHANGELOG.md) | 每次发布 | ❌ **由 release-please 自动生成** |
 | [README.md](../README.md) | 启动方式、项目定位变化 | ✅ 手改 |

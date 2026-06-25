@@ -6,3 +6,9 @@ Orbit 的视觉设计标准以仓库根目录 **[DESIGN.md](../DESIGN.md)** 为�
 - **参考系**：[Notion](https://getdesign.md/notion/design-md)（暖色编辑感）、[Vercel Geist](https://vercel.com/design.md)（token 纪律与约束写法）
 
 改 UI 前请先阅读 `DESIGN.md`。贡献者 checklist 见 [CONTRIBUTING.md](./CONTRIBUTING.md#ui--设计)。
+
+### 专题设计
+
+| 文档 | 说明 |
+|------|------|
+| [MARGINALIA-LAYOUT.md](./MARGINALIA-LAYOUT.md) | 左 TOC / 右边注（默认折）+ 文末评论（v0.4，已落地阅读页） |

@@ -327,3 +327,92 @@ export async function deleteComment(id: string): Promise<void> {
   });
   await assertOk(res, "删除评论失败");
 }
+
+export interface SpaceProfile {
+  anniversaryDate: string | null;
+  slogan: string | null;
+  daysTogether: number | null;
+}
+
+export async function fetchSpace(): Promise<SpaceProfile> {
+  const res = await fetch(`${BASE}/api/space`, { credentials: "include" });
+  await assertOk(res, "加载空间档案失败");
+  return res.json();
+}
+
+export async function updateSpace(data: {
+  anniversaryDate?: string | null;
+  slogan?: string | null;
+}): Promise<SpaceProfile> {
+  const res = await fetch(`${BASE}/api/space`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  await assertOk(res, "保存空间档案失败");
+  return res.json();
+}
+
+export const ACCENT_PRESETS = ["stone", "rose", "sage", "dusk"] as const;
+export type AccentPreset = (typeof ACCENT_PRESETS)[number];
+
+export interface AppSettings {
+  accentPreset: AccentPreset;
+}
+
+export async function fetchAppSettings(): Promise<AppSettings> {
+  const res = await fetch(`${BASE}/api/settings`, { credentials: "include" });
+  await assertOk(res, "加载设置失败");
+  return res.json();
+}
+
+export async function updateAppSettings(data: {
+  accentPreset: AccentPreset;
+}): Promise<AppSettings> {
+  const res = await fetch(`${BASE}/api/settings`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  await assertOk(res, "保存设置失败");
+  return res.json();
+}
+
+const DEFAULT_SPACE_TAGLINE = "两个人的时间轨道";
+
+/** Sidebar tagline: days together, custom slogan, or default */
+export function formatSpaceTagline(profile: SpaceProfile | null | undefined): string {
+  if (!profile) return DEFAULT_SPACE_TAGLINE;
+  if (profile.daysTogether != null && profile.daysTogether > 0) {
+    return `在一起第 ${profile.daysTogether.toLocaleString("zh-CN")} 天`;
+  }
+  if (profile.slogan) return profile.slogan;
+  return DEFAULT_SPACE_TAGLINE;
+}
+
+export function formatAnniversaryCn(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return `${year}年${month}月${day}日`;
+}
+
+/** Client-side preview; mirrors server computeDaysTogether */
+export function computeDaysTogetherFromIso(isoDate: string): number | null {
+  const parts = isoDate.split("-").map(Number);
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
+  const [year, month, day] = parts;
+  const start = new Date(year, month - 1, day);
+  if (
+    start.getFullYear() !== year ||
+    start.getMonth() !== month - 1 ||
+    start.getDate() !== day
+  ) {
+    return null;
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (start > today) return null;
+  const diffMs = today.getTime() - start.getTime();
+  return Math.floor(diffMs / 86_400_000) + 1;
+}

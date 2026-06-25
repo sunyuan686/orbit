@@ -19,6 +19,8 @@ import { createArticlesRoutes } from "./api/articles.js";
 import { createAssetsRoutes } from "./api/assets.js";
 import { createSearchRoutes } from "./api/search.js";
 import { createCommentsRoutes } from "./api/comments.js";
+import { createSpaceRoutes } from "./api/space.js";
+import { createSettingsRoutes } from "./api/settings.js";
 import { getSessionAuthor } from "./api/session-author.js";
 
 export interface Env {
@@ -75,6 +77,10 @@ app.use("/api/search", requireAuth);
 app.use("/api/comments/*", requireAuth);
 app.use("/api/comments", requireAuth);
 app.use("/api/assets/*", requireAuth);
+app.use("/api/space/*", requireAuth);
+app.use("/api/space", requireAuth);
+app.use("/api/settings/*", requireAuth);
+app.use("/api/settings", requireAuth);
 
 // ─── Shared API routes ───────────────────────────────────────────────────────
 
@@ -87,6 +93,20 @@ app.route("/api/comments", createCommentsRoutes(getDb, {
     }), getDb),
 }));
 app.route("/api/articles", createArticlesRoutes(getDb, {
+  getSessionAuthor: (c) =>
+    getSessionAuthor(c, createAuth(getDb(c), {
+      secret: c.env.BETTER_AUTH_SECRET,
+      baseURL: c.env.BETTER_AUTH_URL,
+    }), getDb),
+}));
+app.route("/api/space", createSpaceRoutes(getDb, {
+  getSessionAuthor: (c) =>
+    getSessionAuthor(c, createAuth(getDb(c), {
+      secret: c.env.BETTER_AUTH_SECRET,
+      baseURL: c.env.BETTER_AUTH_URL,
+    }), getDb),
+}));
+app.route("/api/settings", createSettingsRoutes(getDb, {
   getSessionAuthor: (c) =>
     getSessionAuthor(c, createAuth(getDb(c), {
       secret: c.env.BETTER_AUTH_SECRET,

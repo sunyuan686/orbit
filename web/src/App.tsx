@@ -6,6 +6,8 @@ import { ArticleView } from "./pages/ArticleView";
 import { ArticleEdit } from "./pages/ArticleEdit";
 import { Login } from "./pages/Login";
 import { SearchPage } from "./pages/Search";
+import { SpacePage } from "./pages/Space";
+import { SettingsPage } from "./pages/Settings";
 
 export default function App() {
   return (
@@ -20,6 +22,8 @@ export default function App() {
       >
         <Route index element={<Navigate to="/diary" replace />} />
         <Route path="/search" element={<SearchPage />} />
+        <Route path="/space" element={<SpacePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="/:type" element={<ArticleList />} />
         <Route path="/:type/new" element={<ArticleEdit />} />
         <Route path="/:type/:id" element={<ArticleView />} />

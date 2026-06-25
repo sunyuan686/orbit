@@ -55,7 +55,7 @@ entry      — 日记、时间线、留言、信件（软删除）
 asset      — 图片 / 文件（关联 entry）
 memo       — 备忘录（长期维护文档）
 comment    — 底部评论 + 行内边注
-settings   — 全局配置（纪念日、昵称、主题色）
+settings   — 全局配置（纪念日、主题色 accent 等）；空间档案 `GET/PUT /api/space`，偏好 `GET/PUT /api/settings`
 user / session / account / verification  — better-auth 标准表
 ```
 
