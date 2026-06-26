@@ -31,7 +31,7 @@
 | 阶段        | 名称     | 状态  | 说明                                          |
 | --------- | ------ | --- | ------------------------------------------- |
 | Phase 1–4 | 核心平台   | ✅   | 数据层、认证、CRUD、TipTap、Cloudflare 部署            |
-| Phase A   | 体验补齐   | 🚧  | 空间档案、设置页、路由错误边界已落地；结构化日志、审计日志、**组件细节打磨**、PWA 待做 |
+| Phase A   | 体验补齐   | 🚧  | 审计日志、结构化日志、评论编辑 UI 已落地；组件细节打磨、PWA 待做 |
 | Phase B   | 外部集成   | 📋  | API Token、GitHub 同步、MCP、Telegram Bot、飞书 Bot |
 | Phase C   | 协作增强   | 📋  | 版本历史、双人联署、消息通知                              |
 | Phase D   | AI 与扩展 | 💡  | AI 聊天助手、智能总结、恋爱地图、共同爱好等                             |
@@ -74,7 +74,7 @@
 | ------- | --- | ------------------ | ------------------------------------------ |
 | 底部评论    | ✅   | 嵌套回复一层，按类型开放       | `src/api/comments.ts`，`CommentSection.tsx` |
 | 选中文字边注  | ✅   | 混合锚定；桌面右侧可折叠边注轨（默认收起）+ 移动 FAB/Sheet；与底部评论分区 | `MarginaliaRail.tsx`，`InlineMarginaliaPopover.tsx`，`web/src/lib/inlineComment.ts` |
-| 评论编辑 UI | ⚠️  | 后端 API 已有，前端未接编辑入口 | `PUT /api/comments/:id`                    |
+| 评论编辑 UI | ✅  | 底部评论、回复与边注轨均支持作者编辑正文 | `CommentSection.tsx`，`MarginaliaRail.tsx`，`PUT /api/comments/:id` |
 
 
 各类型评论能力见 [ARCHITECTURE.md#评论能力矩阵](./ARCHITECTURE.md#评论能力矩阵)。
@@ -149,9 +149,9 @@
 | 路由错误边界 | ✅ | `RouteErrorBoundary` 包裹 `<Outlet />`；白屏改为错误页 + 重试 / 返回；开发环境展示 stack |
 | 前端排障文档 | ✅ | [DEBUGGING.md](./DEBUGGING.md)：白屏清单、TipTap 陷阱、`[anchor]` 日志约定；已知 Bug 见 [BUGS.md](./BUGS.md) |
 | 开发环境全局错误钩子 | ✅ | `main.tsx`：`window.error` / `unhandledrejection` → `console.error` |
-| 前端结构化日志 | 📋 | 统一 log level、模块前缀（`[anchor]` / `[api]` / `[route]`）、DEV 可开关；可选接入 Sentry 等等级 |
-| 后端结构化日志 | 📋 | 请求 id、用户 id、耗时；替代零散 `console.info` |
-| 审计日志（持久化） | 📋 | `audit_log` 表：谁、何时、对哪条内容、何种操作（创建 / 编辑 / 删除 / 评论）；查询 API；当前仅 `console.info` |
+| 前端结构化日志 | ✅ | `web/src/lib/logger.ts`：模块前缀（`anchor` / `api` / `route` / `global`）；DEV 默认 `debug`，`localStorage orbit:logLevel` 可切换 |
+| 后端结构化日志 | ✅ | `src/lib/logger.ts` + `requestContext` 中间件：requestId、method、path、status、durationMs；`LOG_LEVEL` 环境变量 |
+| 审计日志（持久化） | ✅ | `audit_log` 表 + `recordAudit`；`GET /api/audit` 分页查询；写入覆盖文章 / 评论 / 空间 / 设置变更 |
 
 ---
 
@@ -223,9 +223,9 @@
 3. [x] 空间档案：`GET/PUT /api/space` + `/space` 页 + 侧栏纪念日展示；昵称 MVP 跳过（Phase A）
 4. [x] 设置页：主题色 accent + 账号安全；API Token 放 Phase B（Phase A）
 5. [x] 路由错误边界 + 排障文档（Phase A）
-6. [ ] 持久化审计日志表 + 查询接口（Phase A）
-7. [ ] 前端 / 后端结构化日志（Phase A）
-8. [ ] 评论编辑 UI（Phase A）
+6. [x] 持久化审计日志表 + 查询接口（Phase A）
+7. [x] 前端 / 后端结构化日志（Phase A）
+8. [x] 评论编辑 UI（Phase A）
 9. [ ] 组件细节打磨：按钮 / 动效 / 图标统一（Phase A，见「设计与体验」）
 10. [ ] API Token + REST 规范化（Phase B）
 

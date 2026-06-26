@@ -1,8 +1,10 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CommentItem } from "../lib/api";
 import { formatDate } from "../lib/api";
 import { useMinWidthXl } from "../lib/useBreakpoint";
 import { MARGINALIA_RAIL_STORAGE_KEY, useRailExpanded } from "../lib/railPreferences";
+import { MarginaliaIcon, CloseIcon } from "./OrbitIcons";
+import { CommentComposer } from "./CommentComposer";
 
 function formatMarginaliaTime(ts: number): string {
   const date = formatDate(ts);
@@ -24,22 +26,29 @@ function MarginaliaCard({
   comment,
   active,
   currentAuthor,
+  onEdit,
   onDelete,
   onSelect,
 }: {
   comment: CommentItem;
   active: boolean;
   currentAuthor?: string | null;
+  onEdit: (id: string, body: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onSelect: (id: string) => void;
 }) {
-  const canDelete = !!comment.author && comment.author === currentAuthor;
+  const [editing, setEditing] = useState(false);
+  const canManage = !!comment.author && comment.author === currentAuthor;
 
   return (
     <article
       id={`marginalia-card-${comment.id}`}
       className={`orbit-marginalia-card${active ? " orbit-marginalia-card--active" : ""}`}
-      onClick={() => onSelect(comment.id)}
+      onClick={() => {
+        if (!editing) {
+          onSelect(comment.id);
+        }
+      }}
     >
       {comment.quote && (
         <blockquote className="orbit-comment-quote">{comment.quote}</blockquote>
@@ -48,9 +57,38 @@ function MarginaliaCard({
         <span>{comment.author || "匿名"}</span>
         <time>{formatMarginaliaTime(comment.createdAt)}</time>
       </div>
-      <p className="orbit-comment-body">{comment.body}</p>
-      {canDelete && (
+      {editing ? (
+        <div
+          className="orbit-comment-edit-box"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <CommentComposer
+            key={comment.id}
+            initialBody={comment.body}
+            placeholder="编辑边注..."
+            submitLabel="保存"
+            clearOnSubmit={false}
+            onCancel={() => setEditing(false)}
+            onSubmit={async (body) => {
+              await onEdit(comment.id, body);
+              setEditing(false);
+            }}
+          />
+        </div>
+      ) : (
+        <p className="orbit-comment-body">{comment.body}</p>
+      )}
+      {canManage && !editing && (
         <div className="orbit-comment-actions">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setEditing(true);
+            }}
+          >
+            编辑
+          </button>
           <button
             type="button"
             onClick={(event) => {
@@ -70,12 +108,14 @@ function MarginaliaPanel({
   inlineComments,
   activeInlineCommentId,
   currentAuthor,
+  onEdit,
   onDelete,
   onSelectInline,
 }: {
   inlineComments: CommentItem[];
   activeInlineCommentId: string | null;
   currentAuthor?: string | null;
+  onEdit: (id: string, body: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onSelectInline: (id: string) => void;
 }) {
@@ -91,6 +131,7 @@ function MarginaliaPanel({
               comment={comment}
               active={comment.id === activeInlineCommentId}
               currentAuthor={currentAuthor}
+              onEdit={onEdit}
               onDelete={onDelete}
               onSelect={onSelectInline}
             />
@@ -107,17 +148,10 @@ type MarginaliaContentProps = {
   inlineComments: CommentItem[];
   activeInlineCommentId: string | null;
   currentAuthor?: string | null;
+  onEdit: (id: string, body: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onSelectInline: (id: string) => void;
 };
-
-function MarginaliaTriggerIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
-    </svg>
-  );
-}
 
 function MarginaliaTriggerButton({
   count,
@@ -140,7 +174,7 @@ function MarginaliaTriggerButton({
       aria-label={ariaLabel}
       aria-expanded={ariaExpanded}
     >
-      <MarginaliaTriggerIcon />
+      <MarginaliaIcon size="md" />
       {count > 0 && <span className="orbit-marginalia-trigger-badge">{count}</span>}
     </button>
   );
@@ -172,6 +206,7 @@ export function MarginaliaRail({
   inlineComments,
   activeInlineCommentId,
   currentAuthor,
+  onEdit,
   onDelete,
   onSelectInline,
 }: MarginaliaContentProps) {
@@ -225,6 +260,7 @@ export function MarginaliaRail({
               inlineComments={inlineComments}
               activeInlineCommentId={activeInlineCommentId}
               currentAuthor={currentAuthor}
+              onEdit={onEdit}
               onDelete={onDelete}
               onSelectInline={onSelectInline}
             />
@@ -241,6 +277,7 @@ export function MobileMarginalia({
   inlineComments,
   activeInlineCommentId,
   currentAuthor,
+  onEdit,
   onDelete,
   onSelectInline,
 }: MarginaliaContentProps & {
@@ -294,9 +331,7 @@ export function MobileMarginalia({
               className="orbit-icon-btn p-1 cursor-pointer"
               aria-label="关闭边注"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
+              <CloseIcon size="md" />
             </button>
           </div>
           <div className="orbit-toc-drawer-body orbit-marginalia-drawer-body">
@@ -304,6 +339,7 @@ export function MobileMarginalia({
               inlineComments={inlineComments}
               activeInlineCommentId={activeInlineCommentId}
               currentAuthor={currentAuthor}
+              onEdit={onEdit}
               onDelete={onDelete}
               onSelectInline={onSelectInline}
             />

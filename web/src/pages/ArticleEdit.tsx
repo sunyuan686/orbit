@@ -9,6 +9,8 @@ import { canEditContent } from "../lib/contentPolicies";
 import { useToast } from "../lib/useToast";
 import type { Editor } from "@tiptap/react";
 import { TiptapEditor } from "../components/TiptapEditor";
+import { CloseIcon } from "../components/OrbitIcons";
+import { anchorLogger } from "../lib/logger";
 
 /** Unix 秒 → YYYY-MM-DD（本地时区） */
 function toDateInput(ts: number): string {
@@ -161,7 +163,9 @@ export function ArticleEdit() {
               commentMappings = undefined;
             }
           } catch (err) {
-            console.warn("[anchor] 位置重算失败，跳过", err);
+            anchorLogger.warn("remap positions failed, skipped", {
+              error: err instanceof Error ? err.message : String(err),
+            });
             commentMappings = undefined;
           }
         }
@@ -174,9 +178,9 @@ export function ArticleEdit() {
         });
 
         if (commentMappings && commentMappings.length > 0) {
-          console.debug(
-            `[anchor] 保存时重映射了 ${commentMappings.length} 个边注位置`
-          );
+          anchorLogger.debug("remapped inline comment positions on save", {
+            count: commentMappings.length,
+          });
         }
 
         toast.success("已保存");
@@ -225,9 +229,7 @@ export function ArticleEdit() {
             aria-label="关闭"
             title="关闭"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
+            <CloseIcon />
             关闭
           </button>
           <button

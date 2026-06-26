@@ -9,15 +9,15 @@
 | 能力 | 状态 | 说明 |
 |------|------|------|
 | 路由 `ErrorBoundary` | ✅ 有 | `RouteErrorBoundary` 包住 `<Outlet />`，见 `web/src/components/RouteErrorBoundary.tsx` |
-| `window.onerror` / `unhandledrejection` | ✅ DEV | `main.tsx` 开发环境输出 `[global]` 前缀 |
-| 结构化前端日志 | ❌ 无 | 见 [ROADMAP.md](./ROADMAP.md#可观测性与日志) |
-| 审计日志（持久化） | ❌ 无 | 见 ROADMAP，当前仅 `console.info` |
-| TipTap / 边注锚定 | ⚠️ 部分 | `TiptapEditor` / `ArticleEdit` 在失败时用 `console.warn('[anchor] …')` |
-| 边注起草浮层 | ⚠️ 部分 | 定位失败时 `console.warn('[marginalia] …')` |
-| 后端请求日志 | ⚠️ 默认 Hono | 开发时看终端 `[server]` 输出 |
-| SQLite 直查 | ✅ 有 | 本地 `data/orbit.db`，适合查单条 entry / comment |
+| `window.onerror` / `unhandledrejection` | ✅ DEV | `main.tsx` 经 `globalLogger` 输出 |
+| 结构化前端日志 | ✅ 有 | `web/src/lib/logger.ts`；模块：`anchor` / `api` / `route` / `global` / `marginalia` |
+| 审计日志（持久化） | ✅ 有 | `audit_log` 表 + `GET /api/audit`；见 [ARCHITECTURE.md](./ARCHITECTURE.md#audit_log) |
+| TipTap / 边注锚定 | ✅ 有 | `anchorLogger` 在 `TiptapEditor` / `ArticleEdit` |
+| 边注起草浮层 | ✅ 有 | `marginaliaLogger` 定位失败时 warn |
+| 后端请求日志 | ✅ 有 | `requestContext` 中间件：`[http] request.complete` 含 requestId、耗时 |
+| SQLite 直查 | ✅ 有 | 本地 `data/orbit.db`，适合查单条 entry / comment / audit_log |
 
-**结论**：路由级崩溃已有错误页；**结构化日志与审计表仍待做**。边注 / 锚定问题靠 Console `[anchor]` + 本文清单排查。
+**结论**：路由级崩溃有错误页；**结构化日志与审计表已落地**。边注 / 锚定问题靠 Console `[anchor]` + 本文清单排查。
 
 ---
 
@@ -337,8 +337,8 @@ useEffect(() => {
 | 项 | 优先级 | 说明 |
 |----|--------|------|
 | ~~`RouteErrorBoundary` 包住 `<Outlet />`~~ | ~~P0~~ | ✅ 已实现 |
-| 前端 / 后端结构化日志 | P1 | 见 ROADMAP「可观测性与日志」 |
-| 持久化 `audit_log` | P1 | 见 ROADMAP |
+| ~~前端 / 后端结构化日志~~ | ~~P1~~ | ✅ 已实现 |
+| ~~持久化 `audit_log`~~ | ~~P1~~ | ✅ 已实现 |
 | 边注 mark 成功/失败计数 debug | P2 | 仅 `import.meta.env.DEV` |
 | E2E：选区 → 添加边注 → 提交起草 | P2 | 覆盖 [§3](#3-案例选中文字点击添加边注没反应2026-06) 回归 |
 
@@ -352,6 +352,45 @@ useEffect(() => {
 4. **锚点失效**：正文改过后面板仍显示（quote 兜底），高亮可能不上屏 → 看 `[anchor]` warn，不是白屏  
 5. **起草浮层门闩**：`inlineDraft && draftPopover` 同时判断会导致首帧不渲染 → 见 [§3](#3-案例选中文字点击添加边注没反应2026-06)  
 6. **DOM 选区 ≠ PM 选区**：Console 里 `window.getSelection()` 有文字，不代表 `selectionUpdate` 已触发  
+
+---
+
+## 6. 结构化日志与审计
+
+### 6.1 前端（`web/src/lib/logger.ts`）
+
+| 模块 | 用途 |
+|------|------|
+| `anchor` | 边注锚定、高亮 mark、保存重映射 |
+| `marginalia` | 边注起草浮层定位 |
+| `api` | 非 2xx 请求（DEV） |
+| `route` | `RouteErrorBoundary` 捕获的渲染错误 |
+| `global` | `window.onerror` / `unhandledrejection`（DEV） |
+
+DEV 默认级别 `debug`。Console 执行：
+
+```js
+import { setClientLogLevel } from "/src/lib/logger.ts";
+setClientLogLevel("warn");
+```
+
+或 `localStorage.setItem("orbit:logLevel", "warn")` 后刷新。
+
+### 6.2 后端
+
+- 环境变量 `LOG_LEVEL=debug|info|warn|error`（默认：开发 `debug`，生产 `info`）
+- 每条 HTTP 请求输出 `[http] request.complete`，含 `requestId`、`durationMs`
+- 审计写入 `[audit] recorded`，与 `audit_log` 表对应
+
+### 6.3 审计日志查询
+
+```bash
+# 最近 20 条（需已登录 cookie，或浏览器 DevTools Network 看 /api/audit）
+sqlite3 data/orbit.db \
+  "SELECT created_at, author, action, resource_type, resource_id FROM audit_log ORDER BY created_at DESC LIMIT 20;"
+```
+
+API：`GET /api/audit?limit=50&offset=0&action=article.create&resourceType=entry&since=<unix>`
 
 ---
 

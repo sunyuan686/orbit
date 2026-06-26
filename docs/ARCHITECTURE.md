@@ -56,6 +56,7 @@ asset      — 图片 / 文件（关联 entry）
 memo       — 备忘录（长期维护文档）
 comment    — 底部评论 + 行内边注
 settings   — 全局配置（纪念日、主题色 accent 等）；空间档案 `GET/PUT /api/space`，偏好 `GET/PUT /api/settings`
+audit_log  — 操作审计（创建 / 编辑 / 删除 / 评论 / 空间与设置变更）；`GET /api/audit`
 user / session / account / verification  — better-auth 标准表
 ```
 
@@ -81,6 +82,19 @@ user / session / account / verification  — better-auth 标准表
 | `entryId` | 关联文章，可为空 |
 
 运行时由 `ASSETS_BASE_URL` + `storageKey` 拼接访问 URL，不硬存公网地址。
+
+### audit_log
+
+| 字段 | 说明 |
+|------|------|
+| `action` | `article.create` \| `article.update` \| `article.delete` \| `comment.*` \| `space.update` \| `settings.update` |
+| `resourceType` | `entry` \| `memo` \| `comment` \| `space` \| `settings` |
+| `resourceId` | 目标 ID（空间 / 设置固定为 `space` / `settings`） |
+| `metadata` | JSON 扩展字段（如 `contentType`、`bodyLength`） |
+| `requestId` | 关联 HTTP 请求短 ID |
+| `author` / `userId` | 操作者 |
+
+查询：`GET /api/audit?limit=&offset=&action=&resourceType=&resourceId=&since=`（需登录）。
 
 ### 作者规范
 

@@ -11,6 +11,7 @@ import { CommentHighlight } from "../extensions/CommentHighlight";
 import { resolveCommentPosition, getAnchorContext } from "../lib/anchor";
 import type { InlineDraft } from "../lib/inlineComment";
 import { InlineMarginaliaPopover } from "./InlineMarginaliaPopover";
+import { anchorLogger, marginaliaLogger } from "../lib/logger";
 
 const INLINE_DRAFT_MARK_ID = "__draft__";
 
@@ -435,7 +436,9 @@ export function TiptapEditor({
         left: Math.min(Math.max(coords.left - wrapperRect.left, 0), wrapperRect.width - 300),
       });
     } catch (err) {
-      console.warn("[marginalia] Failed to position inline draft popover", err);
+      marginaliaLogger.warn("Failed to position inline draft popover", {
+        error: err instanceof Error ? err.message : String(err),
+      });
       setDraftPopover(null);
     }
   }, [inlineDraft]);
@@ -530,7 +533,10 @@ export function TiptapEditor({
         );
       } catch (err) {
         orphanCount++;
-        console.warn("[anchor] Failed to apply inline highlight mark", comment.id, err);
+        anchorLogger.warn("Failed to apply inline highlight mark", {
+          commentId: comment.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -542,7 +548,9 @@ export function TiptapEditor({
           markType.create({ commentId: INLINE_DRAFT_MARK_ID })
         );
       } catch (err) {
-        console.warn("[anchor] Failed to apply draft highlight mark", err);
+        anchorLogger.warn("Failed to apply draft highlight mark", {
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -553,7 +561,9 @@ export function TiptapEditor({
           window.requestAnimationFrame(() => updateDraftPopover());
         }
       } catch (err) {
-        console.warn("[anchor] Failed to dispatch inline highlight marks", err);
+        anchorLogger.warn("Failed to dispatch inline highlight marks", {
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -561,9 +571,12 @@ export function TiptapEditor({
     if (inlineComments.length > 0) {
       const total = inlineComments.length;
       if (orphanCount > 0 || textSearchCount > 0) {
-        console.debug(
-          `[anchor] ${total} 边注: ${positionHitCount} 位置命中, ${textSearchCount} 文本搜索, ${orphanCount} 孤儿`
-        );
+        anchorLogger.debug("inline highlight stats", {
+          total,
+          positionHitCount,
+          textSearchCount,
+          orphanCount,
+        });
       }
     }
   }, [editor, inlineCommentKey, inlineComments, inlineDraft, readonly, updateDraftPopover]);

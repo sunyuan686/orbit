@@ -10,12 +10,14 @@ import {
   getApiErrorMessage,
   shouldToastApiError,
   TYPE_LABEL,
+  updateComment,
   type CommentGroups,
   type EntryDetail,
 } from "../lib/api";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../lib/useToast";
 import { TiptapEditor } from "../components/TiptapEditor";
+import { ArrowLeftIcon } from "../components/OrbitIcons";
 import { ArticleMetadata } from "../components/ArticleMetadata";
 import { CommentSection } from "../components/CommentSection";
 import { MarginaliaRail, MobileMarginalia } from "../components/MarginaliaRail";
@@ -154,6 +156,15 @@ export function ArticleView() {
     }
   }
 
+  async function handleEditComment(commentId: string, body: string) {
+    try {
+      await updateComment(commentId, body);
+      await refreshComments();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "保存评论失败"));
+    }
+  }
+
   async function handleDeleteArticle() {
     if (!entry) return;
     const confirmed = window.confirm("确定删除这条内容吗？删除后无法恢复。");
@@ -193,10 +204,7 @@ export function ArticleView() {
           className="orbit-back-link mb-4"
           aria-label="返回列表"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-            <path d="M19 12H5" />
-            <path d="M12 19l-7-7 7-7" />
-          </svg>
+          <ArrowLeftIcon />
           返回{TYPE_LABEL[type || ""] ? TYPE_LABEL[type || ""] : "列表"}
         </button>
 
@@ -262,6 +270,7 @@ export function ArticleView() {
                   inlineComments={comments.inline}
                   activeInlineCommentId={activeInlineCommentId}
                   currentAuthor={currentAuthor}
+                  onEdit={handleEditComment}
                   onDelete={handleDeleteComment}
                   onSelectInline={handleSelectInline}
                 />
@@ -274,6 +283,7 @@ export function ArticleView() {
                 currentAuthor={currentAuthor}
                 onCreateBottom={(body) => handleCreateBottom(body)}
                 onReplyBottom={(parentId, body) => handleCreateBottom(body, parentId)}
+                onEdit={handleEditComment}
                 onDelete={handleDeleteComment}
               />
             )}
@@ -288,6 +298,7 @@ export function ArticleView() {
           inlineComments={comments.inline}
           activeInlineCommentId={activeInlineCommentId}
           currentAuthor={currentAuthor}
+          onEdit={handleEditComment}
           onDelete={handleDeleteComment}
           onSelectInline={handleSelectInline}
         />

@@ -16,16 +16,19 @@ function CommentRow({
   replies,
   currentAuthor,
   onReply,
+  onEdit,
   onDelete,
 }: {
   comment: CommentItem;
   replies?: CommentItem[];
   currentAuthor?: string | null;
   onReply?: (parentId: string, body: string) => Promise<void>;
+  onEdit: (id: string, body: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
   const [replying, setReplying] = useState(false);
-  const canDelete = !!comment.author && comment.author === currentAuthor;
+  const [editing, setEditing] = useState(false);
+  const canManage = !!comment.author && comment.author === currentAuthor;
 
   return (
     <article className="orbit-comment-item">
@@ -33,20 +36,55 @@ function CommentRow({
         <span>{comment.author || "匿名"}</span>
         <time>{formatCommentTime(comment.createdAt)}</time>
       </div>
-      <p className="orbit-comment-body">{comment.body}</p>
-      <div className="orbit-comment-actions">
-        {onReply && (
-          <button type="button" onClick={() => setReplying((value) => !value)}>
-            回复
-          </button>
-        )}
-        {canDelete && (
-          <button type="button" onClick={() => void onDelete(comment.id)}>
-            删除
-          </button>
-        )}
-      </div>
-      {replying && onReply && (
+      {editing ? (
+        <div className="orbit-comment-edit-box">
+          <CommentComposer
+            key={comment.id}
+            initialBody={comment.body}
+            placeholder="编辑评论..."
+            submitLabel="保存"
+            clearOnSubmit={false}
+            onCancel={() => setEditing(false)}
+            onSubmit={async (body) => {
+              await onEdit(comment.id, body);
+              setEditing(false);
+            }}
+          />
+        </div>
+      ) : (
+        <p className="orbit-comment-body">{comment.body}</p>
+      )}
+      {!editing && (
+        <div className="orbit-comment-actions">
+          {onReply && (
+            <button
+              type="button"
+              onClick={() => {
+                setReplying((value) => !value);
+              }}
+            >
+              回复
+            </button>
+          )}
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => {
+                setReplying(false);
+                setEditing(true);
+              }}
+            >
+              编辑
+            </button>
+          )}
+          {canManage && (
+            <button type="button" onClick={() => void onDelete(comment.id)}>
+              删除
+            </button>
+          )}
+        </div>
+      )}
+      {replying && onReply && !editing && (
         <div className="orbit-comment-reply-box">
           <CommentComposer
             placeholder="写一条回复..."
@@ -65,6 +103,7 @@ function CommentRow({
               key={reply.id}
               comment={reply}
               currentAuthor={currentAuthor}
+              onEdit={onEdit}
               onDelete={onDelete}
             />
           ))}
@@ -79,12 +118,14 @@ export function CommentSection({
   currentAuthor,
   onCreateBottom,
   onReplyBottom,
+  onEdit,
   onDelete,
 }: {
   comments: CommentItem[];
   currentAuthor?: string | null;
   onCreateBottom: (body: string) => Promise<void>;
   onReplyBottom: (parentId: string, body: string) => Promise<void>;
+  onEdit: (id: string, body: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
   const bottomRoots = useMemo(
@@ -123,6 +164,7 @@ export function CommentSection({
                 replies={repliesByParent.get(comment.id)}
                 currentAuthor={currentAuthor}
                 onReply={onReplyBottom}
+                onEdit={onEdit}
                 onDelete={onDelete}
               />
             ))}

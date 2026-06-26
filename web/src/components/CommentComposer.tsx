@@ -4,12 +4,18 @@ export function CommentComposer({
   placeholder,
   submitLabel,
   onSubmit,
+  initialBody = "",
+  onCancel,
+  clearOnSubmit = true,
 }: {
   placeholder: string;
   submitLabel: string;
   onSubmit: (body: string) => Promise<void>;
+  initialBody?: string;
+  onCancel?: () => void;
+  clearOnSubmit?: boolean;
 }) {
-  const [body, setBody] = useState("");
+  const [body, setBody] = useState(initialBody);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit() {
@@ -18,7 +24,9 @@ export function CommentComposer({
     setSubmitting(true);
     try {
       await onSubmit(next);
-      setBody("");
+      if (clearOnSubmit) {
+        setBody("");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -33,13 +41,23 @@ export function CommentComposer({
         rows={3}
       />
       <div className="orbit-comment-composer-actions">
+        {onCancel && (
+          <button
+            type="button"
+            className="orbit-btn"
+            disabled={submitting}
+            onClick={onCancel}
+          >
+            取消
+          </button>
+        )}
         <button
           type="button"
           className="orbit-btn orbit-btn-primary"
           disabled={!body.trim() || submitting}
           onClick={() => void handleSubmit()}
         >
-          {submitting ? "发送中" : submitLabel}
+          {submitting ? (submitLabel === "保存" ? "保存中" : "发送中") : submitLabel}
         </button>
       </div>
     </div>

@@ -11,13 +11,20 @@ import { search } from "./routes/search.js";
 import { comments } from "./routes/comments.js";
 import { space } from "./routes/space.js";
 import { settings } from "./routes/settings.js";
+import { audit } from "./routes/audit.js";
 import { auth } from "./auth.js";
 import { db } from "../db/index.js";
+import { createLogger } from "../lib/logger.js";
+import { requestContext } from "../lib/request-context.js";
+
+const bootLog = createLogger("server");
 
 // 启动时自动执行迁移，保证 DB schema 最新
 migrate(db, { migrationsFolder: join(process.cwd(), "src/db/migrations") });
 
 const app = new Hono();
+
+app.use("*", requestContext);
 
 // CORS（开发阶段前端 Vite dev server 跨域）
 app.use(
@@ -51,6 +58,8 @@ app.use("/api/space/*", requireAuth);
 app.use("/api/space", requireAuth);
 app.use("/api/settings/*", requireAuth);
 app.use("/api/settings", requireAuth);
+app.use("/api/audit/*", requireAuth);
+app.use("/api/audit", requireAuth);
 app.use("/assets/*", requireAuth);
 
 // API 路由
@@ -60,6 +69,7 @@ app.route("/api/comments", comments);
 app.route("/api/assets", assets);
 app.route("/api/space", space);
 app.route("/api/settings", settings);
+app.route("/api/audit", audit);
 
 // 静态文件：图片资源（需登录，见上方 /assets/* 中间件）
 app.use(
@@ -70,5 +80,5 @@ app.use(
 );
 
 const port = 3001;
-console.log(`Orbit Server running at http://localhost:${port}`);
+bootLog.info(`Orbit Server running at http://localhost:${port}`);
 serve({ fetch: app.fetch, port });

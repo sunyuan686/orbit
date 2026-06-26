@@ -21,7 +21,9 @@ import { createSearchRoutes } from "./api/search.js";
 import { createCommentsRoutes } from "./api/comments.js";
 import { createSpaceRoutes } from "./api/space.js";
 import { createSettingsRoutes } from "./api/settings.js";
+import { createAuditRoutes } from "./api/audit.js";
 import { getSessionAuthor } from "./api/session-author.js";
+import { requestContext } from "./lib/request-context.js";
 
 export interface Env {
   DB: D1Database;
@@ -33,6 +35,8 @@ export interface Env {
 type HonoEnv = { Bindings: Env };
 
 const app = new Hono<HonoEnv>();
+
+app.use("*", requestContext);
 
 function getDb(c: Context<HonoEnv>) {
   return drizzle(c.env.DB, { schema });
@@ -81,9 +85,12 @@ app.use("/api/space/*", requireAuth);
 app.use("/api/space", requireAuth);
 app.use("/api/settings/*", requireAuth);
 app.use("/api/settings", requireAuth);
+app.use("/api/audit/*", requireAuth);
+app.use("/api/audit", requireAuth);
 
 // ─── Shared API routes ───────────────────────────────────────────────────────
 
+app.route("/api/audit", createAuditRoutes(getDb));
 app.route("/api/search", createSearchRoutes(getDb));
 app.route("/api/comments", createCommentsRoutes(getDb, {
   getSessionAuthor: (c) =>

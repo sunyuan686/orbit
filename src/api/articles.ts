@@ -4,7 +4,13 @@ import { eq, and, isNull, asc, desc } from "drizzle-orm";
 import { resolveAuthorForWrite, type CanonicalAuthor } from "../authors.js";
 import { canEditContent, canDeleteContent } from "../content-policies.js";
 import { toPlainText, isEmptyBody } from "../lib/plain-text.js";
+import { getRequestId } from "../lib/request-context.js";
 import { entry, memo, comment } from "../db/schema.js";
+import {
+  AuditAction,
+  AuditResourceType,
+  recordAudit,
+} from "../services/audit.js";
 import type { SessionAuthor } from "./session-author.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
@@ -48,12 +54,24 @@ function generateId(prefix: string): string {
   return `${prefix}_${suffix}`;
 }
 
-function logWrite(action: string, details: Record<string, unknown>) {
-  const now = new Date();
-  const stamp =
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}` +
-    ` ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
-  console.info(`${stamp} [write:${action}]`, details);
+async function auditArticleWrite(
+  c: Context,
+  db: any,
+  sessionAuthor: SessionAuthor,
+  action: string,
+  resourceType: string,
+  resourceId: string,
+  metadata: Record<string, unknown>
+): Promise<void> {
+  await recordAudit(db, {
+    userId: sessionAuthor.userId,
+    author: sessionAuthor.author,
+    action,
+    resourceType,
+    resourceId,
+    metadata,
+    requestId: getRequestId(c),
+  });
 }
 
 function mapEntrySummary(row: {
@@ -232,10 +250,8 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
         modifiedBy: author,
         updatedAt: now(),
       });
-      logWrite("article.create", {
-        id,
-        type,
-        author,
+      await auditArticleWrite(c, db, sessionAuthor!, AuditAction.ARTICLE_CREATE, AuditResourceType.MEMO, id, {
+        contentType: type,
         titleLength: title?.length ?? 0,
         bodyLength: body?.length ?? 0,
       });
@@ -261,10 +277,8 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       createdAt: now(),
       updatedAt: now(),
     });
-    logWrite("article.create", {
-      id,
-      type,
-      author,
+    await auditArticleWrite(c, db, sessionAuthor!, AuditAction.ARTICLE_CREATE, AuditResourceType.ENTRY, id, {
+      contentType: type,
       titleLength: title?.length ?? 0,
       bodyLength: bodyValue.length,
       entryDate: entryDate ?? null,
@@ -315,10 +329,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
           updatedAt: now(),
         })
         .where(eq(memo.id, id));
-      logWrite("article.update", {
-        id,
-        type: "memo",
-        author,
+      await auditArticleWrite(c, db, sessionAuthor!, AuditAction.ARTICLE_UPDATE, AuditResourceType.MEMO, id, {
         titleLength: title?.length ?? null,
         bodyLength: body?.length ?? null,
       });
@@ -332,7 +343,6 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       .get();
 
     if (!existing) {
-      logWrite("article.update.miss", { id, type: "entry" });
       return c.json({ error: "not found" }, 404);
     }
 
@@ -386,16 +396,10 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
             )
           );
       }
-      logWrite("article.update.commentPositions", {
-        id,
-        count: commentMappings.length,
-      });
     }
 
-    logWrite("article.update", {
-      id,
-      type: "entry",
-      author,
+    await auditArticleWrite(c, db, sessionAuthor!, AuditAction.ARTICLE_UPDATE, AuditResourceType.ENTRY, id, {
+      contentType: existing.type,
       titleLength: title?.length ?? null,
       bodyLength: body?.length ?? null,
       entryDate: entryDate ?? null,
@@ -430,7 +434,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
         return c.json({ error: "只能删除自己创建的内容" }, 403);
       }
       await db.update(memo).set({ deletedAt: now() }).where(eq(memo.id, id));
-      logWrite("article.delete", { id, type: "memo" });
+      await auditArticleWrite(c, db, sessionAuthor!, AuditAction.ARTICLE_DELETE, AuditResourceType.MEMO, id, {});
       return c.json({ ok: true });
     }
 
@@ -461,7 +465,9 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     }
 
     await db.update(entry).set({ deletedAt: now() }).where(eq(entry.id, id));
-    logWrite("article.delete", { id, type: "entry" });
+    await auditArticleWrite(c, db, sessionAuthor!, AuditAction.ARTICLE_DELETE, AuditResourceType.ENTRY, id, {
+      contentType: entryRow.type,
+    });
 
     return c.json({ ok: true });
   });

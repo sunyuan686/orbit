@@ -1,38 +1,211 @@
-export function SettingsIcon() {
+import type { ReactNode, SVGProps } from "react";
+
+export type OrbitIconSize = "sm" | "md" | "nav";
+
+const ICON_PX: Record<OrbitIconSize, number> = {
+  sm: 16,
+  md: 20,
+  nav: 20,
+};
+
+type OrbitIconProps = SVGProps<SVGSVGElement> & {
+  size?: OrbitIconSize;
+};
+
+function OrbitIcon({ size = "sm", className, children, ...props }: OrbitIconProps & { children: ReactNode }) {
+  const px = ICON_PX[size];
   return (
     <svg
-      width="16"
-      height="16"
+      width={px}
+      height={px}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.75"
+      strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
+      className={className}
+      {...props}
     >
-      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-      <circle cx="12" cy="12" r="3" />
+      {children}
     </svg>
   );
 }
 
-export function LogoutIcon() {
+export function DiaryIcon(props: OrbitIconProps) {
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
+    <OrbitIcon {...props}>
+      <path d="M12 7v14" />
+      <path d="M5.5 5.5A2 2 0 0 1 7 5h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 1.5-1.94" />
+      <path d="M9 5V3.5A1.5 1.5 0 0 1 10.5 2h3A1.5 1.5 0 0 1 15 3.5V5" />
+    </OrbitIcon>
+  );
+}
+
+export function TimelineIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <ellipse cx="12" cy="12" rx="8" ry="3.25" transform="rotate(-18 12 12)" />
+      <circle cx="17.5" cy="9.5" r="1.25" fill="currentColor" stroke="none" />
+      <path d="M6.5 14.5l1.25 1.25M9 17l.75.75" />
+    </OrbitIcon>
+  );
+}
+
+export function MessageIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </OrbitIcon>
+  );
+}
+
+export function LetterIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 7 9 6 9-6" />
+    </OrbitIcon>
+  );
+}
+
+export function MemoIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M12 17v5" />
+      <path d="M9 22h6" />
+      <path d="M8.5 3.5A5.5 5.5 0 0 1 18 9c0 3.5-2.5 5.5-5 7.5S8 18.5 8 15a5.5 5.5 0 0 1-.5-11.5z" />
+    </OrbitIcon>
+  );
+}
+
+export type NavContentType = "diary" | "timeline" | "message" | "letter" | "memo";
+
+export const NAV_CONTENT_ICONS = {
+  diary: DiaryIcon,
+  timeline: TimelineIcon,
+  message: MessageIcon,
+  letter: LetterIcon,
+  memo: MemoIcon,
+} as const satisfies Record<NavContentType, (props: OrbitIconProps) => React.ReactElement>;
+
+export function SettingsIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
+    </OrbitIcon>
+  );
+}
+
+export function LogoutIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <polyline points="16 17 21 12 16 7" />
       <line x1="21" y1="12" x2="9" y2="12" />
-    </svg>
+    </OrbitIcon>
+  );
+}
+
+export function SearchIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-3-3" />
+    </OrbitIcon>
+  );
+}
+
+export function SunIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+    </OrbitIcon>
+  );
+}
+
+export function MoonIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </OrbitIcon>
+  );
+}
+
+export function MonitorIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <rect x="2" y="3" width="20" height="14" rx="2" />
+      <path d="M8 21h8M12 17v4" />
+    </OrbitIcon>
+  );
+}
+
+export function MenuIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </OrbitIcon>
+  );
+}
+
+export function CloseIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M18 6 6 18M6 6l12 12" />
+    </OrbitIcon>
+  );
+}
+
+export function SidebarExpandIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="m13 5 7 7-7 7M6 5l7 7-7 7" />
+    </OrbitIcon>
+  );
+}
+
+export function SidebarCollapseIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="m11 19-7-7 7-7M18 19l-7-7 7-7" />
+    </OrbitIcon>
+  );
+}
+
+export function ArrowLeftIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M19 12H5" />
+      <path d="M12 19l-7-7 7-7" />
+    </OrbitIcon>
+  );
+}
+
+export function ArrowUpIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M12 19V5" />
+      <path d="m5 12 7-7 7 7" />
+    </OrbitIcon>
+  );
+}
+
+export function TocIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M4 6h16M4 12h10M4 18h16" />
+    </OrbitIcon>
+  );
+}
+
+export function MarginaliaIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+    </OrbitIcon>
   );
 }

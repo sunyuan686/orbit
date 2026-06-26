@@ -9,9 +9,18 @@ import {
   type SpaceProfile,
 } from "../space-profile.js";
 import { readSettingsMap, upsertSetting } from "../db/settings-store.js";
+import { getRequestId } from "../lib/request-context.js";
+import { createLogger } from "../lib/logger.js";
+import {
+  AuditAction,
+  AuditResourceType,
+  recordAudit,
+} from "../services/audit.js";
 import type { SessionAuthor } from "./session-author.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
+
+const log = createLogger("space");
 
 export interface SpaceRouteOptions {
   getSessionAuthor?: (c: Context) => Promise<SessionAuthor | null>;
@@ -42,7 +51,7 @@ export function createSpaceRoutes(
       const profile = buildSpaceProfile(map);
       return c.json(profile satisfies SpaceProfile);
     } catch (err) {
-      console.error("Space profile read error:", err);
+      log.error("read failed", err);
       return c.json({ error: "无法读取空间档案" }, 500);
     }
   });
@@ -59,6 +68,7 @@ export function createSpaceRoutes(
     }
 
     const db = await getDb(c);
+    const changedFields: string[] = [];
 
     if (body.anniversaryDate !== undefined) {
       if (body.anniversaryDate === null || body.anniversaryDate === "") {
@@ -74,6 +84,7 @@ export function createSpaceRoutes(
         }
         await upsertSetting(db, SPACE_SETTING_KEYS.anniversaryDate, stored);
       }
+      changedFields.push("anniversaryDate");
     }
 
     if (body.slogan !== undefined) {
@@ -82,14 +93,26 @@ export function createSpaceRoutes(
         return c.json({ error: "一句话不能超过 80 字" }, 400);
       }
       await upsertSetting(db, SPACE_SETTING_KEYS.slogan, slogan ?? "");
+      changedFields.push("slogan");
     }
 
     try {
       const map = await readSettingsMap(db);
       const profile = buildSpaceProfile(map);
+      if (changedFields.length > 0) {
+        await recordAudit(db, {
+          userId: session.userId,
+          author: session.author,
+          action: AuditAction.SPACE_UPDATE,
+          resourceType: AuditResourceType.SPACE,
+          resourceId: "space",
+          metadata: { changedFields },
+          requestId: getRequestId(c),
+        });
+      }
       return c.json(profile satisfies SpaceProfile);
     } catch (err) {
-      console.error("Space profile write error:", err);
+      log.error("write failed", err);
       return c.json({ error: "空间档案保存失败" }, 500);
     }
   });

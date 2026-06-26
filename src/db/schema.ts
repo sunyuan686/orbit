@@ -198,3 +198,30 @@ export const settings = sqliteTable("settings", {
     .notNull()
     .default(sql`(unixepoch())`),
 });
+
+/**
+ * 审计日志表
+ * action: article.create | article.update | article.delete | comment.* | space.update | settings.update
+ * resourceType: entry | memo | comment | space | settings
+ */
+export const auditLog = sqliteTable(
+  "audit_log",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").references(() => user.id),
+    author: text("author").notNull().default(""),
+    action: text("action").notNull(),
+    resourceType: text("resource_type").notNull(),
+    resourceId: text("resource_id"),
+    metadata: text("metadata"),
+    requestId: text("request_id"),
+    createdAt: integer("created_at")
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [
+    index("idx_audit_log_created").on(t.createdAt),
+    index("idx_audit_log_resource").on(t.resourceType, t.resourceId),
+    index("idx_audit_log_action").on(t.action),
+  ]
+);

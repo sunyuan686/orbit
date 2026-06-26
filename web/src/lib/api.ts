@@ -1,4 +1,5 @@
 import { createAuthClient } from "better-auth/react";
+import { apiLogger } from "./logger";
 
 const BASE = "";
 
@@ -167,7 +168,15 @@ async function parseApiError(res: Response, fallback: string): Promise<ApiError>
 
 async function assertOk(res: Response, fallback: string): Promise<void> {
   if (res.ok) return;
-  throw await parseApiError(res, fallback);
+  const err = await parseApiError(res, fallback);
+  if (import.meta.env.DEV && err.status && err.status >= 400) {
+    apiLogger.warn("request failed", {
+      status: err.status,
+      message: err.message,
+      url: res.url,
+    });
+  }
+  throw err;
 }
 
 export async function fetchEntries(
@@ -377,6 +386,42 @@ export async function updateAppSettings(data: {
     body: JSON.stringify(data),
   });
   await assertOk(res, "保存设置失败");
+  return res.json();
+}
+
+export interface AuditLogItem {
+  id: string;
+  userId: string | null;
+  author: string;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+  metadata: Record<string, unknown> | null;
+  requestId: string | null;
+  createdAt: number;
+}
+
+export async function fetchAuditLogs(opts?: {
+  limit?: number;
+  offset?: number;
+  action?: string;
+  resourceType?: string;
+  resourceId?: string;
+  since?: number;
+}): Promise<{ items: AuditLogItem[]; total: number; limit: number; offset: number }> {
+  const params = new URLSearchParams();
+  if (opts?.limit != null) params.set("limit", String(opts.limit));
+  if (opts?.offset != null) params.set("offset", String(opts.offset));
+  if (opts?.action) params.set("action", opts.action);
+  if (opts?.resourceType) params.set("resourceType", opts.resourceType);
+  if (opts?.resourceId) params.set("resourceId", opts.resourceId);
+  if (opts?.since != null) params.set("since", String(opts.since));
+
+  const query = params.toString();
+  const res = await fetch(`${BASE}/api/audit${query ? `?${query}` : ""}`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载审计日志失败");
   return res.json();
 }
 

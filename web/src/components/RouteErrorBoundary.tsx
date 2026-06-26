@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { routeLogger } from "../lib/logger";
 
 type RouteErrorBoundaryProps = {
   children: ReactNode;
@@ -27,7 +28,9 @@ export class RouteErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[route] Uncaught render error", error, info.componentStack);
+    routeLogger.error("Uncaught render error", error, {
+      componentStack: info.componentStack,
+    });
   }
 
   private handleRetry = () => {

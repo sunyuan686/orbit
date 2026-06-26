@@ -4,6 +4,12 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { type CanonicalAuthor } from "../authors.js";
 import { canComment, type CommentKind } from "../comment-capabilities.js";
 import { comment, entry, memo } from "../db/schema.js";
+import { getRequestId } from "../lib/request-context.js";
+import {
+  AuditAction,
+  AuditResourceType,
+  recordAudit,
+} from "../services/audit.js";
 import type { SessionAuthor } from "./session-author.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
@@ -104,6 +110,25 @@ function normalizeTargetType(value: string | undefined | null): TargetType | nul
 function normalizeKind(value: string | undefined | null): CommentKind | null {
   if (value === "bottom" || value === "inline") return value;
   return null;
+}
+
+async function auditCommentWrite(
+  c: Context,
+  db: any,
+  sessionAuthor: SessionAuthor,
+  action: string,
+  commentId: string,
+  metadata: Record<string, unknown>
+): Promise<void> {
+  await recordAudit(db, {
+    userId: sessionAuthor.userId,
+    author: sessionAuthor.author,
+    action,
+    resourceType: AuditResourceType.COMMENT,
+    resourceId: commentId,
+    metadata,
+    requestId: getRequestId(c),
+  });
 }
 
 export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOptions = {}) {
@@ -246,6 +271,13 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
       updatedAt: now(),
     });
 
+    await auditCommentWrite(c, db, sessionAuthor, AuditAction.COMMENT_CREATE, id, {
+      targetType,
+      targetId,
+      kind,
+      contentType,
+    });
+
     return c.json({ id });
   });
 
@@ -260,9 +292,13 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
     const nextBody = body?.trim();
     if (!nextBody) return c.json({ error: "评论内容不能为空" }, 400);
 
-    // 归属校验：仅作者本人可编辑自己的评论
     const existing = await db
-      .select({ author: comment.author })
+      .select({
+        author: comment.author,
+        targetType: comment.targetType,
+        targetId: comment.targetId,
+        kind: comment.kind,
+      })
       .from(comment)
       .where(and(eq(comment.id, id), isNull(comment.deletedAt)))
       .get();
@@ -276,6 +312,13 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
       .set({ body: nextBody, updatedAt: now() })
       .where(and(eq(comment.id, id), eq(comment.author, sessionAuthor.author), isNull(comment.deletedAt)));
 
+    await auditCommentWrite(c, db, sessionAuthor, AuditAction.COMMENT_UPDATE, id, {
+      targetType: existing.targetType,
+      targetId: existing.targetId,
+      kind: existing.kind,
+      bodyLength: nextBody.length,
+    });
+
     return c.json({ ok: true });
   });
 
@@ -287,9 +330,13 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
 
     const id = c.req.param("id");
 
-    // 归属校验：仅作者本人可删除自己的评论
     const existing = await db
-      .select({ author: comment.author })
+      .select({
+        author: comment.author,
+        targetType: comment.targetType,
+        targetId: comment.targetId,
+        kind: comment.kind,
+      })
       .from(comment)
       .where(and(eq(comment.id, id), isNull(comment.deletedAt)))
       .get();
@@ -302,6 +349,12 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
       .update(comment)
       .set({ deletedAt: now(), updatedAt: now() })
       .where(and(eq(comment.id, id), eq(comment.author, sessionAuthor.author), isNull(comment.deletedAt)));
+
+    await auditCommentWrite(c, db, sessionAuthor, AuditAction.COMMENT_DELETE, id, {
+      targetType: existing.targetType,
+      targetId: existing.targetId,
+      kind: existing.kind,
+    });
 
     return c.json({ ok: true });
   });

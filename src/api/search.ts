@@ -1,8 +1,11 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
+import { createLogger } from "../lib/logger.js";
 import { createSearchService, getSearchIndexStatus } from "../services/search.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
+
+const log = createLogger("search");
 
 export function createSearchRoutes(getDb: DbProvider) {
   const search = new Hono();
@@ -13,7 +16,7 @@ export function createSearchRoutes(getDb: DbProvider) {
       const status = await getSearchIndexStatus(db);
       return c.json(status);
     } catch (err) {
-      console.error("Search status error:", err);
+      log.error("status failed", err);
       return c.json({ error: "无法读取索引状态" }, 500);
     }
   });
@@ -40,7 +43,7 @@ export function createSearchRoutes(getDb: DbProvider) {
       const results = await searchService.search(query, { limit, offset, type });
       return c.json({ query, results, count: results.length });
     } catch (err) {
-      console.error("Search error:", err);
+      log.error("query failed", err, { query });
       return c.json({ error: "搜索失败，请稍后重试" }, 500);
     }
   });

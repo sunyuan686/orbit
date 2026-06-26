@@ -160,6 +160,14 @@ components:
     typography: "{typography.secondary}"
     rounded: "{rounded.lg}"
     padding: "10px 14px"
+  icon-btn:
+    textColor: "{colors.text-muted}"
+    rounded: "{rounded.sm}"
+    size: 36px
+  icon-nav:
+    textColor: inherit
+    size: 20px
+    strokeWidth: 1.5px
 ---
 
 # Orbit
@@ -302,6 +310,77 @@ Avoid heavy drop shadows on static content.
 
 One radius family per view—do not mix 4px and 16px corners on the same screen.
 
+## Icons
+
+Orbit icons follow **Notion-quiet chrome** + **Geist line vectors**: monochrome stroke glyphs that inherit `currentColor`, never competing with prose or decorative color.
+
+**Source of truth**: `web/src/components/OrbitIcons.tsx` — add new UI icons here; do not inline one-off SVGs in layout components.
+
+### Style
+
+| Property | Value | Notes |
+|----------|-------|-------|
+| Geometry | 24×24 `viewBox`, stroke-only | `fill="none"` except brand satellite dot |
+| Stroke | `1.5px`, round cap/join | Consistent across toolbar and nav |
+| Color | `currentColor` | Map to tokens via parent text color |
+| Sizes | `sm` 16px, `md` 20px, `nav` 20px | Toolbar/header = `sm`; mobile menu = `md`; sidebar nav = `nav` |
+
+### Color roles
+
+| Context | Token / class | When |
+|---------|---------------|------|
+| Toolbar / header icon button | `.orbit-icon-btn` → `text-muted`, hover → `text-primary` | Settings, theme toggle, collapse |
+| Sidebar nav item | `.orbit-nav-item` → `text-secondary`, active/hover → `text-primary` | Content-type nav (diary, letter, …) |
+| Search field | `.orbit-search-icon` → `text-muted` | Leading search glyph |
+| Toast status | `.orbit-toast-icon` | Success/error paired with label text |
+
+Icons stay **monochrome in chrome**. Do not use accent, danger, or multi-color fills in navigation or toolbars (Notion: decorative color lives in illustrations only).
+
+### Content-type nav icons
+
+| Type | Component | Metaphor |
+|------|-----------|----------|
+| Diary | `DiaryIcon` | Open book |
+| Timeline | `TimelineIcon` | Orbit ellipse + satellite |
+| Message | `MessageIcon` | Speech bubble |
+| Letter | `LetterIcon` | Envelope |
+| Memo | `MemoIcon` | Map pin |
+
+Export map: `NAV_CONTENT_ICONS` in `OrbitIcons.tsx`. **No emoji in shell chrome** — sidebar, header, toolbar, FABs.
+
+### Chrome & article icons
+
+| Component | Icon | Use |
+|-----------|------|-----|
+| `ArrowLeftIcon` | ← | Article back link |
+| `ArrowUpIcon` | ↑ | Inline marginalia submit |
+| `CloseIcon` | × | Drawer dismiss, edit close |
+| `TocIcon` | ≡ (tiered lines) | TOC rail / FAB |
+| `MarginaliaIcon` | speech square | Marginalia rail / FAB |
+| `SearchIcon` | magnifier | Header search |
+| `MenuIcon` / `SidebarExpandIcon` / `SidebarCollapseIcon` | | Shell navigation |
+| `SunIcon` / `MoonIcon` / `MonitorIcon` | | Theme cycle |
+| `SettingsIcon` / `LogoutIcon` | | Account chrome |
+
+### Icon buttons (`.orbit-icon-btn`)
+
+Inspired by Notion `button-icon-circular` discipline (quiet hit target, no loud fill):
+
+- Min **36×36px** flex box; padding via utility classes
+- `border-radius: 6px` (`rounded.sm`)
+- Default `text-muted`; hover shifts to `text-primary` + optional `sidebar-nav-hover` background on sidebar
+- `:focus-visible` uses focus ring token
+- Press: optional `scale(0.96)` only when `prefers-reduced-motion: no-preference`
+
+### Brand mark (`favicon.svg`)
+
+- Warm paper canvas (`#fafaf9`, aligns with `{colors.bg}`)
+- Single **stroke ellipse** (orbit) in stone muted (`#a8a29e`)
+- One small **ink satellite** dot (`#292524`) — the only fill in the mark
+- Corner radius `6px` (`rounded.sm`) — not App-Store-squircle
+
+Do not use dark `#1c1917` app-icon backgrounds or gradient fills in the brand mark.
+
 ## Components
 
 Runtime classes live in `web/src/index.css`. Use these names in React.
@@ -355,6 +434,8 @@ Short confirmation; success/error vary border color only. No "成功" wording—
 | `.orbit-auth-*` | login / register page |
 | `.orbit-toc-*` | collapsible TOC rail (left desktop, FAB mobile) |
 | `.orbit-marginalia-*` | collapsible marginalia rail (right desktop, FAB mobile) |
+| `.orbit-icon-btn` | header/sidebar icon button (36px min hit area) |
+| `.orbit-nav-icon` | sidebar nav glyph; inherits nav item color |
 
 ## Voice & Content
 
@@ -366,7 +447,7 @@ Copy is part of the design. Orbit speaks **warm, direct Chinese**—not marketin
 - **Toast**: state fact, no 「成功」—「日记已保存」「图片已上传」
 - **Errors**: what happened + what to do —「保存失败。请检查网络后重试」
 - **Metadata**: small, muted, tabular numbers for dates
-- Avoid: 「温馨提示」, exclamation spam, emoji in body copy (nav emoji are OK)
+- Avoid: 「温馨提示」, exclamation spam, emoji in shell chrome or body copy
 
 ## Do's and Don'ts
 
@@ -378,6 +459,8 @@ Copy is part of the design. Orbit speaks **warm, direct Chinese**—not marketin
 - Show `:focus-visible` ring on all interactive elements
 - Honor `prefers-reduced-motion`
 - Prefer 0–150ms transitions; 220ms max for toasts and overlays
+- Add UI icons via `OrbitIcons.tsx`; use `NAV_CONTENT_ICONS` for content-type nav
+- Keep chrome icons monochrome (`currentColor` + text tokens)
 
 **Don't**
 
@@ -388,6 +471,8 @@ Copy is part of the design. Orbit speaks **warm, direct Chinese**—not marketin
 - Use color alone for errors or success
 - Mix sharp and heavily rounded corners in one view
 - Copy Notion's purple CTAs or pastel marketing cards—they clash with Orbit's restraint
+- Use emoji as nav or toolbar icons; use inline SVG outside `OrbitIcons.tsx`
+- Use multi-color or filled decorative icons in chrome
 
 ---
 

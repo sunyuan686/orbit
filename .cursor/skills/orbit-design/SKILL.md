@@ -41,6 +41,7 @@ disable-model-invocation: true
 | Auth | `.orbit-auth-page`, `.orbit-auth-panel`, `.orbit-auth-tab` |
 | TOC | `.orbit-toc-rail`, `.orbit-toc-link`, `.orbit-toc-fab`, `.orbit-toc-drawer` |
 | Marginalia | `.orbit-marginalia-gutter`, `.orbit-marginalia-marker`, `.orbit-marginalia-rail`, `.orbit-marginalia-fab` |
+| Icons | `OrbitIcons.tsx`, `.orbit-icon-btn`, `.orbit-nav-icon` — see DESIGN.md Icons |
 | Comments (bottom) | `.orbit-comments`, `.orbit-comment-*` |
 | TipTap | `.orbit-editor-chrome`, `.orbit-toolbar`, `.orbit-toolbar-btn` |
 
