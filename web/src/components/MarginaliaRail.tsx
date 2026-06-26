@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { scrollBehavior } from "../lib/motion";
 import type { CommentItem } from "../lib/api";
 import { formatDate } from "../lib/api";
 import { useMinWidthXl } from "../lib/useBreakpoint";
 import { MARGINALIA_RAIL_STORAGE_KEY, useRailExpanded } from "../lib/railPreferences";
-import { MarginaliaIcon, CloseIcon } from "./OrbitIcons";
+import { MarginaliaIcon, CloseIcon, ChevronRightIcon } from "./OrbitIcons";
 import { CommentComposer } from "./CommentComposer";
 
 function formatMarginaliaTime(ts: number): string {
@@ -82,6 +83,7 @@ function MarginaliaCard({
         <div className="orbit-comment-actions">
           <button
             type="button"
+            className="orbit-btn-ghost"
             onClick={(event) => {
               event.stopPropagation();
               setEditing(true);
@@ -91,6 +93,7 @@ function MarginaliaCard({
           </button>
           <button
             type="button"
+            className="orbit-btn-ghost orbit-btn-ghost--danger"
             onClick={(event) => {
               event.stopPropagation();
               void onDelete(comment.id);
@@ -224,7 +227,7 @@ export function MarginaliaRail({
     window.requestAnimationFrame(() => {
       document
         .getElementById(`marginalia-card-${activeInlineCommentId}`)
-        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        ?.scrollIntoView({ behavior: scrollBehavior(), block: "nearest" });
     });
   }, [expanded, activeInlineCommentId]);
 
@@ -249,11 +252,11 @@ export function MarginaliaRail({
               <span className="orbit-rail-header-count">{count}</span>
               <button
                 type="button"
-                className="orbit-rail-collapse"
+                className="orbit-icon-btn inline-flex orbit-rail-collapse p-1 cursor-pointer"
                 onClick={() => setExpanded(false)}
                 aria-label="收起边注"
               >
-                &raquo;
+                <ChevronRightIcon size="sm" />
               </button>
             </div>
             <MarginaliaPanel
@@ -293,7 +296,7 @@ export function MobileMarginalia({
     window.requestAnimationFrame(() => {
       document
         .getElementById(`marginalia-card-${activeInlineCommentId}`)
-        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        ?.scrollIntoView({ behavior: scrollBehavior(), block: "nearest" });
     });
   }, [open, activeInlineCommentId]);
 
@@ -310,13 +313,13 @@ export function MobileMarginalia({
         onClick={() => onOpenChange(true)}
       />
 
-      {open && (
-        <div
-          className="orbit-overlay-scrim fixed inset-0 z-40 xl:hidden"
-          onClick={() => onOpenChange(false)}
-          aria-hidden
-        />
-      )}
+      <div
+        className={`orbit-overlay-scrim fixed inset-0 z-40 xl:hidden${
+          open ? " orbit-overlay-scrim--visible" : ""
+        }`}
+        onClick={() => onOpenChange(false)}
+        aria-hidden={!open}
+      />
 
       <div className={`orbit-toc-drawer xl:hidden${open ? " orbit-toc-drawer--open" : ""}`}>
         <div className="orbit-toc-drawer-panel">
@@ -328,7 +331,7 @@ export function MobileMarginalia({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="orbit-icon-btn p-1 cursor-pointer"
+              className="orbit-icon-btn inline-flex p-1 cursor-pointer"
               aria-label="关闭边注"
             >
               <CloseIcon size="md" />

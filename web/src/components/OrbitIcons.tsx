@@ -209,3 +209,128 @@ export function MarginaliaIcon(props: OrbitIconProps) {
     </OrbitIcon>
   );
 }
+
+export function ChevronLeftIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M15 18l-6-6 6-6" />
+    </OrbitIcon>
+  );
+}
+
+export function ChevronRightIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M9 18l6-6-6-6" />
+    </OrbitIcon>
+  );
+}
+
+export function CheckIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M20 6 9 17l-5-5" />
+    </OrbitIcon>
+  );
+}
+
+export function AlertIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v4M12 16h.01" />
+    </OrbitIcon>
+  );
+}
+
+export function BoldIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M6 4h6.5a3.5 3.5 0 0 1 0 7H6V4z" />
+      <path d="M6 11h7a3.5 3.5 0 0 1 0 7H6v-7z" />
+    </OrbitIcon>
+  );
+}
+
+export function ItalicIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M19 4h-9M14 20H5M15 4 9 20" />
+    </OrbitIcon>
+  );
+}
+
+export function StrikeIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M16 4H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H8" />
+      <path d="M4 12h16" />
+    </OrbitIcon>
+  );
+}
+
+export function Heading2Icon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M4 12V4h2.5v3H10V4h2.5v8H10V9H6.5v3H4z" />
+      <path d="M17 14h-4v2h4v2h-6V8h6v2h-4v2h4v2z" />
+    </OrbitIcon>
+  );
+}
+
+export function Heading3Icon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M4 12V4h2.5v3H10V4h2.5v8H10V9H6.5v3H4z" />
+      <path d="M17 10h-4v6h4a2 2 0 0 0 0-4h-4" />
+    </OrbitIcon>
+  );
+}
+
+export function ListIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M9 6h11M9 12h11M9 18h11" />
+      <circle cx="5" cy="6" r="1" fill="currentColor" stroke="none" />
+      <circle cx="5" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="5" cy="18" r="1" fill="currentColor" stroke="none" />
+    </OrbitIcon>
+  );
+}
+
+export function QuoteIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M3 10c0-2.2 1.5-4 3.5-4.5C7 7.5 6 9 6 10.5 6 12 7 13 8.5 13H9v3H5c-1.1 0-2-.9-2-2v-4z" />
+      <path d="M13 10c0-2.2 1.5-4 3.5-4.5C17 7.5 16 9 16 10.5 16 12 17 13 18.5 13H19v3h-4c-1.1 0-2-.9-2-2v-4z" />
+    </OrbitIcon>
+  );
+}
+
+export function ImageIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <circle cx="8.5" cy="10" r="1.5" />
+      <path d="m21 16-5.5-5.5L5 19" />
+    </OrbitIcon>
+  );
+}
+
+export function UndoIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M9 7H4v5" />
+      <path d="M4 12a8 8 0 1 0 2.3 5.7" />
+    </OrbitIcon>
+  );
+}
+
+export function RedoIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M15 7h5v5" />
+      <path d="M20 12a8 8 0 1 1-2.3 5.7" />
+    </OrbitIcon>
+  );
+}

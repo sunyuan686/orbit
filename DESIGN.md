@@ -361,6 +361,20 @@ Export map: `NAV_CONTENT_ICONS` in `OrbitIcons.tsx`. **No emoji in shell chrome*
 | `MenuIcon` / `SidebarExpandIcon` / `SidebarCollapseIcon` | | Shell navigation |
 | `SunIcon` / `MoonIcon` / `MonitorIcon` | | Theme cycle |
 | `SettingsIcon` / `LogoutIcon` | | Account chrome |
+| `ChevronLeftIcon` / `ChevronRightIcon` | | Collapsible rail dismiss |
+| `CheckIcon` / `AlertIcon` | | Toast status glyphs |
+| `BoldIcon` … `RedoIcon` | | TipTap toolbar (editor chrome) |
+
+### Editor toolbar icons
+
+| Control | Component |
+|---------|-----------|
+| Bold / Italic / Strike | `BoldIcon`, `ItalicIcon`, `StrikeIcon` |
+| H2 / H3 | `Heading2Icon`, `Heading3Icon` |
+| List / Quote / Image | `ListIcon`, `QuoteIcon`, `ImageIcon` |
+| Undo / Redo | `UndoIcon`, `RedoIcon` |
+
+Toolbar uses `size="sm"` (16px). **No emoji or Unicode arrows in toolbar.**
 
 ### Icon buttons (`.orbit-icon-btn`)
 
@@ -392,8 +406,10 @@ Runtime classes live in `web/src/index.css`. Use these names in React.
 | Secondary | `.orbit-btn` | Default actions |
 | Primary | `.orbit-btn.orbit-btn-primary` | Single main action per view ("新建", "保存") |
 | Danger | `.orbit-btn.orbit-btn-danger` | Destructive text actions ("删除") |
+| Ghost | `.orbit-btn-ghost` | Inline tertiary actions (comment "编辑", "回复"); add `--danger` for delete |
+| Compact | `.orbit-btn-sm` | Comment composer, tight toolbars |
 
-States: hover lifts background one step; disabled at 45% opacity; `:focus-visible` shows focus ring.
+States: hover lifts background one step; disabled at 45% opacity; `:focus-visible` shows focus ring; `:active` scale feedback on filled buttons.
 
 ### Entry list (`.orbit-entry-card`)
 

@@ -6,6 +6,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { MOTION_SLOW_MS } from "./motion";
+import { CheckIcon, AlertIcon } from "../components/OrbitIcons";
 
 type ToastKind = "success" | "error";
 
@@ -46,7 +48,7 @@ function Toast({ item, onDismiss }: { item: ToastItem; onDismiss: (id: number) =
     const enter = requestAnimationFrame(() => setVisible(true));
     const timer = window.setTimeout(() => {
       setVisible(false);
-      window.setTimeout(() => onDismiss(item.id), 220);
+      window.setTimeout(() => onDismiss(item.id), MOTION_SLOW_MS);
     }, AUTO_DISMISS_MS[item.kind]);
     return () => {
       cancelAnimationFrame(enter);
@@ -60,7 +62,7 @@ function Toast({ item, onDismiss }: { item: ToastItem; onDismiss: (id: number) =
       role="status"
     >
       <span className="orbit-toast-icon" aria-hidden>
-        {item.kind === "success" ? "✓" : "!"}
+        {item.kind === "success" ? <CheckIcon size="sm" /> : <AlertIcon size="sm" />}
       </span>
       <span className="orbit-toast-message">{item.message}</span>
     </div>

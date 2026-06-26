@@ -63,28 +63,45 @@ export function SearchPage() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const toast = useToast();
+  const [prevQuery, setPrevQuery] = useState(query);
+
+  if (query !== prevQuery) {
+    setPrevQuery(query);
+    setInput(query);
+    if (!query.trim()) {
+      setResults([]);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+  }
 
   useEffect(() => {
     setPageTitle(query ? `搜索：${query}` : "搜索");
   }, [query]);
 
   useEffect(() => {
-    setInput(query);
-    if (!query.trim()) {
-      setResults([]);
-      return;
-    }
+    if (!query.trim()) return;
 
-    setLoading(true);
+    let cancelled = false;
     fetchSearch(query)
-      .then((data) => setResults(data.results))
-      .catch((err) => {
-        if (shouldToastApiError(err)) {
-          toast.error(getApiErrorMessage(err, "搜索失败，请稍后重试"));
-        }
-        setResults([]);
+      .then((data) => {
+        if (!cancelled) setResults(data.results);
       })
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!cancelled) {
+          if (shouldToastApiError(err)) {
+            toast.error(getApiErrorMessage(err, "搜索失败，请稍后重试"));
+          }
+          setResults([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [query, toast]);
 
   const handleSubmit = (e: FormEvent) => {

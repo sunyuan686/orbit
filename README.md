@@ -40,9 +40,9 @@ npm run web      # 仅前端
 
 测试环境账号密码：
 
-[sunyuan608@gmail.com](mailto:sunyuan608@gmail.com) / `12345678`
+xyuanzi@agent.qq.com `12345678`
 
-[x@qq.com](mailto:x@qq.com) / `12345678`
+xlinzi@agent.qq.com  `12345678`
 
 **数据库初始化**（首次运行自动执行，无需手动操作）
 

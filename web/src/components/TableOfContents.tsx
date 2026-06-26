@@ -1,38 +1,8 @@
 import { useState, useEffect, useCallback, type CSSProperties } from "react";
+import { scrollBehavior } from "../lib/motion";
 import { TOC_RAIL_STORAGE_KEY, useRailExpanded } from "../lib/railPreferences";
-import { TocIcon, CloseIcon } from "./OrbitIcons";
-
-export interface TocItem {
-  level: number;
-  text: string;
-  id: string;
-}
-
-/** 从 HTML 或 Markdown 文本中提取标题 */
-export function extractToc(content: string): TocItem[] {
-  const items: TocItem[] = [];
-  let idx = 0;
-
-  if (content.trimStart().startsWith("<")) {
-    const matches = content.matchAll(/<h([1-4])[^>]*>(.*?)<\/h\1>/gi);
-    for (const m of matches) {
-      const level = parseInt(m[1]);
-      const text = m[2].replace(/<[^>]+>/g, "").trim();
-      if (text) items.push({ level, text, id: `toc-${idx++}` });
-    }
-    return items;
-  }
-
-  for (const line of content.split("\n")) {
-    const match = line.match(/^(#{1,4})\s+(.+)$/);
-    if (match) {
-      const level = match[1].length;
-      const text = match[2].trim();
-      items.push({ level, text, id: `toc-${idx++}` });
-    }
-  }
-  return items;
-}
+import type { TocItem } from "../lib/toc";
+import { TocIcon, CloseIcon, ChevronLeftIcon } from "./OrbitIcons";
 
 function countPrevSame(items: TocItem[], index: number): number {
   let count = 0;
@@ -59,7 +29,7 @@ function useScrollHighlight(items: TocItem[]) {
         const hText = (h.textContent || "").trim();
         if (hLevel === item.level && hText === item.text) {
           if (matchCount === countPrevSame(items, index)) {
-            h.scrollIntoView({ behavior: "smooth", block: "start" });
+            h.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
             setActiveId(item.id);
             onAfter?.();
             return;
@@ -68,7 +38,7 @@ function useScrollHighlight(items: TocItem[]) {
         }
       }
       if (headings[index]) {
-        headings[index].scrollIntoView({ behavior: "smooth", block: "start" });
+        headings[index].scrollIntoView({ behavior: scrollBehavior(), block: "start" });
         setActiveId(item.id);
         onAfter?.();
       }
@@ -184,11 +154,11 @@ export function TocRail({ items }: Props) {
           <div className="orbit-rail-header">
             <button
               type="button"
-              className="orbit-rail-collapse orbit-rail-collapse--left"
+              className="orbit-icon-btn inline-flex orbit-rail-collapse orbit-rail-collapse--left p-1 cursor-pointer"
               onClick={() => setExpanded(false)}
               aria-label="收起目录"
             >
-              &laquo;
+              <ChevronLeftIcon size="sm" />
             </button>
             <h3 className="orbit-rail-header-title">目录</h3>
           </div>
@@ -220,13 +190,13 @@ export function MobileToc({ items }: Props) {
         <TocIcon size="md" />
       </button>
 
-      {open && (
-        <div
-          className="orbit-overlay-scrim fixed inset-0 z-40 xl:hidden"
-          onClick={() => setOpen(false)}
-          aria-hidden
-        />
-      )}
+      <div
+        className={`orbit-overlay-scrim fixed inset-0 z-40 xl:hidden${
+          open ? " orbit-overlay-scrim--visible" : ""
+        }`}
+        onClick={() => setOpen(false)}
+        aria-hidden={!open}
+      />
 
       <div className={`orbit-toc-drawer xl:hidden${open ? " orbit-toc-drawer--open" : ""}`}>
         <div className="orbit-toc-drawer-panel">
@@ -238,7 +208,7 @@ export function MobileToc({ items }: Props) {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="orbit-icon-btn p-1 cursor-pointer"
+              className="orbit-icon-btn inline-flex p-1 cursor-pointer"
               aria-label="关闭目录"
             >
               <CloseIcon size="md" />

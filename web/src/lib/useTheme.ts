@@ -9,7 +9,14 @@ function getSystemDark(): boolean {
 }
 
 function applyDark(dark: boolean) {
-  document.documentElement.classList.toggle("dark", dark);
+  const root = document.documentElement;
+  root.setAttribute("data-theme-switching", "");
+  root.classList.toggle("dark", dark);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      root.removeAttribute("data-theme-switching");
+    });
+  });
 }
 
 export function useTheme() {

@@ -59,6 +59,7 @@ function CommentRow({
           {onReply && (
             <button
               type="button"
+              className="orbit-btn-ghost"
               onClick={() => {
                 setReplying((value) => !value);
               }}
@@ -69,6 +70,7 @@ function CommentRow({
           {canManage && (
             <button
               type="button"
+              className="orbit-btn-ghost"
               onClick={() => {
                 setReplying(false);
                 setEditing(true);
@@ -78,7 +80,11 @@ function CommentRow({
             </button>
           )}
           {canManage && (
-            <button type="button" onClick={() => void onDelete(comment.id)}>
+            <button
+              type="button"
+              className="orbit-btn-ghost orbit-btn-ghost--danger"
+              onClick={() => void onDelete(comment.id)}
+            >
               删除
             </button>
           )}

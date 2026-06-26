@@ -65,19 +65,35 @@ export function ArticleList() {
   const toast = useToast();
   const [entries, setEntries] = useState<EntrySummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [prevType, setPrevType] = useState(type);
+
+  if (type !== prevType) {
+    setPrevType(type);
+    setLoading(true);
+    setEntries([]);
+  }
 
   useEffect(() => {
     if (!type) return;
-    setLoading(true);
+    let cancelled = false;
     fetchEntries(type, type === "letter" ? { roots: false } : undefined)
-      .then(setEntries)
-      .catch((err) => {
-        if (shouldToastApiError(err)) {
-          toast.error(getApiErrorMessage(err, "加载失败，请稍后重试"));
-        }
-        setEntries([]);
+      .then((data) => {
+        if (!cancelled) setEntries(data);
       })
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!cancelled) {
+          if (shouldToastApiError(err)) {
+            toast.error(getApiErrorMessage(err, "加载失败，请稍后重试"));
+          }
+          setEntries([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [type, toast]);
 
   const label = TYPE_LABEL[type || ""] || type;

@@ -20,10 +20,11 @@
 
 | 字段 | 内容 |
 |------|------|
-| 状态 | 🔴 未修复 |
+| 状态 | 🟢 已修复 |
 | 发现日期 | 2026-06-26 |
+| 修复日期 | 2026-06-26 |
 | 影响范围 | 阅读页（`ArticleView`），开启 inline 边注能力的内容类型 |
-| 相关文件 | `web/src/components/TiptapEditor.tsx`、`web/src/pages/ArticleView.tsx` |
+| 相关文件 | `web/src/components/TiptapEditor.tsx`、`web/src/extensions/ReadonlyGuard.ts` |
 
 ### 现象
 
@@ -65,13 +66,16 @@ editable: !readonly || enableInlineComments,
 3. 直接键盘输入字母或汉字 → 字符出现在正文中
 4. 按 Enter → 无换行（符合拦截逻辑，但与步骤 3 矛盾）
 
-### 修复方向（建议）
+### 修复记录（2026-06-26）
 
-| 方案 | 说明 |
-|------|------|
-| A. 补全 DOM 事件拦截 | 在 `editorProps.handleDOMEvents` 中拦截 `beforeinput`、`compositionend`，readonly 时统一 `preventDefault` |
-| B. 分离选区与编辑 | `editable: false`，通过 `EditorView` 插件或 `handleDOMEvents.mousedown` 手动维护选区，保证 `selectionUpdate` 仍可触发边注按钮 |
-| C. 叠加 `contenteditable="false"` | 在 ProseMirror 外层容器控制，仅对需要选区的区域开放（实现成本较高） |
+采用方案 B（分离选区与编辑）：
+
+- 阅读页 `editable: false`，由 DOM `contenteditable="false"` 从底层禁止输入
+- 新增 `ReadonlyGuard` 扩展：`filterTransaction` 拦截用户文档变更，仅放行选区更新与带 `orbitAllowDocChange` meta 的程序化更新（边注高亮 mark）
+- 移除 `handleKeyDown` / `handlePaste` / `handleDrop` 的 readonly 键盘拦截补丁
+- readonly 时设置 `tabindex="0"`，保证聚焦与文字选区正常
+
+验证：阅读页键入字符/换行/删除均不改变正文；拖选文字后「添加边注」按钮仍正常出现。
 
 参考：[DEBUGGING.md §5.3](./DEBUGGING.md#53-阅读页编辑器)、[DEBUGGING.md §6](./DEBUGGING.md#6-tiptap--prosemirror-常见陷阱) 第 1 条。
 

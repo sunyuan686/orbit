@@ -40,7 +40,7 @@ const MilkdownInner: FC<Props> = ({ defaultValue, onChange, readonly }) => {
           if (onChange) {
             ctx
               .get(listenerCtx)
-              .markdownUpdated((_ctx, markdown, _prevMarkdown) => {
+              .markdownUpdated((_ctx, markdown) => {
                 onChange(unresolveAssetPaths(markdown));
               });
           }

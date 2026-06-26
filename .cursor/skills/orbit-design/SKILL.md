@@ -34,6 +34,7 @@ disable-model-invocation: true
 | Error text | `.orbit-danger-text` |
 | Text link | `.orbit-text-link` |
 | Primary / danger button | `.orbit-btn-primary`, `.orbit-btn-danger` |
+| Ghost / compact button | `.orbit-btn-ghost`, `.orbit-btn-sm` |
 | List card | `.orbit-entry-card` |
 | Form input | `.orbit-input`, `.orbit-title-input`, `.orbit-input-date` |
 | Search UI | `.orbit-badge`, `.orbit-search-meta` |

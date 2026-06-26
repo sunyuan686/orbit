@@ -48,9 +48,11 @@ function LayoutShell() {
   const { theme, setTheme } = useTheme();
   const { profile, loading: spaceLoading } = useSpace();
 
-  useEffect(() => {
+  const [prevPathname, setPrevPathname] = useState(location.pathname);
+  if (location.pathname !== prevPathname) {
+    setPrevPathname(location.pathname);
     setOpen(false);
-  }, [location.pathname]);
+  }
 
   useEffect(() => {
     const segment = location.pathname.split("/").filter(Boolean)[0];
@@ -129,12 +131,13 @@ function LayoutShell() {
 
   return (
     <div className="orbit-shell flex h-screen transition-colors">
-      {open && (
-        <div
-          className="orbit-overlay-scrim fixed inset-0 z-40 md:hidden"
-          onClick={() => setOpen(false)}
-        />
-      )}
+      <div
+        className={`orbit-overlay-scrim fixed inset-0 z-40 md:hidden${
+          open ? " orbit-overlay-scrim--visible" : ""
+        }`}
+        onClick={() => setOpen(false)}
+        aria-hidden={!open}
+      />
 
       <aside
         ref={sidebarRef}
@@ -143,7 +146,7 @@ function LayoutShell() {
           orbit-sidebar-panel fixed inset-y-0 left-0 z-50 border-r flex flex-col overflow-hidden
           md:static md:translate-x-0 md:shrink-0
           ${open ? "translate-x-0" : "-translate-x-full"}
-          ${dragging ? "" : "transition-[width] duration-200 ease-in-out"}
+          ${dragging ? "orbit-sidebar-panel--dragging" : ""}
         `}
       >
         <div className={`flex items-center justify-between py-5 ${collapsed ? "px-2" : "px-4"}`}>
@@ -168,15 +171,20 @@ function LayoutShell() {
                 </p>
               </Link>
               <button
+                type="button"
                 onClick={toggleCollapsed}
-                className="orbit-icon-btn hidden md:flex p-1.5 cursor-pointer shrink-0"
+                className="orbit-icon-btn hidden md:inline-flex p-1.5 cursor-pointer shrink-0"
                 title="折叠侧边栏"
+                aria-label="折叠侧边栏"
               >
                 <SidebarCollapseIcon />
               </button>
               <button
+                type="button"
                 onClick={() => setOpen(false)}
-                className="orbit-icon-btn md:hidden p-1.5 cursor-pointer"
+                className="orbit-icon-btn inline-flex md:hidden p-1.5 cursor-pointer shrink-0"
+                title="关闭菜单"
+                aria-label="关闭菜单"
               >
                 <CloseIcon size="md" />
               </button>
@@ -219,8 +227,10 @@ function LayoutShell() {
         <header className="orbit-header-bar flex items-center justify-between px-4 md:px-6 py-2.5">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
+              type="button"
               onClick={() => setOpen(true)}
-              className="orbit-icon-btn orbit-icon-btn--secondary md:hidden p-1.5 cursor-pointer shrink-0"
+              className="orbit-icon-btn orbit-icon-btn--secondary inline-flex md:hidden p-1.5 cursor-pointer shrink-0"
+              aria-label="打开菜单"
             >
               <MenuIcon size="md" />
             </button>
@@ -250,7 +260,7 @@ function LayoutShell() {
           <div className="flex items-center gap-1 shrink-0">
             <Link
               to="/settings"
-              className="orbit-icon-btn p-1.5 cursor-pointer"
+              className="orbit-icon-btn inline-flex p-1.5 cursor-pointer"
               title="设置"
               aria-label="设置"
             >
@@ -262,7 +272,7 @@ function LayoutShell() {
               const next = order[(order.indexOf(theme) + 1) % order.length];
               setTheme(next);
             }}
-            className="orbit-icon-btn p-1.5 cursor-pointer"
+            className="orbit-icon-btn inline-flex p-1.5 cursor-pointer"
             title={theme === "light" ? "浅色模式" : theme === "dark" ? "深色模式" : "跟随系统"}
           >
             {themeIcons[theme]}

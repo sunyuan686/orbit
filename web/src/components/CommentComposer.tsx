@@ -44,7 +44,7 @@ export function CommentComposer({
         {onCancel && (
           <button
             type="button"
-            className="orbit-btn"
+            className="orbit-btn orbit-btn-sm"
             disabled={submitting}
             onClick={onCancel}
           >
@@ -53,7 +53,7 @@ export function CommentComposer({
         )}
         <button
           type="button"
-          className="orbit-btn orbit-btn-primary"
+          className="orbit-btn orbit-btn-primary orbit-btn-sm"
           disabled={!body.trim() || submitting}
           onClick={() => void handleSubmit()}
         >

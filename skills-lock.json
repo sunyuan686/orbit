@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "review-animations": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/review-animations/SKILL.md",
+      "computedHash": "ca04aaa0a815f05e0910ded8fedbfbdfe0acdec8f52dfbb88277890070d134d4"
+    },
+    "ui-animation": {
+      "source": "mblode/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/ui-animation/SKILL.md",
+      "computedHash": "18ec6f18ffdb4af97eb4ab1451fe39927bcd8e3f0eb13f46b4d6270d2a773f91"
+    }
+  }
+}

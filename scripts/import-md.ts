@@ -314,7 +314,7 @@ function importSections(
       {
         id: generateId("ent"),
         type,
-        author: "",
+        author: AUTHORS.yuan,
         title: sec.title,
         body: sec.body,
         bodyText: toPlainText(sec.body),
@@ -466,6 +466,8 @@ if (!DRY_RUN) {
           key,
           title: key,
           body,
+          author: AUTHORS.yuan,
+          modifiedBy: AUTHORS.yuan,
           updatedAt: now,
         })
         .run();

@@ -21,7 +21,8 @@ import { ArrowLeftIcon } from "../components/OrbitIcons";
 import { ArticleMetadata } from "../components/ArticleMetadata";
 import { CommentSection } from "../components/CommentSection";
 import { MarginaliaRail, MobileMarginalia } from "../components/MarginaliaRail";
-import { TocRail, MobileToc, extractToc } from "../components/TableOfContents";
+import { TocRail, MobileToc } from "../components/TableOfContents";
+import { extractToc } from "../lib/toc";
 import { getCommentCapabilities } from "../lib/commentCapabilities";
 import { canEditContent, canDeleteContent } from "../lib/contentPolicies";
 

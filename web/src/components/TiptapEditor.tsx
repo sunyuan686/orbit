@@ -8,9 +8,22 @@ import type { CommentItem } from "../lib/api";
 import { normalizeBodyForEditor } from "../lib/content";
 import { useToast } from "../lib/useToast";
 import { CommentHighlight } from "../extensions/CommentHighlight";
+import { ORBIT_ALLOW_DOC_CHANGE, ReadonlyGuard } from "../extensions/ReadonlyGuard";
 import { resolveCommentPosition, getAnchorContext } from "../lib/anchor";
 import type { InlineDraft } from "../lib/inlineComment";
 import { InlineMarginaliaPopover } from "./InlineMarginaliaPopover";
+import {
+  BoldIcon,
+  ItalicIcon,
+  StrikeIcon,
+  Heading2Icon,
+  Heading3Icon,
+  ListIcon,
+  QuoteIcon,
+  ImageIcon,
+  UndoIcon,
+  RedoIcon,
+} from "./OrbitIcons";
 import { anchorLogger, marginaliaLogger } from "../lib/logger";
 
 const INLINE_DRAFT_MARK_ID = "__draft__";
@@ -86,30 +99,30 @@ function Toolbar({
   return (
     <div className="orbit-toolbar tiptap-mobile-toolbar">
       <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="粗体">
-        <strong>B</strong>
+        <BoldIcon size="sm" />
       </ToolbarButton>
       <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")} title="斜体">
-        <em>I</em>
+        <ItalicIcon size="sm" />
       </ToolbarButton>
       <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive("strike")} title="删除线">
-        <span className="orbit-toolbar-strike">S</span>
+        <StrikeIcon size="sm" />
       </ToolbarButton>
       {sep}
       <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive("heading", { level: 2 })} title="二级标题">
-        H2
+        <Heading2Icon size="sm" />
       </ToolbarButton>
       <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={editor.isActive("heading", { level: 3 })} title="三级标题">
-        H3
+        <Heading3Icon size="sm" />
       </ToolbarButton>
       <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive("bulletList")} title="无序列表">
-        ≡
+        <ListIcon size="sm" />
       </ToolbarButton>
       <ToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive("blockquote")} title="引用">
-        "
+        <QuoteIcon size="sm" />
       </ToolbarButton>
       {sep}
       <ToolbarButton onClick={() => fileInputRef.current?.click()} title="插入图片">
-        🖼
+        <ImageIcon size="sm" />
       </ToolbarButton>
       <input
         ref={fileInputRef}
@@ -124,10 +137,10 @@ function Toolbar({
       />
       {sep}
       <ToolbarButton onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title="撤销">
-        ↩
+        <UndoIcon size="sm" />
       </ToolbarButton>
       <ToolbarButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title="重做">
-        ↪
+        <RedoIcon size="sm" />
       </ToolbarButton>
     </div>
   );
@@ -213,6 +226,7 @@ export function TiptapEditor({
   const editor = useEditor({
     extensions: [
       StarterKit,
+      ReadonlyGuard,
       CommentHighlight,
       Image.configure({
         inline: false,
@@ -222,7 +236,7 @@ export function TiptapEditor({
       Placeholder.configure({ placeholder: "开始写作…" }),
     ],
     content: normalizeBodyForEditor(defaultValue || ""),
-    editable: !readonly || enableInlineComments,
+    editable: !readonly,
     shouldRerenderOnTransaction: !readonly,
     onUpdate: ({ editor: currentEditor }) => {
       if (readonly) {
@@ -233,26 +247,7 @@ export function TiptapEditor({
     editorProps: {
       attributes: {
         class: "orbit-prose",
-        ...(readonly ? { "data-readonly": "true" } : {}),
-      },
-      handleKeyDown: (_view, event) => {
-        if (!readonly) {
-          return false;
-        }
-        if (event.metaKey || event.ctrlKey) {
-          const key = event.key.toLowerCase();
-          if (key === "a" || key === "c") {
-            return false;
-          }
-          return true;
-        }
-        if (event.key === "Backspace" || event.key === "Delete" || event.key === "Enter") {
-          return true;
-        }
-        if (event.key.length === 1) {
-          return true;
-        }
-        return false;
+        ...(readonly ? { "data-readonly": "true", tabindex: "0" } : {}),
       },
       handleClick: (_view, _pos, event) => {
         const target = event.target as HTMLElement | null;
@@ -265,9 +260,6 @@ export function TiptapEditor({
         return false;
       },
       handlePaste: (_view, event) => {
-        if (readonly) {
-          return true;
-        }
         const items = event.clipboardData?.items;
         if (!items) return false;
         for (const item of Array.from(items)) {
@@ -285,9 +277,6 @@ export function TiptapEditor({
         return false;
       },
       handleDrop: (_view, event) => {
-        if (readonly) {
-          return true;
-        }
         const files = event.dataTransfer?.files;
         if (!files?.length) return false;
         for (const file of Array.from(files)) {
@@ -310,8 +299,8 @@ export function TiptapEditor({
     if (!editor || editor.isDestroyed) {
       return;
     }
-    editor.setEditable(!readonly || enableInlineComments);
-  }, [editor, enableInlineComments, readonly]);
+    editor.setEditable(!readonly);
+  }, [editor, readonly]);
 
   useEffect(() => {
     editorRef.current = editor;
@@ -556,6 +545,7 @@ export function TiptapEditor({
 
     if (tr.docChanged) {
       try {
+        tr.setMeta(ORBIT_ALLOW_DOC_CHANGE, true);
         editor.view.dispatch(tr);
         if (inlineDraft) {
           window.requestAnimationFrame(() => updateDraftPopover());
