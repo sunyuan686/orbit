@@ -10,10 +10,8 @@
     "web:build": "npm run build --prefix web",
     "web:lint": "npm run lint --prefix web",
     "typecheck": "tsc --noEmit",
-    "migrate": "tsx scripts/migrate.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:import": "tsx scripts/import-md.ts",
     "db:search-status": "tsx scripts/search-status.ts"
   },
   "devDependencies": {
@@ -30,9 +28,7 @@
     "better-sqlite3": "^12.10.1",
     "concurrently": "^10.0.3",
     "drizzle-orm": "^0.45.2",
-    "heic-convert": "^2.1.0",
     "hono": "^4.11.9",
-    "sharp": "^0.34.5",
     "wait-on": "^8.0.3"
   }
 }

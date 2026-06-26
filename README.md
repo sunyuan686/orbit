@@ -44,12 +44,17 @@ xyuanzi@agent.qq.com `12345678`
 
 xlinzi@agent.qq.com  `12345678`
 
-**数据库初始化**（首次运行自动执行，无需手动操作）
+**数据库初始化**（首次运行自动执行 schema 迁移，无需手动操作）
 
 ```bash
 npm run db:generate   # 生成 Drizzle 迁移文件
 npm run db:push       # 推送 schema 到本地 SQLite
-npm run db:import     # 从 content/ Markdown 导入历史数据（可选）
+```
+
+日常内容在应用内写入 `data/orbit.db`，以数据库为准。可选维护：
+
+```bash
+npm run db:search-status   # 检查全文搜索索引
 ```
 
 **常用检查**

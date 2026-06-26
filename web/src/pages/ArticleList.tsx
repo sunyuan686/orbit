@@ -8,17 +8,44 @@ import {
   shouldToastApiError,
   type EntrySummary,
 } from "../lib/api";
+import {
+  buildLetterTree,
+  entryDisplayLabel,
+  formatReplySummary,
+  threadParticipants,
+  type LetterThread,
+} from "../lib/letterThread";
 import { useToast } from "../lib/useToast";
+import { ChevronRightIcon } from "../components/OrbitIcons";
 
-function EntryRow({ entry, type }: { entry: EntrySummary; type: string }) {
+function EntryRow({
+  entry,
+  type,
+  variant = "root",
+}: {
+  entry: EntrySummary;
+  type: string;
+  variant?: "root" | "reply";
+}) {
   const showAuthor = Boolean(entry.author);
+  const displayText = entryDisplayLabel(entry);
 
   return (
-    <Link to={`/${type}/${entry.id}`} className="orbit-entry-card">
+    <Link
+      to={`/${type}/${entry.id}`}
+      className={
+        variant === "reply"
+          ? "orbit-entry-card orbit-entry-card--reply"
+          : "orbit-entry-card"
+      }
+    >
       <span className="orbit-entry-card-main">
-        {entry.title && (
+        {variant === "reply" && (
+          <span className="orbit-letter-reply-badge">回信</span>
+        )}
+        {displayText && (
           <span className="orbit-entry-title orbit-entry-title-truncate">
-            {entry.title}
+            {displayText}
           </span>
         )}
         {showAuthor && entry.author && (
@@ -34,30 +61,57 @@ function EntryRow({ entry, type }: { entry: EntrySummary; type: string }) {
   );
 }
 
-function buildLetterTree(entries: EntrySummary[]) {
-  const repliesByParent = new Map<string, EntrySummary[]>();
-  const roots: EntrySummary[] = [];
+function LetterThreadItem({ thread }: { thread: LetterThread }) {
+  const { root, replies } = thread;
+  const [expanded, setExpanded] = useState(false);
+  const participants = threadParticipants(root, replies);
+  const hasReplies = replies.length > 0;
 
-  for (const e of entries) {
-    if (e.parentId) {
-      const list = repliesByParent.get(e.parentId) ?? [];
-      list.push(e);
-      repliesByParent.set(e.parentId, list);
-    } else {
-      roots.push(e);
-    }
-  }
+  return (
+    <article className="orbit-letter-thread">
+      <EntryRow entry={root} type="letter" variant="root" />
 
-  for (const [, replies] of repliesByParent) {
-    replies.sort((a, b) => (a.entryDate ?? 0) - (b.entryDate ?? 0));
-  }
+      {hasReplies && (
+        <>
+          <button
+            type="button"
+            className="orbit-letter-thread-toggle"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((value) => !value)}
+          >
+            <ChevronRightIcon
+              className={`orbit-letter-thread-chevron${expanded ? " orbit-letter-thread-chevron--open" : ""}`}
+            />
+            <span className="orbit-letter-thread-toggle-text">
+              {expanded ? "收起回信" : formatReplySummary(replies)}
+            </span>
+          </button>
 
-  roots.sort((a, b) => (b.entryDate ?? 0) - (a.entryDate ?? 0));
+          {expanded && (
+            <ul className="orbit-list-plain orbit-letter-replies">
+              {replies.map((reply) => (
+                <li key={reply.id}>
+                  <EntryRow entry={reply} type="letter" variant="reply" />
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
 
-  return roots.map((root) => ({
-    root,
-    replies: repliesByParent.get(root.id) ?? [],
-  }));
+      {hasReplies && participants.length > 0 && (
+        <p className="orbit-letter-thread-participants">
+          {participants.join(" · ")}
+          {!expanded && (
+            <span className="orbit-letter-thread-participants-hint">
+              {" "}
+              · 点击展开回信
+            </span>
+          )}
+        </p>
+      )}
+    </article>
+  );
 }
 
 export function ArticleList() {
@@ -124,19 +178,10 @@ export function ArticleList() {
           </p>
         </div>
       ) : type === "letter" ? (
-        <ul className="orbit-list-plain flex flex-col gap-2">
-          {letterTree.map(({ root, replies }) => (
-            <li key={root.id}>
-              <EntryRow entry={root} type="letter" />
-              {replies.length > 0 && (
-                <ul className="orbit-list-plain orbit-letter-replies">
-                  {replies.map((reply) => (
-                    <li key={reply.id}>
-                      <EntryRow entry={reply} type="letter" />
-                    </li>
-                  ))}
-                </ul>
-              )}
+        <ul className="orbit-list-plain orbit-letter-thread-list">
+          {letterTree.map((thread) => (
+            <li key={thread.root.id}>
+              <LetterThreadItem thread={thread} />
             </li>
           ))}
         </ul>

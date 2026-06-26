@@ -1,15 +1,15 @@
 # Scripts
 
-脚本按用途分为几类：
+维护脚本：
 
-- `import-md.ts`：从 `content/` 导入 Markdown 到本地 SQLite。
-- `migrate.ts`：一次性旧资料迁移脚本，从根目录旧 Markdown 拆分到 `content/`，图片写入 `data/assets/`。
-- `migrate-to-r2.sh`：把本地 `data/assets/` 上传到 Cloudflare R2。
-- `normalize-*.py`：维护类脚本，用于修正历史 Markdown 格式。
-- `verify-import.py`：校验 `backups/data-0616`、`content/` 与本地数据库导入结果。
+| 脚本 | npm 命令 | 用途 |
+|------|----------|------|
+| `search-status.ts` | `npm run db:search-status` | 查看 FTS 搜索索引状态 |
+| `migrate-to-r2.sh` | `bash scripts/migrate-to-r2.sh` | 把 `data/assets/` 上传到 Cloudflare R2（生产部署用） |
 
 约定：
 
-- 可提交的 Markdown 内容放在 `content/`。
+- **运行时权威数据在** `data/orbit.db`（应用内增删改）。
+- `content/` 为 Markdown 归档，不自动同步数据库。
 - 本地数据库和上传图片放在 `data/`，不提交。
 - 历史快照放在 `backups/`，不提交。

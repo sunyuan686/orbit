@@ -233,6 +233,7 @@ export async function createEntry(data: {
   title?: string;
   body?: string;
   entryDate?: number;
+  parentId?: string | null;
 }): Promise<{ id: string }> {
   const res = await fetch(`${BASE}/api/articles`, {
     method: "POST",

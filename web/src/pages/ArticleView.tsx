@@ -25,6 +25,7 @@ import { TocRail, MobileToc } from "../components/TableOfContents";
 import { extractToc } from "../lib/toc";
 import { getCommentCapabilities } from "../lib/commentCapabilities";
 import { canEditContent, canDeleteContent } from "../lib/contentPolicies";
+import { LetterThreadPanel } from "../components/LetterThreadPanel";
 
 export function ArticleView() {
   const { type, id } = useParams<{ type: string; id: string }>();
@@ -61,6 +62,12 @@ export function ArticleView() {
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
+
+    setEntry(null);
+    setError(false);
+    setActiveInlineCommentId(null);
+    setInlineDraft(null);
+    setMarginaliaOpen(false);
 
     async function loadEntry() {
       try {
@@ -225,25 +232,35 @@ export function ArticleView() {
               updatedAt={entry.updatedAt}
             />
           </div>
-          {canEditEntry && (
-            <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
+            {entry.type === "letter" && (
+              <Link
+                to={`/letter/new?replyTo=${encodeURIComponent(entry.parentId ?? entry.id)}`}
+                className="orbit-btn orbit-btn-primary"
+              >
+                写回信
+              </Link>
+            )}
+            {canEditEntry && (
               <Link to={`/${type}/${entry.id}/edit`} className="orbit-btn">
                 编辑
               </Link>
-              {canDeleteEntry && (
-                <button
-                  type="button"
-                  onClick={handleDeleteArticle}
-                  className="orbit-btn orbit-btn-danger"
-                  aria-label="删除"
-                  title="删除"
-                >
-                  删除
-                </button>
-              )}
-            </div>
-          )}
+            )}
+            {canEditEntry && canDeleteEntry && (
+              <button
+                type="button"
+                onClick={handleDeleteArticle}
+                className="orbit-btn orbit-btn-danger"
+                aria-label="删除"
+                title="删除"
+              >
+                删除
+              </button>
+            )}
+          </div>
         </div>
+
+        {entry.type === "letter" && <LetterThreadPanel entry={entry} />}
 
         <div className="orbit-article-body-row">
           <TocRail items={toc} />
@@ -252,6 +269,7 @@ export function ArticleView() {
             <div className="orbit-prose-row flex min-w-0 w-full">
               <div className="flex-1 min-w-0">
                 <TiptapEditor
+                  key={entry.id}
                   defaultValue={entry.body}
                   readonly
                   inlineComments={comments.inline}

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { authClient, fetchEntry, saveEntry, createEntry, fetchComments, TYPE_LABEL, getApiErrorMessage, shouldToastApiError, type CommentItem, type CommentPositionMapping } from "../lib/api";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { authClient, fetchEntry, saveEntry, createEntry, fetchComments, TYPE_LABEL, formatDate, getApiErrorMessage, shouldToastApiError, type CommentItem, type CommentPositionMapping, type EntryDetail } from "../lib/api";
+import { getThreadRootId } from "../lib/letterThread";
 import { resolveCommentPosition } from "../lib/anchor";
 import { isEmptyBody } from "../lib/content";
 import { setPageTitle } from "../lib/pageTitle";
@@ -30,6 +31,7 @@ function fromDateInput(s: string): number {
 export function ArticleEdit() {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const toast = useToast();
   const { data: session } = authClient.useSession();
   // id 缺失、为 "new"、或非法（如 "undefined"）时都视为新建
@@ -50,6 +52,10 @@ export function ArticleEdit() {
   const [entryDate, setEntryDate] = useState<number>(() =>
     Math.floor(Date.now() / 1000)
   );
+  const replyToParam = searchParams.get("replyTo");
+  const isLetterReply = isNew && type === "letter" && Boolean(replyToParam);
+  const [replyParentId, setReplyParentId] = useState<string | null>(null);
+  const [replyContext, setReplyContext] = useState<EntryDetail | null>(null);
 
   useEffect(() => {
     bodyRef.current = body;
@@ -57,8 +63,41 @@ export function ArticleEdit() {
 
   useEffect(() => {
     const label = TYPE_LABEL[type || ""] || "";
+    if (isLetterReply) {
+      setPageTitle("写回信");
+      return;
+    }
     setPageTitle(isNew ? (label ? `新建${label}` : "新建") : "编辑");
-  }, [type, isNew]);
+  }, [type, isNew, isLetterReply]);
+
+  useEffect(() => {
+    if (!isLetterReply || !replyToParam) {
+      setReplyParentId(null);
+      setReplyContext(null);
+      return;
+    }
+
+    let cancelled = false;
+    fetchEntry(replyToParam)
+      .then(async (target) => {
+        if (cancelled) return;
+        const rootId = getThreadRootId(target);
+        const root =
+          target.parentId != null ? await fetchEntry(target.parentId) : target;
+        if (cancelled) return;
+        setReplyParentId(rootId);
+        setReplyContext(root);
+      })
+      .catch((err) => {
+        if (!cancelled && shouldToastApiError(err)) {
+          toast.error(getApiErrorMessage(err, "找不到要回复的信件"));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLetterReply, replyToParam, toast]);
 
   useEffect(() => {
     if (isNew || !id) {
@@ -108,6 +147,10 @@ export function ArticleEdit() {
       toast.error("内容不能为空");
       return;
     }
+    if (isLetterReply && !replyParentId) {
+      toast.error("找不到要回复的信件");
+      return;
+    }
     setSaving(true);
     try {
       if (isNew) {
@@ -120,6 +163,7 @@ export function ArticleEdit() {
           title,
           body: bodyRef.current,
           entryDate: isMemo ? undefined : entryDate,
+          parentId: isLetterReply ? replyParentId : undefined,
         });
         if (!result?.id) {
           toast.error("创建失败：服务器未返回有效内容 ID");
@@ -213,8 +257,20 @@ export function ArticleEdit() {
       <div className="flex items-center justify-between mb-6 gap-4">
         <div>
           <h2 className="orbit-page-title">
-            {isNew ? `新建${TYPE_LABEL[type || ""] || ""}` : "编辑"}
+            {isLetterReply
+              ? "写回信"
+              : isNew
+                ? `新建${TYPE_LABEL[type || ""] || ""}`
+                : "编辑"}
           </h2>
+          {isLetterReply && replyContext && (
+            <p className="orbit-letter-reply-context">
+              回复 {replyContext.author ?? "对方"} 的信
+              {replyContext.entryDate
+                ? ` · ${formatDate(replyContext.entryDate)}`
+                : ""}
+            </p>
+          )}
           {displayAuthor && (
             <p className="orbit-entry-date mt-1">
               作者：{displayAuthor}

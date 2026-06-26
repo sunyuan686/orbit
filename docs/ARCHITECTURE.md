@@ -103,7 +103,7 @@ user / session / account / verification  — better-auth 标准表
 | **小圆子** | 孙远 | `author:小圆子` |
 | **小麟子** | 辛麟芝 | `author:小麟子` |
 
-历史 Markdown 导入时，`scripts/import-md.ts` 自动映射旧别名：
+写入 API 时，`src/authors.ts` 会将旧别名规范为作者名：
 
 - → 小圆子：`sunyuan`、`孙远`
 - → 小麟子：`linzhi`、`麟宝`、`辛麟芝`
@@ -155,8 +155,8 @@ orbit/
 │       ├── pages/
 │       ├── components/
 │       └── lib/
-├── scripts/                    # 导入、迁移、校验脚本
-├── content/                    # 可提交的 Markdown 内容源
+├── scripts/                    # 运维脚本（搜索状态、R2 上传等）
+├── content/                    # Markdown 归档（不自动同步 DB）
 ├── docs/                       # 项目文档
 ├── data/                       # 本地运行时（.gitignore）
 ├── drizzle.config.ts

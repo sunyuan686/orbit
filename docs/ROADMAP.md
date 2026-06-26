@@ -6,7 +6,7 @@
 >
 > 架构说明见 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 >
-> 最后更新：2026-06-26 · 当前版本：[v0.0.1](../CHANGELOG.md#001---2026-06-24)
+> 最后更新：2026-06-27 · 当前版本：[v0.0.1](../CHANGELOG.md#001---2026-06-24)
 
 ---
 
@@ -50,7 +50,7 @@
 | 📖 日记      | ✅   | 列表、CRUD、日期、富文本、图片    | `entry.type=diary`，`web/src/pages/`   |
 | 💫 时间线     | ✅   | 里程碑记录，与日记同构          | `entry.type=timeline`                 |
 | 💬 留言板     | ✅   | 两人互留文字               | `entry.type=message`                  |
-| ✉️ 信箱 / 信件 | ✅   | 主信 + 回信树（`parentId`） | `entry.type=letter`，`ArticleList.tsx` |
+| ✉️ 信箱 / 信件 | ✅   | 主信 + 回信树（`parentId`）；列表按轮折叠往来、详情「本轮通信」时间线、写回信 | `LetterThreadPanel.tsx`，`letterThread.ts`，`ArticleList.tsx` |
 | 📌 备忘录     | ✅   | 长期维护文档，按 `key` 访问    | `memo` 表，`/memo`                      |
 | 📄 内容模板    | 📋  | 模板管理：按类型（日记、时间线、信件、备忘录等）维护可复用模板；新建时选择模板快速填充标题与正文骨架；支持双方共建模板库 | — |
 
@@ -66,7 +66,7 @@
 | ---------- | --- | ---------------------- | --------------------------------------------- |
 | TipTap 富文本 | ✅   | 标题、列表、引用、格式工具栏         | `web/src/components/TiptapEditor.tsx`         |
 | 图片上传       | ✅   | 粘贴 / 拖拽 / 按钮，SHA256 去重 | `src/api/assets.ts`                           |
-| HEIC 转换    | ✅   | iPhone 照片自动转换          | `heic-convert` + `sharp`                      |
+| HEIC 转换    | 💡  | iPhone 照片上传时转 JPEG（未实现） | —
 | 双存储        | ✅   | 本地磁盘 / Cloudflare R2   | `src/server/routes/assets.ts`，`src/worker.ts` |
 
 
@@ -116,7 +116,6 @@
 | 作者归属校验        | ✅   | 编辑按类型策略（memo 双方可改，其余仅作者）；删除仅作者 | `src/content-policies.ts`                                                                   |
 | 双模式运行         | ✅   | Node 本地 + Cloudflare 生产        | `src/server/`，`src/worker.ts`                                                               |
 | CI/CD 部署      | ✅   | push main 自动部署                 | `.github/workflows/deploy.yml`                                                              |
-| Markdown 历史导入 | ✅   | `content/` → SQLite            | `scripts/import-md.ts`                                                                      |
 | 响应式 + 暗色主题    | ✅   | 移动端布局、主题切换                     | `web/src/components/Layout.tsx`                                                             |
 | 文章目录 TOC      | ✅   | 桌面左侧可折叠 TOC 轨（默认收起）+ 移动 FAB/抽屉 | `TableOfContents.tsx`，`railPreferences.ts`；见 [MARGINALIA-LAYOUT.md](./MARGINALIA-LAYOUT.md) |
 

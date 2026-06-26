@@ -32,7 +32,7 @@ if (status.entry.missingBodyText > 0) {
   console.log(
     `⚠️  ${status.entry.missingBodyText} 条 entry 有正文但缺少 body_text（搜索质量可能下降）`
   );
-  console.log("   可重新保存这些条目，或运行 db:import 重建 body_text。");
+  console.log("   可在应用内重新保存这些条目以重建 body_text。");
 }
 
 console.log("");

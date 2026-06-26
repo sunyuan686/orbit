@@ -310,12 +310,14 @@ export function TiptapEditor({
   }, [editor, onEditorCreate]);
 
   useEffect(() => {
-    if (!editor || editor.isDestroyed || readonly) return;
+    if (!editor || editor.isDestroyed) return;
+    if (defaultValue === undefined) return;
+    const next = normalizeBodyForEditor(defaultValue || "");
     const current = editor.getHTML();
-    if (defaultValue !== undefined && defaultValue !== current) {
-      editor.commands.setContent(normalizeBodyForEditor(defaultValue || ""));
+    if (next !== current) {
+      editor.commands.setContent(next, { emitUpdate: false });
     }
-  }, [defaultValue, editor, readonly]);
+  }, [defaultValue, editor]);
 
   const updateSelectionMenu = useCallback(() => {
     const currentEditor = editorRef.current;

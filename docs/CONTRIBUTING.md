@@ -48,7 +48,7 @@ docs(roadmap): mark settings page as in progress
 chore(deps): bump drizzle-orm to 0.45.2
 feat(api)!: remove legacy markdown import endpoint
 
-BREAKING CHANGE: /api/import-md removed, use db:import script
+BREAKING CHANGE: /api/import-md removed; content is managed in the database via the app
 ```
 
 ### Scope 建议
