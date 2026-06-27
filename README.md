@@ -44,6 +44,8 @@ xyuanzi@agent.qq.com `12345678`
 
 xlinzi@agent.qq.com  `12345678`
 
+生产环境密码：Z)~*n6TzVsn}hgP]r_~,VGR65W33KR
+
 **数据库初始化**（首次运行自动执行 schema 迁移，无需手动操作）
 
 ```bash
