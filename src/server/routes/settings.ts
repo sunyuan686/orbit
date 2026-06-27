@@ -5,6 +5,7 @@ import { auth } from "../auth.js";
 
 const settings = createSettingsRoutes(() => db, {
   getSessionAuthor: (c) => getSessionAuthor(c, auth, () => db),
+  getSecret: () => process.env.BETTER_AUTH_SECRET,
 });
 
 export { settings };

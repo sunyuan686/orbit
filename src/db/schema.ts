@@ -225,3 +225,57 @@ export const auditLog = sqliteTable(
     index("idx_audit_log_action").on(t.action),
   ]
 );
+
+/**
+ * AI 聊天会话
+ */
+export const aiConversation = sqliteTable(
+  "ai_conversation",
+  {
+    id: text("id").primaryKey(),
+    title: text("title").notNull(),
+    contextMode: text("context_mode").notNull(),
+    articleId: text("article_id").references(() => entry.id),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id),
+    author: text("author").notNull(),
+    shared: integer("shared", { mode: "boolean" }).notNull().default(false),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+    deletedAt: integer("deleted_at"),
+  },
+  (t) => [
+    check(
+      "ai_conversation_context_mode_check",
+      sql`${t.contextMode} IN ('global', 'article')`
+    ),
+    index("idx_ai_conversation_user_updated").on(t.userId, t.updatedAt),
+    index("idx_ai_conversation_shared").on(t.shared, t.updatedAt),
+    index("idx_ai_conversation_article").on(t.articleId),
+  ]
+);
+
+/**
+ * AI 聊天消息（parts JSON 对齐 UIMessage）
+ */
+export const aiMessage = sqliteTable(
+  "ai_message",
+  {
+    id: text("id").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => aiConversation.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    author: text("author"),
+    parts: text("parts").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    check(
+      "ai_message_role_check",
+      sql`${t.role} IN ('user', 'assistant', 'tool')`
+    ),
+    index("idx_ai_message_conversation").on(t.conversationId, t.createdAt),
+  ]
+);

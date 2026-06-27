@@ -219,6 +219,7 @@ Orbit uses a **warm stone palette** inspired by Notion's `surface` / `hairline` 
 **Semantic rules**
 
 - One solid high-contrast action per view (primary button).
+- Selection / active nav: tonal surface (`sidebar-nav-active-bg`) or `border`—not accent stripe.
 - WCAG AA: body text contrast ≥ 4.5:1.
 - Never signal state with color alone—pair with icon or label text.
 
@@ -266,6 +267,7 @@ Orbit uses a **warm stone palette** inspired by Notion's `surface` / `hairline` 
 | `--layout-content` | 680px | Lists, read column |
 | `--layout-editor` | 720px | Edit forms |
 | `--layout-article` | 900px | Read view with TOC gutter |
+| `--layout-settings` | 860px | Settings page (left nav + right panel) |
 
 Center with `margin: 0 auto`. Side padding: `16px` mobile, `32px` desktop (`md+`).
 
@@ -361,6 +363,7 @@ Export map: `NAV_CONTENT_ICONS` in `OrbitIcons.tsx`. **No emoji in shell chrome*
 | `MenuIcon` / `SidebarExpandIcon` / `SidebarCollapseIcon` | | Shell navigation |
 | `SunIcon` / `MoonIcon` / `MonitorIcon` | | Theme cycle |
 | `SettingsIcon` / `LogoutIcon` | | Account chrome |
+| `AiIcon` / `PaletteIcon` / `UserIcon` | | Settings page nav (AI / 外观 / 账号) |
 | `ChevronLeftIcon` / `ChevronRightIcon` | | Collapsible rail dismiss |
 | `CheckIcon` / `AlertIcon` | | Toast status glyphs |
 | `BoldIcon` … `RedoIcon` | | TipTap toolbar (editor chrome) |
@@ -432,6 +435,24 @@ Detail: [docs/MARGINALIA-LAYOUT.md](docs/MARGINALIA-LAYOUT.md)
 
 - Inputs and textareas: `surface` fill, `border-light`, 8px radius, 44px min height for single-line
 - Placeholder: `text-muted`, italic in editor empty state
+- **Settings page**: left nav (`.orbit-settings-nav`) + right panel (`.orbit-settings-panel`); field rows use label/hint left, control right; min 44px touch targets; selection states use `sidebar-nav-active-bg`, not accent border
+- **Stacked fields** (`.orbit-settings-field--stacked`): label + hint on top, full-width control below — for provider cards, swatches, API key blocks (Notion block pattern)
+- **Inline fields** (`.orbit-settings-field-row`): label left with `min-width: 9rem`, control right-aligned — for toggles, short inputs, segmented choices
+
+### Settings (`.orbit-settings-*`)
+
+Notion-style settings: category nav + detail panel inside `.orbit-settings-content` (860px).
+
+| Class | Purpose |
+|-------|---------|
+| `.orbit-settings-content` | Settings page column (`--layout-settings`) |
+| `.orbit-settings-layout` | Flex row: nav + panel |
+| `.orbit-settings-nav` / `.orbit-settings-nav-item` | Left category nav; reuse `--sidebar-nav-hover-bg` / `--sidebar-nav-active-bg` |
+| `.orbit-settings-panel` | Right content area |
+| `.orbit-settings-field` / `.orbit-settings-field-row` | Label + control row |
+| `.orbit-settings-choice` | Segmented option (e.g. theme mode) |
+| `.orbit-settings-provider-option` | AI provider card selector |
+| `.orbit-settings-actions` | Panel footer save area |
 
 ### Toast (`.orbit-toast`)
 
@@ -442,6 +463,7 @@ Short confirmation; success/error vary border color only. No "成功" wording—
 | Class | Purpose |
 |-------|---------|
 | `.orbit-content` | 680px centered column |
+| `.orbit-settings-content` | 860px settings page column |
 | `.orbit-editor-layout` | 720px centered column |
 | `.orbit-article-layout` | 900px read view; left TOC rail + center column + right marginalia rail |
 | `.orbit-muted` | secondary copy styling |

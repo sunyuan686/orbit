@@ -22,12 +22,14 @@ import { createCommentsRoutes } from "./api/comments.js";
 import { createSpaceRoutes } from "./api/space.js";
 import { createSettingsRoutes } from "./api/settings.js";
 import { createAuditRoutes } from "./api/audit.js";
+import { createAiRoutes } from "./api/ai.js";
 import { getSessionAuthor } from "./api/session-author.js";
 import { requestContext } from "./lib/request-context.js";
 
 export interface Env {
   DB: D1Database;
   R2: R2Bucket;
+  AI: Ai;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
 }
@@ -87,6 +89,8 @@ app.use("/api/settings/*", requireAuth);
 app.use("/api/settings", requireAuth);
 app.use("/api/audit/*", requireAuth);
 app.use("/api/audit", requireAuth);
+app.use("/api/ai/*", requireAuth);
+app.use("/api/ai", requireAuth);
 
 // ─── Shared API routes ───────────────────────────────────────────────────────
 
@@ -119,6 +123,18 @@ app.route("/api/settings", createSettingsRoutes(getDb, {
       secret: c.env.BETTER_AUTH_SECRET,
       baseURL: c.env.BETTER_AUTH_URL,
     }), getDb),
+  getSecret: (c) => c.env.BETTER_AUTH_SECRET,
+}));
+app.route("/api/ai", createAiRoutes(getDb, {
+  getSessionAuthor: (c) =>
+    getSessionAuthor(c, createAuth(getDb(c), {
+      secret: c.env.BETTER_AUTH_SECRET,
+      baseURL: c.env.BETTER_AUTH_URL,
+    }), getDb),
+  getEnv: (c) => ({
+    AI: c.env.AI,
+    BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET,
+  }),
 }));
 app.route(
   "/api/assets",
@@ -127,13 +143,13 @@ app.route(
       await (c as Context<HonoEnv>).env.R2.put(filename, body, {
         httpMetadata: { contentType: mimeType },
       });
-      return `/media/${filename}`;
+      return `/assets/${filename}`;
     },
   })
 );
 
-// R2 媒体文件代理（需登录）
-app.get("/media/:filename", requireAuth, async (c) => {
+// R2 媒体文件代理（需登录，路径与本地 dev 一致）
+app.get("/assets/:filename", requireAuth, async (c) => {
   const filename = c.req.param("filename");
   const object = await c.env.R2.get(filename);
   if (!object) return c.json({ error: "not found" }, 404);

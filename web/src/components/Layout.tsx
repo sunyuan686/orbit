@@ -6,7 +6,8 @@ import { useTheme, type Theme } from "../lib/useTheme";
 import { SpaceProvider, useSpace } from "../lib/spaceContext";
 import { AppSettingsProvider } from "../lib/appSettingsContext";
 import { UserAccount } from "./UserAccount";
-import { SettingsIcon, SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
+import { SettingsIcon, SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, AiIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
+import { AiChatPanel, type AiChatContext } from "./AiChatPanel";
 import { RouteErrorBoundary } from "./RouteErrorBoundary";
 
 const navItems: { to: string; label: string; type: NavContentType }[] = [
@@ -42,11 +43,19 @@ function LayoutShell() {
     return saved ? Number(saved) : DEFAULT_WIDTH;
   });
   const [dragging, setDragging] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const { profile, loading: spaceLoading } = useSpace();
+
+  const articleMatch = location.pathname.match(
+    /^\/(diary|timeline|message|letter)\/([^/]+)$/
+  );
+  const aiContext: AiChatContext = articleMatch
+    ? { mode: "article", articleId: articleMatch[2] }
+    : { mode: "global" };
 
   const [prevPathname, setPrevPathname] = useState(location.pathname);
   if (location.pathname !== prevPathname) {
@@ -258,6 +267,15 @@ function LayoutShell() {
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              className="orbit-icon-btn inline-flex p-1.5 cursor-pointer"
+              title="AI 助手"
+              aria-label="AI 助手"
+              onClick={() => setAiOpen(true)}
+            >
+              <AiIcon />
+            </button>
             <Link
               to="/settings"
               className="orbit-icon-btn inline-flex p-1.5 cursor-pointer"
@@ -286,6 +304,11 @@ function LayoutShell() {
           </RouteErrorBoundary>
         </main>
       </div>
+      <AiChatPanel
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        context={aiContext}
+      />
     </div>
   );
 }

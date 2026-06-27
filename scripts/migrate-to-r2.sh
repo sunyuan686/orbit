@@ -6,12 +6,16 @@
 # 使用前提：
 #   1. 已执行 npx wrangler login
 #   2. 已在 Cloudflare 控制台创建 R2 Bucket（名称 orbit-media）
+#   3. 上传目标为远程 R2（脚本使用 --remote）
 #
 # 用法：
 #   bash scripts/migrate-to-r2.sh
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail
+
+# 一次性 / 灾难恢复：把 data/assets/ 批量上传到远程 R2。
+# 不会删除 D1 数据；重复运行会覆盖 R2 中同名文件。
 
 ASSETS_DIR="data/assets"
 BUCKET="orbit-media"
@@ -40,6 +44,7 @@ for filepath in "$ASSETS_DIR"/*; do
   esac
 
   if npx wrangler r2 object put "$BUCKET/$filename" \
+      --remote \
       --file "$filepath" \
       --content-type "$mime" \
       --cache-control "public, max-age=31536000, immutable" 2>/dev/null; then

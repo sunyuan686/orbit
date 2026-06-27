@@ -99,6 +99,37 @@ export function SettingsIcon(props: OrbitIconProps) {
   );
 }
 
+export function AiIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M12 3l1.2 3.6L17 8l-3.8 1.4L12 13l-1.2-3.6L7 8l3.8-1.4L12 3z" />
+      <path d="M5 16l.8 2.4L8 19l-2.2.8L5 22l-.8-2.2L2 19l2.2-.6L5 16z" />
+      <path d="M19 14l.6 1.8L21 17l-1.4.5L19 19l-.6-1.5L17 17l1.4-.5L19 14z" />
+    </OrbitIcon>
+  );
+}
+
+export function UserIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </OrbitIcon>
+  );
+}
+
+export function PaletteIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <circle cx="13.5" cy="6.5" r="0.5" fill="currentColor" stroke="none" />
+      <circle cx="17.5" cy="10.5" r="0.5" fill="currentColor" stroke="none" />
+      <circle cx="8.5" cy="7.5" r="0.5" fill="currentColor" stroke="none" />
+      <circle cx="6.5" cy="12.5" r="0.5" fill="currentColor" stroke="none" />
+      <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+    </OrbitIcon>
+  );
+}
+
 export function LogoutIcon(props: OrbitIconProps) {
   return (
     <OrbitIcon {...props}>

@@ -39,3 +39,7 @@ export async function upsertSetting(
 
   await db.insert(settings).values({ key, value, updatedAt: timestamp });
 }
+
+export async function deleteSetting(db: any, key: string): Promise<void> {
+  await db.delete(settings).where(eq(settings.key, key));
+}

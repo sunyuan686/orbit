@@ -6,21 +6,32 @@ compatibility_flags = ["nodejs_compat"]
 # 前端静态资源（vite build 输出目录）
 [assets]
 directory = "web/dist"
+# SPA 深链：/diary/:id 等路由刷新时回退到 index.html，由 React Router 接管
+not_found_handling = "single-page-application"
+# API 与 R2 媒体走 Worker；排除 Vite 打包的 js/css，避免与 /assets/* 路径冲突
+run_worker_first = ["/api/*", "/assets/*", "!/assets/*.js", "!/assets/*.css"]
 
 # D1 数据库（替换 database_id 为实际值）
 [[d1_databases]]
 binding = "DB"
 database_name = "orbit-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "5a1f38cb-4b18-4f1d-8127-8624c3f79c8b"
+migrations_dir = "src/db/migrations"
 
 # R2 存储桶
 [[r2_buckets]]
 binding = "R2"
 bucket_name = "orbit-media"
 
+# 自定义域名（deploy 时 Cloudflare 自动创建 DNS + 证书）
+[[routes]]
+pattern = "orbit.xixihaha.tech"
+custom_domain = true
+
 [vars]
-BETTER_AUTH_URL = "https://orbit.your-domain.workers.dev"
+BETTER_AUTH_URL = "https://orbit.xixihaha.tech"
 # 在 wrangler secret put 中设置：BETTER_AUTH_SECRET
 
-# 本地开发时的 D1 绑定（wrangler dev 自动使用本地 SQLite）
+[ai]
+binding = "AI"
 # 无需额外配置

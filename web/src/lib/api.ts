@@ -367,8 +367,28 @@ export async function updateSpace(data: {
 export const ACCENT_PRESETS = ["stone", "rose", "sage", "dusk"] as const;
 export type AccentPreset = (typeof ACCENT_PRESETS)[number];
 
+export const AI_PROVIDERS = [
+  "workers-ai",
+  "openai",
+  "anthropic",
+  "deepseek",
+] as const;
+export type AiProvider = (typeof AI_PROVIDERS)[number];
+
+export const DEFAULT_AI_MODELS: Record<AiProvider, string> = {
+  "workers-ai": "@cf/zai-org/glm-4.7-flash",
+  openai: "gpt-4o-mini",
+  anthropic: "claude-sonnet-4-20250514",
+  deepseek: "deepseek-chat",
+};
+
 export interface AppSettings {
   accentPreset: AccentPreset;
+  aiProvider: AiProvider;
+  aiModel: string;
+  hasOpenaiKey: boolean;
+  hasAnthropicKey: boolean;
+  hasDeepseekKey: boolean;
 }
 
 export async function fetchAppSettings(): Promise<AppSettings> {
@@ -378,7 +398,12 @@ export async function fetchAppSettings(): Promise<AppSettings> {
 }
 
 export async function updateAppSettings(data: {
-  accentPreset: AccentPreset;
+  accentPreset?: AccentPreset;
+  aiProvider?: AiProvider;
+  aiModel?: string | null;
+  openaiKey?: string | null;
+  anthropicKey?: string | null;
+  deepseekKey?: string | null;
 }): Promise<AppSettings> {
   const res = await fetch(`${BASE}/api/settings`, {
     method: "PUT",
@@ -388,6 +413,80 @@ export async function updateAppSettings(data: {
   });
   await assertOk(res, "保存设置失败");
   return res.json();
+}
+
+export type AiContextMode = "global" | "article";
+
+export interface AiConversationListItem {
+  id: string;
+  title: string;
+  contextMode: AiContextMode;
+  articleId?: string;
+  shared: boolean;
+  isOwner: boolean;
+  ownerAuthor: string;
+  updatedAt: number;
+  preview: string;
+}
+
+export interface AiConversationDetail {
+  id: string;
+  title: string;
+  contextMode: AiContextMode;
+  articleId?: string;
+  shared: boolean;
+  isOwner: boolean;
+  ownerAuthor: string;
+  updatedAt: number;
+  messages: Array<{
+    id: string;
+    role: string;
+    parts: unknown[];
+    metadata?: { author?: string };
+  }>;
+}
+
+export async function fetchAiConversations(opts?: {
+  articleId?: string;
+}): Promise<{ items: AiConversationListItem[] }> {
+  const params = new URLSearchParams();
+  if (opts?.articleId) params.set("articleId", opts.articleId);
+  const query = params.toString();
+  const res = await fetch(`${BASE}/api/ai/conversations${query ? `?${query}` : ""}`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载对话列表失败");
+  return res.json();
+}
+
+export async function fetchAiConversation(id: string): Promise<AiConversationDetail> {
+  const res = await fetch(`${BASE}/api/ai/conversations/${id}`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载对话失败");
+  return res.json();
+}
+
+export async function patchAiConversation(
+  id: string,
+  data: { title?: string; shared?: boolean }
+): Promise<{ id: string; title: string; shared: boolean; updatedAt: number }> {
+  const res = await fetch(`${BASE}/api/ai/conversations/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  await assertOk(res, "更新对话失败");
+  return res.json();
+}
+
+export async function deleteAiConversation(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/ai/conversations/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  await assertOk(res, "删除对话失败");
 }
 
 export interface AuditLogItem {

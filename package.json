@@ -20,15 +20,21 @@
     "@types/node": "^25.2.3",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "wrangler": "^4.105.0"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.88",
+    "@ai-sdk/deepseek": "^3.0.0",
+    "@ai-sdk/openai": "^3.0.76",
     "@hono/node-server": "^1.19.9",
+    "ai": "^7.0.3",
     "better-auth": "^1.6.18",
     "better-sqlite3": "^12.10.1",
     "concurrently": "^10.0.3",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.11.9",
-    "wait-on": "^8.0.3"
+    "wait-on": "^8.0.3",
+    "workers-ai-provider": "^3.2.1"
   }
 }

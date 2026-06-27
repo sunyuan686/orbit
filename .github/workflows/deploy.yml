@@ -5,10 +5,21 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: deploy-orbit-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   deploy:
     name: Build and Deploy
     runs-on: ubuntu-latest
+
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
 
     steps:
       - name: Checkout
@@ -19,8 +30,10 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
 
-      # ─── 安装依赖 ────────────────────────────────────────────────────────
       - name: Install root dependencies
         run: npm ci
 
@@ -28,25 +41,13 @@ jobs:
         run: npm ci
         working-directory: web
 
-      # ─── 构建前端 ────────────────────────────────────────────────────────
       - name: Build frontend
         run: npm run build
         working-directory: web
 
-      # ─── 运行 D1 迁移 ────────────────────────────────────────────────────
-      - name: Run D1 migrations
-        run: |
-          for f in src/db/migrations/*.sql; do
-            echo "→ 执行迁移：$f"
-            npx wrangler d1 execute orbit-db --file="$f" --remote
-          done
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      # 仅应用尚未记录的增量迁移（见 wrangler.toml migrations_dir）
+      - name: Apply D1 migrations
+        run: npx wrangler d1 migrations apply orbit-db --remote
 
-      # ─── 部署 Worker ─────────────────────────────────────────────────────
       - name: Deploy to Cloudflare Workers
         run: npx wrangler deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
