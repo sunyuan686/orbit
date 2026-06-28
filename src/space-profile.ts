@@ -36,25 +36,39 @@ export function formatAnniversaryForStorage(isoDate: string): string | null {
   return parsed.replace(/-/g, "");
 }
 
+const MS_PER_DAY = 86_400_000;
+const DEFAULT_TIME_ZONE = "Asia/Shanghai";
+
+function calendarIsoToUtcMs(iso: string): number | null {
+  const [year, month, day] = iso.split("-").map(Number);
+  if ([year, month, day].some((n) => Number.isNaN(n))) return null;
+  return Date.UTC(year, month - 1, day);
+}
+
+function formatCalendarIsoInTimeZone(
+  date: Date,
+  timeZone = DEFAULT_TIME_ZONE
+): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone }).format(date);
+}
+
 export function computeDaysTogether(
   anniversaryIso: string,
-  referenceDate = new Date()
+  referenceDate = new Date(),
+  timeZone = DEFAULT_TIME_ZONE
 ): number | null {
   const parsed = parseAnniversaryToIso(anniversaryIso);
   if (!parsed) return null;
 
-  const [year, month, day] = parsed.split("-").map(Number);
-  const start = new Date(year, month - 1, day);
-  const today = new Date(
-    referenceDate.getFullYear(),
-    referenceDate.getMonth(),
-    referenceDate.getDate()
+  const startMs = calendarIsoToUtcMs(parsed);
+  if (startMs === null) return null;
+
+  const todayMs = calendarIsoToUtcMs(
+    formatCalendarIsoInTimeZone(referenceDate, timeZone)
   );
+  if (todayMs === null || startMs > todayMs) return null;
 
-  if (Number.isNaN(start.getTime()) || start > today) return null;
-
-  const diffMs = today.getTime() - start.getTime();
-  return Math.floor(diffMs / 86_400_000) + 1;
+  return Math.floor((todayMs - startMs) / MS_PER_DAY) + 1;
 }
 
 export function buildSpaceProfile(

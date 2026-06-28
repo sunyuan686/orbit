@@ -10,23 +10,10 @@ import { canEditContent } from "../lib/contentPolicies";
 import { useToast } from "../lib/useToast";
 import type { Editor } from "@tiptap/react";
 import { TiptapEditor } from "../components/TiptapEditor";
+import { DatePicker } from "../components/DatePicker";
 import { CloseIcon } from "../components/OrbitIcons";
+import { fromDateInput, toDateInput } from "../lib/dateInput";
 import { anchorLogger } from "../lib/logger";
-
-/** Unix 秒 → YYYY-MM-DD（本地时区） */
-function toDateInput(ts: number): string {
-  const d = new Date(ts * 1000);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-/** YYYY-MM-DD → 当地 00:00 的 Unix 秒 */
-function fromDateInput(s: string): number {
-  const [y, m, d] = s.split("-").map(Number);
-  return Math.floor(new Date(y, m - 1, d).getTime() / 1000);
-}
 
 export function ArticleEdit() {
   const { type, id } = useParams<{ type: string; id: string }>();
@@ -313,12 +300,11 @@ export function ArticleEdit() {
           <label htmlFor="entry-date" className="orbit-form-label">
             日期
           </label>
-          <input
+          <DatePicker
             id="entry-date"
-            type="date"
             value={toDateInput(entryDate)}
-            onChange={(e) => setEntryDate(fromDateInput(e.target.value))}
-            className="orbit-input-date"
+            onChange={(value) => setEntryDate(fromDateInput(value))}
+            aria-label="选择日期"
           />
         </div>
       )}

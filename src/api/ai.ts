@@ -15,6 +15,10 @@ import { AiModelConfigError, resolveModel, type AiRuntimeEnv } from "../services
 import { buildSystemPrompt } from "../services/ai-prompt.js";
 import { createAiTools } from "../services/ai-tools.js";
 import { checkAiRateLimit } from "../services/ai-rate-limit.js";
+import {
+  getWorkersAiModelCredentials,
+  listWorkersAiChatModels,
+} from "../services/workers-ai-models.js";
 import { createLogger } from "../lib/logger.js";
 import type { SessionAuthor } from "./session-author.js";
 
@@ -73,6 +77,16 @@ function normalizeContext(raw?: AiChatContext): {
 
 export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) {
   const ai = new Hono();
+
+  ai.get("/workers-models", async (c) => {
+    const session = await requireSessionAuthor(c, options.getSessionAuthor);
+    if (session instanceof Response) return session;
+
+    const env = options.getEnv?.(c) ?? {};
+    const credentials = getWorkersAiModelCredentials(env);
+    const result = await listWorkersAiChatModels(credentials);
+    return c.json(result);
+  });
 
   ai.get("/conversations", async (c) => {
     const session = await requireSessionAuthor(c, options.getSessionAuthor);

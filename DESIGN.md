@@ -436,8 +436,11 @@ Detail: [docs/MARGINALIA-LAYOUT.md](docs/MARGINALIA-LAYOUT.md)
 - Inputs and textareas: `surface` fill, `border-light`, 8px radius, 44px min height for single-line
 - Placeholder: `text-muted`, italic in editor empty state
 - **Settings page**: left nav (`.orbit-settings-nav`) + right panel (`.orbit-settings-panel`); field rows use label/hint left, control right; min 44px touch targets; selection states use `sidebar-nav-active-bg`, not accent border
+- **Mobile settings**: menu list (`.orbit-settings-mobile-menu`) → detail panel with toolbar back; URL `?tab=` for deep links; one `.orbit-btn-primary` per panel (form submits use `.orbit-btn`)
+- **空间 · 档案**: couple profile (anniversary, slogan) under Settings tab `space`; sidebar brand links to `/settings?tab=space`
+- **功能 · Orbit AI**: AI model settings under Settings tab `ai`
 - **Stacked fields** (`.orbit-settings-field--stacked`): label + hint on top, full-width control below — for provider cards, swatches, API key blocks (Notion block pattern)
-- **Inline fields** (`.orbit-settings-field-row`): label left with `min-width: 9rem`, control right-aligned — for toggles, short inputs, segmented choices
+- **Inline fields** (`.orbit-settings-field-row`): label left with `min-width: 9rem`, control right-aligned — for readonly identity, toggles, short inputs
 
 ### Settings (`.orbit-settings-*`)
 
@@ -448,8 +451,18 @@ Notion-style settings: category nav + detail panel inside `.orbit-settings-conte
 | `.orbit-settings-content` | Settings page column (`--layout-settings`) |
 | `.orbit-settings-layout` | Flex row: nav + panel |
 | `.orbit-settings-nav` / `.orbit-settings-nav-item` | Left category nav; reuse `--sidebar-nav-hover-bg` / `--sidebar-nav-active-bg` |
+| `.orbit-settings-nav-group` / `.orbit-settings-nav-group-label` | Sidebar sections: 账户 / 界面 / 空间 / 功能 |
+| `.orbit-settings-section` / `.orbit-settings-heading` | In-panel groups (e.g. 资料 / 登录 / 主题) |
 | `.orbit-settings-panel` | Right content area |
 | `.orbit-settings-field` / `.orbit-settings-field-row` | Label + control row |
+| `.orbit-settings-field--stacked` | Label above, full-width control (mobile forms, swatches, API keys) |
+| `.orbit-settings-field--readonly` | Display-only value; no input chrome (`.orbit-settings-readonly-value`) |
+| `.orbit-settings-field--editable` | Input fields with raised surface |
+| `.orbit-settings-field--form` / `.orbit-settings-form-layout` | Account email/password; inline row on desktop, stacked on mobile |
+| `.orbit-settings-mobile-menu` / `.orbit-settings-mobile-row` | Mobile settings index list (Notion drill-down) |
+| `.orbit-settings-mobile-toolbar` / `.orbit-settings-mobile-back` | Mobile detail back navigation |
+| `.orbit-settings-panel--mobile-detail` | Mobile panel enter animation (respects `prefers-reduced-motion`) |
+| `.orbit-settings-actions-hint` | Unsaved-changes hint above panel primary save |
 | `.orbit-settings-choice` | Segmented option (e.g. theme mode) |
 | `.orbit-settings-provider-option` | AI provider card selector |
 | `.orbit-settings-actions` | Panel footer save area |

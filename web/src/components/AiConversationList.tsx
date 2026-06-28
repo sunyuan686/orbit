@@ -26,10 +26,10 @@ export function AiConversationList({
         </button>
       </div>
 
-      {loading ? <p className="orbit-muted text-sm px-2">加载中…</p> : null}
+      {loading ? <p className="orbit-muted orbit-ai-conversation-status">加载中…</p> : null}
 
       {!loading && items.length === 0 ? (
-        <p className="orbit-muted text-sm px-2">还没有对话</p>
+        <p className="orbit-muted orbit-ai-conversation-status">还没有对话</p>
       ) : null}
 
       <ul className="orbit-ai-conversation-items">

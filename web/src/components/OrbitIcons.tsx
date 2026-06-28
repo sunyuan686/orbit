@@ -241,6 +241,15 @@ export function MarginaliaIcon(props: OrbitIconProps) {
   );
 }
 
+export function CalendarIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+    </OrbitIcon>
+  );
+}
+
 export function ChevronLeftIcon(props: OrbitIconProps) {
   return (
     <OrbitIcon {...props}>
@@ -253,6 +262,49 @@ export function ChevronRightIcon(props: OrbitIconProps) {
   return (
     <OrbitIcon {...props}>
       <path d="M9 18l6-6-6-6" />
+    </OrbitIcon>
+  );
+}
+
+export function ChevronDownIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M6 9l6 6 6-6" />
+    </OrbitIcon>
+  );
+}
+
+export function PlusIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </OrbitIcon>
+  );
+}
+
+export function PanelSidebarIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <rect x="4" y="5" width="16" height="14" rx="2" />
+      <path d="M14 5v14" />
+    </OrbitIcon>
+  );
+}
+
+export function PanelFloatingIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <rect x="5" y="5" width="14" height="14" rx="2" />
+      <rect x="7" y="13" width="5" height="4" rx="1" fill="currentColor" stroke="none" />
+    </OrbitIcon>
+  );
+}
+
+export function PanelFullscreenIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <rect x="4" y="5" width="16" height="14" rx="2" />
     </OrbitIcon>
   );
 }

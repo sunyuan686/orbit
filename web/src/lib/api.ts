@@ -382,6 +382,34 @@ export const DEFAULT_AI_MODELS: Record<AiProvider, string> = {
   deepseek: "deepseek-chat",
 };
 
+export function isAiModelCompatibleWithProvider(
+  provider: AiProvider,
+  modelId: string
+): boolean {
+  const trimmed = modelId.trim();
+  if (!trimmed) return true;
+  if (provider === "workers-ai") return trimmed.startsWith("@cf/");
+  if (trimmed.startsWith("@cf/")) return false;
+  if (provider === "anthropic") return trimmed.startsWith("claude");
+  if (provider === "openai") return trimmed.startsWith("gpt");
+  if (provider === "deepseek") return trimmed.toLowerCase().includes("deepseek");
+  return true;
+}
+
+export function resolveAiModelId(
+  provider: AiProvider,
+  rawModel: string
+): string {
+  const trimmed = rawModel.trim();
+  const def = DEFAULT_AI_MODELS[provider];
+  if (provider === "workers-ai") {
+    return trimmed.startsWith("@cf/") ? trimmed : def;
+  }
+  if (!trimmed || trimmed.startsWith("@cf/")) return def;
+  if (!isAiModelCompatibleWithProvider(provider, trimmed)) return def;
+  return trimmed;
+}
+
 export interface AppSettings {
   accentPreset: AccentPreset;
   aiProvider: AiProvider;
@@ -412,6 +440,30 @@ export async function updateAppSettings(data: {
     body: JSON.stringify(data),
   });
   await assertOk(res, "保存设置失败");
+  return res.json();
+}
+
+export interface WorkersAiModelOption {
+  id: string;
+  label: string;
+  description: string;
+  task: string;
+  contextWindow?: number;
+  capabilities: string[];
+  supportsToolCalling: boolean;
+  recommended?: boolean;
+}
+
+export interface WorkersAiModelsResponse {
+  models: WorkersAiModelOption[];
+  source: "catalog" | "fallback";
+}
+
+export async function fetchWorkersAiModels(): Promise<WorkersAiModelsResponse> {
+  const res = await fetch(`${BASE}/api/ai/workers-models`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载 Workers AI 模型列表失败");
   return res.json();
 }
 
@@ -547,17 +599,20 @@ export function computeDaysTogetherFromIso(isoDate: string): number | null {
   const parts = isoDate.split("-").map(Number);
   if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
   const [year, month, day] = parts;
-  const start = new Date(year, month - 1, day);
+  const startMs = Date.UTC(year, month - 1, day);
   if (
-    start.getFullYear() !== year ||
-    start.getMonth() !== month - 1 ||
-    start.getDate() !== day
+    new Date(startMs).getUTCFullYear() !== year ||
+    new Date(startMs).getUTCMonth() !== month - 1 ||
+    new Date(startMs).getUTCDate() !== day
   ) {
     return null;
   }
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (start > today) return null;
-  const diffMs = today.getTime() - start.getTime();
-  return Math.floor(diffMs / 86_400_000) + 1;
+
+  const now = new Date();
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const [todayYear, todayMonth, todayDay] = todayIso.split("-").map(Number);
+  const todayMs = Date.UTC(todayYear, todayMonth - 1, todayDay);
+
+  if (startMs > todayMs) return null;
+  return Math.floor((todayMs - startMs) / 86_400_000) + 1;
 }

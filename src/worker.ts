@@ -32,6 +32,8 @@ export interface Env {
   AI: Ai;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
+  CF_ACCOUNT_ID?: string;
+  CF_API_TOKEN?: string;
 }
 
 type HonoEnv = { Bindings: Env };
@@ -134,6 +136,8 @@ app.route("/api/ai", createAiRoutes(getDb, {
   getEnv: (c) => ({
     AI: c.env.AI,
     BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET,
+    CF_ACCOUNT_ID: c.env.CF_ACCOUNT_ID,
+    CF_API_TOKEN: c.env.CF_API_TOKEN,
   }),
 }));
 app.route(

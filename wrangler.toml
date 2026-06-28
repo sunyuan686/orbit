@@ -31,6 +31,7 @@ custom_domain = true
 [vars]
 BETTER_AUTH_URL = "https://orbit.xixihaha.tech"
 # 在 wrangler secret put 中设置：BETTER_AUTH_SECRET
+# Workers AI 模型目录（设置页下拉）：CF_ACCOUNT_ID、CF_API_TOKEN
 
 [ai]
 binding = "AI"

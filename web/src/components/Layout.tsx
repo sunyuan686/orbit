@@ -6,7 +6,8 @@ import { useTheme, type Theme } from "../lib/useTheme";
 import { SpaceProvider, useSpace } from "../lib/spaceContext";
 import { AppSettingsProvider } from "../lib/appSettingsContext";
 import { UserAccount } from "./UserAccount";
-import { SettingsIcon, SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, AiIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
+import { SettingsIcon, SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
+import { AiChatFab } from "./AiChatFab";
 import { AiChatPanel, type AiChatContext } from "./AiChatPanel";
 import { RouteErrorBoundary } from "./RouteErrorBoundary";
 
@@ -70,10 +71,6 @@ function LayoutShell() {
       setPageTitle("搜索");
       return;
     }
-    if (segment === "space") {
-      setPageTitle("我们的空间");
-      return;
-    }
     if (segment === "settings") {
       setPageTitle("设置");
       return;
@@ -83,6 +80,24 @@ function LayoutShell() {
       setPageTitle(TYPE_LABEL[segment]);
     }
   }, [location.pathname]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "j") return;
+      if (event.shiftKey || event.altKey) return;
+      const target = event.target as HTMLElement;
+      if (
+        target.closest('input, textarea, [contenteditable="true"]') &&
+        !target.closest(".orbit-ai-panel")
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setAiOpen((current) => !current);
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const toggleCollapsed = () => {
     const next = !collapsed;
@@ -170,9 +185,9 @@ function LayoutShell() {
           ) : (
             <>
               <Link
-                to="/space"
+                to="/settings?tab=space"
                 className="orbit-sidebar-brand-link min-w-0 flex-1"
-                title="我们的空间"
+                title="空间档案"
               >
                 <h1 className="orbit-sidebar-title tracking-tight">Orbit</h1>
                 <p className="orbit-sidebar-tagline truncate mt-0.5">
@@ -267,15 +282,6 @@ function LayoutShell() {
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              className="orbit-icon-btn inline-flex p-1.5 cursor-pointer"
-              title="AI 助手"
-              aria-label="AI 助手"
-              onClick={() => setAiOpen(true)}
-            >
-              <AiIcon />
-            </button>
             <Link
               to="/settings"
               className="orbit-icon-btn inline-flex p-1.5 cursor-pointer"
@@ -304,6 +310,7 @@ function LayoutShell() {
           </RouteErrorBoundary>
         </main>
       </div>
+      <AiChatFab open={aiOpen} onClick={() => setAiOpen(true)} />
       <AiChatPanel
         open={aiOpen}
         onClose={() => setAiOpen(false)}

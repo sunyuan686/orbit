@@ -6,7 +6,7 @@
 >
 > 架构说明见 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 >
-> 最后更新：2026-06-28 · 当前版本：[v0.0.1](../CHANGELOG.md#001---2026-06-24)
+> 最后更新：2026-06-29 · 当前版本：[v0.0.1](../CHANGELOG.md#001---2026-06-24)
 
 ---
 
@@ -119,6 +119,7 @@
 | CI/CD 部署      | ✅   | push main 自动部署                 | `.github/workflows/deploy.yml`                                                              |
 | 响应式 + 暗色主题    | ✅   | 移动端布局、主题切换                     | `web/src/components/Layout.tsx`                                                             |
 | 文章目录 TOC      | ✅   | 桌面左侧可折叠 TOC 轨（默认收起）+ 移动 FAB/抽屉 | `TableOfContents.tsx`，`railPreferences.ts`；见 [MARGINALIA-LAYOUT.md](./MARGINALIA-LAYOUT.md) |
+| 国际化 / 多语言     | 📋  | 界面文案 i18n（如中 / 英切换）、日期与数字本地化；富文本与搜索对多语言内容的策略待定 | — |
 
 
 ---
@@ -150,9 +151,9 @@
 
 | 功能       | 状态  | 说明                                                                        |
 | -------- | --- | ------------------------------------------------------------------------- |
-| 空间档案     | ✅   | `GET/PUT /api/space`（底层复用 `settings` 表）；`/space` 编辑页；侧栏常驻展示纪念日；MVP 不做昵称爱称 |
+| 空间档案     | ✅   | `GET/PUT /api/space`（底层复用 `settings` 表）；`/settings?tab=space` 编辑（`SpaceSettingsPanel.tsx`）；侧栏常驻展示纪念日；MVP 不做昵称爱称 |
 | 首页 / 仪表盘 | 💡  | 有个人特点的首页：纪念日、精选照片、近期动态等；布局与信息架构尚未定稿，待空间档案落地后再设计                           |
-| 侧栏纪念日展示  | ✅   | 依赖空间档案 API；点击可进入 `/space` 编辑                                              |
+| 侧栏纪念日展示  | ✅   | 依赖空间档案 API；点击可进入 `/settings?tab=space` 编辑                                 |
 
 
 空间身份（纪念日、slogan、封面图等）与偏好设置（主题色、账号）分开展示与编辑，见下方「设置页」。
@@ -189,7 +190,7 @@
 | 创建人 / 修改人     | ✅   | 展示作者；有编辑且修改者与作者不同时展示修改人                                          |
 | 双人联署作者        | 📋  | 每篇仅一个 `author`；memo 通过 `couple` 编辑权限共同维护                         |
 | 编辑变更 / 版本历史   | 📋  | 无 revision 表、无 diff                                              |
-| 设置页           | ✅   | `/settings`：主题色 accent、明暗模式、改密 / 改邮箱；API Token、LLM Key 归 Phase B |
+| 设置页           | ✅   | `/settings?tab=`：分组侧栏（账户 / 界面 / 空间 / 功能）；移动端 Notion 式 drill-down；主题色、账号安全、空间档案、AI 模型与 Key；API Token 归 Phase B |
 
 
 ---
@@ -216,10 +217,10 @@
 
 | 功能         | 状态  | 说明                                                                                                  |
 | ---------- | --- | --------------------------------------------------------------------------------------------------- |
-| 集成 AI 聊天助手 | ✅   | 站内侧栏流式聊天、会话持久化（默认私密、可开关共享）、全局/文章上下文、Tool 检索；`AiChatPanel.tsx`，`/api/ai`；设计见 [AI.md](./AI.md) |
+| 集成 AI 聊天助手 | ✅   | 站内侧栏流式聊天、会话持久化（默认私密、可开关共享）、全局/文章上下文、Tool 检索、会话内模型切换（`AiModelPicker`）；移动 FAB（`AiChatFab`）；`AiChatPanel.tsx`，`/api/ai`；设计见 [AI.md](./AI.md) |
 | 智能总结       | 💡  | 按日 / 周 / 月 / 年聚合内容，生成恋爱日记式回顾                                                                        |
 | AI 辅助编辑    | 💡  | 编辑器内选中段落改写、续写、提炼标题；与边注能力可组合                                                                         |
-| 模型与密钥配置    | ✅   | 设置页 AI 面板：Workers AI 默认 + BYOK（OpenAI / Anthropic / DeepSeek），API Key 加密存储；`Settings.tsx`，`ai-model.ts` |
+| 模型与密钥配置    | ✅   | 设置页 AI 面板：Workers AI 默认（`GET /api/ai/workers-models` 动态目录）+ BYOK（DeepSeek）；API Key 加密存储；`Settings.tsx`，`workers-ai-models.ts`，`ai-model.ts` |
 
 
 ---
@@ -252,8 +253,8 @@
 
 1. [x] 文章详情展示创建时间、最近修改时间、作者（Phase A）
 2. [x] 固定设计风格：Design Tokens + 组件规范 + `DESIGN.md`（Phase A）
-3. [x] 空间档案：`GET/PUT /api/space` + `/space` 页 + 侧栏纪念日展示；昵称 MVP 跳过（Phase A）
-4. [x] 设置页：主题色 accent + 账号安全；API Token 放 Phase B（Phase A）
+3. [x] 空间档案：`GET/PUT /api/space` + `/settings?tab=space` + 侧栏纪念日展示；昵称 MVP 跳过（Phase A）
+4. [x] 设置页：分组导航 + 移动端 drill-down + 主题色 / 账号 / 空间 / AI；API Token 放 Phase B（Phase A）
 5. [x] 路由错误边界 + 排障文档（Phase A）
 6. [x] 持久化审计日志表 + 查询接口（Phase A）
 7. [x] 前端 / 后端结构化日志（Phase A）
@@ -261,7 +262,7 @@
 9. [ ] 组件细节打磨：按钮 / 动效 / 图标（**进行中**，首批已落地，见「设计与体验」；长期迭代，不设完成态）
 10. [ ] API Token + REST 规范化（Phase B）
 
-**后续方向（未排期）**：内容模板管理（见「内容分类」，降低各类型内容创建门槛）；审计日志浏览页（见「可观测性与日志」）；首页 / 仪表盘（纪念日、照片、近期内容等，展示形式待定，依赖空间档案与 `asset` 数据）；信件仪式感呈现（信纸、信封、邮票等，见「内容分类」，优先级低）；彩蛋惊喜（隐藏交互、纪念日动效等，见「设计与体验」，优先级最低）。
+**后续方向（未排期）**：国际化 / 多语言（见「平台能力」，界面与本地化）；内容模板管理（见「内容分类」，降低各类型内容创建门槛）；审计日志浏览页（见「可观测性与日志」）；首页 / 仪表盘（纪念日、照片、近期内容等，展示形式待定，依赖空间档案与 `asset` 数据）；信件仪式感呈现（信纸、信封、邮票等，见「内容分类」，优先级低）；彩蛋惊喜（隐藏交互、纪念日动效等，见「设计与体验」，优先级最低）。
 
 ---
 

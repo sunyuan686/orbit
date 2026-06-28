@@ -6,7 +6,7 @@ import { createWorkersAI } from "workers-ai-provider";
 import {
   APP_SETTING_KEYS,
   buildAppSettings,
-  DEFAULT_AI_MODELS,
+  resolveAiModelId,
   type AiProvider,
 } from "../app-settings.js";
 import { readSettingsMap } from "../db/settings-store.js";
@@ -57,7 +57,7 @@ export async function resolveModel(
 ): Promise<ResolvedModel> {
   const settingsMap = await readSettingsMap(db);
   const settings = buildAppSettings(settingsMap);
-  const modelId = settings.aiModel || DEFAULT_AI_MODELS[settings.aiProvider];
+  const modelId = resolveAiModelId(settings.aiProvider, settings.aiModel);
   const secret = env.BETTER_AUTH_SECRET;
 
   if (settings.aiProvider === "workers-ai") {

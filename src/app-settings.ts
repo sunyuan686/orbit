@@ -45,6 +45,36 @@ export function isAiProvider(value: string): value is AiProvider {
   return (AI_PROVIDERS as readonly string[]).includes(value);
 }
 
+/** Whether a stored model id belongs to the given provider. */
+export function isAiModelCompatibleWithProvider(
+  provider: AiProvider,
+  modelId: string
+): boolean {
+  const trimmed = modelId.trim();
+  if (!trimmed) return true;
+  if (provider === "workers-ai") return trimmed.startsWith("@cf/");
+  if (trimmed.startsWith("@cf/")) return false;
+  if (provider === "anthropic") return trimmed.startsWith("claude");
+  if (provider === "openai") return trimmed.startsWith("gpt");
+  if (provider === "deepseek") return trimmed.toLowerCase().includes("deepseek");
+  return true;
+}
+
+/** Resolve the model id actually used for inference / display. */
+export function resolveAiModelId(
+  provider: AiProvider,
+  rawModel: string
+): string {
+  const trimmed = rawModel.trim();
+  const def = DEFAULT_AI_MODELS[provider];
+  if (provider === "workers-ai") {
+    return trimmed.startsWith("@cf/") ? trimmed : def;
+  }
+  if (!trimmed || trimmed.startsWith("@cf/")) return def;
+  if (!isAiModelCompatibleWithProvider(provider, trimmed)) return def;
+  return trimmed;
+}
+
 export function buildAppSettings(
   settingsMap: Record<string, string>
 ): AppSettings {

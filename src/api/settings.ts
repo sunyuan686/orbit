@@ -123,6 +123,7 @@ export function createSettingsRoutes(
 
     const db = await getDb(c);
     const auditMetadata: Record<string, unknown> = {};
+    let settingsMap = await readSettingsMap(db);
 
     try {
       if (body.accentPreset !== undefined) {
@@ -143,8 +144,21 @@ export function createSettingsRoutes(
             400
           );
         }
+        const previousProvider = settingsMap[APP_SETTING_KEYS.aiProvider]?.trim();
         await upsertSetting(db, APP_SETTING_KEYS.aiProvider, body.aiProvider);
         auditMetadata.aiProvider = body.aiProvider;
+
+        if (
+          body.aiModel === undefined &&
+          previousProvider &&
+          isAiProvider(previousProvider) &&
+          previousProvider !== body.aiProvider
+        ) {
+          await deleteSetting(db, APP_SETTING_KEYS.aiModel);
+          auditMetadata.aiModel = null;
+          delete settingsMap[APP_SETTING_KEYS.aiModel];
+        }
+        settingsMap[APP_SETTING_KEYS.aiProvider] = body.aiProvider;
       }
 
       if (body.aiModel !== undefined) {
