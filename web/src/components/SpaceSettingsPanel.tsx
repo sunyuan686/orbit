@@ -73,12 +73,12 @@ export function SpaceSettingsPanel() {
       <header className="orbit-settings-panel-header">
         <h2 className="orbit-settings-panel-title">空间档案</h2>
         <p className="orbit-settings-panel-desc">
-          起始日与侧栏展示。
+          设置起始日与侧栏展示文案，双方共用。
         </p>
       </header>
 
       {loading && !profile ? (
-        <p className="orbit-muted text-sm">加载中…</p>
+        <p className="orbit-muted orbit-settings-loading">加载中…</p>
       ) : (
         <form
           onSubmit={(event) => {
@@ -92,7 +92,7 @@ export function SpaceSettingsPanel() {
                 <p className="orbit-space-preview-days">
                   在一起第 {previewDays.toLocaleString("zh-CN")} 天
                 </p>
-                <p className="orbit-muted text-sm mt-1">
+                <p className="orbit-space-preview-sub orbit-muted">
                   自 {formatAnniversaryCn(anniversaryDate)} 起
                 </p>
               </div>
@@ -116,7 +116,7 @@ export function SpaceSettingsPanel() {
                       setDirty(true);
                     }}
                     allowClear
-                    className="w-full max-w-xs"
+                    className="orbit-settings-input-date"
                     placeholder="选择起始日"
                     aria-label="选择起始日"
                   />
@@ -147,7 +147,7 @@ export function SpaceSettingsPanel() {
                       setSlogan(event.target.value);
                       setDirty(true);
                     }}
-                    className="orbit-input w-full"
+                    className="orbit-input orbit-settings-input-block"
                   />
                 </div>
               </div>

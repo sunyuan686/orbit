@@ -162,7 +162,9 @@ async function parseApiError(res: Response, fallback: string): Promise<ApiError>
     // ignore parse errors
   }
   if (res.status === 401) message = "请先登录后再操作";
-  else if (res.status >= 500) message = "服务器错误，请稍后重试";
+  else if (res.status >= 500 && message === fallback) {
+    message = "服务器错误，请稍后重试";
+  }
   return new ApiError(message, res.status);
 }
 
@@ -367,55 +369,58 @@ export async function updateSpace(data: {
 export const ACCENT_PRESETS = ["stone", "rose", "sage", "dusk"] as const;
 export type AccentPreset = (typeof ACCENT_PRESETS)[number];
 
-export const AI_PROVIDERS = [
-  "workers-ai",
-  "openai",
-  "anthropic",
-  "deepseek",
-] as const;
+export const AI_PROVIDERS = ["workers-ai", "deepseek", "custom"] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 
-export const DEFAULT_AI_MODELS: Record<AiProvider, string> = {
-  "workers-ai": "@cf/zai-org/glm-4.7-flash",
-  openai: "gpt-4o-mini",
-  anthropic: "claude-sonnet-4-20250514",
-  deepseek: "deepseek-chat",
-};
+export const DEFAULT_WORKERS_AI_MODEL = "@cf/zai-org/glm-4.7-flash";
+export const DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash";
 
-export function isAiModelCompatibleWithProvider(
-  provider: AiProvider,
-  modelId: string
-): boolean {
-  const trimmed = modelId.trim();
-  if (!trimmed) return true;
-  if (provider === "workers-ai") return trimmed.startsWith("@cf/");
-  if (trimmed.startsWith("@cf/")) return false;
-  if (provider === "anthropic") return trimmed.startsWith("claude");
-  if (provider === "openai") return trimmed.startsWith("gpt");
-  if (provider === "deepseek") return trimmed.toLowerCase().includes("deepseek");
-  return true;
+export const DEFAULT_ENABLED_AI_MODELS: readonly string[] = [
+  `workers-ai:@cf/zai-org/glm-4.7-flash`,
+  `workers-ai:@cf/meta/llama-3.3-70b-instruct-fp8-fast`,
+  `workers-ai:@cf/openai/gpt-oss-20b`,
+  `deepseek:${DEFAULT_DEEPSEEK_MODEL}`,
+  `deepseek:deepseek-v4-pro`,
+];
+
+export const DEFAULT_ENABLED_AI_PROVIDERS: readonly AiProvider[] = [
+  "workers-ai",
+  "deepseek",
+];
+
+export interface AiConnectionModel {
+  id: string;
+  label?: string;
 }
 
-export function resolveAiModelId(
-  provider: AiProvider,
-  rawModel: string
-): string {
-  const trimmed = rawModel.trim();
-  const def = DEFAULT_AI_MODELS[provider];
-  if (provider === "workers-ai") {
-    return trimmed.startsWith("@cf/") ? trimmed : def;
+export interface AiCustomConnection {
+  id: string;
+  name: string;
+  baseUrl: string;
+  models: AiConnectionModel[];
+  enabled: boolean;
+}
+
+export interface AiCustomConnectionPublic extends AiCustomConnection {
+  hasApiKey: boolean;
+}
+
+export function inferAiProviderFromModelId(modelId: string): AiProvider {
+  const trimmed = modelId.trim();
+  if (trimmed.startsWith("custom:")) return "custom";
+  if (trimmed.startsWith("workers-ai:") || trimmed.startsWith("@cf/")) {
+    return "workers-ai";
   }
-  if (!trimmed || trimmed.startsWith("@cf/")) return def;
-  if (!isAiModelCompatibleWithProvider(provider, trimmed)) return def;
-  return trimmed;
+  return "deepseek";
 }
 
 export interface AppSettings {
   accentPreset: AccentPreset;
   aiProvider: AiProvider;
   aiModel: string;
-  hasOpenaiKey: boolean;
-  hasAnthropicKey: boolean;
+  aiEnabledModels: string[];
+  aiEnabledProviders: AiProvider[];
+  aiConnections: AiCustomConnectionPublic[];
   hasDeepseekKey: boolean;
 }
 
@@ -429,8 +434,10 @@ export async function updateAppSettings(data: {
   accentPreset?: AccentPreset;
   aiProvider?: AiProvider;
   aiModel?: string | null;
-  openaiKey?: string | null;
-  anthropicKey?: string | null;
+  aiEnabledModels?: string[];
+  aiEnabledProviders?: AiProvider[];
+  aiConnections?: AiCustomConnection[];
+  connectionKey?: { id: string; key: string | null };
   deepseekKey?: string | null;
 }): Promise<AppSettings> {
   const res = await fetch(`${BASE}/api/settings`, {
@@ -441,6 +448,17 @@ export async function updateAppSettings(data: {
   });
   await assertOk(res, "保存设置失败");
   return res.json();
+}
+
+export interface DeepseekModelOption {
+  id: string;
+  label: string;
+  description: string;
+  contextWindow?: number;
+  capabilities: string[];
+  supportsToolCalling: boolean;
+  recommended?: boolean;
+  legacy?: boolean;
 }
 
 export interface WorkersAiModelOption {
@@ -464,6 +482,58 @@ export async function fetchWorkersAiModels(): Promise<WorkersAiModelsResponse> {
     credentials: "include",
   });
   await assertOk(res, "加载 Workers AI 模型列表失败");
+  return res.json();
+}
+
+export interface DeepseekModelsResponse {
+  models: DeepseekModelOption[];
+  source: "api" | "fallback";
+}
+
+export async function fetchDeepseekModels(): Promise<DeepseekModelsResponse> {
+  const res = await fetch(`${BASE}/api/ai/deepseek-models`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载 DeepSeek 模型列表失败");
+  return res.json();
+}
+
+export async function testDeepseekConnection(deepseekKey?: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/ai/deepseek-test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(deepseekKey?.trim() ? { deepseekKey } : {}),
+  });
+  await assertOk(res, "连接失败，请检查 API Key");
+}
+
+export async function testAiConnection(data: {
+  baseUrl: string;
+  apiKey?: string;
+  connectionId?: string;
+}): Promise<void> {
+  const res = await fetch(`${BASE}/api/ai/connections/test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  await assertOk(res, "连接失败，请检查 Base URL 与 API Key");
+}
+
+export async function discoverAiConnectionModels(data: {
+  baseUrl: string;
+  apiKey?: string;
+  connectionId?: string;
+}): Promise<{ models: AiConnectionModel[] }> {
+  const res = await fetch(`${BASE}/api/ai/connections/discover`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  await assertOk(res, "拉取模型列表失败");
   return res.json();
 }
 

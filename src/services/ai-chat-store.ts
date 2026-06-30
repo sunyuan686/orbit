@@ -1,8 +1,12 @@
 import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import type { UIMessage } from "ai";
 import { aiConversation, aiMessage } from "../db/schema.js";
+import { extractVisibleTextFromParts } from "../lib/ai-message-content.js";
 
 export type AiContextMode = "global" | "article";
+
+/** Max messages sent to the LLM per request (recent tail only). */
+export const AI_CHAT_MAX_MODEL_MESSAGES = 40;
 
 export interface AiConversationRow {
   id: string;
@@ -12,6 +16,7 @@ export interface AiConversationRow {
   userId: string;
   author: string;
   shared: boolean;
+  lastPreview: string;
   createdAt: number;
   updatedAt: number;
   deletedAt: number | null;
@@ -63,7 +68,7 @@ export function extractTextFromParts(parts: unknown): string {
 }
 
 export function partsToPreview(parts: unknown, maxLen = 80): string {
-  const text = extractTextFromParts(parts).replace(/\s+/g, " ").trim();
+  const text = extractVisibleTextFromParts(parts).replace(/\s+/g, " ").trim();
   if (!text) return "";
   if (text.length <= maxLen) return text;
   return `${text.slice(0, maxLen)}…`;
@@ -96,6 +101,68 @@ export function rowToUIMessage(row: AiMessageRow): UIMessage {
   return message;
 }
 
+export function trimMessagesForModel(
+  messages: UIMessage[],
+  max = AI_CHAT_MAX_MODEL_MESSAGES
+): UIMessage[] {
+  if (messages.length <= max) return messages;
+  return messages.slice(-max);
+}
+
+async function writeMessageAndTouchConversation(
+  db: any,
+  row: AiMessageRow,
+  preview: string
+): Promise<void> {
+  const patch = {
+    updatedAt: row.createdAt,
+    lastPreview: preview,
+  };
+  const where = eq(aiConversation.id, row.conversationId);
+
+  if (typeof db.batch === "function") {
+    await db.batch([
+      db.insert(aiMessage).values(row),
+      db.update(aiConversation).set(patch).where(where),
+    ]);
+    return;
+  }
+
+  await db.insert(aiMessage).values(row);
+  await db.update(aiConversation).set(patch).where(where);
+}
+
+async function writeConversationWithMessage(
+  db: any,
+  conversation: AiConversationRow,
+  message: AiMessageRow
+): Promise<void> {
+  const convValues = {
+    id: conversation.id,
+    title: conversation.title,
+    contextMode: conversation.contextMode,
+    articleId: conversation.articleId,
+    userId: conversation.userId,
+    author: conversation.author,
+    shared: conversation.shared,
+    lastPreview: conversation.lastPreview,
+    createdAt: conversation.createdAt,
+    updatedAt: conversation.updatedAt,
+    deletedAt: null,
+  };
+
+  if (typeof db.batch === "function") {
+    await db.batch([
+      db.insert(aiConversation).values(convValues),
+      db.insert(aiMessage).values(message),
+    ]);
+    return;
+  }
+
+  await db.insert(aiConversation).values(convValues);
+  await db.insert(aiMessage).values(message);
+}
+
 export function createAiChatStore(db: any) {
   async function listConversations(
     currentUserId: string,
@@ -121,29 +188,17 @@ export function createAiChatStore(db: any) {
       )
       .orderBy(desc(aiConversation.updatedAt))) as AiConversationRow[];
 
-    const items: AiConversationListItem[] = [];
-    for (const row of rows) {
-      const lastMessage = (await db
-        .select()
-        .from(aiMessage)
-        .where(eq(aiMessage.conversationId, row.id))
-        .orderBy(desc(aiMessage.createdAt))
-        .limit(1)
-        .get()) as AiMessageRow | undefined;
-
-      items.push({
-        id: row.id,
-        title: row.title,
-        contextMode: row.contextMode as AiContextMode,
-        articleId: row.articleId ?? undefined,
-        shared: row.shared,
-        isOwner: row.userId === currentUserId,
-        ownerAuthor: row.author,
-        updatedAt: row.updatedAt,
-        preview: lastMessage ? partsToPreview(parseParts(lastMessage.parts)) : "",
-      });
-    }
-    return items;
+    return rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      contextMode: row.contextMode as AiContextMode,
+      articleId: row.articleId ?? undefined,
+      shared: row.shared,
+      isOwner: row.userId === currentUserId,
+      ownerAuthor: row.author,
+      updatedAt: row.updatedAt,
+      preview: row.lastPreview,
+    }));
   }
 
   async function getConversation(
@@ -183,6 +238,7 @@ export function createAiChatStore(db: any) {
       userId: input.userId,
       author: input.author,
       shared: input.shared ?? false,
+      lastPreview: "",
       createdAt: timestamp,
       updatedAt: timestamp,
       deletedAt: null,
@@ -195,11 +251,56 @@ export function createAiChatStore(db: any) {
       userId: record.userId,
       author: record.author,
       shared: record.shared,
+      lastPreview: record.lastPreview,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       deletedAt: null,
     });
     return record;
+  }
+
+  async function createConversationWithMessage(input: {
+    userId: string;
+    author: string;
+    title: string;
+    contextMode: AiContextMode;
+    articleId?: string | null;
+    shared?: boolean;
+    message: {
+      role: UIMessage["role"];
+      parts: UIMessage["parts"];
+      author?: string | null;
+      id?: string;
+    };
+  }): Promise<{ conversation: AiConversationRow; message: AiMessageRow }> {
+    const timestamp = now();
+    const conversationId = generateAiId("aiconv");
+    const preview = partsToPreview(input.message.parts);
+    const conversation: AiConversationRow = {
+      id: conversationId,
+      title: input.title,
+      contextMode: input.contextMode,
+      articleId: input.articleId ?? null,
+      userId: input.userId,
+      author: input.author,
+      shared: input.shared ?? false,
+      lastPreview: preview,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      deletedAt: null,
+    };
+    const message: AiMessageRow = {
+      id: input.message.id ?? generateAiId("aimsg"),
+      conversationId,
+      role: input.message.role,
+      author: input.message.author ?? null,
+      parts: serializeParts(input.message.parts),
+      createdAt: timestamp,
+    };
+
+    await writeConversationWithMessage(db, conversation, message);
+
+    return { conversation, message };
   }
 
   async function updateConversation(
@@ -243,8 +344,10 @@ export function createAiChatStore(db: any) {
       parts: serializeParts(input.parts),
       createdAt: now(),
     };
-    await db.insert(aiMessage).values(row);
-    await updateConversation(input.conversationId, { updatedAt: row.createdAt });
+    const preview = partsToPreview(input.parts);
+
+    await writeMessageAndTouchConversation(db, row, preview);
+
     return row;
   }
 
@@ -264,6 +367,7 @@ export function createAiChatStore(db: any) {
     getConversation,
     canAccessConversation,
     createConversation,
+    createConversationWithMessage,
     updateConversation,
     softDeleteConversation,
     listMessages,

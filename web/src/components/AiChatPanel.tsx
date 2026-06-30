@@ -12,6 +12,7 @@ import {
   type AiContextMode,
   type AiConversationListItem,
 } from "../lib/api";
+import { parseAssistantContent } from "../lib/ai-message-content";
 import { useToast } from "../lib/useToast";
 import { AiConversationList } from "./AiConversationList";
 import { AiLayoutMenu, type AiPanelLayout } from "./AiLayoutMenu";
@@ -99,6 +100,23 @@ function createChatId(): string {
   return `orbit-ai-${crypto.randomUUID()}`;
 }
 
+type ChatSessionState = {
+  id: string;
+  messages: UIMessage[];
+  conversationId?: string;
+};
+
+function createChatSession(
+  messages: UIMessage[] = [],
+  conversationId?: string
+): ChatSessionState {
+  return {
+    id: createChatId(),
+    messages,
+    conversationId,
+  };
+}
+
 function getMessageText(message: UIMessage): string {
   if (Array.isArray(message.parts)) {
     return message.parts
@@ -108,14 +126,6 @@ function getMessageText(message: UIMessage): string {
   }
   const legacy = (message as UIMessage & { content?: string }).content;
   return typeof legacy === "string" ? legacy : "";
-}
-
-function getMessageReasoning(message: UIMessage): string {
-  if (!Array.isArray(message.parts)) return "";
-  return message.parts
-    .filter((part) => part.type === "reasoning")
-    .map((part) => part.text)
-    .join("");
 }
 
 function getMessageAuthor(message: UIMessage): string | undefined {
@@ -130,7 +140,6 @@ export function AiChatPanel({
   articleTitle,
 }: AiChatPanelProps) {
   const toast = useToast();
-  const [conversationId, setConversationId] = useState<string | undefined>();
   const [conversations, setConversations] = useState<AiConversationListItem[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -151,15 +160,21 @@ export function AiChatPanel({
   const floatingPosRef = useRef(floatingPos);
   const panelRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [chatSession, setChatSession] = useState(() => ({
-    id: createChatId(),
-    messages: [] as UIMessage[],
-  }));
-  const conversationIdRef = useRef<string | undefined>(undefined);
+  const [chatSession, setChatSession] = useState<ChatSessionState>(() =>
+    createChatSession()
+  );
+  const chatSessionRef = useRef(chatSession);
   const contextRef = useRef(context);
   const openSessionRef = useRef<string | null>(null);
-  conversationIdRef.current = conversationId;
+  const assignConversationIdRef = useRef<(id: string | undefined) => void>(() => {});
+  chatSessionRef.current = chatSession;
   contextRef.current = context;
+
+  assignConversationIdRef.current = (id: string | undefined) => {
+    const next = { ...chatSessionRef.current, conversationId: id };
+    chatSessionRef.current = next;
+    setChatSession(next);
+  };
 
   floatingPosRef.current = floatingPos;
 
@@ -169,15 +184,14 @@ export function AiChatPanel({
         api: "/api/ai/chat",
         credentials: "include",
         body: () => ({
-          conversationId: conversationIdRef.current,
+          conversationId: chatSessionRef.current.conversationId,
           context: contextRef.current,
         }),
         fetch: async (url, init) => {
           const res = await fetch(url, init);
           const headerId = res.headers.get("X-Conversation-Id");
-          if (headerId) {
-            conversationIdRef.current = headerId;
-            setConversationId((current) => current ?? headerId);
+          if (headerId?.startsWith("aiconv_")) {
+            assignConversationIdRef.current(headerId);
           }
           return res;
         },
@@ -217,9 +231,9 @@ export function AiChatPanel({
     if (openSessionRef.current === sessionKey) return;
 
     openSessionRef.current = sessionKey;
-    setChatSession({ id: createChatId(), messages: [] });
-    conversationIdRef.current = undefined;
-    setConversationId(undefined);
+    const nextSession = createChatSession();
+    chatSessionRef.current = nextSession;
+    setChatSession(nextSession);
     setIsOwner(true);
     setShared(false);
     setShowListMobile(true);
@@ -393,12 +407,12 @@ export function AiChatPanel({
     clearError();
     try {
       const detail = await fetchAiConversation(id);
-      conversationIdRef.current = detail.id;
-      setConversationId(detail.id);
-      setChatSession({
-        id: createChatId(),
-        messages: detail.messages as UIMessage[],
-      });
+      const nextSession = createChatSession(
+        detail.messages as UIMessage[],
+        detail.id
+      );
+      chatSessionRef.current = nextSession;
+      setChatSession(nextSession);
       setIsOwner(detail.isOwner);
       setShared(detail.shared);
       setShowListMobile(false);
@@ -412,9 +426,9 @@ export function AiChatPanel({
   }
 
   function startNewConversation() {
-    conversationIdRef.current = undefined;
-    setConversationId(undefined);
-    setChatSession({ id: createChatId(), messages: [] });
+    const nextSession = createChatSession();
+    chatSessionRef.current = nextSession;
+    setChatSession(nextSession);
     setIsOwner(true);
     setShared(false);
     setShowListMobile(false);
@@ -472,6 +486,7 @@ export function AiChatPanel({
 
   if (!panelMounted) return null;
 
+  const conversationId = chatSession.conversationId;
   const activeConversation = conversations.find((item) => item.id === conversationId);
   const headerTitle = activeConversation?.title ?? "新对话";
   const contextLabel =
@@ -659,10 +674,14 @@ export function AiChatPanel({
                 </div>
               ) : null}
               {messages.map((message) => {
-                const text = getMessageText(message);
-                const reasoning = getMessageReasoning(message);
-                if (!text && !reasoning) return null;
                 const author = getMessageAuthor(message);
+                const content =
+                  message.role === "assistant"
+                    ? parseAssistantContent(message)
+                    : { reasoning: "", text: getMessageText(message) };
+                const { reasoning, text: bubbleText } = content;
+                const showReasoning = Boolean(reasoning);
+                if (!bubbleText && !showReasoning) return null;
                 return (
                   <div
                     key={message.id}
@@ -671,14 +690,14 @@ export function AiChatPanel({
                     {message.role === "user" && author ? (
                       <span className="orbit-ai-message-author">{author}</span>
                     ) : null}
-                    {reasoning ? (
+                    {showReasoning ? (
                       <details className="orbit-ai-reasoning">
                         <summary>推理过程</summary>
                         <div className="orbit-ai-reasoning-body">{reasoning}</div>
                       </details>
                     ) : null}
-                    {text ? (
-                      <div className="orbit-ai-message-bubble">{text}</div>
+                    {bubbleText ? (
+                      <div className="orbit-ai-message-bubble">{bubbleText}</div>
                     ) : null}
                   </div>
                 );

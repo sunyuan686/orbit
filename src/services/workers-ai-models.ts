@@ -68,7 +68,7 @@ const TASK_LABELS: Record<string, string> = {
 export const FALLBACK_WORKERS_AI_MODELS: WorkersAiModelOption[] = [
   {
     id: "@cf/zai-org/glm-4.7-flash",
-    label: "glm-4.7-flash",
+    label: "@cf/zai-org/glm-4.7-flash",
     description:
       "中文友好、支持工具调用，131k 上下文。Orbit 默认推荐。",
     task: "Text Generation",
@@ -79,7 +79,7 @@ export const FALLBACK_WORKERS_AI_MODELS: WorkersAiModelOption[] = [
   },
   {
     id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-    label: "llama-3.3-70b-instruct-fp8-fast",
+    label: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     description: "Meta 70B，推理更强，支持工具调用。",
     task: "Text Generation",
     contextWindow: 24_000,
@@ -89,7 +89,7 @@ export const FALLBACK_WORKERS_AI_MODELS: WorkersAiModelOption[] = [
   },
   {
     id: "@cf/openai/gpt-oss-20b",
-    label: "gpt-oss-20b",
+    label: "@cf/openai/gpt-oss-20b",
     description: "OpenAI 开源权重，平衡速度与质量。",
     task: "Text Generation",
     capabilities: ["工具调用", "推理"],
@@ -98,7 +98,7 @@ export const FALLBACK_WORKERS_AI_MODELS: WorkersAiModelOption[] = [
   },
   {
     id: "@cf/mistralai/mistral-small-3.1-24b-instruct",
-    label: "mistral-small-3.1-24b-instruct",
+    label: "@cf/mistralai/mistral-small-3.1-24b-instruct",
     description: "Mistral 24B，多语言对话。",
     task: "Text Generation",
     capabilities: ["工具调用"],
@@ -106,7 +106,7 @@ export const FALLBACK_WORKERS_AI_MODELS: WorkersAiModelOption[] = [
   },
   {
     id: "@cf/qwen/qwen3-30b-a3b-fp8",
-    label: "qwen3-30b-a3b-fp8",
+    label: "@cf/qwen/qwen3-30b-a3b-fp8",
     description: "Qwen3，推理与工具调用。",
     task: "Text Generation",
     capabilities: ["工具调用", "推理", "批处理"],
@@ -137,14 +137,13 @@ function extractCapabilities(model: CfCatalogModel): string[] {
 
 function toOption(model: CfCatalogModel): WorkersAiModelOption {
   const id = model.name;
-  const label = id.split("/").pop() ?? id;
   const contextRaw = getProperty(model, "context_window");
   const contextWindow = contextRaw ? Number(contextRaw) : undefined;
   const supportsToolCalling = getProperty(model, "function_calling") === "true";
 
   return {
     id,
-    label,
+    label: id,
     description: model.description,
     task: model.task?.name ?? "Other",
     contextWindow: Number.isFinite(contextWindow) ? contextWindow : undefined,

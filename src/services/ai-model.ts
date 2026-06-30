@@ -1,25 +1,31 @@
-import { createAnthropic } from "@ai-sdk/anthropic";
 import { createDeepSeek } from "@ai-sdk/deepseek";
-import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModel } from "ai";
 import { createWorkersAI } from "workers-ai-provider";
 import {
   APP_SETTING_KEYS,
   buildAppSettings,
-  resolveAiModelId,
+  DEFAULT_DEEPSEEK_MODEL,
+  DEFAULT_WORKERS_AI_MODEL,
+  resolveAiModelRef,
   type AiProvider,
 } from "../app-settings.js";
 import { readSettingsMap } from "../db/settings-store.js";
 import { decryptSettingSecret } from "../lib/secret-crypto.js";
+import {
+  createOpenAiCompatibleModel,
+  findConnection,
+  formatDeepseekModelRef,
+  formatWorkersAiModelRef,
+  parseModelRef,
+  readConnectionApiKey,
+} from "./ai-connections.js";
 
 export interface AiRuntimeEnv {
-  AI?: Ai;
   BETTER_AUTH_SECRET?: string;
+  DEEPSEEK_API_KEY?: string;
   CF_ACCOUNT_ID?: string;
   CF_API_TOKEN?: string;
-  OPENAI_API_KEY?: string;
-  ANTHROPIC_API_KEY?: string;
-  DEEPSEEK_API_KEY?: string;
+  AI?: Ai;
 }
 
 export interface ResolvedModel {
@@ -57,10 +63,39 @@ export async function resolveModel(
 ): Promise<ResolvedModel> {
   const settingsMap = await readSettingsMap(db);
   const settings = buildAppSettings(settingsMap);
-  const modelId = resolveAiModelId(settings.aiProvider, settings.aiModel);
+  const modelRef = resolveAiModelRef(settings.aiProvider, settings.aiModel);
+  const parsed = parseModelRef(modelRef);
   const secret = env.BETTER_AUTH_SECRET;
 
-  if (settings.aiProvider === "workers-ai") {
+  if (parsed?.kind === "custom") {
+    const connection = findConnection(settings.aiConnections, parsed.connectionId);
+    if (!connection || !connection.enabled) {
+      throw new AiModelConfigError("所选模型对应的连接不存在或已关闭");
+    }
+
+    const apiKey = await readConnectionApiKey(
+      settingsMap,
+      parsed.connectionId,
+      secret
+    );
+    if (!apiKey) {
+      throw new AiModelConfigError(
+        `连接「${connection.name}」未配置 API Key`
+      );
+    }
+
+    return {
+      model: createOpenAiCompatibleModel(
+        connection.baseUrl,
+        apiKey,
+        parsed.modelId
+      ),
+      provider: "custom",
+      modelId: modelRef,
+    };
+  }
+
+  if (parsed?.kind === "workers-ai") {
     const workersai = env.AI
       ? createWorkersAI({ binding: env.AI })
       : createWorkersAI({
@@ -74,55 +109,27 @@ export async function resolveModel(
       );
     }
 
-    return { model: workersai(modelId), provider: settings.aiProvider, modelId };
+    return {
+      model: workersai(parsed.modelId),
+      provider: "workers-ai",
+      modelId: formatWorkersAiModelRef(parsed.modelId),
+    };
   }
 
-  if (settings.aiProvider === "openai") {
-    const apiKey =
-      (await readProviderKey(settingsMap, APP_SETTING_KEYS.aiOpenaiKey, secret)) ??
-      env.OPENAI_API_KEY ??
-      process.env.OPENAI_API_KEY ??
-      null;
-    if (!apiKey) {
-      throw new AiModelConfigError("已选择 OpenAI，但未配置 API Key");
-    }
-    const openai = createOpenAI({ apiKey });
-    return { model: openai(modelId), provider: settings.aiProvider, modelId };
+  const deepseekModelId =
+    parsed?.kind === "deepseek" ? parsed.modelId : DEFAULT_DEEPSEEK_MODEL;
+  const apiKey =
+    (await readProviderKey(settingsMap, APP_SETTING_KEYS.aiDeepseekKey, secret)) ??
+    env.DEEPSEEK_API_KEY ??
+    process.env.DEEPSEEK_API_KEY ??
+    null;
+  if (!apiKey) {
+    throw new AiModelConfigError("已选择 DeepSeek，但未配置 API Key");
   }
-
-  if (settings.aiProvider === "anthropic") {
-    const apiKey =
-      (await readProviderKey(
-        settingsMap,
-        APP_SETTING_KEYS.aiAnthropicKey,
-        secret
-      )) ??
-      env.ANTHROPIC_API_KEY ??
-      process.env.ANTHROPIC_API_KEY ??
-      null;
-    if (!apiKey) {
-      throw new AiModelConfigError("已选择 Anthropic，但未配置 API Key");
-    }
-    const anthropic = createAnthropic({ apiKey });
-    return { model: anthropic(modelId), provider: settings.aiProvider, modelId };
-  }
-
-  if (settings.aiProvider === "deepseek") {
-    const apiKey =
-      (await readProviderKey(
-        settingsMap,
-        APP_SETTING_KEYS.aiDeepseekKey,
-        secret
-      )) ??
-      env.DEEPSEEK_API_KEY ??
-      process.env.DEEPSEEK_API_KEY ??
-      null;
-    if (!apiKey) {
-      throw new AiModelConfigError("已选择 DeepSeek，但未配置 API Key");
-    }
-    const deepseek = createDeepSeek({ apiKey });
-    return { model: deepseek(modelId), provider: settings.aiProvider, modelId };
-  }
-
-  throw new AiModelConfigError(`未知的 AI 提供商：${settings.aiProvider}`);
+  const deepseek = createDeepSeek({ apiKey });
+  return {
+    model: deepseek(deepseekModelId),
+    provider: "deepseek",
+    modelId: formatDeepseekModelRef(deepseekModelId),
+  };
 }

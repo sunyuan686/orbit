@@ -1,69 +1,20 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   authClient,
-  DEFAULT_AI_MODELS,
-  fetchWorkersAiModels,
   getApiErrorMessage,
-  isAiModelCompatibleWithProvider,
   shouldToastApiError,
   updateAppSettings,
   type AccentPreset,
-  type AiProvider,
-  type WorkersAiModelOption,
 } from "../lib/api";
 import { ACCENT_PRESET_LIST, applyAccentPreset } from "../lib/accent";
 import { useAppSettings } from "../lib/appSettingsContext";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../lib/useToast";
+import { AiProvidersSettingsPanel } from "../components/AiProvidersSettingsPanel";
 import { AiIcon, ChevronLeftIcon, ChevronRightIcon, PaletteIcon, TimelineIcon, UserIcon } from "../components/OrbitIcons";
 import { SpaceSettingsPanel } from "../components/SpaceSettingsPanel";
 import { useMaxWidthMd } from "../lib/useBreakpoint";
-
-const AI_TASK_LABELS: Record<string, string> = {
-  "Text Generation": "文本生成",
-  "Text Embeddings": "文本嵌入",
-  "Text-to-Image": "文生图",
-  "Text-to-Speech": "语音合成",
-  "Automatic Speech Recognition": "语音识别",
-  "Image Classification": "图像分类",
-  "Object Detection": "目标检测",
-  "Image-to-Text": "图像理解",
-  Translation: "翻译",
-  Summarization: "摘要",
-};
-
-function formatAiTaskLabel(task: string): string {
-  return AI_TASK_LABELS[task] ?? task;
-}
-
-function formatContextWindow(contextWindow?: number): string | null {
-  if (!contextWindow) return null;
-  if (contextWindow >= 1_000_000) {
-    return `${(contextWindow / 1_000_000).toFixed(1).replace(/\.0$/, "")}M ctx`;
-  }
-  if (contextWindow >= 1000) {
-    return `${Math.round(contextWindow / 1000)}k ctx`;
-  }
-  return `${contextWindow} ctx`;
-}
-
-const AI_PROVIDER_OPTIONS: {
-  id: AiProvider;
-  label: string;
-  description: string;
-}[] = [
-  {
-    id: "workers-ai",
-    label: "Cloudflare Workers AI",
-    description: "默认选项，在 Cloudflare 边缘推理，无需 API Key",
-  },
-  {
-    id: "deepseek",
-    label: "DeepSeek",
-    description: "使用你自己的 DeepSeek API Key，中文表现优秀，支持工具调用",
-  },
-];
 
 type SettingsTab = "appearance" | "account" | "ai" | "space";
 
@@ -122,7 +73,7 @@ const SETTINGS_NAV_GROUPS: {
       {
         id: "ai",
         label: "Orbit AI",
-        description: "模型与 API Key",
+        description: "供应商、模型与 API Key",
         icon: (props) => <AiIcon {...props} />,
       },
     ],
@@ -236,17 +187,6 @@ export function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
 
-  const [aiProvider, setAiProvider] = useState<AiProvider>("workers-ai");
-  const [aiModel, setAiModel] = useState("");
-  const [showAdvancedModel, setShowAdvancedModel] = useState(false);
-  const [deepseekKey, setDeepseekKey] = useState("");
-  const [savingAi, setSavingAi] = useState(false);
-  const [workersModels, setWorkersModels] = useState<WorkersAiModelOption[]>([]);
-  const [workersModelsLoading, setWorkersModelsLoading] = useState(false);
-  const [workersModelsSource, setWorkersModelsSource] = useState<
-    "catalog" | "fallback" | null
-  >(null);
-
   useEffect(() => {
     setPageTitle("设置");
   }, []);
@@ -255,14 +195,6 @@ export function SettingsPage() {
     if (!settings) return;
     setAccentPreset(settings.accentPreset);
     setAccentDirty(false);
-    const provider =
-      settings.aiProvider === "openai" || settings.aiProvider === "anthropic"
-        ? "workers-ai"
-        : settings.aiProvider;
-    setAiProvider(provider);
-    setAiModel(settings.aiModel);
-    setShowAdvancedModel(Boolean(settings.aiModel));
-    setDeepseekKey("");
   }, [settings]);
 
   useEffect(() => {
@@ -270,94 +202,6 @@ export function SettingsPage() {
     setEmail(session.user.email);
     setEmailDirty(false);
   }, [session?.user?.email]);
-
-  const effectiveAiModel = useMemo(() => {
-    const trimmed = aiModel.trim();
-    return trimmed || DEFAULT_AI_MODELS[aiProvider];
-  }, [aiModel, aiProvider]);
-
-  const selectedWorkersModel = useMemo(() => {
-    return workersModels.find((model) => model.id === effectiveAiModel) ?? null;
-  }, [workersModels, effectiveAiModel]);
-
-  const workersModelsByTask = useMemo(() => {
-    const groups = new Map<string, WorkersAiModelOption[]>();
-    for (const model of workersModels) {
-      const list = groups.get(model.task) ?? [];
-      list.push(model);
-      groups.set(model.task, list);
-    }
-    return [...groups.entries()].sort(([taskA], [taskB]) => {
-      if (taskA === "Text Generation") return -1;
-      if (taskB === "Text Generation") return 1;
-      return taskA.localeCompare(taskB);
-    });
-  }, [workersModels]);
-
-  const isAiDirty = useMemo(() => {
-    if (!settings) return false;
-    return (
-      aiProvider !== settings.aiProvider ||
-      aiModel.trim() !== settings.aiModel ||
-      Boolean(deepseekKey.trim())
-    );
-  }, [settings, aiProvider, aiModel, deepseekKey]);
-
-  useEffect(() => {
-    if (activeTab !== "ai" || aiProvider !== "workers-ai") return;
-
-    let cancelled = false;
-    setWorkersModelsLoading(true);
-
-    void fetchWorkersAiModels()
-      .then((result) => {
-        if (cancelled) return;
-        setWorkersModels(result.models);
-        setWorkersModelsSource(result.source);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setWorkersModels([
-          {
-            id: DEFAULT_AI_MODELS["workers-ai"],
-            label: "glm-4.7-flash",
-            description: "加载目录失败，已回退到默认模型。请刷新页面重试。",
-            task: "Text Generation",
-            capabilities: ["工具调用", "推理"],
-            supportsToolCalling: true,
-            recommended: true,
-          },
-        ]);
-        setWorkersModelsSource("fallback");
-      })
-      .finally(() => {
-        if (!cancelled) setWorkersModelsLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, aiProvider]);
-
-  function handleAiProviderChange(nextProvider: AiProvider) {
-    setAiProvider(nextProvider);
-    const trimmed = aiModel.trim();
-    if (!trimmed) return;
-
-    if (!isAiModelCompatibleWithProvider(nextProvider, trimmed)) {
-      setAiModel("");
-      setShowAdvancedModel(false);
-    }
-  }
-
-  function handleWorkersModelChange(modelId: string) {
-    if (modelId === DEFAULT_AI_MODELS["workers-ai"]) {
-      setAiModel("");
-    } else {
-      setAiModel(modelId);
-    }
-    setShowAdvancedModel(false);
-  }
 
   function setTab(tab: SettingsTab) {
     setSearchParams({ tab }, { replace: true });
@@ -388,56 +232,6 @@ export function SettingsPage() {
       if (settings) applyAccentPreset(settings.accentPreset);
     } finally {
       setSavingAccent(false);
-    }
-  }
-
-  async function handleSaveAi() {
-    if (savingAi) return;
-
-    if (
-      aiProvider === "deepseek" &&
-      !settings?.hasDeepseekKey &&
-      !deepseekKey.trim()
-    ) {
-      toast.error("使用 DeepSeek 前请先配置 API Key");
-      return;
-    }
-
-    setSavingAi(true);
-    try {
-      const payload: Parameters<typeof updateAppSettings>[0] = {
-        aiProvider,
-        aiModel: aiModel.trim() || null,
-      };
-      if (deepseekKey.trim()) payload.deepseekKey = deepseekKey.trim();
-
-      const next = await updateAppSettings(payload);
-      setSettings(next);
-      setDeepseekKey("");
-      toast.success("Orbit AI 设置已更新");
-    } catch (err) {
-      if (shouldToastApiError(err)) {
-        toast.error(getApiErrorMessage(err, "保存失败，请稍后重试"));
-      }
-    } finally {
-      setSavingAi(false);
-    }
-  }
-
-  async function handleClearDeepseekKey() {
-    if (savingAi) return;
-    setSavingAi(true);
-    try {
-      const next = await updateAppSettings({ deepseekKey: null });
-      setSettings(next);
-      setDeepseekKey("");
-      toast.success("DeepSeek Key 已清除");
-    } catch (err) {
-      if (shouldToastApiError(err)) {
-        toast.error(getApiErrorMessage(err, "清除失败，请稍后重试"));
-      }
-    } finally {
-      setSavingAi(false);
     }
   }
 
@@ -597,19 +391,32 @@ export function SettingsPage() {
 
               <SettingsSection title="强调色">
                 <div className="orbit-settings-fields">
-                  <SettingsField label="主题色" stacked>
-                    <div className="orbit-accent-swatches" role="radiogroup" aria-label="主题色">
+                  <SettingsField
+                    label="主题色"
+                    hint="选择强调色，影响按钮与链接样式。"
+                    stacked
+                  >
+                    <div
+                      className="orbit-settings-accent-grid"
+                      role="radiogroup"
+                      aria-label="主题色"
+                    >
                       {ACCENT_PRESET_LIST.map((preset) => (
                         <button
                           key={preset.id}
                           type="button"
                           role="radio"
                           aria-checked={accentPreset === preset.id}
-                          className={`orbit-accent-swatch orbit-accent-swatch--${preset.id}${accentPreset === preset.id ? " orbit-accent-swatch--active" : ""}`}
-                          title={preset.label}
+                          className={`orbit-settings-accent-option${accentPreset === preset.id ? " orbit-settings-accent-option--active" : ""}`}
                           onClick={() => handleAccentSelect(preset.id)}
                         >
-                          <span className="sr-only">{preset.label}</span>
+                          <span
+                            className={`orbit-accent-swatch orbit-accent-swatch--${preset.id}${accentPreset === preset.id ? " orbit-accent-swatch--active" : ""}`}
+                            aria-hidden="true"
+                          />
+                          <span className="orbit-settings-accent-label">
+                            {preset.label}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -651,31 +458,36 @@ export function SettingsPage() {
                     hint="注册时选定，不可更改。"
                     readonly
                   >
-                    <p className="orbit-settings-readonly-value">{session?.user?.name ?? "—"}</p>
+                    <div className="orbit-settings-readonly-card">
+                      <p className="orbit-settings-readonly-value">
+                        {session?.user?.name ?? "—"}
+                      </p>
+                    </div>
                   </SettingsField>
                 </div>
               </SettingsSection>
 
               <SettingsSection title="登录方式">
                 <div className="orbit-settings-fields">
-                  <div className="orbit-settings-field orbit-settings-field--editable orbit-settings-field--form">
+                  <div className="orbit-settings-field orbit-settings-field--editable orbit-settings-field--stacked">
                     <form
-                      className="orbit-settings-form-layout"
+                      className="orbit-settings-stacked-form"
                       onSubmit={(e) => void handleUpdateEmail(e)}
                     >
                       <div className="orbit-settings-field-copy">
                         <label htmlFor="settings-email" className="orbit-settings-field-label">
                           邮箱
                         </label>
+                        <p className="orbit-settings-field-hint">用于登录与账户通知。</p>
                       </div>
-                      <div className="orbit-settings-field-control orbit-settings-field-control--wide">
-                        <div className="orbit-settings-control-actions">
+                      <div className="orbit-settings-field-control orbit-settings-field-control--block">
+                        <div className="orbit-settings-inline-form">
                           <input
                             id="settings-email"
                             type="email"
                             value={email}
                             autoComplete="email"
-                            className="orbit-input w-full"
+                            className="orbit-input orbit-settings-input-block"
                             onChange={(event) => {
                               setEmail(event.target.value);
                               setEmailDirty(
@@ -685,7 +497,7 @@ export function SettingsPage() {
                           />
                           <button
                             type="submit"
-                            className="orbit-btn orbit-settings-submit"
+                            className="orbit-btn orbit-btn-sm"
                             disabled={savingEmail || !emailDirty}
                           >
                             {savingEmail ? "更新中…" : "更新邮箱"}
@@ -699,9 +511,9 @@ export function SettingsPage() {
 
               <SettingsSection title="密码">
                 <div className="orbit-settings-fields">
-                  <div className="orbit-settings-field orbit-settings-field--editable orbit-settings-field--form">
+                  <div className="orbit-settings-field orbit-settings-field--editable orbit-settings-field--stacked">
                     <form
-                      className="orbit-settings-form-layout"
+                      className="orbit-settings-stacked-form"
                       onSubmit={(e) => void handleUpdatePassword(e)}
                     >
                       <div className="orbit-settings-field-copy">
@@ -710,15 +522,15 @@ export function SettingsPage() {
                         </label>
                         <p className="orbit-settings-field-hint">新密码至少 8 位。</p>
                       </div>
-                      <div className="orbit-settings-field-control orbit-settings-field-control--wide">
-                        <div className="orbit-settings-control-actions">
+                      <div className="orbit-settings-field-control orbit-settings-field-control--block">
+                        <div className="orbit-settings-password-fields">
                           <input
                             id="settings-current-password"
                             type="password"
                             value={currentPassword}
                             autoComplete="current-password"
                             placeholder="当前密码"
-                            className="orbit-input w-full"
+                            className="orbit-input orbit-settings-input-block"
                             onChange={(event) => setCurrentPassword(event.target.value)}
                           />
                           <input
@@ -727,13 +539,13 @@ export function SettingsPage() {
                             value={newPassword}
                             autoComplete="new-password"
                             placeholder="新密码"
-                            className="orbit-input w-full"
+                            className="orbit-input orbit-settings-input-block"
                             minLength={8}
                             onChange={(event) => setNewPassword(event.target.value)}
                           />
                           <button
                             type="submit"
-                            className="orbit-btn orbit-settings-submit"
+                            className="orbit-btn orbit-btn-sm orbit-settings-form-submit"
                             disabled={
                               savingPassword || !currentPassword || newPassword.length < 8
                             }
@@ -749,246 +561,7 @@ export function SettingsPage() {
             </>
           ) : null}
 
-          {activeTab === "ai" ? (
-            <>
-              <header className="orbit-settings-panel-header">
-                <h2 className="orbit-settings-panel-title">Orbit AI</h2>
-                <p className="orbit-settings-panel-desc">
-                  配置 Orbit AI 的推理模型。默认通过 Cloudflare Workers AI；也可接入 DeepSeek API Key。
-                </p>
-              </header>
-
-              <SettingsSection title="模型">
-                <div className="orbit-settings-fields">
-                  <SettingsField
-                    label="模型提供商"
-                    hint="双方共用同一配置。切换后新对话将使用对应模型。"
-                    stacked
-                  >
-                    <div className="orbit-settings-provider-list" role="radiogroup" aria-label="模型提供商">
-                      {AI_PROVIDER_OPTIONS.map((option) => (
-                        <button
-                          key={option.id}
-                          type="button"
-                          role="radio"
-                          aria-checked={aiProvider === option.id}
-                          className={`orbit-settings-provider-option${aiProvider === option.id ? " orbit-settings-provider-option--active" : ""}`}
-                          onClick={() => handleAiProviderChange(option.id)}
-                        >
-                          <span className="orbit-settings-provider-name">{option.label}</span>
-                          <span className="orbit-settings-provider-desc">{option.description}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </SettingsField>
-
-                  {aiProvider === "workers-ai" ? (
-                    <SettingsField
-                      label="Workers AI 模型"
-                      hint={
-                        workersModelsSource === "fallback"
-                          ? "无法连接 Cloudflare 模型目录，已显示精选列表。"
-                          : "从 Cloudflare 模型目录加载。Orbit AI 工具调用需要模型支持「工具调用」能力。"
-                      }
-                      stacked
-                    >
-                      <div className="orbit-settings-field-stack">
-                        {workersModelsLoading ? (
-                          <p className="orbit-settings-field-hint">加载模型列表…</p>
-                        ) : (
-                          <div
-                            className="orbit-settings-model-list"
-                            role="radiogroup"
-                            aria-label="Workers AI 模型"
-                          >
-                            {!workersModels.some(
-                              (model) => model.id === effectiveAiModel
-                            ) ? (
-                              <button
-                                type="button"
-                                role="radio"
-                                aria-checked
-                                className="orbit-settings-model-option orbit-settings-model-option--active"
-                                onClick={() => handleWorkersModelChange(effectiveAiModel)}
-                              >
-                                <div className="orbit-settings-model-option-head">
-                                  <span className="orbit-settings-model-name">
-                                    {effectiveAiModel}
-                                  </span>
-                                  <span className="orbit-settings-model-badge orbit-settings-model-badge--custom">
-                                    自定义
-                                  </span>
-                                </div>
-                              </button>
-                            ) : null}
-                            {workersModelsByTask.map(([task, models]) => (
-                              <div key={task} className="orbit-settings-model-group">
-                                <h3 className="orbit-settings-model-group-label">
-                                  {formatAiTaskLabel(task)}
-                                </h3>
-                                <div className="orbit-settings-model-group-list">
-                                  {models.map((model) => {
-                                    const isActive = effectiveAiModel === model.id;
-                                    const contextLabel = formatContextWindow(
-                                      model.contextWindow
-                                    );
-                                    return (
-                                      <button
-                                        key={model.id}
-                                        type="button"
-                                        role="radio"
-                                        aria-checked={isActive}
-                                        className={`orbit-settings-model-option${isActive ? " orbit-settings-model-option--active" : ""}`}
-                                        onClick={() => handleWorkersModelChange(model.id)}
-                                      >
-                                        <div className="orbit-settings-model-option-head">
-                                          <span className="orbit-settings-model-name">
-                                            {model.recommended ? (
-                                              <span
-                                                className="orbit-settings-model-star"
-                                                aria-hidden
-                                              >
-                                                ★{" "}
-                                              </span>
-                                            ) : null}
-                                            {model.label}
-                                          </span>
-                                          {contextLabel ? (
-                                            <span className="orbit-settings-model-ctx">
-                                              {contextLabel}
-                                            </span>
-                                          ) : null}
-                                        </div>
-                                        {model.capabilities.length > 0 ? (
-                                          <div className="orbit-settings-model-caps">
-                                            {model.capabilities.map((cap) => (
-                                              <span
-                                                key={cap}
-                                                className="orbit-settings-model-cap"
-                                              >
-                                                {cap}
-                                              </span>
-                                            ))}
-                                          </div>
-                                        ) : null}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {selectedWorkersModel ? (
-                          <p className="orbit-settings-field-hint orbit-settings-model-desc">
-                            {selectedWorkersModel.description}
-                          </p>
-                        ) : null}
-                        {selectedWorkersModel &&
-                        !selectedWorkersModel.supportsToolCalling ? (
-                          <p className="orbit-settings-model-warning">
-                            此模型不支持工具调用，Orbit AI 的搜索日记等功能可能不可用。
-                          </p>
-                        ) : null}
-                      </div>
-                    </SettingsField>
-                  ) : null}
-                </div>
-              </SettingsSection>
-
-              {(aiProvider === "deepseek" || settings?.hasDeepseekKey) ? (
-                <SettingsSection title="API Key">
-                  <div className="orbit-settings-fields">
-                    <SettingsField
-                      label="DeepSeek API Key"
-                      hint="保存后加密存储，不会明文显示。可在 platform.deepseek.com 获取。"
-                      stacked
-                    >
-                      <div className="orbit-settings-field-stack">
-                        {settings?.hasDeepseekKey ? (
-                          <span className="orbit-settings-key-status orbit-settings-key-status--configured">
-                            已配置
-                          </span>
-                        ) : (
-                          <span className="orbit-settings-key-status">未配置</span>
-                        )}
-                        <input
-                          type="password"
-                          value={deepseekKey}
-                          autoComplete="off"
-                          placeholder={settings?.hasDeepseekKey ? "输入新 Key 以替换" : "sk-..."}
-                          className="orbit-input w-full"
-                          onChange={(event) => setDeepseekKey(event.target.value)}
-                        />
-                        {settings?.hasDeepseekKey ? (
-                          <button
-                            type="button"
-                            className="orbit-btn-ghost orbit-btn-sm orbit-btn--stacked"
-                            disabled={savingAi}
-                            onClick={() => void handleClearDeepseekKey()}
-                          >
-                            清除 Key
-                          </button>
-                        ) : null}
-                      </div>
-                    </SettingsField>
-                  </div>
-                </SettingsSection>
-              ) : null}
-
-              <SettingsSection title="高级">
-                <div className="orbit-settings-fields">
-                <SettingsField
-                  label={aiProvider === "workers-ai" ? "自定义模型 ID" : "模型 ID"}
-                  hint={
-                    aiProvider === "workers-ai" ? (
-                      <>
-                        通常使用上方下拉即可。仅在目录未收录时手动填写完整 ID（如
-                        @cf/author/model-name）。
-                      </>
-                    ) : (
-                      <>
-                        当前默认：{DEFAULT_AI_MODELS[aiProvider]}
-                        {effectiveAiModel !== DEFAULT_AI_MODELS[aiProvider]
-                          ? ` · 已自定义为 ${effectiveAiModel}`
-                          : ""}
-                      </>
-                    )
-                  }
-                  stacked
-                >
-                  <button
-                    type="button"
-                    className="orbit-btn-ghost orbit-btn-sm"
-                    onClick={() => setShowAdvancedModel((value) => !value)}
-                  >
-                    {showAdvancedModel ? "收起高级设置" : "展开高级设置"}
-                  </button>
-                  {showAdvancedModel ? (
-                    <input
-                      type="text"
-                      value={aiModel}
-                      placeholder={DEFAULT_AI_MODELS[aiProvider]}
-                      className="orbit-input w-full orbit-settings-advanced-input"
-                      onChange={(event) => setAiModel(event.target.value)}
-                    />
-                  ) : null}
-                </SettingsField>
-                </div>
-              </SettingsSection>
-
-              <div className="orbit-settings-actions">
-                <button
-                  type="button"
-                  className="orbit-btn orbit-btn-primary"
-                  disabled={savingAi || !isAiDirty || loading}
-                  onClick={() => void handleSaveAi()}
-                >
-                  {savingAi ? "保存中…" : "保存设置"}
-                </button>
-              </div>
-            </>
-          ) : null}
+          {activeTab === "ai" ? <AiProvidersSettingsPanel /> : null}
 
           {activeTab === "space" ? <SpaceSettingsPanel /> : null}
         </div>

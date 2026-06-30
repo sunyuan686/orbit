@@ -2,23 +2,24 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
-  DEFAULT_AI_MODELS,
+  fetchDeepseekModels,
   fetchWorkersAiModels,
   getApiErrorMessage,
-  resolveAiModelId,
   shouldToastApiError,
   updateAppSettings,
-  type AiProvider,
-  type WorkersAiModelOption,
 } from "../lib/api";
+import {
+  buildUnifiedChatModels,
+  filterChatSelectableModels,
+  inferProvider,
+  modelRefForSettings,
+  resolveEffectiveModelRef,
+  resolveModelDisplayLabel,
+  type UnifiedChatModel,
+} from "../lib/ai-model-catalog";
 import { useAppSettings } from "../lib/appSettingsContext";
 import { useToast } from "../lib/useToast";
 import { AiIcon, CheckIcon, ChevronDownIcon } from "./OrbitIcons";
-
-const PROVIDER_OPTIONS: { id: AiProvider; label: string }[] = [
-  { id: "workers-ai", label: "Cloudflare Workers AI" },
-  { id: "deepseek", label: "DeepSeek" },
-];
 
 function formatContextWindow(contextWindow?: number): string | null {
   if (!contextWindow) return null;
@@ -29,18 +30,6 @@ function formatContextWindow(contextWindow?: number): string | null {
     return `${Math.round(contextWindow / 1000)}k`;
   }
   return String(contextWindow);
-}
-
-function getEffectiveModelId(aiProvider: AiProvider, aiModel: string): string {
-  return resolveAiModelId(aiProvider, aiModel);
-}
-
-function getModelShortLabel(modelId: string): string {
-  return modelId.split("/").pop() ?? modelId;
-}
-
-function getTriggerLabel(_aiProvider: AiProvider, effectiveModelId: string): string {
-  return getModelShortLabel(effectiveModelId);
 }
 
 function getMenuLayout(trigger: DOMRect): CSSProperties {
@@ -86,7 +75,8 @@ export function AiModelPicker({
   const navigate = useNavigate();
   const { settings, setSettings } = useAppSettings();
   const [open, setOpen] = useState(false);
-  const [models, setModels] = useState<WorkersAiModelOption[]>([]);
+  const [workersModels, setWorkersModels] = useState<Awaited<ReturnType<typeof fetchWorkersAiModels>>["models"]>([]);
+  const [deepseekModels, setDeepseekModels] = useState<Awaited<ReturnType<typeof fetchDeepseekModels>>["models"]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
@@ -94,44 +84,52 @@ export function AiModelPicker({
   const menuRef = useRef<HTMLDivElement>(null);
   const menuBodyRef = useRef<HTMLDivElement>(null);
 
-  const aiProvider = settings?.aiProvider ?? "workers-ai";
-  const displayProvider =
-    aiProvider === "openai" || aiProvider === "anthropic" ? "workers-ai" : aiProvider;
-  const effectiveModelId = settings
-    ? getEffectiveModelId(displayProvider, settings.aiModel)
-    : DEFAULT_AI_MODELS["workers-ai"];
+  const effectiveModelRef = settings
+    ? resolveEffectiveModelRef(settings.aiProvider, settings.aiModel)
+    : resolveEffectiveModelRef("deepseek", "");
 
-  const providerOptions = useMemo(() => {
-    const selected = PROVIDER_OPTIONS.find((option) => option.id === displayProvider);
-    const rest = PROVIDER_OPTIONS.filter((option) => option.id !== displayProvider);
-    return selected ? [selected, ...rest] : PROVIDER_OPTIONS;
-  }, [displayProvider]);
-
-  const chatModels = useMemo(
-    () => models.filter((model) => model.task === "Text Generation"),
-    [models]
+  const catalog = useMemo(
+    () =>
+      buildUnifiedChatModels(
+        workersModels,
+        deepseekModels,
+        settings?.aiConnections ?? []
+      ),
+    [workersModels, deepseekModels, settings?.aiConnections]
   );
+
+  const selectableModels = useMemo(() => {
+    if (!settings) return [];
+    return filterChatSelectableModels(catalog, settings.aiEnabledModels, {
+      hasDeepseekKey: settings.hasDeepseekKey,
+      enabledProviders: settings.aiEnabledProviders,
+      connections: settings.aiConnections,
+    });
+  }, [catalog, settings]);
 
   const recommendedModels = useMemo(
-    () => chatModels.filter((model) => model.recommended),
-    [chatModels]
+    () => selectableModels.filter((model) => model.recommended),
+    [selectableModels]
   );
 
-  const otherChatModels = useMemo(
-    () => chatModels.filter((model) => !model.recommended),
-    [chatModels]
+  const otherModels = useMemo(
+    () => selectableModels.filter((model) => !model.recommended),
+    [selectableModels]
   );
 
-  const triggerLabel = getTriggerLabel(displayProvider, effectiveModelId);
+  const triggerLabel = resolveModelDisplayLabel(effectiveModelRef, catalog);
 
   useEffect(() => {
     if (!open) return;
 
     let cancelled = false;
     setLoading(true);
-    void fetchWorkersAiModels()
-      .then((result) => {
-        if (!cancelled) setModels(result.models);
+
+    void Promise.all([fetchWorkersAiModels(), fetchDeepseekModels()])
+      .then(([workers, deepseek]) => {
+        if (cancelled) return;
+        setWorkersModels(workers.models);
+        setDeepseekModels(deepseek.models);
       })
       .catch((err) => {
         if (!cancelled && shouldToastApiError(err)) {
@@ -163,12 +161,12 @@ export function AiModelPicker({
       window.removeEventListener("resize", updateMenuLayout);
       window.removeEventListener("scroll", updateMenuLayout, true);
     };
-  }, [open, displayProvider, loading, recommendedModels.length, otherChatModels.length]);
+  }, [open, loading, selectableModels.length]);
 
   useEffect(() => {
     if (!open) return;
     menuBodyRef.current?.scrollTo({ top: 0 });
-  }, [open, displayProvider]);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -196,36 +194,14 @@ export function AiModelPicker({
     navigate("/settings?tab=ai");
   }
 
-  async function handleProviderSelect(nextProvider: AiProvider) {
+  async function handleModelSelect(model: UnifiedChatModel) {
     if (!settings || saving) return;
-    if (nextProvider === settings.aiProvider) return;
 
-    setSaving(true);
-    try {
-      const next = await updateAppSettings({
-        aiProvider: nextProvider,
-        aiModel: null,
-      });
-      setSettings(next);
-      toast.success("模型提供商已切换");
-    } catch (err) {
-      if (shouldToastApiError(err)) {
-        toast.error(getApiErrorMessage(err, "切换失败"));
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
+    const provider = inferProvider(model.id);
+    const nextModel = modelRefForSettings(model.id);
+    const currentStored = settings.aiModel.trim() || null;
 
-  async function handleWorkersModelSelect(modelId: string) {
-    if (!settings || saving) return;
-    const nextModel =
-      modelId === DEFAULT_AI_MODELS["workers-ai"] ? null : modelId;
-
-    if (
-      settings.aiProvider === "workers-ai" &&
-      (settings.aiModel.trim() || "") === (nextModel ?? "")
-    ) {
+    if (settings.aiProvider === provider && currentStored === nextModel) {
       setOpen(false);
       return;
     }
@@ -233,7 +209,7 @@ export function AiModelPicker({
     setSaving(true);
     try {
       const next = await updateAppSettings({
-        aiProvider: "workers-ai",
+        aiProvider: provider,
         aiModel: nextModel,
       });
       setSettings(next);
@@ -281,74 +257,47 @@ export function AiModelPicker({
               <div className="orbit-ai-model-menu-header">选择模型</div>
 
               <div className="orbit-ai-model-menu-body" ref={menuBodyRef}>
-                {displayProvider === "workers-ai" ? (
-                  loading ? (
-                    <p className="orbit-ai-model-menu-status">加载模型列表…</p>
-                  ) : chatModels.length === 0 ? (
-                    <p className="orbit-ai-model-menu-status">暂无可用模型</p>
-                  ) : (
-                    <>
-                      {recommendedModels.length > 0 ? (
-                        <div className="orbit-ai-model-menu-section">
-                          <div className="orbit-ai-model-menu-section-label">推荐</div>
-                          {recommendedModels.map((model) => (
-                            <WorkersModelMenuItem
-                              key={model.id}
-                              model={model}
-                              selected={effectiveModelId === model.id}
-                              disabled={saving}
-                              onSelect={() => void handleWorkersModelSelect(model.id)}
-                            />
-                          ))}
-                        </div>
-                      ) : null}
-
-                      {otherChatModels.length > 0 ? (
-                        <div className="orbit-ai-model-menu-section">
-                          <div className="orbit-ai-model-menu-section-label">文本生成</div>
-                          {otherChatModels.map((model) => (
-                            <WorkersModelMenuItem
-                              key={model.id}
-                              model={model}
-                              selected={effectiveModelId === model.id}
-                              disabled={saving}
-                              onSelect={() => void handleWorkersModelSelect(model.id)}
-                            />
-                          ))}
-                        </div>
-                      ) : null}
-                    </>
-                  )
+                {loading ? (
+                  <p className="orbit-ai-model-menu-status">加载模型列表…</p>
+                ) : selectableModels.length === 0 ? (
+                  <p className="orbit-ai-model-menu-status">
+                    暂无可用模型，请先在设置中配置供应商并启用模型。
+                  </p>
                 ) : (
-                  <div className="orbit-ai-model-menu-section">
-                    <div className="orbit-ai-model-menu-section-label">当前模型</div>
-                    <div className="orbit-ai-model-menu-note">
-                      使用 {PROVIDER_OPTIONS.find((option) => option.id === displayProvider)?.label}{" "}
-                      的模型 <code>{effectiveModelId}</code>
-                      。可在设置中配置 API Key 与自定义模型 ID。
-                    </div>
-                  </div>
-                )}
-              </div>
+                  <>
+                    {recommendedModels.length > 0 ? (
+                      <div className="orbit-ai-model-menu-section">
+                        <div className="orbit-ai-model-menu-section-label">推荐</div>
+                        {recommendedModels.map((model) => (
+                          <ModelMenuItem
+                            key={model.id}
+                            model={model}
+                            selected={effectiveModelRef === model.id}
+                            disabled={saving}
+                            onSelect={() => void handleModelSelect(model)}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
 
-              <div className="orbit-ai-model-menu-section orbit-ai-model-menu-section--providers">
-                <div className="orbit-ai-model-menu-section-label">提供商</div>
-                <div className="orbit-ai-model-provider-grid">
-                  {providerOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      role="option"
-                      aria-selected={displayProvider === option.id}
-                      className={`orbit-ai-model-provider-chip${displayProvider === option.id ? " orbit-ai-model-provider-chip--selected" : ""}`}
-                      disabled={saving}
-                      title={`默认 ${getModelShortLabel(DEFAULT_AI_MODELS[option.id])}`}
-                      onClick={() => void handleProviderSelect(option.id)}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
+                    {otherModels.length > 0 ? (
+                      <div className="orbit-ai-model-menu-section">
+                        {recommendedModels.length > 0 ? (
+                          <div className="orbit-ai-model-menu-section-label">其他</div>
+                        ) : null}
+                        {otherModels.map((model) => (
+                          <ModelMenuItem
+                            key={model.id}
+                            model={model}
+                            selected={effectiveModelRef === model.id}
+                            disabled={saving}
+                            onSelect={() => void handleModelSelect(model)}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                  </>
+                )}
               </div>
 
               <div className="orbit-ai-model-menu-footer">
@@ -357,7 +306,7 @@ export function AiModelPicker({
                   className="orbit-ai-model-menu-settings"
                   onClick={goToSettings}
                 >
-                  更多模型与 API 设置
+                  管理模型
                 </button>
               </div>
             </div>,
@@ -368,13 +317,13 @@ export function AiModelPicker({
   );
 }
 
-function WorkersModelMenuItem({
+function ModelMenuItem({
   model,
   selected,
   disabled,
   onSelect,
 }: {
-  model: WorkersAiModelOption;
+  model: UnifiedChatModel;
   selected: boolean;
   disabled?: boolean;
   onSelect: () => void;

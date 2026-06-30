@@ -241,6 +241,7 @@ export const aiConversation = sqliteTable(
       .references(() => user.id),
     author: text("author").notNull(),
     shared: integer("shared", { mode: "boolean" }).notNull().default(false),
+    lastPreview: text("last_preview").notNull().default(""),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
     deletedAt: integer("deleted_at"),

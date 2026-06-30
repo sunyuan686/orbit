@@ -10,15 +10,27 @@ import type { AiContextMode } from "../services/ai-chat-store.js";
 import {
   createAiChatStore,
   extractTextFromParts,
+  trimMessagesForModel,
 } from "../services/ai-chat-store.js";
 import { AiModelConfigError, resolveModel, type AiRuntimeEnv } from "../services/ai-model.js";
 import { buildSystemPrompt } from "../services/ai-prompt.js";
 import { createAiTools } from "../services/ai-tools.js";
 import { checkAiRateLimit } from "../services/ai-rate-limit.js";
 import {
+  listDeepseekModels,
+  resolveDeepseekApiKey,
+  testDeepseekConnection,
+} from "../services/deepseek-models.js";
+import {
+  listOpenAiCompatibleModels,
+  readConnectionApiKey,
+  testOpenAiCompatibleConnection,
+} from "../services/ai-connections.js";
+import {
   getWorkersAiModelCredentials,
   listWorkersAiChatModels,
 } from "../services/workers-ai-models.js";
+import { readSettingsMap } from "../db/settings-store.js";
 import { createLogger } from "../lib/logger.js";
 import type { SessionAuthor } from "./session-author.js";
 
@@ -39,7 +51,14 @@ interface AiChatContext {
 interface AiChatBody {
   messages?: UIMessage[];
   conversationId?: string;
+  id?: string;
   context?: AiChatContext;
+}
+
+function normalizeConversationId(raw?: string): string {
+  const trimmed = raw?.trim() ?? "";
+  if (!trimmed || !trimmed.startsWith("aiconv_")) return "";
+  return trimmed;
 }
 
 async function requireSessionAuthor(
@@ -86,6 +105,131 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
     const credentials = getWorkersAiModelCredentials(env);
     const result = await listWorkersAiChatModels(credentials);
     return c.json(result);
+  });
+
+  ai.get("/deepseek-models", async (c) => {
+    const session = await requireSessionAuthor(c, options.getSessionAuthor);
+    if (session instanceof Response) return session;
+
+    const env = options.getEnv?.(c) ?? {};
+    const db = await getDb(c);
+    const settingsMap = await readSettingsMap(db);
+    const apiKey = await resolveDeepseekApiKey(settingsMap, env);
+    const result = await listDeepseekModels(apiKey);
+    return c.json(result);
+  });
+
+  ai.post("/deepseek-test", async (c) => {
+    const session = await requireSessionAuthor(c, options.getSessionAuthor);
+    if (session instanceof Response) return session;
+
+    let body: { deepseekKey?: string } = {};
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "请求体格式无效" }, 400);
+    }
+
+    const env = options.getEnv?.(c) ?? {};
+    const db = await getDb(c);
+    const settingsMap = await readSettingsMap(db);
+    const inlineKey = body.deepseekKey?.trim() ?? "";
+    const apiKey =
+      inlineKey || (await resolveDeepseekApiKey(settingsMap, env)) || null;
+
+    if (!apiKey) {
+      return c.json({ error: "请先填写 DeepSeek API Key" }, 400);
+    }
+
+    try {
+      await testDeepseekConnection(apiKey);
+      return c.json({ ok: true });
+    } catch {
+      return c.json({ error: "连接失败，请检查 API Key" }, 422);
+    }
+  });
+
+  ai.post("/connections/test", async (c) => {
+    const session = await requireSessionAuthor(c, options.getSessionAuthor);
+    if (session instanceof Response) return session;
+
+    let body: { baseUrl?: string; apiKey?: string; connectionId?: string } = {};
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "请求体格式无效" }, 400);
+    }
+
+    const env = options.getEnv?.(c) ?? {};
+    const db = await getDb(c);
+    const settingsMap = await readSettingsMap(db);
+    const inlineKey = body.apiKey?.trim() ?? "";
+    const connectionId = body.connectionId?.trim() ?? "";
+    const storedKey = connectionId
+      ? await readConnectionApiKey(
+          settingsMap,
+          connectionId,
+          env.BETTER_AUTH_SECRET
+        )
+      : null;
+    const apiKey = inlineKey || storedKey;
+    const baseUrl = body.baseUrl?.trim() ?? "";
+
+    if (!baseUrl) {
+      return c.json({ error: "请填写 Base URL" }, 400);
+    }
+    if (!apiKey) {
+      return c.json({ error: "请先填写 API Key" }, 400);
+    }
+
+    try {
+      await testOpenAiCompatibleConnection(baseUrl, apiKey);
+      return c.json({ ok: true });
+    } catch {
+      return c.json({ error: "连接失败，请检查 Base URL 与 API Key" }, 422);
+    }
+  });
+
+  ai.post("/connections/discover", async (c) => {
+    const session = await requireSessionAuthor(c, options.getSessionAuthor);
+    if (session instanceof Response) return session;
+
+    let body: { baseUrl?: string; apiKey?: string; connectionId?: string } = {};
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "请求体格式无效" }, 400);
+    }
+
+    const env = options.getEnv?.(c) ?? {};
+    const db = await getDb(c);
+    const settingsMap = await readSettingsMap(db);
+    const inlineKey = body.apiKey?.trim() ?? "";
+    const connectionId = body.connectionId?.trim() ?? "";
+    const storedKey = connectionId
+      ? await readConnectionApiKey(
+          settingsMap,
+          connectionId,
+          env.BETTER_AUTH_SECRET
+        )
+      : null;
+    const apiKey = inlineKey || storedKey;
+    const baseUrl = body.baseUrl?.trim() ?? "";
+
+    if (!baseUrl) {
+      return c.json({ error: "请填写 Base URL" }, 400);
+    }
+    if (!apiKey) {
+      return c.json({ error: "请先填写 API Key" }, 400);
+    }
+
+    try {
+      const models = await listOpenAiCompatibleModels(baseUrl, apiKey);
+      return c.json({ models });
+    } catch (err) {
+      log.error("discover models failed", err);
+      return c.json({ error: "拉取模型列表失败" }, 422);
+    }
   });
 
   ai.get("/conversations", async (c) => {
@@ -247,7 +391,7 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
     const store = createAiChatStore(db);
     const env = options.getEnv?.(c) ?? (process.env as AiRuntimeEnv);
 
-    let conversationId = body.conversationId?.trim() || "";
+    let conversationId = normalizeConversationId(body.conversationId);
     let uiMessages: UIMessage[] = [];
 
     try {
@@ -272,29 +416,30 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
         const title = store.buildConversationTitle(
           extractTextFromParts(latestUser.parts)
         );
-        const conv = await store.createConversation({
+        const created = await store.createConversationWithMessage({
           userId: session.userId,
           author: session.author,
           title,
           contextMode: context.mode,
           articleId: context.articleId ?? null,
           shared: false,
+          message: {
+            role: "user",
+            parts: latestUser.parts,
+            author: session.author,
+            id: latestUser.id,
+          },
         });
-        conversationId = conv.id;
-        await store.insertMessage({
-          conversationId,
-          role: "user",
-          parts: latestUser.parts,
-          author: session.author,
-          id: latestUser.id,
-        });
+        conversationId = created.conversation.id;
         uiMessages = [latestUser];
       }
 
       const { model, provider, modelId } = await resolveModel(db, env);
       const system = await buildSystemPrompt(db, context);
       const tools = createAiTools(db);
-      const modelMessages = await convertToModelMessages(uiMessages);
+      const modelMessages = await convertToModelMessages(
+        trimMessagesForModel(uiMessages)
+      );
 
       const startedAt = Date.now();
       const result = streamText({
