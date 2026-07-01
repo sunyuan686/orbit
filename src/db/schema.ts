@@ -260,6 +260,52 @@ export const aiConversation = sqliteTable(
 /**
  * AI 聊天消息（parts JSON 对齐 UIMessage）
  */
+/** 飞书入站 message_id 去重（24h TTL，由定时清理或处理时顺带 prune） */
+export const feishuMessageDedup = sqliteTable(
+  "feishu_message_dedup",
+  {
+    messageId: text("message_id").primaryKey(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [index("idx_feishu_message_dedup_created").on(t.createdAt)]
+);
+
+/**
+ * 站内通知（Phase C）
+ * type: entry.create | comment.create | letter.reply
+ */
+export const notification = sqliteTable(
+  "notification",
+  {
+    id: text("id").primaryKey(),
+    recipient: text("recipient").notNull(),
+    type: text("type").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id").notNull(),
+    actor: text("actor").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    link: text("link").notNull(),
+    payload: text("payload"),
+    readAt: integer("read_at"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [
+    index("idx_notification_recipient_read").on(
+      t.recipient,
+      t.readAt,
+      t.createdAt
+    ),
+    index("idx_notification_merge").on(
+      t.recipient,
+      t.type,
+      t.targetId,
+      t.readAt
+    ),
+  ]
+);
+
 export const aiMessage = sqliteTable(
   "ai_message",
   {

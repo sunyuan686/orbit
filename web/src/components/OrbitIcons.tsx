@@ -149,6 +149,15 @@ export function SearchIcon(props: OrbitIconProps) {
   );
 }
 
+export function BellIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M12 4a4 4 0 0 0-4 4v2.5c0 .8-.3 1.6-.8 2.2L5.5 15.5A1 1 0 0 0 6.4 17h11.2a1 1 0 0 0 .9-1.5l-1.7-2.8a3.5 3.5 0 0 1-.8-2.2V8a4 4 0 0 0-4-4" />
+      <path d="M10 18a2 2 0 0 0 4 0" />
+    </OrbitIcon>
+  );
+}
+
 export function SunIcon(props: OrbitIconProps) {
   return (
     <OrbitIcon {...props}>

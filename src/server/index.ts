@@ -14,6 +14,8 @@ import { space } from "./routes/space.js";
 import { settings } from "./routes/settings.js";
 import { audit } from "./routes/audit.js";
 import { ai } from "./routes/ai.js";
+import { integrations } from "./routes/integrations.js";
+import { notifications } from "./routes/notifications.js";
 import { auth } from "./auth.js";
 import { db } from "../db/index.js";
 import { createLogger } from "../lib/logger.js";
@@ -65,6 +67,13 @@ app.use("/api/audit/*", requireAuth);
 app.use("/api/audit", requireAuth);
 app.use("/api/ai/*", requireAuth);
 app.use("/api/ai", requireAuth);
+app.use("/api/notifications/*", requireAuth);
+app.use("/api/notifications", requireAuth);
+app.use("/api/integrations/*", async (c, next) => {
+  const path = new URL(c.req.url).pathname;
+  if (path === "/api/integrations/feishu/events") return next();
+  return requireAuth(c, next);
+});
 app.use("/assets/*", requireAuth);
 
 // API 路由
@@ -76,6 +85,8 @@ app.route("/api/space", space);
 app.route("/api/settings", settings);
 app.route("/api/audit", audit);
 app.route("/api/ai", ai);
+app.route("/api/integrations", integrations);
+app.route("/api/notifications", notifications);
 
 // 静态文件：图片资源（需登录，见上方 /assets/* 中间件）
 app.use(

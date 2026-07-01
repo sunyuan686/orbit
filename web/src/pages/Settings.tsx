@@ -12,11 +12,13 @@ import { useAppSettings } from "../lib/appSettingsContext";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../lib/useToast";
 import { AiProvidersSettingsPanel } from "../components/AiProvidersSettingsPanel";
-import { AiIcon, ChevronLeftIcon, ChevronRightIcon, PaletteIcon, TimelineIcon, UserIcon } from "../components/OrbitIcons";
+import { FeishuIntegrationPanel } from "../components/FeishuIntegrationPanel";
+import { NotificationsSettingsPanel } from "../components/NotificationsSettingsPanel";
+import { AiIcon, BellIcon, ChevronLeftIcon, ChevronRightIcon, MessageIcon, PaletteIcon, TimelineIcon, UserIcon } from "../components/OrbitIcons";
 import { SpaceSettingsPanel } from "../components/SpaceSettingsPanel";
 import { useMaxWidthMd } from "../lib/useBreakpoint";
 
-type SettingsTab = "appearance" | "account" | "ai" | "space";
+type SettingsTab = "appearance" | "account" | "ai" | "space" | "integrations" | "notifications";
 
 type SettingsTabConfig = {
   id: SettingsTab;
@@ -67,6 +69,24 @@ const SETTINGS_NAV_GROUPS: {
     ],
   },
   {
+    id: "integrations",
+    label: "连接 / 集成",
+    tabs: [
+      {
+        id: "integrations",
+        label: "飞书",
+        description: "Bot 凭证、身份映射与 Webhook",
+        icon: (props) => <MessageIcon {...props} />,
+      },
+      {
+        id: "notifications",
+        label: "通知",
+        description: "站内与飞书推送偏好",
+        icon: (props) => <BellIcon {...props} />,
+      },
+    ],
+  },
+  {
     id: "ai",
     label: "功能",
     tabs: [
@@ -103,7 +123,9 @@ function isSettingsTab(value: string | null): value is SettingsTab {
     value === "appearance" ||
     value === "account" ||
     value === "ai" ||
-    value === "space"
+    value === "space" ||
+    value === "integrations" ||
+    value === "notifications"
   );
 }
 
@@ -301,7 +323,7 @@ export function SettingsPage() {
         <header className="orbit-settings-page-header">
           <h1 className="orbit-page-title">设置</h1>
           <p className="orbit-muted orbit-settings-page-desc">
-            管理账户、界面、空间档案与 Orbit AI。
+            管理账户、界面、空间档案、外部连接与 Orbit AI。
           </p>
         </header>
       ) : null}
@@ -564,6 +586,10 @@ export function SettingsPage() {
           {activeTab === "ai" ? <AiProvidersSettingsPanel /> : null}
 
           {activeTab === "space" ? <SpaceSettingsPanel /> : null}
+
+          {activeTab === "integrations" ? <FeishuIntegrationPanel /> : null}
+
+          {activeTab === "notifications" ? <NotificationsSettingsPanel /> : null}
         </div>
         ) : null}
       </div>
