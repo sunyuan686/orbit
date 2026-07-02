@@ -51,19 +51,39 @@ export async function getTenantAccessToken(
     return tenantTokenCache.token;
   }
 
-  const data = await feishuJson<{ tenant_access_token: string; expire: number }>(
+  const res = await fetch(
     `${FEISHU_API}/auth/v3/tenant_access_token/internal`,
     {
       method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
       body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
     }
   );
 
-  tenantTokenCache = {
-    token: data.tenant_access_token,
-    expiresAt: now + (data.expire ?? 7200),
+  const body = (await res.json()) as {
+    code?: number;
+    msg?: string;
+    tenant_access_token?: string;
+    expire?: number;
   };
-  return data.tenant_access_token;
+
+  if (!res.ok || (body.code !== undefined && body.code !== 0)) {
+    throw new FeishuApiError(
+      body.msg ?? `获取 tenant_access_token 失败 (${res.status})`,
+      body.code
+    );
+  }
+
+  const token = body.tenant_access_token?.trim();
+  if (!token) {
+    throw new FeishuApiError(body.msg ?? "飞书未返回 tenant_access_token");
+  }
+
+  tenantTokenCache = {
+    token,
+    expiresAt: now + (body.expire ?? 7200),
+  };
+  return token;
 }
 
 export function clearTenantAccessTokenCache(): void {
@@ -115,15 +135,61 @@ export async function testFeishuConnection(input: {
   authorOpenId?: string;
 }): Promise<void> {
   const token = await getTenantAccessToken(input.appId, input.appSecret);
-  const target = input.homeChatId?.trim() || input.authorOpenId?.trim();
-  if (!target) {
-    return;
+  const homeChatId = input.homeChatId?.trim() ?? "";
+  const authorOpenId = input.authorOpenId?.trim() ?? "";
+
+  if (!homeChatId && !authorOpenId) {
+    throw new FeishuApiError(
+      "请配置 Home Chat，或填写当前账号对应的 open_id 后再测试"
+    );
   }
-  const receiveIdType = input.homeChatId?.trim() ? "chat_id" : "open_id";
-  await sendFeishuTextMessage(
-    token,
-    target,
-    receiveIdType,
-    "Orbit 飞书连接测试成功 ✅"
+
+  const attempts: Array<{ target: string; type: "open_id" | "chat_id" }> = [];
+  if (authorOpenId) {
+    attempts.push({ target: authorOpenId, type: "open_id" });
+  }
+  if (homeChatId) {
+    attempts.push({ target: homeChatId, type: "chat_id" });
+  }
+
+  let lastError: FeishuApiError | null = null;
+  for (const attempt of attempts) {
+    try {
+      await sendFeishuTextMessage(
+        token,
+        attempt.target,
+        attempt.type,
+        "Orbit 飞书连接测试成功 ✅"
+      );
+      return;
+    } catch (err) {
+      lastError =
+        err instanceof FeishuApiError
+          ? err
+          : new FeishuApiError(
+              err instanceof Error ? err.message : "飞书连接测试失败"
+            );
+      const retryable =
+        attempt.type === "chat_id" &&
+        /out of the chat/i.test(lastError.message) &&
+        authorOpenId;
+      if (!retryable) throw toFriendlyFeishuError(lastError);
+    }
+  }
+
+  throw toFriendlyFeishuError(
+    lastError ?? new FeishuApiError("飞书连接测试失败")
   );
+}
+
+function toFriendlyFeishuError(err: FeishuApiError): FeishuApiError {
+  if (/out of the chat/i.test(err.message)) {
+    return new FeishuApiError(
+      "Bot 未加入该群聊：请先把 Bot 拉进 Home Chat 对应群，或清空 Home Chat 改用单聊测试"
+    );
+  }
+  if (/chat id not found|invalid receive id/i.test(err.message)) {
+    return new FeishuApiError("chat_id 或 open_id 无效，请检查设置页配置");
+  }
+  return err;
 }

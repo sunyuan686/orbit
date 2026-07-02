@@ -37,10 +37,11 @@ export interface FeishuConfigPublic {
   allowedGroupChatIds: string[];
   mergeWindowMs: number;
   homeChatId: string;
-  connectionStatus: "connected" | "misconfigured" | "disabled";
+  connectionStatus: "connected" | "misconfigured" | "disabled" | "verified";
   lastError: string | null;
   lastConnectedAt: number | null;
   webhookUrl: string;
+  callbackUrl: string;
 }
 
 export interface FeishuSecrets {
@@ -115,12 +116,15 @@ export function buildFeishuConfigPublic(
   config: FeishuConfigStored,
   hasAppSecret: boolean,
   hasEncryptKey: boolean,
-  webhookUrl: string
+  eventWebhookUrl: string,
+  callbackWebhookUrl: string
 ): FeishuConfigPublic {
   let connectionStatus: FeishuConfigPublic["connectionStatus"] = "disabled";
   if (config.enabled) {
     connectionStatus =
       config.appId && hasAppSecret ? "connected" : "misconfigured";
+  } else if (config.appId && hasAppSecret && config.lastConnectedAt) {
+    connectionStatus = "verified";
   }
   return {
     enabled: config.enabled,
@@ -136,7 +140,8 @@ export function buildFeishuConfigPublic(
     connectionStatus,
     lastError: config.lastError,
     lastConnectedAt: config.lastConnectedAt,
-    webhookUrl,
+    webhookUrl: eventWebhookUrl,
+    callbackUrl: callbackWebhookUrl,
   };
 }
 

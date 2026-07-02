@@ -10,13 +10,17 @@ import {
   type FeishuConfigStored,
 } from "../services/feishu-settings.js";
 import {
-  decryptLarkPayload,
-  verifyLarkSignature,
-} from "../services/feishu-crypto.js";
-import {
   clearTenantAccessTokenCache,
   testFeishuConnection,
 } from "../services/feishu-api.js";
+import { handleFeishuCallback } from "../services/feishu-callback.js";
+import {
+  parseLarkInboundBody,
+  tryParseUrlVerification,
+  verificationTokenMismatch,
+  verifyLarkInboundSignature,
+  type LarkInboundPayload,
+} from "../services/feishu-webhook.js";
 import {
   pruneFeishuMessageDedup,
   tryClaimFeishuMessage,
@@ -74,9 +78,30 @@ async function requireSessionAuthor(
   return sessionAuthor;
 }
 
-function resolveWebhookUrl(c: Context, options: IntegrationsRouteOptions): string {
+function resolveEventWebhookUrl(
+  c: Context,
+  options: IntegrationsRouteOptions
+): string {
   const base = options.getWebhookBaseUrl?.(c) ?? new URL(c.req.url).origin;
   return `${base.replace(/\/$/, "")}/api/integrations/feishu/events`;
+}
+
+function resolveCallbackWebhookUrl(
+  c: Context,
+  options: IntegrationsRouteOptions
+): string {
+  const base = options.getWebhookBaseUrl?.(c) ?? new URL(c.req.url).origin;
+  return `${base.replace(/\/$/, "")}/api/integrations/feishu/callbacks`;
+}
+
+function resolveWebhookUrls(
+  c: Context,
+  options: IntegrationsRouteOptions
+): { eventWebhookUrl: string; callbackWebhookUrl: string } {
+  return {
+    eventWebhookUrl: resolveEventWebhookUrl(c, options),
+    callbackWebhookUrl: resolveCallbackWebhookUrl(c, options),
+  };
 }
 
 function scheduleBackground(
@@ -91,16 +116,7 @@ function scheduleBackground(
   void task.catch((err) => log.error("background task failed", err));
 }
 
-interface LarkEventEnvelope {
-  challenge?: string;
-  token?: string;
-  type?: string;
-  encrypt?: string;
-  schema?: string;
-  header?: {
-    event_type?: string;
-    event_id?: string;
-  };
+interface LarkEventEnvelope extends LarkInboundPayload {
   event?: {
     sender?: {
       sender_id?: { open_id?: string; user_id?: string };
@@ -116,16 +132,58 @@ interface LarkEventEnvelope {
   };
 }
 
-async function parseLarkEventBody(
+async function handleLarkInboundWebhook(
+  c: Context,
   rawBody: string,
-  encryptKey: string
-): Promise<LarkEventEnvelope> {
-  const outer = JSON.parse(rawBody) as LarkEventEnvelope;
-  if (outer.encrypt && encryptKey) {
-    const decrypted = await decryptLarkPayload(outer.encrypt, encryptKey);
-    return JSON.parse(decrypted) as LarkEventEnvelope;
+  runtime: Awaited<ReturnType<typeof loadFeishuRuntime>>,
+  onPayload: (payload: LarkInboundPayload) => Promise<Response | Record<string, unknown>>
+): Promise<Response> {
+  const handshake = await tryParseUrlVerification(
+    rawBody,
+    runtime.secrets.encryptKey
+  );
+  if (handshake?.challenge) {
+    if (verificationTokenMismatch(runtime, handshake)) {
+      return c.json({ error: "invalid token" }, 401);
+    }
+    return c.json({ challenge: handshake.challenge });
   }
-  return outer;
+
+  if (runtime.secrets.encryptKey) {
+    const valid = await verifyLarkInboundSignature(
+      c,
+      runtime.secrets.encryptKey,
+      rawBody
+    );
+    if (!valid) {
+      return c.json({ error: "invalid signature" }, 401);
+    }
+  }
+
+  let payload: LarkInboundPayload;
+  try {
+    payload = await parseLarkInboundBody(
+      rawBody,
+      runtime.secrets.encryptKey
+    );
+  } catch {
+    return c.json({ error: "invalid payload" }, 400);
+  }
+
+  if (payload.type === "url_verification" && payload.challenge) {
+    if (verificationTokenMismatch(runtime, payload)) {
+      return c.json({ error: "invalid token" }, 401);
+    }
+    return c.json({ challenge: payload.challenge });
+  }
+
+  if (verificationTokenMismatch(runtime, payload)) {
+    return c.json({ error: "invalid token" }, 401);
+  }
+
+  const result = await onPayload(payload);
+  if (result instanceof Response) return result;
+  return c.json(result);
 }
 
 async function handleLarkEvent(
@@ -206,12 +264,14 @@ export function createIntegrationsRoutes(
     const db = await getDb(c);
     const secret = options.getSecret?.(c) ?? "";
     const runtime = await loadFeishuRuntime(db, secret);
+    const urls = resolveWebhookUrls(c, options);
     return c.json(
       buildFeishuConfigPublic(
         runtime.config,
         runtime.hasAppSecret,
         runtime.hasEncryptKey,
-        resolveWebhookUrl(c, options)
+        urls.eventWebhookUrl,
+        urls.callbackWebhookUrl
       ) satisfies FeishuConfigPublic
     );
   });
@@ -302,12 +362,14 @@ export function createIntegrationsRoutes(
     }
 
     const runtime = await loadFeishuRuntime(db, secret ?? "");
+    const urls = resolveWebhookUrls(c, options);
     return c.json(
       buildFeishuConfigPublic(
         runtime.config,
         runtime.hasAppSecret,
         runtime.hasEncryptKey,
-        resolveWebhookUrl(c, options)
+        urls.eventWebhookUrl,
+        urls.callbackWebhookUrl
       ) satisfies FeishuConfigPublic
     );
   });
@@ -368,57 +430,36 @@ export function createIntegrationsRoutes(
     const secret = options.getSecret?.(c) ?? "";
     const runtime = await loadFeishuRuntime(db, secret);
 
-    if (runtime.secrets.encryptKey) {
-      const timestamp = c.req.header("X-Lark-Request-Timestamp") ?? "";
-      const nonce = c.req.header("X-Lark-Request-Nonce") ?? "";
-      const signature = c.req.header("X-Lark-Signature") ?? "";
-      const valid = await verifyLarkSignature(
-        timestamp,
-        nonce,
-        runtime.secrets.encryptKey,
-        rawBody,
-        signature
+    return handleLarkInboundWebhook(c, rawBody, runtime, async (payload) => {
+      scheduleBackground(
+        c,
+        options,
+        handleLarkEvent(c, db, options, payload as LarkEventEnvelope).catch(
+          (err) => {
+            log.error("event handling failed", err);
+          }
+        )
       );
-      if (!valid) {
-        return c.json({ error: "invalid signature" }, 401);
-      }
-    }
+      return { ok: true };
+    });
+  });
 
-    let payload: LarkEventEnvelope;
-    try {
-      payload = await parseLarkEventBody(rawBody, runtime.secrets.encryptKey);
-    } catch (err) {
-      log.error("parse event failed", err);
-      return c.json({ error: "invalid payload" }, 400);
-    }
+  routes.post("/feishu/callbacks", async (c) => {
+    const rawBody = await c.req.text();
+    const db = await getDb(c);
+    const secret = options.getSecret?.(c) ?? "";
+    const runtime = await loadFeishuRuntime(db, secret);
+    const baseUrl =
+      options.getWebhookBaseUrl?.(c)?.replace(/\/$/, "") ??
+      new URL(c.req.url).origin;
 
-    if (payload.type === "url_verification" && payload.challenge) {
-      if (
-        runtime.config.verificationToken &&
-        payload.token !== runtime.config.verificationToken
-      ) {
-        return c.json({ error: "invalid token" }, 401);
-      }
-      return c.json({ challenge: payload.challenge });
-    }
-
-    if (
-      runtime.config.verificationToken &&
-      payload.token &&
-      payload.token !== runtime.config.verificationToken
-    ) {
-      return c.json({ error: "invalid token" }, 401);
-    }
-
-    scheduleBackground(
-      c,
-      options,
-      handleLarkEvent(c, db, options, payload).catch((err) => {
-        log.error("event handling failed", err);
+    return handleLarkInboundWebhook(c, rawBody, runtime, async (payload) =>
+      handleFeishuCallback(payload, {
+        db,
+        baseUrl,
+        config: runtime.config,
       })
     );
-
-    return c.json({ ok: true });
   });
 
   return routes;

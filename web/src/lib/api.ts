@@ -78,13 +78,21 @@ export const TYPE_LABEL: Record<string, string> = {
   letters: "信箱",
 };
 
-/** 格式化 Unix 时间戳为 YYYY-MM-DD */
+const BEIJING_OFFSET_SECONDS = 8 * 3600;
+
+function beijingDateParts(ts: number): { y: number; m: number; day: number } {
+  const d = new Date((ts + BEIJING_OFFSET_SECONDS) * 1000);
+  return {
+    y: d.getUTCFullYear(),
+    m: d.getUTCMonth() + 1,
+    day: d.getUTCDate(),
+  };
+}
+
+/** 格式化 Unix 时间戳为 YYYY-MM-DD（北京时间日界） */
 export function formatDate(ts: number): string {
-  const d = new Date(ts * 1000);
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  const { y, m, day } = beijingDateParts(ts);
+  return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 /** 格式化 Unix 时间戳为 YYYY-MM-DD HH:mm（本地时区） */
@@ -98,12 +106,9 @@ export function formatDateTime(ts: number): string {
   return `${y}-${m}-${day} ${h}:${min}`;
 }
 
-/** 格式化 Unix 时间戳为中文日期（与 formatDate 同日界，用于标题区展示） */
+/** 格式化 Unix 时间戳为中文日期（北京时间日界，用于标题区展示） */
 export function formatDateCn(ts: number): string {
-  const d = new Date(ts * 1000);
-  const y = d.getUTCFullYear();
-  const m = d.getUTCMonth() + 1;
-  const day = d.getUTCDate();
+  const { y, m, day } = beijingDateParts(ts);
   return `${y}年${m}月${day}日`;
 }
 
@@ -461,10 +466,11 @@ export interface FeishuConfigPublic {
   allowedGroupChatIds: string[];
   mergeWindowMs: number;
   homeChatId: string;
-  connectionStatus: "connected" | "misconfigured" | "disabled";
+  connectionStatus: "connected" | "misconfigured" | "disabled" | "verified";
   lastError: string | null;
   lastConnectedAt: number | null;
   webhookUrl: string;
+  callbackUrl: string;
 }
 
 export async function fetchFeishuIntegration(): Promise<FeishuConfigPublic> {

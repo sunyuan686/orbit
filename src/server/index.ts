@@ -71,7 +71,12 @@ app.use("/api/notifications/*", requireAuth);
 app.use("/api/notifications", requireAuth);
 app.use("/api/integrations/*", async (c, next) => {
   const path = new URL(c.req.url).pathname;
-  if (path === "/api/integrations/feishu/events") return next();
+  if (
+    path === "/api/integrations/feishu/events" ||
+    path === "/api/integrations/feishu/callbacks"
+  ) {
+    return next();
+  }
   return requireAuth(c, next);
 });
 app.use("/assets/*", requireAuth);

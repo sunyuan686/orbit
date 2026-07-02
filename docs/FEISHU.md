@@ -206,6 +206,7 @@
 
 ## 参考
 
+- [飞书接入调试备忘](./FEISHU-DEV.md) — 联调排障、本地隧道、常见 401/无日志/图片/日期问题
 - [飞书机器人概述](https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/bot-v3/bot-overview)
 - [事件订阅 / 验签](https://open.feishu.cn/document/server-docs/event-subscription-guide/event-subscription-configure-/encrypt-key-encryption-configuration-case)
 - 开源实现：`larksuite/openclaw-lark`、`NousResearch/hermes-agent`（dedup、post 解析、@ 门控、Webhook 安全可借鉴）
