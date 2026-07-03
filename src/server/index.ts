@@ -17,6 +17,7 @@ import { ai } from "./routes/ai.js";
 import { integrations } from "./routes/integrations.js";
 import { notifications } from "./routes/notifications.js";
 import { auth } from "./auth.js";
+import { DEV_FRONTEND_ORIGINS } from "../config/auth.js";
 import { db } from "../db/index.js";
 import { createLogger } from "../lib/logger.js";
 import { requestContext } from "../lib/request-context.js";
@@ -34,7 +35,7 @@ app.use("*", requestContext);
 app.use(
   "*",
   cors({
-    origin: ["http://localhost:5173", "http://localhost:3001"],
+    origin: [...DEV_FRONTEND_ORIGINS, "http://localhost:3001"],
     allowHeaders: ["Content-Type", "Authorization"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,

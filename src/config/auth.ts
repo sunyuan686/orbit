@@ -5,3 +5,9 @@
  */
 export const AUTH_BASE_URL =
   process.env.BETTER_AUTH_URL ?? "http://localhost:5173";
+
+/** 本地 Vite 绑定 127.0.0.1 时，浏览器 Origin 与 localhost 不同，需一并放行 */
+export const DEV_FRONTEND_ORIGINS = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+] as const;

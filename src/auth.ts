@@ -3,14 +3,20 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { eq } from "drizzle-orm";
 import { isCanonicalAuthor, normalizeAuthor } from "./authors.js";
+import { DEV_FRONTEND_ORIGINS } from "./config/auth.js";
 import * as schema from "./db/schema.js";
 
 const MAX_USERS = 2;
 
 export function createAuth(db: any, options: { secret?: string; baseURL: string }) {
+  const extraTrustedOrigins = DEV_FRONTEND_ORIGINS.filter(
+    (origin) => origin !== options.baseURL
+  );
+
   return betterAuth({
     secret: options.secret,
     baseURL: options.baseURL,
+    trustedOrigins: extraTrustedOrigins,
     database: drizzleAdapter(db, {
       provider: "sqlite",
       schema: {
