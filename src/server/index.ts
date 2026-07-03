@@ -16,6 +16,7 @@ import { audit } from "./routes/audit.js";
 import { ai } from "./routes/ai.js";
 import { integrations } from "./routes/integrations.js";
 import { notifications } from "./routes/notifications.js";
+import { gallery } from "./routes/gallery.js";
 import { auth } from "./auth.js";
 import { DEV_FRONTEND_ORIGINS } from "../config/auth.js";
 import { db } from "../db/index.js";
@@ -70,6 +71,8 @@ app.use("/api/ai/*", requireAuth);
 app.use("/api/ai", requireAuth);
 app.use("/api/notifications/*", requireAuth);
 app.use("/api/notifications", requireAuth);
+app.use("/api/gallery/*", requireAuth);
+app.use("/api/gallery", requireAuth);
 app.use("/api/integrations/*", async (c, next) => {
   const path = new URL(c.req.url).pathname;
   if (
@@ -93,6 +96,7 @@ app.route("/api/audit", audit);
 app.route("/api/ai", ai);
 app.route("/api/integrations", integrations);
 app.route("/api/notifications", notifications);
+app.route("/api/gallery", gallery);
 
 // 静态文件：图片资源（需登录，见上方 /assets/* 中间件）
 app.use(

@@ -25,6 +25,8 @@ import { createAuditRoutes } from "./api/audit.js";
 import { createAiRoutes } from "./api/ai.js";
 import { createIntegrationsRoutes } from "./api/integrations.js";
 import { createNotificationsRoutes } from "./api/notifications.js";
+import { createGalleryRoutes } from "./api/gallery.js";
+import { listAllR2Objects } from "./services/gallery.js";
 import { getSessionAuthor } from "./api/session-author.js";
 import { requestContext } from "./lib/request-context.js";
 import type { NotifyRuntime } from "./services/notify.js";
@@ -117,6 +119,8 @@ function runInBackground(c: Context<HonoEnv>, task: Promise<unknown>): void {
 
 app.use("/api/notifications/*", requireAuth);
 app.use("/api/notifications", requireAuth);
+app.use("/api/gallery/*", requireAuth);
+app.use("/api/gallery", requireAuth);
 app.use("/api/integrations/*", async (c, next) => {
   const path = new URL(c.req.url).pathname;
   if (
@@ -217,6 +221,16 @@ app.route(
         httpMetadata: { contentType: mimeType },
       });
       return `/assets/${filename}`;
+    },
+  })
+);
+app.route(
+  "/api/gallery",
+  createGalleryRoutes(getDb, {
+    listObjects: async (c) => listAllR2Objects(c.env.R2),
+    deleteObject: async (c, storageKey) => {
+      await c.env.R2.delete(storageKey);
+      return true;
     },
   })
 );
