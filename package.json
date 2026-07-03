@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:search-status": "tsx scripts/search-status.ts"
+    "db:search-status": "tsx scripts/search-status.ts",
+    "tunnel": "bash scripts/dev-tunnel.sh"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260619.1",

@@ -11,12 +11,18 @@ import {
   recordAudit,
 } from "../services/audit.js";
 import type { SessionAuthor } from "./session-author.js";
+import {
+  notifyCommentCreated,
+  type NotifyRuntime,
+} from "../services/notify.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 type TargetType = "entry" | "memo";
 
 export interface CommentRouteOptions {
   getSessionAuthor?: (c: Context) => Promise<SessionAuthor | null>;
+  getNotifyRuntime?: (c: Context) => NotifyRuntime | undefined;
+  waitUntil?: (c: Context, task: Promise<unknown>) => void;
 }
 
 function now(): number {
@@ -132,7 +138,7 @@ async function auditCommentWrite(
 }
 
 export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOptions = {}) {
-  const { getSessionAuthor } = options;
+  const { getSessionAuthor, getNotifyRuntime, waitUntil } = options;
   const comments = new Hono();
 
   comments.get("/", async (c) => {
@@ -277,6 +283,22 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
       kind,
       contentType,
     });
+
+    const notifyRuntime = getNotifyRuntime?.(c);
+    if (notifyRuntime) {
+      const task = notifyCommentCreated(db, notifyRuntime, {
+        actor: sessionAuthor.author as CanonicalAuthor,
+        commentId: id,
+        targetType,
+        targetId,
+        kind,
+        body,
+        contentType,
+        requestId: getRequestId(c),
+      });
+      if (waitUntil) waitUntil(c, task);
+      else void task.catch(() => undefined);
+    }
 
     return c.json({ id });
   });

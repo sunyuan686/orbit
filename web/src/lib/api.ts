@@ -78,13 +78,21 @@ export const TYPE_LABEL: Record<string, string> = {
   letters: "信箱",
 };
 
-/** 格式化 Unix 时间戳为 YYYY-MM-DD */
+const BEIJING_OFFSET_SECONDS = 8 * 3600;
+
+function beijingDateParts(ts: number): { y: number; m: number; day: number } {
+  const d = new Date((ts + BEIJING_OFFSET_SECONDS) * 1000);
+  return {
+    y: d.getUTCFullYear(),
+    m: d.getUTCMonth() + 1,
+    day: d.getUTCDate(),
+  };
+}
+
+/** 格式化 Unix 时间戳为 YYYY-MM-DD（北京时间日界） */
 export function formatDate(ts: number): string {
-  const d = new Date(ts * 1000);
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  const { y, m, day } = beijingDateParts(ts);
+  return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 /** 格式化 Unix 时间戳为 YYYY-MM-DD HH:mm（本地时区） */
@@ -98,12 +106,9 @@ export function formatDateTime(ts: number): string {
   return `${y}-${m}-${day} ${h}:${min}`;
 }
 
-/** 格式化 Unix 时间戳为中文日期（与 formatDate 同日界，用于标题区展示） */
+/** 格式化 Unix 时间戳为中文日期（北京时间日界，用于标题区展示） */
 export function formatDateCn(ts: number): string {
-  const d = new Date(ts * 1000);
-  const y = d.getUTCFullYear();
-  const m = d.getUTCMonth() + 1;
-  const day = d.getUTCDate();
+  const { y, m, day } = beijingDateParts(ts);
   return `${y}年${m}月${day}日`;
 }
 
@@ -448,6 +453,141 @@ export async function updateAppSettings(data: {
   });
   await assertOk(res, "保存设置失败");
   return res.json();
+}
+
+export interface FeishuConfigPublic {
+  enabled: boolean;
+  appId: string;
+  hasAppSecret: boolean;
+  hasEncryptKey: boolean;
+  verificationToken: string;
+  authorOpenIds: { 小圆子: string; 小麟子: string };
+  defaultEntryType: "diary";
+  allowedGroupChatIds: string[];
+  mergeWindowMs: number;
+  homeChatId: string;
+  connectionStatus: "connected" | "misconfigured" | "disabled" | "verified";
+  lastError: string | null;
+  lastConnectedAt: number | null;
+  webhookUrl: string;
+  callbackUrl: string;
+}
+
+export async function fetchFeishuIntegration(): Promise<FeishuConfigPublic> {
+  const res = await fetch(`${BASE}/api/integrations/feishu`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载飞书配置失败");
+  return res.json();
+}
+
+export async function updateFeishuIntegration(data: {
+  enabled?: boolean;
+  appId?: string;
+  appSecret?: string | null;
+  encryptKey?: string | null;
+  verificationToken?: string;
+  authorOpenIds?: { 小圆子?: string; 小麟子?: string };
+  allowedGroupChatIds?: string[];
+  mergeWindowMs?: number;
+  homeChatId?: string;
+}): Promise<FeishuConfigPublic> {
+  const res = await fetch(`${BASE}/api/integrations/feishu`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  await assertOk(res, "保存飞书配置失败");
+  return res.json();
+}
+
+export async function testFeishuIntegration(): Promise<{ ok: true }> {
+  const res = await fetch(`${BASE}/api/integrations/feishu/test`, {
+    method: "POST",
+    credentials: "include",
+  });
+  await assertOk(res, "飞书连接测试失败");
+  return res.json();
+}
+
+export type NotificationEventKind = "entry" | "comment" | "letter";
+
+export interface NotificationChannelPrefs {
+  inApp: boolean;
+  feishu: boolean;
+}
+
+export interface NotificationPreferences {
+  commentMergeMinutes: number;
+  events: Record<NotificationEventKind, NotificationChannelPrefs>;
+}
+
+export interface NotificationItem {
+  id: string;
+  type: string;
+  targetType: string;
+  targetId: string;
+  actor: string;
+  title: string;
+  body: string;
+  link: string;
+  readAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export async function fetchNotificationPreferences(): Promise<NotificationPreferences> {
+  const res = await fetch(`${BASE}/api/notifications/preferences`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载通知偏好失败");
+  return res.json();
+}
+
+export async function updateNotificationPreferences(
+  prefs: NotificationPreferences
+): Promise<NotificationPreferences> {
+  const res = await fetch(`${BASE}/api/notifications/preferences`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(prefs),
+  });
+  await assertOk(res, "保存通知偏好失败");
+  return res.json();
+}
+
+export async function fetchNotificationUnreadCount(): Promise<{ count: number }> {
+  const res = await fetch(`${BASE}/api/notifications/unread-count`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载未读数失败");
+  return res.json();
+}
+
+export async function fetchNotifications(): Promise<NotificationItem[]> {
+  const res = await fetch(`${BASE}/api/notifications`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载通知失败");
+  return res.json();
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/notifications/read/${id}`, {
+    method: "PUT",
+    credentials: "include",
+  });
+  await assertOk(res, "标记已读失败");
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  const res = await fetch(`${BASE}/api/notifications/read-all`, {
+    method: "PUT",
+    credentials: "include",
+  });
+  await assertOk(res, "全部已读失败");
 }
 
 export interface DeepseekModelOption {

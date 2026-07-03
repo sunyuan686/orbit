@@ -1,0 +1,195 @@
+const FEISHU_API = "https://open.feishu.cn/open-apis";
+
+interface TenantTokenCache {
+  token: string;
+  expiresAt: number;
+}
+
+let tenantTokenCache: TenantTokenCache | null = null;
+
+export class FeishuApiError extends Error {
+  constructor(
+    message: string,
+    readonly code?: number
+  ) {
+    super(message);
+    this.name = "FeishuApiError";
+  }
+}
+
+async function feishuJson<T>(
+  url: string,
+  init: RequestInit & { accessToken?: string } = {}
+): Promise<T> {
+  const headers = new Headers(init.headers);
+  headers.set("Content-Type", "application/json; charset=utf-8");
+  if (init.accessToken) {
+    headers.set("Authorization", `Bearer ${init.accessToken}`);
+  }
+  const res = await fetch(url, { ...init, headers });
+  const data = (await res.json()) as {
+    code?: number;
+    msg?: string;
+    data?: T;
+  };
+  if (!res.ok || (data.code !== undefined && data.code !== 0)) {
+    throw new FeishuApiError(data.msg ?? `Feishu API error (${res.status})`, data.code);
+  }
+  return data.data as T;
+}
+
+export async function getTenantAccessToken(
+  appId: string,
+  appSecret: string
+): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  if (
+    tenantTokenCache &&
+    tenantTokenCache.expiresAt > now + 60 &&
+    tenantTokenCache.token
+  ) {
+    return tenantTokenCache.token;
+  }
+
+  const res = await fetch(
+    `${FEISHU_API}/auth/v3/tenant_access_token/internal`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+    }
+  );
+
+  const body = (await res.json()) as {
+    code?: number;
+    msg?: string;
+    tenant_access_token?: string;
+    expire?: number;
+  };
+
+  if (!res.ok || (body.code !== undefined && body.code !== 0)) {
+    throw new FeishuApiError(
+      body.msg ?? `获取 tenant_access_token 失败 (${res.status})`,
+      body.code
+    );
+  }
+
+  const token = body.tenant_access_token?.trim();
+  if (!token) {
+    throw new FeishuApiError(body.msg ?? "飞书未返回 tenant_access_token");
+  }
+
+  tenantTokenCache = {
+    token,
+    expiresAt: now + (body.expire ?? 7200),
+  };
+  return token;
+}
+
+export function clearTenantAccessTokenCache(): void {
+  tenantTokenCache = null;
+}
+
+export async function sendFeishuTextMessage(
+  accessToken: string,
+  receiveId: string,
+  receiveIdType: "open_id" | "chat_id",
+  text: string
+): Promise<void> {
+  const params = new URLSearchParams({ receive_id_type: receiveIdType });
+  await feishuJson(
+    `${FEISHU_API}/im/v1/messages?${params.toString()}`,
+    {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({
+        receive_id: receiveId,
+        msg_type: "text",
+        content: JSON.stringify({ text }),
+      }),
+    }
+  );
+}
+
+export async function downloadFeishuMessageImage(
+  accessToken: string,
+  messageId: string,
+  imageKey: string
+): Promise<{ body: ArrayBuffer; mimeType: string }> {
+  const url = `${FEISHU_API}/im/v1/messages/${messageId}/resources/${imageKey}?type=image`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    throw new FeishuApiError(`download image failed (${res.status})`);
+  }
+  const mimeType = res.headers.get("content-type") ?? "image/jpeg";
+  const body = await res.arrayBuffer();
+  return { body, mimeType };
+}
+
+export async function testFeishuConnection(input: {
+  appId: string;
+  appSecret: string;
+  homeChatId?: string;
+  authorOpenId?: string;
+}): Promise<void> {
+  const token = await getTenantAccessToken(input.appId, input.appSecret);
+  const homeChatId = input.homeChatId?.trim() ?? "";
+  const authorOpenId = input.authorOpenId?.trim() ?? "";
+
+  if (!homeChatId && !authorOpenId) {
+    throw new FeishuApiError(
+      "请配置 Home Chat，或填写当前账号对应的 open_id 后再测试"
+    );
+  }
+
+  const attempts: Array<{ target: string; type: "open_id" | "chat_id" }> = [];
+  if (authorOpenId) {
+    attempts.push({ target: authorOpenId, type: "open_id" });
+  }
+  if (homeChatId) {
+    attempts.push({ target: homeChatId, type: "chat_id" });
+  }
+
+  let lastError: FeishuApiError | null = null;
+  for (const attempt of attempts) {
+    try {
+      await sendFeishuTextMessage(
+        token,
+        attempt.target,
+        attempt.type,
+        "Orbit 飞书连接测试成功 ✅"
+      );
+      return;
+    } catch (err) {
+      lastError =
+        err instanceof FeishuApiError
+          ? err
+          : new FeishuApiError(
+              err instanceof Error ? err.message : "飞书连接测试失败"
+            );
+      const retryable =
+        attempt.type === "chat_id" &&
+        /out of the chat/i.test(lastError.message) &&
+        authorOpenId;
+      if (!retryable) throw toFriendlyFeishuError(lastError);
+    }
+  }
+
+  throw toFriendlyFeishuError(
+    lastError ?? new FeishuApiError("飞书连接测试失败")
+  );
+}
+
+function toFriendlyFeishuError(err: FeishuApiError): FeishuApiError {
+  if (/out of the chat/i.test(err.message)) {
+    return new FeishuApiError(
+      "Bot 未加入该群聊：请先把 Bot 拉进 Home Chat 对应群，或清空 Home Chat 改用单聊测试"
+    );
+  }
+  if (/chat id not found|invalid receive id/i.test(err.message)) {
+    return new FeishuApiError("chat_id 或 open_id 无效，请检查设置页配置");
+  }
+  return err;
+}

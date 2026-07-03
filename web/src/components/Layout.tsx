@@ -7,6 +7,7 @@ import { SpaceProvider, useSpace } from "../lib/spaceContext";
 import { AppSettingsProvider } from "../lib/appSettingsContext";
 import { UserAccount } from "./UserAccount";
 import { SettingsIcon, SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
+import { NotificationBell } from "./NotificationBell";
 import { AiChatFab } from "./AiChatFab";
 import { AiChatPanel, type AiChatContext } from "./AiChatPanel";
 import { RouteErrorBoundary } from "./RouteErrorBoundary";
@@ -282,6 +283,7 @@ function LayoutShell() {
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
+            <NotificationBell />
             <Link
               to="/settings"
               className="orbit-icon-btn inline-flex p-1.5 cursor-pointer"

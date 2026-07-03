@@ -64,6 +64,20 @@
       "when": 1782300000000,
       "tag": "0008_ai_conversation_last_preview",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1782400000000,
+      "tag": "0009_feishu_dedup",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1782500000000,
+      "tag": "0010_notifications",
+      "breakpoints": true
     }
   ]
 }

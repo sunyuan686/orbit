@@ -12,11 +12,17 @@ import {
   recordAudit,
 } from "../services/audit.js";
 import type { SessionAuthor } from "./session-author.js";
+import {
+  notifyEntryCreated,
+  type NotifyRuntime,
+} from "../services/notify.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 
 export interface ArticleRouteOptions {
   getSessionAuthor?: (c: Context) => Promise<SessionAuthor | null>;
+  getNotifyRuntime?: (c: Context) => NotifyRuntime | undefined;
+  waitUntil?: (c: Context, task: Promise<unknown>) => void;
 }
 
 function authorRequiredResponse(c: Context) {
@@ -95,7 +101,7 @@ function mapEntrySummary(row: {
 }
 
 export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOptions = {}) {
-  const { getSessionAuthor } = options;
+  const { getSessionAuthor, getNotifyRuntime, waitUntil } = options;
   const articles = new Hono();
 
   // GET /api/articles?type=diary|timeline|message|letter|memo
@@ -284,6 +290,21 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       entryDate: entryDate ?? null,
       parentId: parentId ?? null,
     });
+
+    const notifyRuntime = getNotifyRuntime?.(c);
+    if (notifyRuntime && sessionAuthor) {
+      const task = notifyEntryCreated(db, notifyRuntime, {
+        actor: sessionAuthor.author as CanonicalAuthor,
+        entryId: id,
+        entryType: type,
+        parentId: parentId ?? null,
+        bodyPreview: bodyValue ? toPlainText(bodyValue) : "",
+        requestId: getRequestId(c),
+      });
+      if (waitUntil) waitUntil(c, task);
+      else void task.catch(() => undefined);
+    }
+
     return c.json({ id });
   });
 
