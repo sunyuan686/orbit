@@ -293,6 +293,74 @@ export async function uploadImage(
   return data.url as string;
 }
 
+export type GalleryFilter = "all" | "linked" | "orphan";
+
+export interface GallerySource {
+  type: string;
+  id: string;
+  title: string | null;
+  entryDate: number | null;
+  deleted: boolean;
+}
+
+export interface GalleryItem {
+  storageKey: string;
+  url: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: number;
+  sortAt: number;
+  linked: boolean;
+  sources: GallerySource[];
+}
+
+export interface GalleryListResponse {
+  items: GalleryItem[];
+  total: number;
+  limit: number;
+  offset: number;
+  filter: GalleryFilter;
+}
+
+export async function fetchGallery(opts?: {
+  filter?: GalleryFilter;
+  limit?: number;
+  offset?: number;
+}): Promise<GalleryListResponse> {
+  const params = new URLSearchParams();
+  if (opts?.filter) params.set("filter", opts.filter);
+  if (opts?.limit != null) params.set("limit", String(opts.limit));
+  if (opts?.offset != null) params.set("offset", String(opts.offset));
+  const res = await fetch(`${BASE}/api/gallery?${params}`, {
+    credentials: "include",
+  });
+  await assertOk(res, "相册加载失败");
+  return res.json();
+}
+
+export async function deleteGalleryImage(storageKey: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/gallery/${encodeURIComponent(storageKey)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (res.status === 400) {
+    const data = (await res.json()) as { error?: string };
+    throw new Error(data.error ?? "无法删除该图片");
+  }
+  await assertOk(res, "删除失败");
+}
+
+export function gallerySourceHref(source: GallerySource): string {
+  if (source.type === "memo") return `/memo/${source.id}`;
+  return `/${source.type}/${source.id}`;
+}
+
+export function gallerySourceLabel(source: GallerySource): string {
+  const typeLabel = TYPE_LABEL[source.type] ?? source.type;
+  const title = source.title?.trim();
+  return title ? `${typeLabel} · ${title}` : typeLabel;
+}
+
 export async function fetchComments(
   targetType: CommentTargetType,
   targetId: string

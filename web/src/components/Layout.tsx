@@ -6,7 +6,7 @@ import { useTheme, type Theme } from "../lib/useTheme";
 import { SpaceProvider, useSpace } from "../lib/spaceContext";
 import { AppSettingsProvider } from "../lib/appSettingsContext";
 import { UserAccount } from "./UserAccount";
-import { SettingsIcon, SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
+import { SettingsIcon, SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, GalleryIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
 import { NotificationBell } from "./NotificationBell";
 import { AiChatFab } from "./AiChatFab";
 import { AiChatPanel, type AiChatContext } from "./AiChatPanel";
@@ -19,6 +19,8 @@ const navItems: { to: string; label: string; type: NavContentType }[] = [
   { to: "/letter", label: TYPE_LABEL.letter, type: "letter" },
   { to: "/memo", label: TYPE_LABEL.memo, type: "memo" },
 ];
+
+const galleryNav = { to: "/gallery", label: "相册" };
 
 const COLLAPSED_KEY = "orbit-sidebar-collapsed";
 const WIDTH_KEY = "orbit-sidebar-width";
@@ -70,6 +72,10 @@ function LayoutShell() {
     if (!segment || segment === "login") return;
     if (segment === "search") {
       setPageTitle("搜索");
+      return;
+    }
+    if (segment === "gallery") {
+      setPageTitle("相册");
       return;
     }
     if (segment === "settings") {
@@ -237,6 +243,18 @@ function LayoutShell() {
             </NavLink>
             );
           })}
+          <NavLink
+            to={galleryNav.to}
+            className={({ isActive }) =>
+              `flex items-center rounded-md transition-colors whitespace-nowrap ${
+                collapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2"
+              } ${isActive ? "orbit-nav-item active" : "orbit-nav-item"}`
+            }
+            title={collapsed ? galleryNav.label : undefined}
+          >
+            <GalleryIcon size="nav" className="orbit-nav-icon" />
+            {!collapsed && <span className="orbit-nav-label">{galleryNav.label}</span>}
+          </NavLink>
         </nav>
 
         {/* 账号 */}
