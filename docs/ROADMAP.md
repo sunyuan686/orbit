@@ -395,6 +395,7 @@ Orbit 是**双人情侣空间**，账号开通遵循「一人注册 → 邀请�
 | 功能上线 / 状态变化 | 本文件（ROADMAP.md）                               |
 | 空间开通 / 署名 / 邀请 | [SPACE-ONBOARDING.md](./SPACE-ONBOARDING.md)       |
 | AI 集成 / 接口变更 | [AI.md](./AI.md)                                 |
+| API Token / Bearer 鉴权 | [API-TOKEN.md](./API-TOKEN.md) |
 | 版本发布        | [CHANGELOG.md](../CHANGELOG.md)（**自动生成**，勿手改） |
 | 架构 / 表结构变更  | [ARCHITECTURE.md](./ARCHITECTURE.md)          |
 | 首页设计与行为     | [HOME.md](./HOME.md)                          |

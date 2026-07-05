@@ -210,6 +210,7 @@ orbit/
 |------|------|
 | [ROADMAP.md](./ROADMAP.md) | 功能清单与迭代计划 |
 | [AI.md](./AI.md) | AI 集成设计（Vercel AI SDK + Workers AI） |
+| [API-TOKEN.md](./API-TOKEN.md) | API Token 与 Bearer 鉴权 |
 | [CHANGELOG.md](../CHANGELOG.md) | 版本发布记录（自动生成） |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | 提交规范与文档维护 |
 | [ALIGNMENT_PLAN.md](./ALIGNMENT_PLAN.md) | 历史技术对齐计划（Phase 1–4 已完成） |
