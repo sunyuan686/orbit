@@ -1,6 +1,6 @@
-import { CANONICAL_AUTHORS, type CanonicalAuthor } from "../authors.js";
 import { decryptSettingSecret } from "../lib/secret-crypto.js";
 import { readSettingsMap } from "../db/settings-store.js";
+import { getSpaceAuthors } from "./space-authors.js";
 
 export const FEISHU_SETTING_KEYS = {
   config: "feishu_config",
@@ -8,10 +8,8 @@ export const FEISHU_SETTING_KEYS = {
   encryptKey: "feishu_encrypt_key",
 } as const;
 
-export interface FeishuAuthorOpenIds {
-  小圆子: string;
-  小麟子: string;
-}
+/** userId → open_id */
+export type FeishuAuthorOpenIds = Record<string, string>;
 
 export interface FeishuConfigStored {
   enabled: boolean;
@@ -53,7 +51,7 @@ const DEFAULT_CONFIG: FeishuConfigStored = {
   enabled: false,
   appId: "",
   verificationToken: "",
-  authorOpenIds: { 小圆子: "", 小麟子: "" },
+  authorOpenIds: {},
   defaultEntryType: "diary",
   allowedGroupChatIds: [],
   mergeWindowMs: 2000,
@@ -73,16 +71,7 @@ export function parseFeishuConfig(raw: string | undefined): FeishuConfigStored {
         typeof parsed.verificationToken === "string"
           ? parsed.verificationToken.trim()
           : "",
-      authorOpenIds: {
-        小圆子:
-          typeof parsed.authorOpenIds?.小圆子 === "string"
-            ? parsed.authorOpenIds.小圆子.trim()
-            : "",
-        小麟子:
-          typeof parsed.authorOpenIds?.小麟子 === "string"
-            ? parsed.authorOpenIds.小麟子.trim()
-            : "",
-      },
+      authorOpenIds: parseAuthorOpenIds(parsed.authorOpenIds),
       defaultEntryType: "diary",
       allowedGroupChatIds: Array.isArray(parsed.allowedGroupChatIds)
         ? parsed.allowedGroupChatIds
@@ -110,6 +99,30 @@ export function parseFeishuConfig(raw: string | undefined): FeishuConfigStored {
 
 export function serializeFeishuConfig(config: FeishuConfigStored): string {
   return JSON.stringify(config);
+}
+
+function parseAuthorOpenIds(raw: unknown): FeishuAuthorOpenIds {
+  if (!raw || typeof raw !== "object") return {};
+  const result: FeishuAuthorOpenIds = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === "string") result[key] = value.trim();
+  }
+  return result;
+}
+
+export async function resolveFeishuAuthorOpenIds(
+  db: any,
+  stored: FeishuAuthorOpenIds
+): Promise<FeishuAuthorOpenIds> {
+  const authors = await getSpaceAuthors(db);
+  const resolved: FeishuAuthorOpenIds = {};
+  for (const author of authors) {
+    resolved[author.id] =
+      stored[author.id]?.trim() ||
+      stored[author.name]?.trim() ||
+      "";
+  }
+  return resolved;
 }
 
 export function buildFeishuConfigPublic(
@@ -155,7 +168,11 @@ export async function loadFeishuRuntime(
   hasEncryptKey: boolean;
 }> {
   const map = await readSettingsMap(db);
-  const config = parseFeishuConfig(map[FEISHU_SETTING_KEYS.config]);
+  const parsed = parseFeishuConfig(map[FEISHU_SETTING_KEYS.config]);
+  const config = {
+    ...parsed,
+    authorOpenIds: await resolveFeishuAuthorOpenIds(db, parsed.authorOpenIds),
+  };
   const encryptedSecret = map[FEISHU_SETTING_KEYS.appSecret]?.trim() ?? "";
   const encryptedEncryptKey = map[FEISHU_SETTING_KEYS.encryptKey]?.trim() ?? "";
   const hasAppSecret = Boolean(encryptedSecret);
@@ -178,14 +195,14 @@ export async function loadFeishuRuntime(
   };
 }
 
-export function resolveAuthorFromOpenId(
+export function resolveUserIdFromOpenId(
   openId: string,
   mapping: FeishuAuthorOpenIds
-): CanonicalAuthor | null {
+): string | null {
   const trimmed = openId.trim();
   if (!trimmed) return null;
-  for (const author of CANONICAL_AUTHORS) {
-    if (mapping[author] === trimmed) return author;
+  for (const [userId, mappedOpenId] of Object.entries(mapping)) {
+    if (mappedOpenId === trimmed) return userId;
   }
   return null;
 }

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { type CanonicalAuthor } from "../authors.js";
+import { INVALID_SESSION_ERROR } from "./session-author.js";
 import { canComment, type CommentKind } from "../comment-capabilities.js";
 import { comment, entry, memo } from "../db/schema.js";
 import { getRequestId } from "../lib/request-context.js";
@@ -40,10 +40,7 @@ function generateId(prefix: string): string {
 }
 
 function authorRequiredResponse(c: Context) {
-  return c.json(
-    { error: "账号身份无效，请使用「小圆子」或「小麟子」注册/登录" },
-    400
-  );
+  return c.json({ error: INVALID_SESSION_ERROR }, 400);
 }
 
 async function requireSessionAuthor(
@@ -156,6 +153,7 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
         targetType: comment.targetType,
         targetId: comment.targetId,
         kind: comment.kind,
+        userId: comment.userId,
         author: comment.author,
         body: comment.body,
         quote: comment.quote,
@@ -265,7 +263,7 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
       targetId,
       kind,
       userId: sessionAuthor.userId,
-      author: sessionAuthor.author as CanonicalAuthor,
+      author: sessionAuthor.author,
       body,
       quote: kind === "inline" ? payload.quote!.trim() : null,
       anchorFrom: kind === "inline" ? payload.anchorFrom : null,
@@ -287,7 +285,8 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
     const notifyRuntime = getNotifyRuntime?.(c);
     if (notifyRuntime) {
       const task = notifyCommentCreated(db, notifyRuntime, {
-        actor: sessionAuthor.author as CanonicalAuthor,
+        actorUserId: sessionAuthor.userId,
+        actorName: sessionAuthor.author,
         commentId: id,
         targetType,
         targetId,
@@ -316,6 +315,7 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
 
     const existing = await db
       .select({
+        userId: comment.userId,
         author: comment.author,
         targetType: comment.targetType,
         targetId: comment.targetId,
@@ -325,14 +325,14 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
       .where(and(eq(comment.id, id), isNull(comment.deletedAt)))
       .get();
     if (!existing) return c.json({ error: "评论不存在或已删除" }, 404);
-    if (existing.author !== sessionAuthor.author) {
+    if (existing.userId !== sessionAuthor.userId) {
       return c.json({ error: "只能编辑自己的评论" }, 403);
     }
 
     await db
       .update(comment)
       .set({ body: nextBody, updatedAt: now() })
-      .where(and(eq(comment.id, id), eq(comment.author, sessionAuthor.author), isNull(comment.deletedAt)));
+      .where(and(eq(comment.id, id), eq(comment.userId, sessionAuthor.userId), isNull(comment.deletedAt)));
 
     await auditCommentWrite(c, db, sessionAuthor, AuditAction.COMMENT_UPDATE, id, {
       targetType: existing.targetType,
@@ -354,6 +354,7 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
 
     const existing = await db
       .select({
+        userId: comment.userId,
         author: comment.author,
         targetType: comment.targetType,
         targetId: comment.targetId,
@@ -363,14 +364,14 @@ export function createCommentsRoutes(getDb: DbProvider, options: CommentRouteOpt
       .where(and(eq(comment.id, id), isNull(comment.deletedAt)))
       .get();
     if (!existing) return c.json({ error: "评论不存在或已删除" }, 404);
-    if (existing.author !== sessionAuthor.author) {
+    if (existing.userId !== sessionAuthor.userId) {
       return c.json({ error: "只能删除自己的评论" }, 403);
     }
 
     await db
       .update(comment)
       .set({ deletedAt: now(), updatedAt: now() })
-      .where(and(eq(comment.id, id), eq(comment.author, sessionAuthor.author), isNull(comment.deletedAt)));
+      .where(and(eq(comment.id, id), eq(comment.userId, sessionAuthor.userId), isNull(comment.deletedAt)));
 
     await auditCommentWrite(c, db, sessionAuthor, AuditAction.COMMENT_DELETE, id, {
       targetType: existing.targetType,

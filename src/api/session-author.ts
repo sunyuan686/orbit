@@ -1,13 +1,17 @@
 import type { Context } from "hono";
 import { eq } from "drizzle-orm";
 import type { Auth } from "../auth.js";
-import { isCanonicalAuthor, normalizeAuthor } from "../authors.js";
 import { user } from "../db/schema.js";
+import {
+  INVALID_SESSION_ERROR,
+  isSpaceUserId,
+} from "../services/space-authors.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 
 export interface SessionAuthor {
   userId: string;
+  /** 当前爱称（user.name） */
   author: string;
 }
 
@@ -26,10 +30,10 @@ export async function getSessionAuthor(
     .where(eq(user.id, session.user.id))
     .get();
 
-  if (!row) return null;
+  if (!row?.name?.trim()) return null;
+  if (!(await isSpaceUserId(db, row.id))) return null;
 
-  const author = normalizeAuthor(row.name);
-  if (!isCanonicalAuthor(author)) return null;
-
-  return { userId: row.id, author };
+  return { userId: row.id, author: row.name.trim() };
 }
+
+export { INVALID_SESSION_ERROR };

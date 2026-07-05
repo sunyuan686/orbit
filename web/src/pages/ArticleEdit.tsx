@@ -99,9 +99,9 @@ export function ArticleEdit() {
       fetchComments(targetType, id).catch(() => ({ bottom: [], inline: [] })),
     ])
       .then(([entry, commentGroups]) => {
-        const sessionAuthor = session?.user?.name ?? null;
+        const sessionUserId = session?.user?.id ?? null;
         const contentType = entry.type || type || "";
-        if (!canEditContent(contentType, entry.author, sessionAuthor)) {
+        if (!canEditContent(contentType, entry.userId, sessionUserId)) {
           toast.error("无权编辑此内容");
           navigate(`/${type}/${id}`, { replace: true });
           return;
@@ -119,7 +119,7 @@ export function ArticleEdit() {
         }
         setLoaded(true);
       });
-  }, [id, isNew, toast, type, navigate, session?.user?.name]);
+  }, [id, isNew, toast, type, navigate, session?.user?.id]);
 
   const handleEditorCreate = (editor: Editor) => {
     editorRef.current = editor;
@@ -127,7 +127,7 @@ export function ArticleEdit() {
 
   const handleSave = async () => {
     if (!displayAuthor) {
-      toast.error("无法识别作者身份，请使用「小圆子」或「小麟子」账号登录");
+      toast.error("无法识别作者身份，请重新登录");
       return;
     }
     if (isEmptyBody(bodyRef.current)) {

@@ -1,8 +1,4 @@
 import { and, desc, eq, gte, isNull } from "drizzle-orm";
-import {
-  CANONICAL_AUTHORS,
-  type CanonicalAuthor,
-} from "../authors.js";
 import { notification } from "../db/schema.js";
 import { readSettingsMap } from "../db/settings-store.js";
 import {
@@ -10,16 +6,15 @@ import {
   NOTIFICATION_SETTING_KEY,
   type NotificationEventKind,
 } from "./notification-settings.js";
-import {
-  loadFeishuRuntime,
-  type FeishuAuthorOpenIds,
-} from "./feishu-settings.js";
+import { loadFeishuRuntime } from "./feishu-settings.js";
 import {
   getTenantAccessToken,
   sendFeishuTextMessage,
 } from "./feishu-api.js";
 import { recordAudit } from "./audit.js";
 import type { AiRuntimeEnv } from "./ai-model.js";
+import { getOtherUserId, getUserById } from "./space-authors.js";
+import { loadUserNameMap, resolveUserName } from "../lib/author-present.js";
 
 const FEISHU_MIN_INTERVAL_MS = 220;
 
@@ -33,7 +28,8 @@ export interface NotifyRuntime {
 
 export interface DispatchNotificationInput {
   kind: NotificationEventKind;
-  actor: CanonicalAuthor;
+  actorUserId: string;
+  actorName: string;
   targetType: "entry" | "memo" | "comment";
   targetId: string;
   contentType?: string;
@@ -55,12 +51,6 @@ function generateId(prefix: string): string {
     suffix += chars[byte % chars.length];
   }
   return `${prefix}_${suffix}`;
-}
-
-export function getCounterpartAuthor(
-  actor: CanonicalAuthor
-): CanonicalAuthor {
-  return actor === "小圆子" ? "小麟子" : "小圆子";
 }
 
 export function buildContentLink(
@@ -93,7 +83,7 @@ async function throttleFeishuSend(): Promise<void> {
 async function sendFeishuNotification(
   db: any,
   secret: string,
-  recipient: CanonicalAuthor,
+  recipientUserId: string,
   text: string,
   link: string
 ): Promise<{ ok: boolean; error?: string }> {
@@ -102,7 +92,7 @@ async function sendFeishuNotification(
     return { ok: false, error: "feishu_disabled" };
   }
 
-  const openId = runtime.config.authorOpenIds[recipient];
+  const openId = runtime.config.authorOpenIds[recipientUserId] ?? "";
   const target = runtime.config.homeChatId.trim() || openId.trim();
   if (!target) {
     return { ok: false, error: "feishu_target_missing" };
@@ -134,7 +124,7 @@ async function sendFeishuNotification(
 
 async function findMergeableNotification(
   db: any,
-  recipient: CanonicalAuthor,
+  recipientUserId: string,
   targetId: string,
   mergeMinutes: number
 ): Promise<{ id: string; body: string; payload: string | null } | null> {
@@ -149,7 +139,7 @@ async function findMergeableNotification(
     .from(notification)
     .where(
       and(
-        eq(notification.recipient, recipient),
+        eq(notification.recipientUserId, recipientUserId),
         eq(notification.type, "comment.create"),
         eq(notification.targetId, targetId),
         isNull(notification.readAt),
@@ -166,9 +156,16 @@ export async function dispatchNotification(
   runtime: NotifyRuntime,
   input: DispatchNotificationInput
 ): Promise<void> {
-  if (!CANONICAL_AUTHORS.includes(input.actor)) return;
+  const recipientUserId = await getOtherUserId(db, input.actorUserId);
+  if (!recipientUserId) return;
 
-  const recipient = getCounterpartAuthor(input.actor);
+  const nameMap = await loadUserNameMap(db, [
+    input.actorUserId,
+    recipientUserId,
+  ]);
+  const recipientName =
+    resolveUserName(nameMap, recipientUserId) ?? "对方";
+
   const settingsMap = await readSettingsMap(db);
   const prefs = parseNotificationPreferences(
     settingsMap[NOTIFICATION_SETTING_KEY]
@@ -184,7 +181,7 @@ export async function dispatchNotification(
     if (input.kind === "comment") {
       const existing = await findMergeableNotification(
         db,
-        recipient,
+        recipientUserId,
         input.targetId,
         prefs.commentMergeMinutes
       );
@@ -198,7 +195,7 @@ export async function dispatchNotification(
         } catch {
           count = 2;
         }
-        inAppBody = `${input.actor} 等发表了 ${count} 条新评论`;
+        inAppBody = `${input.actorName} 等发表了 ${count} 条新评论`;
         await db
           .update(notification)
           .set({
@@ -217,11 +214,13 @@ export async function dispatchNotification(
       notificationId = generateId("ntf");
       await db.insert(notification).values({
         id: notificationId,
-        recipient,
+        recipient: recipientName,
+        recipientUserId,
         type,
         targetType: input.targetType,
         targetId: input.targetId,
-        actor: input.actor,
+        actor: input.actorName,
+        actorUserId: input.actorUserId,
         title: input.title,
         body: inAppBody,
         link: input.link,
@@ -243,20 +242,21 @@ export async function dispatchNotification(
     feishuResult = await sendFeishuNotification(
       db,
       runtime.secret,
-      recipient,
+      recipientUserId,
       `${input.title}\n${inAppBody}`,
       input.link
     );
   }
 
   await recordAudit(db, {
-    author: input.actor,
+    userId: input.actorUserId,
+    author: input.actorName,
     action: "notify.dispatch",
     resourceType: "notification",
     resourceId: notificationId,
     metadata: {
       kind: input.kind,
-      recipient,
+      recipientUserId,
       inApp: channels.inApp,
       feishu: channels.feishu,
       feishuOk: feishuResult.ok,
@@ -272,7 +272,8 @@ export function notifyEntryCreated(
   db: any,
   runtime: NotifyRuntime,
   input: {
-    actor: CanonicalAuthor;
+    actorUserId: string;
+    actorName: string;
     entryId: string;
     entryType: string;
     parentId?: string | null;
@@ -286,12 +287,13 @@ export function notifyEntryCreated(
     input.entryType === "letter" && Boolean(input.parentId);
   const kind: NotificationEventKind = isReply ? "letter" : "entry";
   const title = isReply
-    ? `${input.actor} 回了新信`
-    : `${input.actor} 发布了新${entryTypeLabel(input.entryType)}`;
+    ? `${input.actorName} 回了新信`
+    : `${input.actorName} 发布了新${entryTypeLabel(input.entryType)}`;
 
   return dispatchNotification(db, runtime, {
     kind,
-    actor: input.actor,
+    actorUserId: input.actorUserId,
+    actorName: input.actorName,
     targetType: "entry",
     targetId: input.entryId,
     contentType: input.entryType,
@@ -306,7 +308,8 @@ export function notifyCommentCreated(
   db: any,
   runtime: NotifyRuntime,
   input: {
-    actor: CanonicalAuthor;
+    actorUserId: string;
+    actorName: string;
     commentId: string;
     targetType: "entry" | "memo";
     targetId: string;
@@ -320,11 +323,12 @@ export function notifyCommentCreated(
   const label = input.kind === "inline" ? "边注" : "评论";
   return dispatchNotification(db, runtime, {
     kind: "comment",
-    actor: input.actor,
+    actorUserId: input.actorUserId,
+    actorName: input.actorName,
     targetType: "comment",
     targetId: input.targetId,
     contentType: input.contentType,
-    title: `${input.actor} 留了新${label}`,
+    title: `${input.actorName} 留了新${label}`,
     body: input.body.slice(0, 120),
     link,
     requestId: input.requestId,
@@ -342,9 +346,10 @@ function entryTypeLabel(type: string): string {
   return labels[type] ?? "内容";
 }
 
-export function openIdForAuthor(
-  mapping: FeishuAuthorOpenIds,
-  author: CanonicalAuthor
-): string {
-  return mapping[author] ?? "";
+export async function resolveActorName(
+  db: any,
+  userId: string
+): Promise<string> {
+  const row = await getUserById(db, userId);
+  return row?.name ?? "未知";
 }

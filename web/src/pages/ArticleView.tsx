@@ -47,9 +47,14 @@ export function ArticleView() {
 
   const capabilities = getCommentCapabilities(entry?.type ?? type);
   const targetType = entry?.type === "memo" ? "memo" : "entry";
+  const sessionUserId = session?.user?.id ?? null;
   const currentAuthor = session?.user?.name ?? null;
-  const canEditEntry = canEditContent(entry?.type ?? type ?? "", entry?.author, currentAuthor);
-  const canDeleteEntry = canDeleteContent(entry?.author, currentAuthor);
+  const canEditEntry = canEditContent(
+    entry?.type ?? type ?? "",
+    entry?.userId,
+    sessionUserId
+  );
+  const canDeleteEntry = canDeleteContent(entry?.userId, sessionUserId);
 
   const loadComments = useCallback(
     async (targetId: string, nextTargetType: "entry" | "memo") => {

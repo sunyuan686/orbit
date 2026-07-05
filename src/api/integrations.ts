@@ -8,6 +8,7 @@ import {
   serializeFeishuConfig,
   type FeishuConfigPublic,
   type FeishuConfigStored,
+  type FeishuAuthorOpenIds,
 } from "../services/feishu-settings.js";
 import {
   clearTenantAccessTokenCache,
@@ -34,6 +35,7 @@ import {
 import { encryptSettingSecret } from "../lib/secret-crypto.js";
 import { createLogger } from "../lib/logger.js";
 import type { SessionAuthor } from "./session-author.js";
+import { INVALID_SESSION_ERROR } from "./session-author.js";
 import type { AiRuntimeEnv } from "../services/ai-model.js";
 import type { NotifyRuntime } from "../services/notify.js";
 
@@ -54,13 +56,25 @@ export interface IntegrationsRouteOptions {
   waitUntil?: (c: Context, task: Promise<unknown>) => void;
 }
 
+function mergeAuthorOpenIds(
+  current: FeishuAuthorOpenIds,
+  patch: Record<string, string> | undefined
+): FeishuAuthorOpenIds {
+  if (!patch) return current;
+  const next = { ...current };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value !== undefined) next[key] = value.trim();
+  }
+  return next;
+}
+
 interface FeishuPutBody {
   enabled?: boolean;
   appId?: string;
   appSecret?: string | null;
   encryptKey?: string | null;
   verificationToken?: string;
-  authorOpenIds?: { 小圆子?: string; 小麟子?: string };
+  authorOpenIds?: Record<string, string>;
   allowedGroupChatIds?: string[];
   mergeWindowMs?: number;
   homeChatId?: string;
@@ -73,7 +87,7 @@ async function requireSessionAuthor(
   if (!getSessionAuthor) return c.json({ error: "Unauthorized" }, 401);
   const sessionAuthor = await getSessionAuthor(c);
   if (!sessionAuthor) {
-    return c.json({ error: "账号身份无效，请使用「小圆子」或「小麟子」注册/登录" }, 400);
+    return c.json({ error: INVALID_SESSION_ERROR }, 400);
   }
   return sessionAuthor;
 }
@@ -300,16 +314,7 @@ export function createIntegrationsRoutes(
         body.verificationToken !== undefined
           ? body.verificationToken.trim()
           : current.verificationToken,
-      authorOpenIds: {
-        小圆子:
-          body.authorOpenIds?.小圆子 !== undefined
-            ? body.authorOpenIds.小圆子.trim()
-            : current.authorOpenIds.小圆子,
-        小麟子:
-          body.authorOpenIds?.小麟子 !== undefined
-            ? body.authorOpenIds.小麟子.trim()
-            : current.authorOpenIds.小麟子,
-      },
+      authorOpenIds: mergeAuthorOpenIds(current.authorOpenIds, body.authorOpenIds),
       allowedGroupChatIds:
         body.allowedGroupChatIds !== undefined
           ? body.allowedGroupChatIds
@@ -385,10 +390,7 @@ export function createIntegrationsRoutes(
       return c.json({ error: "请先配置 App ID 与 App Secret" }, 400);
     }
 
-    const authorOpenId =
-      session.author === "小圆子"
-        ? runtime.config.authorOpenIds.小圆子
-        : runtime.config.authorOpenIds.小麟子;
+    const authorOpenId = runtime.config.authorOpenIds[session.userId]?.trim() ?? "";
 
     try {
       await testFeishuConnection({

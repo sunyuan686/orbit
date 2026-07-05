@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { entry } from "../db/schema.js";
-import { resolveAuthorFromOpenId, type FeishuConfigStored } from "./feishu-settings.js";
+import { resolveUserIdFromOpenId, type FeishuConfigStored } from "./feishu-settings.js";
 import {
   resolveCallbackEventType,
   type LarkInboundPayload,
@@ -83,7 +83,7 @@ function isAuthorizedOperator(
   config: FeishuConfigStored
 ): boolean {
   if (!openId) return false;
-  return resolveAuthorFromOpenId(openId, config.authorOpenIds) !== null;
+  return resolveUserIdFromOpenId(openId, config.authorOpenIds) !== null;
 }
 
 function extractAction(payload: LarkInboundPayload): OrbitCardAction | null {

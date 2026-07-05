@@ -17,6 +17,8 @@ import {
   recordAudit,
 } from "../services/audit.js";
 import type { SessionAuthor } from "./session-author.js";
+import { INVALID_SESSION_ERROR } from "./session-author.js";
+import { buildSpaceStatus } from "./invite.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 
@@ -33,7 +35,7 @@ async function requireSessionAuthor(
   if (!getSessionAuthor) return c.json({ error: "Unauthorized" }, 401);
   const sessionAuthor = await getSessionAuthor(c);
   if (!sessionAuthor) {
-    return c.json({ error: "账号身份无效，请使用「小圆子」或「小麟子」注册/登录" }, 400);
+    return c.json({ error: INVALID_SESSION_ERROR }, 400);
   }
   return sessionAuthor;
 }
@@ -43,6 +45,11 @@ export function createSpaceRoutes(
   options: SpaceRouteOptions = {}
 ) {
   const space = new Hono();
+
+  space.get("/status", async (c) => {
+    const db = await getDb(c);
+    return c.json(await buildSpaceStatus(db));
+  });
 
   space.get("/", async (c) => {
     const db = await getDb(c);

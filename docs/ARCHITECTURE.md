@@ -24,7 +24,7 @@
 | 生产 | `src/worker.ts` | Cloudflare D1 | Cloudflare R2 |
 
 - **共享 API**：`src/api/`，Node.js Server 与 Worker 复用同一套路由
-- **认证**：`better-auth`，邮箱 + 密码，最多注册 2 个账号（情侣专属）
+- **认证**：`better-auth`，邮箱 + 密码，最多 2 个账号（情侣专属）；开通与署名见 [SPACE-ONBOARDING.md](./SPACE-ONBOARDING.md)
 - **部署**：push 到 `main` → GitHub Actions 自动 `wrangler deploy`（见 `.github/workflows/deploy.yml`）
 
 ---
@@ -66,13 +66,14 @@ user / session / account / verification  — better-auth 标准表
 | 字段 | 说明 |
 |------|------|
 | `type` | `diary` \| `timeline` \| `message` \| `letter` |
-| `author` | 创建者署名 |
-| `modifiedBy` | 最后编辑者署名 |
+| `userId` | **作者身份**（`user.id`）；权限与通知关联以此为准 |
+| `author` | 冗余爱称（写入时同步 `user.name`）；FTS / 兼容用；**展示**由 `userId` → `user.name` resolve，见 [SPACE-ONBOARDING.md](./SPACE-ONBOARDING.md) |
+| `modifiedByUserId` | 最后编辑者身份（**待 migration 补列**） |
+| `modifiedBy` | 冗余爱称；展示由 `modifiedByUserId` → `user.name` resolve |
 | `body` | TipTap 输出的 HTML |
 | `bodyText` | 纯文本，供 FTS 索引 |
 | `entryDate` | 记录日期（Unix 时间戳） |
 | `parentId` | 信件回信链 / 留言回复链 |
-| `userId` | 写入时的登录用户 |
 | `createdAt` / `updatedAt` / `deletedAt` | 时间戳 |
 
 ### asset
@@ -97,19 +98,41 @@ user / session / account / verification  — better-auth 标准表
 
 查询：`GET /api/audit?limit=&offset=&action=&resourceType=&resourceId=&since=`（需登录）。
 
-### 作者规范
+### memo
 
-| 规范名 | 说明 | marker 写法 |
-|--------|------|-------------|
-| **小圆子** | 孙远 | `author:小圆子` |
-| **小麟子** | 辛麟芝 | `author:小麟子` |
+| 字段 | 说明 |
+|------|------|
+| `userId` | 创建者身份（**待 migration 补列**） |
+| `author` | 冗余爱称 |
+| `modifiedByUserId` | 最后编辑者身份（**待 migration 补列**） |
+| `modifiedBy` | 冗余爱称 |
 
-写入 API 时，`src/authors.ts` 会将旧别名规范为作者名：
+### comment
 
-- → 小圆子：`sunyuan`、`孙远`
-- → 小麟子：`linzhi`、`麟宝`、`辛麟芝`
+| 字段 | 说明 |
+|------|------|
+| `userId` | 评论者身份 |
+| `author` | 冗余爱称 |
 
-`settings` 表昵称用于 UI 展示；**`entry.author` 一律存规范名**。
+### notification
+
+| 字段 | 说明 |
+|------|------|
+| `recipientUserId` / `actorUserId` | 收件人 / 发起人身份（**待 migration 补列**） |
+| `recipient` / `actor` | 冗余爱称，双写 |
+
+### ai_message
+
+| 字段 | 说明 |
+|------|------|
+| `userId` | 用户消息发送者（**待 migration 补列**；`assistant`/`tool` 为 NULL） |
+| `author` | 冗余爱称 |
+
+### 作者与爱称
+
+空间内作者以 `user.id` + `user.name`（爱称）为准；各业务表 `user_id` 与 `author` **双写**。开通、邀请、改爱称见 [SPACE-ONBOARDING.md](./SPACE-ONBOARDING.md)。
+
+存量实例规范名「小圆子 / 小麟子」及别名映射见 `src/authors.ts`（迁移回填用）。
 
 ---
 
@@ -133,7 +156,7 @@ user / session / account / verification  — better-auth 标准表
 
 | 内容类型 | 编辑 | 删除 |
 |----------|------|------|
-| diary / timeline / message / letter | 仅作者（`author`） | 仅作者 |
+| diary / timeline / message / letter | 仅作者（`userId`） | 仅作者 |
 | memo | 双方（`couple`） | 仅作者 |
 
 新增类型时改 `editScopeByType` 配置即可，无需散落 `if` 分支。

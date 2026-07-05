@@ -5,6 +5,7 @@ import { ArticleList } from "./pages/ArticleList";
 import { ArticleView } from "./pages/ArticleView";
 import { ArticleEdit } from "./pages/ArticleEdit";
 import { Login } from "./pages/Login";
+import { Join } from "./pages/Join";
 import { SearchPage } from "./pages/Search";
 import { GalleryPage } from "./pages/Gallery";
 import { SettingsPage } from "./pages/Settings";
@@ -13,6 +14,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/join" element={<Join />} />
       <Route
         element={
           <RequireAuth>

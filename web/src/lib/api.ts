@@ -13,6 +13,7 @@ export interface EntrySummary {
   type: string;
   title: string | null;
   author: string | null;
+  userId?: string | null;
   entryDate: number | null;
   parentId: string | null;
 }
@@ -22,6 +23,7 @@ export interface EntryDetail {
   type: string;
   title: string | null;
   author: string | null;
+  userId?: string | null;
   modifiedBy: string | null;
   body: string;
   entryDate: number | null;
@@ -419,6 +421,76 @@ export interface SpaceProfile {
   daysTogether: number | null;
 }
 
+export interface SpaceAuthor {
+  id: string;
+  name: string;
+}
+
+export interface SpaceStatus {
+  userCount: number;
+  signupOpen: boolean;
+  authors: SpaceAuthor[];
+}
+
+export async function fetchSpaceStatus(): Promise<SpaceStatus> {
+  const res = await fetch(`${BASE}/api/space/status`);
+  await assertOk(res, "加载空间状态失败");
+  return res.json();
+}
+
+export async function updateProfile(name: string): Promise<{ name: string }> {
+  const res = await fetch(`${BASE}/api/account/profile`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ name }),
+  });
+  await assertOk(res, "更新爱称失败");
+  return res.json();
+}
+
+export async function fetchInviteToken(
+  token: string
+): Promise<{ valid: boolean; reason?: string; inviterName?: string; expiresAt?: number }> {
+  const res = await fetch(`${BASE}/api/invite/${encodeURIComponent(token)}`);
+  if (res.status === 404 || res.status === 410) {
+    return res.json();
+  }
+  await assertOk(res, "加载邀请失败");
+  return res.json();
+}
+
+export async function acceptInvite(
+  token: string,
+  data: { email: string; password: string; displayName: string }
+): Promise<void> {
+  const res = await fetch(`${BASE}/api/invite/${encodeURIComponent(token)}/accept`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  await assertOk(res, "接受邀请失败");
+}
+
+export async function createInvite(): Promise<{ url: string; token: string; expiresAt: number }> {
+  const res = await fetch(`${BASE}/api/invite`, {
+    method: "POST",
+    credentials: "include",
+  });
+  await assertOk(res, "生成邀请失败");
+  return res.json();
+}
+
+export async function fetchActiveInvite(): Promise<{
+  active: boolean;
+  url?: string;
+  expiresAt?: number;
+}> {
+  const res = await fetch(`${BASE}/api/invite`, { credentials: "include" });
+  await assertOk(res, "加载邀请失败");
+  return res.json();
+}
+
 export async function fetchSpace(): Promise<SpaceProfile> {
   const res = await fetch(`${BASE}/api/space`, { credentials: "include" });
   await assertOk(res, "加载空间档案失败");
@@ -529,7 +601,7 @@ export interface FeishuConfigPublic {
   hasAppSecret: boolean;
   hasEncryptKey: boolean;
   verificationToken: string;
-  authorOpenIds: { 小圆子: string; 小麟子: string };
+  authorOpenIds: Record<string, string>;
   defaultEntryType: "diary";
   allowedGroupChatIds: string[];
   mergeWindowMs: number;
@@ -555,7 +627,7 @@ export async function updateFeishuIntegration(data: {
   appSecret?: string | null;
   encryptKey?: string | null;
   verificationToken?: string;
-  authorOpenIds?: { 小圆子?: string; 小麟子?: string };
+  authorOpenIds?: Record<string, string>;
   allowedGroupChatIds?: string[];
   mergeWindowMs?: number;
   homeChatId?: string;

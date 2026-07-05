@@ -2,11 +2,17 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { eq } from "drizzle-orm";
-import { isCanonicalAuthor, normalizeAuthor } from "./authors.js";
 import { DEV_FRONTEND_ORIGINS } from "./config/auth.js";
 import * as schema from "./db/schema.js";
-
-const MAX_USERS = 2;
+import {
+  MAX_SPACE_USERS,
+  countUsers,
+  getSpaceAuthors,
+} from "./services/space-authors.js";
+import {
+  normalizeDisplayName,
+  validateDisplayName,
+} from "./lib/display-name.js";
 
 export function createAuth(db: any, options: { secret?: string; baseURL: string }) {
   const extraTrustedOrigins = DEV_FRONTEND_ORIGINS.filter(
@@ -52,37 +58,50 @@ export function createAuth(db: any, options: { secret?: string; baseURL: string 
       user: {
         create: {
           before: async (userData) => {
-            const existing = await db
-              .select({ id: schema.user.id })
-              .from(schema.user)
-              .limit(MAX_USERS);
-
-            if (existing.length >= MAX_USERS) {
+            const userCount = await countUsers(db);
+            if (userCount >= MAX_SPACE_USERS) {
               throw new APIError("FORBIDDEN", {
                 message: "Registration is closed. This space is just for two.",
               });
             }
 
-            const author = normalizeAuthor(userData.name);
-            if (!isCanonicalAuthor(author)) {
-              throw new APIError("BAD_REQUEST", {
-                message: "注册请选择身份：小圆子或小麟子",
+            // 第二人仅能通过邀请链接注册（/api/invite/:token/accept）
+            if (userCount >= 1) {
+              throw new APIError("FORBIDDEN", {
+                message: "请通过邀请链接加入空间",
               });
+            }
+
+            const authors = await getSpaceAuthors(db);
+            const validation = validateDisplayName(userData.name, {
+              otherNames: authors.map((row) => row.name),
+            });
+            if (!validation.ok) {
+              throw new APIError("BAD_REQUEST", { message: validation.error });
             }
 
             const taken = await db
               .select({ id: schema.user.id })
               .from(schema.user)
-              .where(eq(schema.user.name, author))
+              .where(eq(schema.user.name, validation.name))
               .get();
-
             if (taken) {
               throw new APIError("BAD_REQUEST", {
-                message: "该身份已被另一位使用",
+                message: "该爱称已被另一位使用",
               });
             }
 
-            return { data: { ...userData, name: author } };
+            return { data: { ...userData, name: validation.name } };
+          },
+        },
+        update: {
+          before: async (userData) => {
+            if (typeof userData.name !== "string") return { data: userData };
+            const trimmed = normalizeDisplayName(userData.name);
+            if (!trimmed) {
+              throw new APIError("BAD_REQUEST", { message: "爱称不能为空" });
+            }
+            return { data: { ...userData, name: trimmed } };
           },
         },
       },

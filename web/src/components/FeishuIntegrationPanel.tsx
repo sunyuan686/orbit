@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import {
   authClient,
   fetchFeishuIntegration,
+  fetchSpaceStatus,
   formatDateTime,
   getApiErrorMessage,
   shouldToastApiError,
   testFeishuIntegration,
   updateFeishuIntegration,
   type FeishuConfigPublic,
+  type SpaceAuthor,
 } from "../lib/api";
 import { useToast } from "../lib/useToast";
 
@@ -159,8 +161,8 @@ export function FeishuIntegrationPanel() {
   const [appSecret, setAppSecret] = useState("");
   const [encryptKey, setEncryptKey] = useState("");
   const [verificationToken, setVerificationToken] = useState("");
-  const [openIdYuan, setOpenIdYuan] = useState("");
-  const [openIdLin, setOpenIdLin] = useState("");
+  const [openIds, setOpenIds] = useState<Record<string, string>>({});
+  const [authors, setAuthors] = useState<SpaceAuthor[]>([]);
   const [homeChatId, setHomeChatId] = useState("");
   const [allowedGroups, setAllowedGroups] = useState("");
   const [mergeWindowMs, setMergeWindowMs] = useState(2000);
@@ -170,14 +172,17 @@ export function FeishuIntegrationPanel() {
     void (async () => {
       setLoading(true);
       try {
-        const data = await fetchFeishuIntegration();
+        const [data, status] = await Promise.all([
+          fetchFeishuIntegration(),
+          fetchSpaceStatus(),
+        ]);
         if (cancelled) return;
+        setAuthors(status.authors);
         setConfig(data);
         setEnabled(data.enabled);
         setAppId(data.appId);
         setVerificationToken(data.verificationToken);
-        setOpenIdYuan(data.authorOpenIds.小圆子);
-        setOpenIdLin(data.authorOpenIds.小麟子);
+        setOpenIds(data.authorOpenIds ?? {});
         setHomeChatId(data.homeChatId);
         setAllowedGroups(data.allowedGroupChatIds.join("\n"));
         setMergeWindowMs(data.mergeWindowMs);
@@ -202,7 +207,7 @@ export function FeishuIntegrationPanel() {
         enabled,
         appId,
         verificationToken,
-        authorOpenIds: { 小圆子: openIdYuan, 小麟子: openIdLin },
+        authorOpenIds: openIds,
         homeChatId,
         allowedGroupChatIds: allowedGroups
           .split(/[\n,]+/)
@@ -383,30 +388,23 @@ export function FeishuIntegrationPanel() {
 
       <SettingsSection title="身份与投递">
         <div className="orbit-settings-feishu-identity-grid">
-          <SettingsField
-            label="小圆子 open_id"
-            hint="飞书用户 open_id，用于识别作者。"
-            stacked
-          >
-            <input
-              className="orbit-input orbit-settings-input-block"
-              value={openIdYuan}
-              onChange={(e) => setOpenIdYuan(e.target.value)}
-              autoComplete="off"
-            />
-          </SettingsField>
-          <SettingsField
-            label="小麟子 open_id"
-            hint="飞书用户 open_id，用于识别作者。"
-            stacked
-          >
-            <input
-              className="orbit-input orbit-settings-input-block"
-              value={openIdLin}
-              onChange={(e) => setOpenIdLin(e.target.value)}
-              autoComplete="off"
-            />
-          </SettingsField>
+          {authors.map((author) => (
+            <SettingsField
+              key={author.id}
+              label={`${author.name} open_id`}
+              hint="飞书用户 open_id，用于识别作者。"
+              stacked
+            >
+              <input
+                className="orbit-input orbit-settings-input-block"
+                value={openIds[author.id] ?? ""}
+                onChange={(e) =>
+                  setOpenIds((prev) => ({ ...prev, [author.id]: e.target.value }))
+                }
+                autoComplete="off"
+              />
+            </SettingsField>
+          ))}
           <SettingsField
             label="Home Chat"
             hint="通知与测试的默认群/单聊 chat_id；留空则发到当前操作者单聊。"

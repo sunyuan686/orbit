@@ -1,8 +1,11 @@
 import { and, desc, eq, gte, isNull, lt } from "drizzle-orm";
-import type { CanonicalAuthor } from "../authors.js";
 import { entry, asset } from "../db/schema.js";
 import { toPlainText } from "../lib/plain-text.js";
-import type { FeishuConfigStored } from "./feishu-settings.js";
+import {
+  resolveUserIdFromOpenId,
+  type FeishuConfigStored,
+} from "./feishu-settings.js";
+import { getUserById } from "./space-authors.js";
 import {
   downloadFeishuMessageImage,
   getTenantAccessToken,
@@ -297,7 +300,7 @@ async function handleQueryCommand(
 
 async function findMergeTarget(
   db: any,
-  author: CanonicalAuthor,
+  userId: string,
   entryType: string,
   mergeWindowMs: number
 ): Promise<{ id: string; body: string | null; updatedAt: number } | null> {
@@ -314,7 +317,7 @@ async function findMergeTarget(
     .where(
       and(
         eq(entry.type, entryType),
-        eq(entry.author, author),
+        eq(entry.userId, userId),
         isNull(entry.deletedAt),
         gte(entry.entryDate, start),
         lt(entry.entryDate, end),
@@ -326,15 +329,20 @@ async function findMergeTarget(
   return row ?? null;
 }
 
+interface InboundActor {
+  userId: string;
+  name: string;
+}
+
 async function writeEntryText(
   ctx: FeishuInboundContext,
-  author: CanonicalAuthor,
+  actor: InboundActor,
   parsed: ParsedWrite
 ): Promise<string> {
   const html = textToHtml(parsed.text);
   const mergeTarget = await findMergeTarget(
     ctx.db,
-    author,
+    actor.userId,
     parsed.entryType,
     ctx.config.mergeWindowMs
   );
@@ -347,7 +355,8 @@ async function writeEntryText(
       .set({
         body: nextBody,
         bodyText: toPlainText(nextBody),
-        modifiedBy: author,
+        modifiedByUserId: actor.userId,
+        modifiedBy: actor.name,
         updatedAt: timestamp,
       })
       .where(eq(entry.id, mergeTarget.id));
@@ -358,8 +367,10 @@ async function writeEntryText(
   await ctx.db.insert(entry).values({
     id,
     type: parsed.entryType,
-    author,
-    modifiedBy: author,
+    userId: actor.userId,
+    author: actor.name,
+    modifiedByUserId: actor.userId,
+    modifiedBy: actor.name,
     body: html,
     bodyText: toPlainText(html),
     entryDate: parsed.entryDate,
@@ -368,7 +379,8 @@ async function writeEntryText(
   });
 
   void notifyEntryCreated(ctx.db, ctx.notifyRuntime, {
-    actor: author,
+    actorUserId: actor.userId,
+    actorName: actor.name,
     entryId: id,
     entryType: parsed.entryType,
     bodyPreview: parsed.text,
@@ -431,11 +443,12 @@ export async function processFeishuInboundMessage(
   message: FeishuInboundMessage,
   options: { hasGroupMention: boolean }
 ): Promise<void> {
-  const author = resolveAuthorFromMapping(
+  const actor = await resolveActorFromMapping(
+    ctx.db,
     message.senderOpenId,
     ctx.config.authorOpenIds
   );
-  if (!author) {
+  if (!actor) {
     await replyText(ctx, message, "未授权：请先在 Orbit 设置页绑定你的飞书 open_id。");
     return;
   }
@@ -458,10 +471,10 @@ export async function processFeishuInboundMessage(
   if (text) {
     const parsed = parseWriteIntent(text, ctx.config.defaultEntryType);
     if (parsed) {
-      entryId = await writeEntryText(ctx, author, parsed);
+      entryId = await writeEntryText(ctx, actor, parsed);
     }
   } else if (imageKey) {
-    entryId = await writeEntryText(ctx, author, {
+    entryId = await writeEntryText(ctx, actor, {
       entryType: ctx.config.defaultEntryType,
       entryDate: now(),
       text: "（飞书图片）",
@@ -491,10 +504,18 @@ export async function processFeishuInboundMessage(
 function resolveAuthorFromMapping(
   openId: string,
   mapping: FeishuConfigStored["authorOpenIds"]
-): CanonicalAuthor | null {
-  const trimmed = openId.trim();
-  if (!trimmed) return null;
-  if (mapping.小圆子 === trimmed) return "小圆子";
-  if (mapping.小麟子 === trimmed) return "小麟子";
-  return null;
+): string | null {
+  return resolveUserIdFromOpenId(openId, mapping);
+}
+
+async function resolveActorFromMapping(
+  db: any,
+  openId: string,
+  mapping: FeishuConfigStored["authorOpenIds"]
+): Promise<InboundActor | null> {
+  const userId = resolveUserIdFromOpenId(openId, mapping);
+  if (!userId) return null;
+  const row = await getUserById(db, userId);
+  if (!row) return null;
+  return { userId: row.id, name: row.name };
 }

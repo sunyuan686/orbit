@@ -1,7 +1,8 @@
-export const CANONICAL_AUTHORS = ["小圆子", "小麟子"] as const;
-export type CanonicalAuthor = (typeof CANONICAL_AUTHORS)[number];
+/** @deprecated 存量别名映射；新空间仅用于 migration 回填与导入兼容 */
+export const LEGACY_CANONICAL_AUTHORS = ["小圆子", "小麟子"] as const;
+export type LegacyCanonicalAuthor = (typeof LEGACY_CANONICAL_AUTHORS)[number];
 
-const AUTHOR_ALIASES: Record<string, CanonicalAuthor> = {
+const AUTHOR_ALIASES: Record<string, string> = {
   小圆子: "小圆子",
   sunyuan: "小圆子",
   孙远: "小圆子",
@@ -13,21 +14,20 @@ const AUTHOR_ALIASES: Record<string, CanonicalAuthor> = {
   zhi: "小麟子",
 };
 
+export const AUTHOR_LABELS_FOR_YUAN = ["小圆子", "sunyuan", "孙远", "yuan"];
+export const AUTHOR_LABELS_FOR_LIN = ["小麟子", "linzhi", "麟宝", "辛麟芝", "zhi"];
+
 export function normalizeAuthor(raw: string): string {
   const key = raw.trim();
   return AUTHOR_ALIASES[key] ?? key;
 }
 
-export function isCanonicalAuthor(value: string): value is CanonicalAuthor {
-  return (CANONICAL_AUTHORS as readonly string[]).includes(value);
+/** @deprecated 仅存量兼容；新逻辑请用 userId */
+export function isLegacyCanonicalAuthor(value: string): value is LegacyCanonicalAuthor {
+  return (LEGACY_CANONICAL_AUTHORS as readonly string[]).includes(value);
 }
 
-/** 新建用 session；更新时保留已有规范作者，否则用当前登录者 */
-export function resolveAuthorForWrite(
-  existing: string | null | undefined,
-  sessionAuthor: CanonicalAuthor
-): CanonicalAuthor {
-  const normalized = existing ? normalizeAuthor(existing) : "";
-  if (isCanonicalAuthor(normalized)) return normalized;
-  return sessionAuthor;
-}
+// 兼容旧 import
+export const CANONICAL_AUTHORS = LEGACY_CANONICAL_AUTHORS;
+export type CanonicalAuthor = LegacyCanonicalAuthor;
+export const isCanonicalAuthor = isLegacyCanonicalAuthor;

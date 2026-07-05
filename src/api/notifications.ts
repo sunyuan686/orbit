@@ -10,6 +10,7 @@ import {
 } from "../services/notification-settings.js";
 import { readSettingsMap, upsertSetting } from "../db/settings-store.js";
 import type { SessionAuthor } from "./session-author.js";
+import { INVALID_SESSION_ERROR } from "./session-author.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 
@@ -24,7 +25,7 @@ async function requireSessionAuthor(
   if (!getSessionAuthor) return c.json({ error: "Unauthorized" }, 401);
   const sessionAuthor = await getSessionAuthor(c);
   if (!sessionAuthor) {
-    return c.json({ error: "账号身份无效，请使用「小圆子」或「小麟子」注册/登录" }, 400);
+    return c.json({ error: INVALID_SESSION_ERROR }, 400);
   }
   return sessionAuthor;
 }
@@ -119,7 +120,7 @@ export function createNotificationsRoutes(
       .from(notification)
       .where(
         and(
-          eq(notification.recipient, session.author),
+          eq(notification.recipientUserId, session.userId),
           isNull(notification.readAt)
         )
       )
@@ -135,7 +136,7 @@ export function createNotificationsRoutes(
     const rows = await db
       .select()
       .from(notification)
-      .where(eq(notification.recipient, session.author))
+      .where(eq(notification.recipientUserId, session.userId))
       .orderBy(desc(notification.createdAt))
       .limit(limit);
     return c.json(rows.map(mapNotification));
@@ -151,7 +152,7 @@ export function createNotificationsRoutes(
       .set({ readAt: timestamp, updatedAt: timestamp })
       .where(
         and(
-          eq(notification.recipient, session.author),
+          eq(notification.recipientUserId, session.userId),
           isNull(notification.readAt)
         )
       );
@@ -170,7 +171,7 @@ export function createNotificationsRoutes(
       .where(
         and(
           eq(notification.id, id),
-          eq(notification.recipient, session.author),
+          eq(notification.recipientUserId, session.userId),
           isNull(notification.readAt)
         )
       );

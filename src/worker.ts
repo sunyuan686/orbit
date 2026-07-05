@@ -25,6 +25,8 @@ import { createAuditRoutes } from "./api/audit.js";
 import { createAiRoutes } from "./api/ai.js";
 import { createIntegrationsRoutes } from "./api/integrations.js";
 import { createNotificationsRoutes } from "./api/notifications.js";
+import { createInviteRoutes } from "./api/invite.js";
+import { createAccountRoutes } from "./api/account.js";
 import { createGalleryRoutes } from "./api/gallery.js";
 import { listAllR2Objects } from "./services/gallery.js";
 import { getSessionAuthor } from "./api/session-author.js";
@@ -91,8 +93,18 @@ app.use("/api/search", requireAuth);
 app.use("/api/comments/*", requireAuth);
 app.use("/api/comments", requireAuth);
 app.use("/api/assets/*", requireAuth);
-app.use("/api/space/*", requireAuth);
-app.use("/api/space", requireAuth);
+app.use("/api/space/*", async (c, next) => {
+  const path = new URL(c.req.url).pathname;
+  if (path === "/api/space/status") return next();
+  return requireAuth(c, next);
+});
+app.use("/api/space", async (c, next) => {
+  const path = new URL(c.req.url).pathname;
+  if (path === "/api/space/status") return next();
+  return requireAuth(c, next);
+});
+app.use("/api/account/*", requireAuth);
+app.use("/api/account", requireAuth);
 app.use("/api/settings/*", requireAuth);
 app.use("/api/settings", requireAuth);
 app.use("/api/audit/*", requireAuth);
@@ -155,6 +167,21 @@ app.route("/api/articles", createArticlesRoutes(getDb, {
   waitUntil: (c, task) => runInBackground(c, task),
 }));
 app.route("/api/space", createSpaceRoutes(getDb, {
+  getSessionAuthor: (c) =>
+    getSessionAuthor(c, createAuth(getDb(c), {
+      secret: c.env.BETTER_AUTH_SECRET,
+      baseURL: c.env.BETTER_AUTH_URL,
+    }), getDb),
+}));
+app.route("/api/invite", createInviteRoutes(getDb, {
+  getSessionAuthor: (c) =>
+    getSessionAuthor(c, createAuth(getDb(c), {
+      secret: c.env.BETTER_AUTH_SECRET,
+      baseURL: c.env.BETTER_AUTH_URL,
+    }), getDb),
+  getBaseUrl: (c) => c.env.BETTER_AUTH_URL,
+}));
+app.route("/api/account", createAccountRoutes(getDb, {
   getSessionAuthor: (c) =>
     getSessionAuthor(c, createAuth(getDb(c), {
       secret: c.env.BETTER_AUTH_SECRET,

@@ -1,17 +1,25 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { eq, and, isNull, asc, desc } from "drizzle-orm";
-import { resolveAuthorForWrite, type CanonicalAuthor } from "../authors.js";
 import { canEditContent, canDeleteContent } from "../content-policies.js";
 import { toPlainText, isEmptyBody } from "../lib/plain-text.js";
 import { getRequestId } from "../lib/request-context.js";
+import { loadUserNameMap, resolveUserName } from "../lib/author-present.js";
+import {
+  authorWriteFields,
+  editorWriteFields,
+  presentEntryDetail,
+  presentMemoDetail,
+} from "../lib/article-present.js";
 import { entry, memo, comment } from "../db/schema.js";
 import {
   AuditAction,
   AuditResourceType,
   recordAudit,
 } from "../services/audit.js";
+import { getSpaceUserIds } from "../services/space-authors.js";
 import type { SessionAuthor } from "./session-author.js";
+import { INVALID_SESSION_ERROR } from "./session-author.js";
 import {
   notifyEntryCreated,
   type NotifyRuntime,
@@ -26,10 +34,7 @@ export interface ArticleRouteOptions {
 }
 
 function authorRequiredResponse(c: Context) {
-  return c.json(
-    { error: "账号身份无效，请使用「小圆子」或「小麟子」注册/登录" },
-    400
-  );
+  return c.json({ error: INVALID_SESSION_ERROR }, 400);
 }
 
 function bodyRequiredResponse(c: Context) {
@@ -80,20 +85,27 @@ async function auditArticleWrite(
   });
 }
 
-function mapEntrySummary(row: {
-  id: string;
-  type: string;
-  title: string | null;
-  author: string;
-  entryDate: number | null;
-  createdAt: number;
-  parentId: string | null;
-}) {
+function mapEntrySummary(
+  row: {
+    id: string;
+    type: string;
+    title: string | null;
+    author: string;
+    userId: string | null;
+    entryDate: number | null;
+    createdAt: number;
+    parentId: string | null;
+  },
+  nameMap: Map<string, string>
+) {
+  const authorName = resolveUserName(nameMap, row.userId, row.author);
   return {
     id: row.id,
     type: row.type,
     title: row.title,
-    author: row.author || null,
+    userId: row.userId,
+    author: authorName,
+    authorName,
     entryDate: row.entryDate,
     createdAt: row.createdAt,
     parentId: row.parentId,
@@ -118,20 +130,35 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
           type: memo.key,
           title: memo.title,
           author: memo.author,
+          userId: memo.userId,
           entryDate: memo.updatedAt,
         })
         .from(memo)
         .where(isNull(memo.deletedAt))
         .orderBy(asc(memo.title));
 
+      const nameMap = await loadUserNameMap(db, memos.map((m: { userId: string | null }) => m.userId));
       return c.json(
-        memos.map((m: { id: string; title: string; author: string; entryDate: number }) => ({
-          id: m.id,
-          type: "memo",
-          title: m.title,
-          author: m.author || null,
-          entryDate: m.entryDate,
-        }))
+        memos.map(
+          (m: {
+            id: string;
+            title: string;
+            author: string;
+            userId: string | null;
+            entryDate: number;
+          }) => {
+            const authorName = resolveUserName(nameMap, m.userId, m.author);
+            return {
+              id: m.id,
+              type: "memo",
+              title: m.title,
+              userId: m.userId,
+              author: authorName,
+              authorName,
+              entryDate: m.entryDate,
+            };
+          }
+        )
       );
     }
 
@@ -149,6 +176,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
         type: entry.type,
         title: entry.title,
         author: entry.author,
+        userId: entry.userId,
         entryDate: entry.entryDate,
         createdAt: entry.createdAt,
         parentId: entry.parentId,
@@ -157,7 +185,8 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       .where(and(...conditions))
       .orderBy(desc(entry.entryDate), desc(entry.createdAt));
 
-    return c.json(entries.map(mapEntrySummary));
+    const nameMap = await loadUserNameMap(db, entries.map((e: { userId: string | null }) => e.userId));
+    return c.json(entries.map((row: Parameters<typeof mapEntrySummary>[0]) => mapEntrySummary(row, nameMap)));
   });
 
   // GET /api/articles/:id/replies — 某封信的回信列表
@@ -171,6 +200,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
         type: entry.type,
         title: entry.title,
         author: entry.author,
+        userId: entry.userId,
         entryDate: entry.entryDate,
         createdAt: entry.createdAt,
         parentId: entry.parentId,
@@ -179,7 +209,8 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       .where(and(eq(entry.parentId, parentId), isNull(entry.deletedAt)))
       .orderBy(asc(entry.entryDate), asc(entry.createdAt));
 
-    return c.json(replies.map(mapEntrySummary));
+    const nameMap = await loadUserNameMap(db, replies.map((r: { userId: string | null }) => r.userId));
+    return c.json(replies.map((row: Parameters<typeof mapEntrySummary>[0]) => mapEntrySummary(row, nameMap)));
   });
 
   // GET /api/articles/:id
@@ -190,17 +221,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const memoRow = await db.select().from(memo).where(and(eq(memo.id, id), isNull(memo.deletedAt))).get();
 
     if (memoRow) {
-      return c.json({
-        id: memoRow.id,
-        type: "memo",
-        title: memoRow.title,
-        author: memoRow.author || null,
-        modifiedBy: memoRow.modifiedBy || memoRow.author || null,
-        body: memoRow.body ?? "",
-        entryDate: null,
-        createdAt: memoRow.createdAt,
-        updatedAt: memoRow.updatedAt,
-      });
+      return c.json(await presentMemoDetail(db, memoRow));
     }
 
     const row = await db
@@ -211,18 +232,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
 
     if (!row) return c.json({ error: "not found" }, 404);
 
-    return c.json({
-      id: row.id,
-      type: row.type,
-      title: row.title,
-      author: row.author || null,
-      modifiedBy: row.modifiedBy || row.author || null,
-      body: row.body ?? "",
-      entryDate: row.entryDate,
-      parentId: row.parentId,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    });
+    return c.json(await presentEntryDetail(db, row));
   });
 
   // POST /api/articles — 新建
@@ -230,7 +240,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const db = await getDb(c);
     const sessionResult = await requireSessionAuthor(c, getSessionAuthor);
     if (sessionResult instanceof Response) return sessionResult;
-    const sessionAuthor = sessionResult as SessionAuthor | null;
+    const sessionAuthor = sessionResult as SessionAuthor;
 
     const { type, title, body, entryDate, parentId } = await c.req.json<{
       type: string;
@@ -240,10 +250,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       parentId?: string | null;
     }>();
 
-    const author = sessionAuthor?.author as CanonicalAuthor | undefined;
-
     if (type === "memo") {
-      if (!author) return authorRequiredResponse(c);
       if (isEmptyBody(body)) return bodyRequiredResponse(c);
       const key = title?.trim() || `memo-${Date.now()}`;
       const id = generateId("mem");
@@ -252,11 +259,10 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
         key,
         title: title ?? key,
         body: body ?? "",
-        author,
-        modifiedBy: author,
+        ...authorWriteFields(sessionAuthor),
         updatedAt: now(),
       });
-      await auditArticleWrite(c, db, sessionAuthor!, AuditAction.ARTICLE_CREATE, AuditResourceType.MEMO, id, {
+      await auditArticleWrite(c, db, sessionAuthor, AuditAction.ARTICLE_CREATE, AuditResourceType.MEMO, id, {
         contentType: type,
         titleLength: title?.length ?? 0,
         bodyLength: body?.length ?? 0,
@@ -264,7 +270,6 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       return c.json({ id });
     }
 
-    if (!author) return authorRequiredResponse(c);
     if (isEmptyBody(body)) return bodyRequiredResponse(c);
 
     const id = generateId("ent");
@@ -272,9 +277,6 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     await db.insert(entry).values({
       id,
       type,
-      userId: sessionAuthor!.userId,
-      author,
-      modifiedBy: author,
       title: title ?? null,
       body: bodyValue,
       bodyText: bodyValue ? toPlainText(bodyValue) : "",
@@ -282,8 +284,9 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       parentId: parentId ?? null,
       createdAt: now(),
       updatedAt: now(),
+      ...authorWriteFields(sessionAuthor),
     });
-    await auditArticleWrite(c, db, sessionAuthor!, AuditAction.ARTICLE_CREATE, AuditResourceType.ENTRY, id, {
+    await auditArticleWrite(c, db, sessionAuthor, AuditAction.ARTICLE_CREATE, AuditResourceType.ENTRY, id, {
       contentType: type,
       titleLength: title?.length ?? 0,
       bodyLength: bodyValue.length,
@@ -292,9 +295,10 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     });
 
     const notifyRuntime = getNotifyRuntime?.(c);
-    if (notifyRuntime && sessionAuthor) {
+    if (notifyRuntime) {
       const task = notifyEntryCreated(db, notifyRuntime, {
-        actor: sessionAuthor.author as CanonicalAuthor,
+        actorUserId: sessionAuthor.userId,
+        actorName: sessionAuthor.author,
         entryId: id,
         entryType: type,
         parentId: parentId ?? null,
@@ -313,7 +317,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const db = await getDb(c);
     const sessionResult = await requireSessionAuthor(c, getSessionAuthor);
     if (sessionResult instanceof Response) return sessionResult;
-    const sessionAuthor = sessionResult as SessionAuthor | null;
+    const sessionAuthor = sessionResult as SessionAuthor;
 
     const id = c.req.param("id");
     const { title, body, entryDate, commentMappings } = await c.req.json<{
@@ -324,20 +328,20 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       commentMappings?: { id: string; anchorFrom: number; anchorTo: number }[];
     }>();
 
-    const author = sessionAuthor?.author as CanonicalAuthor | undefined;
-    if (!author) return authorRequiredResponse(c);
     // 传了 body 且为空时拒绝；未传 body 视为不修改（如只改标题）
     if (body !== undefined && isEmptyBody(body)) {
       return bodyRequiredResponse(c);
     }
 
+    const spaceUserIds = await getSpaceUserIds(db);
+
     const memoRow = await db
-      .select({ id: memo.id, author: memo.author })
+      .select({ id: memo.id, userId: memo.userId })
       .from(memo)
       .where(and(eq(memo.id, id), isNull(memo.deletedAt)))
       .get();
     if (memoRow) {
-      if (!canEditContent("memo", memoRow.author, author)) {
+      if (!canEditContent("memo", memoRow.userId, sessionAuthor.userId, spaceUserIds)) {
         return c.json({ error: "无权编辑此内容" }, 403);
       }
       await db
@@ -345,12 +349,11 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
         .set({
           title: title ?? undefined,
           body: body ?? undefined,
-          author: resolveAuthorForWrite(memoRow.author, author),
-          modifiedBy: author,
+          ...editorWriteFields(sessionAuthor),
           updatedAt: now(),
         })
         .where(eq(memo.id, id));
-      await auditArticleWrite(c, db, sessionAuthor!, AuditAction.ARTICLE_UPDATE, AuditResourceType.MEMO, id, {
+      await auditArticleWrite(c, db, sessionAuthor, AuditAction.ARTICLE_UPDATE, AuditResourceType.MEMO, id, {
         titleLength: title?.length ?? null,
         bodyLength: body?.length ?? null,
       });
@@ -358,7 +361,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     }
 
     const existing = await db
-      .select({ author: entry.author, type: entry.type })
+      .select({ type: entry.type, userId: entry.userId })
       .from(entry)
       .where(and(eq(entry.id, id), isNull(entry.deletedAt)))
       .get();
@@ -367,16 +370,14 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       return c.json({ error: "not found" }, 404);
     }
 
-    if (!canEditContent(existing.type, existing.author, author)) {
+    if (!canEditContent(existing.type, existing.userId, sessionAuthor.userId, spaceUserIds)) {
       return c.json({ error: "无权编辑此内容" }, 403);
     }
 
     const entryUpdates: Record<string, unknown> = {
       title: title ?? undefined,
-      author: resolveAuthorForWrite(existing?.author, author),
-      modifiedBy: author,
       entryDate: entryDate ?? undefined,
-      userId: sessionAuthor!.userId,
+      ...editorWriteFields(sessionAuthor),
       updatedAt: now(),
     };
     if (body !== undefined) {
@@ -419,7 +420,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       }
     }
 
-    await auditArticleWrite(c, db, sessionAuthor!, AuditAction.ARTICLE_UPDATE, AuditResourceType.ENTRY, id, {
+    await auditArticleWrite(c, db, sessionAuthor, AuditAction.ARTICLE_UPDATE, AuditResourceType.ENTRY, id, {
       contentType: existing.type,
       titleLength: title?.length ?? null,
       bodyLength: body?.length ?? null,
@@ -437,30 +438,27 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const db = await getDb(c);
     const sessionResult = await requireSessionAuthor(c, getSessionAuthor);
     if (sessionResult instanceof Response) return sessionResult;
-    const sessionAuthor = sessionResult as SessionAuthor | null;
-
-    const author = sessionAuthor?.author as CanonicalAuthor | undefined;
-    if (!author) return authorRequiredResponse(c);
+    const sessionAuthor = sessionResult as SessionAuthor;
 
     const id = c.req.param("id");
 
     const memoRow = await db
-      .select({ id: memo.id, author: memo.author })
+      .select({ id: memo.id, userId: memo.userId })
       .from(memo)
       .where(and(eq(memo.id, id), isNull(memo.deletedAt)))
       .get();
 
     if (memoRow) {
-      if (!canDeleteContent(memoRow.author, author)) {
+      if (!canDeleteContent(memoRow.userId, sessionAuthor.userId)) {
         return c.json({ error: "只能删除自己创建的内容" }, 403);
       }
       await db.update(memo).set({ deletedAt: now() }).where(eq(memo.id, id));
-      await auditArticleWrite(c, db, sessionAuthor!, AuditAction.ARTICLE_DELETE, AuditResourceType.MEMO, id, {});
+      await auditArticleWrite(c, db, sessionAuthor, AuditAction.ARTICLE_DELETE, AuditResourceType.MEMO, id, {});
       return c.json({ ok: true });
     }
 
     const entryRow = await db
-      .select({ id: entry.id, type: entry.type, author: entry.author, parentId: entry.parentId })
+      .select({ id: entry.id, type: entry.type, userId: entry.userId, parentId: entry.parentId })
       .from(entry)
       .where(and(eq(entry.id, id), isNull(entry.deletedAt)))
       .get();
@@ -469,7 +467,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       return c.json({ error: "not found" }, 404);
     }
 
-    if (!canDeleteContent(entryRow.author, author)) {
+    if (!canDeleteContent(entryRow.userId, sessionAuthor.userId)) {
       return c.json({ error: "只能删除自己创建的内容" }, 403);
     }
 
@@ -486,7 +484,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     }
 
     await db.update(entry).set({ deletedAt: now() }).where(eq(entry.id, id));
-    await auditArticleWrite(c, db, sessionAuthor!, AuditAction.ARTICLE_DELETE, AuditResourceType.ENTRY, id, {
+    await auditArticleWrite(c, db, sessionAuthor, AuditAction.ARTICLE_DELETE, AuditResourceType.ENTRY, id, {
       contentType: entryRow.type,
     });
 

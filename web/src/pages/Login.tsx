@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { authClient } from "../lib/api";
-import { CANONICAL_AUTHORS, type CanonicalAuthor } from "../lib/authors";
+import { authClient, fetchSpaceStatus, type SpaceStatus } from "../lib/api";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../lib/useToast";
 
@@ -13,10 +12,11 @@ export function Login() {
   const toast = useToast();
   const { data: session, isPending, refetch } = authClient.useSession();
   const [mode, setMode] = useState<Mode>("signin");
-  const [author, setAuthor] = useState<CanonicalAuthor | "">("");
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [spaceStatus, setSpaceStatus] = useState<SpaceStatus | null>(null);
 
   const from =
     (location.state as { from?: { pathname: string } } | null)?.from?.pathname ??
@@ -25,6 +25,26 @@ export function Login() {
   useEffect(() => {
     setPageTitle("登录");
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchSpaceStatus()
+      .then((status) => {
+        if (!cancelled) setSpaceStatus(status);
+      })
+      .catch(() => {
+        if (!cancelled) setSpaceStatus({ userCount: 0, signupOpen: true, authors: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (spaceStatus && !spaceStatus.signupOpen && mode === "signup") {
+      setMode("signin");
+    }
+  }, [spaceStatus, mode]);
 
   if (isPending) {
     return (
@@ -37,6 +57,8 @@ export function Login() {
   if (session) {
     return <Navigate to={from} replace />;
   }
+
+  const signupOpen = spaceStatus?.signupOpen ?? false;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,23 +76,21 @@ export function Login() {
           return;
         }
       } else {
-        if (!author) {
-          toast.error("请选择你的身份：小圆子或小麟子");
+        if (!displayName.trim()) {
+          toast.error("请填写你的爱称");
           return;
         }
         const { error } = await authClient.signUp.email({
-          name: author,
+          name: displayName.trim(),
           email,
           password,
           fetchOptions: { credentials: "include" },
         });
         if (error) {
           toast.error(
-            error.message?.includes("closed")
-              ? "注册已关闭，这里只为两个人准备"
-              : error.message?.includes("小圆子") || error.message?.includes("身份")
-                ? "请选择身份：小圆子或小麟子"
-                : "注册失败，请检查信息后重试"
+            error.message?.includes("closed") || error.message?.includes("注册")
+              ? "开放注册已关闭，请通过邀请链接加入"
+              : error.message || "注册失败，请检查信息后重试"
           );
           return;
         }
@@ -94,40 +114,43 @@ export function Login() {
         </div>
 
         <div className="orbit-auth-panel">
-          <div className="orbit-auth-tabs" role="tablist" aria-label="登录或注册">
-            {(["signin", "signup"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                role="tab"
-                aria-selected={mode === m}
-                onClick={() => setMode(m)}
-                className={`orbit-auth-tab${mode === m ? " orbit-auth-tab--active" : ""}`}
-              >
-                {m === "signin" ? "登录" : "注册"}
-              </button>
-            ))}
-          </div>
+          {signupOpen ? (
+            <div className="orbit-auth-tabs" role="tablist" aria-label="登录或注册">
+              {(["signin", "signup"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === m}
+                  onClick={() => setMode(m)}
+                  className={`orbit-auth-tab${mode === m ? " orbit-auth-tab--active" : ""}`}
+                >
+                  {m === "signin" ? "登录" : "注册"}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === "signup" && (
+            {mode === "signup" && signupOpen ? (
               <div className="orbit-auth-field">
-                <span className="orbit-auth-label">身份</span>
-                <div className="orbit-auth-choices">
-                  {CANONICAL_AUTHORS.map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setAuthor(value)}
-                      className={`orbit-auth-choice${author === value ? " orbit-auth-choice--active" : ""}`}
-                    >
-                      {value}
-                    </button>
-                  ))}
-                </div>
-                <p className="orbit-auth-hint">注册后用于内容署名，与另一位不可重复</p>
+                <label className="orbit-auth-label" htmlFor="login-name">
+                  你的爱称
+                </label>
+                <input
+                  id="login-name"
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="例如：小圆"
+                  required
+                  maxLength={16}
+                  className="orbit-input"
+                  autoComplete="nickname"
+                />
+                <p className="orbit-auth-hint">用于内容署名，注册后可随时修改</p>
               </div>
-            )}
+            ) : null}
 
             <div className="orbit-auth-field">
               <label className="orbit-auth-label" htmlFor="login-email">

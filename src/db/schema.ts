@@ -66,6 +66,22 @@ export const verification = sqliteTable("verification", {
   updatedAt: integer("updated_at", { mode: "timestamp" }),
 });
 
+export const spaceInvite = sqliteTable(
+  "space_invite",
+  {
+    id: text("id").primaryKey(),
+    token: text("token").notNull().unique(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id),
+    expiresAt: integer("expires_at").notNull(),
+    usedAt: integer("used_at"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [index("idx_space_invite_token").on(t.token)]
+);
+
 /**
  * 核心内容表
  * type: diary（日记事件）| timeline（里程碑）| message（留言板）| letter（信件）
@@ -77,9 +93,9 @@ export const entry = sqliteTable(
     id: text("id").primaryKey(),
     type: text("type").notNull(),
     userId: text("user_id").references(() => user.id),
-    /** 创建者署名：小圆子 | 小麟子 */
     author: text("author").notNull().default(""),
-    /** 最后编辑者署名 */
+    modifiedByUserId: text("modified_by_user_id").references(() => user.id),
+    /** 最后编辑者爱称（冗余，与 modified_by_user_id 双写） */
     modifiedBy: text("modified_by").notNull().default(""),
     title: text("title"),
     body: text("body"),
@@ -134,9 +150,9 @@ export const memo = sqliteTable("memo", {
   key: text("key").notNull().unique(),
   title: text("title").notNull(),
   body: text("body"),
-  /** 创建者署名：小圆子 | 小麟子 */
+  userId: text("user_id").references(() => user.id),
   author: text("author").notNull().default(""),
-  /** 最后编辑者署名 */
+  modifiedByUserId: text("modified_by_user_id").references(() => user.id),
   modifiedBy: text("modified_by").notNull().default(""),
   createdAt: integer("created_at")
     .notNull()
@@ -279,10 +295,12 @@ export const notification = sqliteTable(
   {
     id: text("id").primaryKey(),
     recipient: text("recipient").notNull(),
+    recipientUserId: text("recipient_user_id").references(() => user.id),
     type: text("type").notNull(),
     targetType: text("target_type").notNull(),
     targetId: text("target_id").notNull(),
     actor: text("actor").notNull(),
+    actorUserId: text("actor_user_id").references(() => user.id),
     title: text("title").notNull(),
     body: text("body").notNull(),
     link: text("link").notNull(),
@@ -293,12 +311,12 @@ export const notification = sqliteTable(
   },
   (t) => [
     index("idx_notification_recipient_read").on(
-      t.recipient,
+      t.recipientUserId,
       t.readAt,
       t.createdAt
     ),
     index("idx_notification_merge").on(
-      t.recipient,
+      t.recipientUserId,
       t.type,
       t.targetId,
       t.readAt
@@ -314,6 +332,7 @@ export const aiMessage = sqliteTable(
       .notNull()
       .references(() => aiConversation.id, { onDelete: "cascade" }),
     role: text("role").notNull(),
+    userId: text("user_id").references(() => user.id),
     author: text("author"),
     parts: text("parts").notNull(),
     createdAt: integer("created_at").notNull(),

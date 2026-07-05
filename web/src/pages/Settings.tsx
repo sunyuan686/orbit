@@ -2,10 +2,16 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   authClient,
+  createInvite,
+  fetchActiveInvite,
+  fetchSpaceStatus,
+  formatDateTime,
   getApiErrorMessage,
   shouldToastApiError,
   updateAppSettings,
+  updateProfile,
   type AccentPreset,
+  type SpaceStatus,
 } from "../lib/api";
 import { ACCENT_PRESET_LIST, applyAccentPreset } from "../lib/accent";
 import { useAppSettings } from "../lib/appSettingsContext";
@@ -209,6 +215,15 @@ export function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
 
+  const [displayName, setDisplayName] = useState("");
+  const [displayNameDirty, setDisplayNameDirty] = useState(false);
+  const [savingDisplayName, setSavingDisplayName] = useState(false);
+
+  const [spaceStatus, setSpaceStatus] = useState<SpaceStatus | null>(null);
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [inviteExpiresAt, setInviteExpiresAt] = useState<number | null>(null);
+  const [creatingInvite, setCreatingInvite] = useState(false);
+
   useEffect(() => {
     setPageTitle("设置");
   }, []);
@@ -224,6 +239,37 @@ export function SettingsPage() {
     setEmail(session.user.email);
     setEmailDirty(false);
   }, [session?.user?.email]);
+
+  useEffect(() => {
+    if (!session?.user?.name) return;
+    setDisplayName(session.user.name);
+    setDisplayNameDirty(false);
+  }, [session?.user?.name]);
+
+  useEffect(() => {
+    if (activeTab !== "account") return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const status = await fetchSpaceStatus();
+        if (cancelled) return;
+        setSpaceStatus(status);
+        if (status.userCount === 1) {
+          const invite = await fetchActiveInvite();
+          if (cancelled) return;
+          if (invite.active && invite.url) {
+            setInviteUrl(invite.url);
+            setInviteExpiresAt(invite.expiresAt ?? null);
+          }
+        }
+      } catch {
+        if (!cancelled) setSpaceStatus(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab]);
 
   function setTab(tab: SettingsTab) {
     setSearchParams({ tab }, { replace: true });
@@ -282,6 +328,56 @@ export function SettingsPage() {
       toast.error("网络错误，请稍后重试");
     } finally {
       setSavingEmail(false);
+    }
+  }
+
+  async function handleSaveDisplayName(event: React.FormEvent) {
+    event.preventDefault();
+    const nextName = displayName.trim();
+    if (!nextName || savingDisplayName) return;
+    if (nextName === session?.user?.name) {
+      toast.error("爱称与当前相同");
+      return;
+    }
+    setSavingDisplayName(true);
+    try {
+      await updateProfile(nextName);
+      await refetchSession();
+      setDisplayNameDirty(false);
+      toast.success("爱称已更新");
+    } catch (err) {
+      if (shouldToastApiError(err)) {
+        toast.error(getApiErrorMessage(err, "更新失败"));
+      }
+    } finally {
+      setSavingDisplayName(false);
+    }
+  }
+
+  async function handleCreateInvite() {
+    if (creatingInvite) return;
+    setCreatingInvite(true);
+    try {
+      const invite = await createInvite();
+      setInviteUrl(invite.url);
+      setInviteExpiresAt(invite.expiresAt);
+      toast.success("邀请链接已生成");
+    } catch (err) {
+      if (shouldToastApiError(err)) {
+        toast.error(getApiErrorMessage(err, "生成邀请失败"));
+      }
+    } finally {
+      setCreatingInvite(false);
+    }
+  }
+
+  async function handleCopyInvite() {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      toast.success("已复制邀请链接");
+    } catch {
+      toast.error("复制失败");
     }
   }
 
@@ -468,26 +564,96 @@ export function SettingsPage() {
                 <h2 className="orbit-settings-panel-title">登录与安全</h2>
                 <p className="orbit-settings-panel-desc">
                   {isMobile
-                    ? "管理登录邮箱与密码。"
-                    : "管理登录邮箱与密码。身份在注册时选定，用于内容署名。"}
+                    ? "管理爱称、登录邮箱与密码。"
+                    : "管理爱称、登录邮箱与密码。爱称用于内容署名展示。"}
                 </p>
               </header>
 
               <SettingsSection title="个人资料">
                 <div className="orbit-settings-fields">
-                  <SettingsField
-                    label="身份"
-                    hint="注册时选定，不可更改。"
-                    readonly
-                  >
-                    <div className="orbit-settings-readonly-card">
-                      <p className="orbit-settings-readonly-value">
-                        {session?.user?.name ?? "—"}
-                      </p>
-                    </div>
-                  </SettingsField>
+                  <div className="orbit-settings-field orbit-settings-field--editable orbit-settings-field--stacked">
+                    <form
+                      className="orbit-settings-stacked-form"
+                      onSubmit={(e) => void handleSaveDisplayName(e)}
+                    >
+                      <div className="orbit-settings-field-copy">
+                        <label htmlFor="settings-display-name" className="orbit-settings-field-label">
+                          爱称
+                        </label>
+                        <p className="orbit-settings-field-hint">用于内容署名，修改后历史内容展示会同步更新。</p>
+                      </div>
+                      <div className="orbit-settings-field-control orbit-settings-field-control--block">
+                        <div className="orbit-settings-inline-form">
+                          <input
+                            id="settings-display-name"
+                            type="text"
+                            value={displayName}
+                            maxLength={16}
+                            className="orbit-input"
+                            onChange={(event) => {
+                              setDisplayName(event.target.value);
+                              setDisplayNameDirty(
+                                event.target.value.trim() !== (session?.user?.name ?? "")
+                              );
+                            }}
+                          />
+                          <button
+                            type="submit"
+                            className="orbit-btn orbit-btn-sm orbit-settings-form-submit"
+                            disabled={savingDisplayName || !displayNameDirty || !displayName.trim()}
+                          >
+                            {savingDisplayName ? "保存中…" : "保存"}
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
                 </div>
               </SettingsSection>
+
+              {spaceStatus?.userCount === 1 ? (
+                <SettingsSection title="邀请另一半">
+                  <div className="orbit-settings-fields">
+                    <SettingsField
+                      label="邀请链接"
+                      hint="有效期 7 天，使用后失效。请复制链接发给对方。"
+                      stacked
+                    >
+                      {inviteUrl ? (
+                        <div className="orbit-settings-inline-form orbit-settings-inline-form--wide">
+                          <input
+                            className="orbit-input orbit-settings-input-mono"
+                            readOnly
+                            value={inviteUrl}
+                            aria-label="邀请链接"
+                          />
+                          <button
+                            type="button"
+                            className="orbit-btn orbit-btn-sm"
+                            onClick={() => void handleCopyInvite()}
+                          >
+                            复制
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="orbit-btn orbit-btn-primary orbit-btn-sm"
+                          disabled={creatingInvite}
+                          onClick={() => void handleCreateInvite()}
+                        >
+                          {creatingInvite ? "生成中…" : "生成邀请链接"}
+                        </button>
+                      )}
+                      {inviteExpiresAt ? (
+                        <p className="orbit-settings-field-hint">
+                          过期时间：{formatDateTime(inviteExpiresAt)}
+                        </p>
+                      ) : null}
+                    </SettingsField>
+                  </div>
+                </SettingsSection>
+              ) : null}
 
               <SettingsSection title="登录方式">
                 <div className="orbit-settings-fields">
