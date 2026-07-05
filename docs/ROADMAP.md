@@ -35,7 +35,7 @@
 | Phase B   | 外部集成   | ⚠️  | **飞书 Bot MVP 已落地**；**API Token MVP 已落地**；GitHub 同步、MCP 待做；Telegram 优先级最低 |
 | Phase C   | 协作增强   | ⚠️  | **消息通知 MVP 已落地**（站内铃铛 + 飞书出站、偏好设置）；版本历史、双人联署待做 |
 | Phase D   | AI 与扩展 | 🚧  | AI 聊天助手与模型配置 MVP 已落地；智能总结、恋爱地图、共同爱好等待做               |
-| Phase E   | 可视化趣味  | ⚠️  | **电子相册 MVP 已落地**；热力图、记账、立体书、彩蛋惊喜待做 |
+| Phase E   | 可视化趣味  | ⚠️  | **电子相册 MVP 已落地**；**写作热力图 MVP 已落地**；记账、立体书、彩蛋惊喜待做 |
 
 
 ---
@@ -200,7 +200,7 @@ Orbit 是**双人情侣空间**，账号开通遵循「一人注册 → 邀请�
 | 功能       | 状态  | 说明                                                                        |
 | -------- | --- | ------------------------------------------------------------------------- |
 | 空间档案     | ✅   | `GET/PUT /api/space`（底层复用 `settings` 表）；`/settings?tab=space` 编辑（`SpaceSettingsPanel.tsx`）；侧栏常驻展示纪念日；双方爱称见 `/settings?tab=account` |
-| 首页 / 仪表盘 | ⚠️  | MVP 已落地（`/`）：Hero、探索卡、最近动态与照片；封面图、统计卡等待做 |
+| 首页 / 仪表盘 | ⚠️  | MVP 已落地（`/`）：Hero、探索卡、最近动态与照片、记录节奏迷你热力图；封面图、统计卡等待做 |
 | 侧栏纪念日展示  | ✅   | 依赖空间档案 API；点击可进入 `/settings?tab=space` 编辑                                 |
 
 
@@ -345,7 +345,7 @@ Orbit 是**双人情侣空间**，账号开通遵循「一人注册 → 邀请�
 | 恋爱地图            | 💡  | 地点实体 + 地图可视化             |
 | 共同爱好（书 / 音 / 影） | 💡  | 新内容类型或独立表                |
 | 消息通知（总览）        | ✅  | 站内 + 飞书双通道 MVP 已落地；详见「消息通知（Phase C）」 |
-| 热力图             | ✅  | `/activity`：近一年写作热力图、连续记录 / 最长 streak、点击日期看当日列表；首页 12 周迷你条 + 摘要；统计 diary / timeline / message / letter |
+| 热力图             | ✅  | `/activity`：近一年写作热力图、连续记录 / 最长 streak、点击日期看当日列表；首页 12 周迷你条 + 摘要；统计 diary / timeline / message / letter；见 [ACTIVITY.md](./ACTIVITY.md) |
 | 电子相册            | ✅  | `/gallery`：R2/本地全集浏览、关联筛选、lightbox、孤儿图安全删除；见 [GALLERY.md](./GALLERY.md) |
 | 记账              | 💡  | 独立模块                     |
 | 立体书             | 💡  | 创意展示，优先级较低               |
@@ -377,9 +377,10 @@ Orbit 是**双人情侣空间**，账号开通遵循「一人注册 → 邀请�
 14. [x] 站内消息通知（Phase C，见「消息通知」）
 15. [x] 飞书消息通知（Phase C，见「消息通知」）
 16. [x] 电子相册 MVP（Phase E，`/gallery`；见 [GALLERY.md](./GALLERY.md)）
-17. [ ] MCP 端点（Phase B）
-18. [ ] GitHub 双向同步（Phase B）
-19. [ ] Telegram 接入（Phase B，**优先级最低**，见「IM 连接」）
+17. [x] 写作热力图与连续记录（Phase E，`/activity`；见 [ACTIVITY.md](./ACTIVITY.md)）
+18. [ ] MCP 端点（Phase B）
+19. [ ] GitHub 双向同步（Phase B）
+20. [ ] Telegram 接入（Phase B，**优先级最低**，见「IM 连接」）
 
 **后续方向（未排期）**：国际化 / 多语言（见「平台能力」，界面与本地化）；内容模板管理（见「内容分类」，降低各类型内容创建门槛）；审计日志浏览页（见「可观测性与日志」）；首页 / 仪表盘（纪念日、照片、近期内容等，展示形式待定，依赖空间档案与 `asset` 数据）；信件仪式感呈现（信纸、信封、邮票等，见「内容分类」，优先级低）；飞书第二期（`留言：` / `信：` 前缀、AI `/summary` 月报，见 [FEISHU.md](./FEISHU.md)）；更多 IM 平台连接器（微信、Discord 等，见「IM 连接」）；彩蛋惊喜（隐藏交互、纪念日动效等，见「设计与体验」，优先级最低）。
 
@@ -399,6 +400,7 @@ Orbit 是**双人情侣空间**，账号开通遵循「一人注册 → 邀请�
 | 版本发布        | [CHANGELOG.md](../CHANGELOG.md)（**自动生成**，勿手改） |
 | 架构 / 表结构变更  | [ARCHITECTURE.md](./ARCHITECTURE.md)          |
 | 首页设计与行为     | [HOME.md](./HOME.md)                          |
+| 记录活动 / 热力图   | [ACTIVITY.md](./ACTIVITY.md)                  |
 | 提交与发布规范     | [CONTRIBUTING.md](./CONTRIBUTING.md)          |
 
 
