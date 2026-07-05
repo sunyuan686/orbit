@@ -2116,6 +2116,55 @@ a.orbit-settings-mobile-row {
   letter-spacing: -0.01em;
 }
 
+.orbit-settings-code-block {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  background: var(--color-surface-raised);
+  overflow-x: auto;
+}
+
+.orbit-settings-code-block code {
+  font-family: var(--font-mono);
+  font-size: var(--type-caption, 0.75rem);
+  color: var(--color-text-primary);
+}
+
+.orbit-settings-token-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.orbit-settings-token-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+
+.orbit-settings-token-row-main {
+  min-width: 0;
+}
+
+.orbit-settings-token-name {
+  margin: 0 0 0.25rem;
+  font-size: var(--type-body, 1rem);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.orbit-settings-token-meta {
+  margin: 0;
+  font-size: var(--type-caption, 0.75rem);
+  line-height: 1.5;
+}
+
 .orbit-settings-feishu-hero {
   display: flex;
   flex-direction: column;

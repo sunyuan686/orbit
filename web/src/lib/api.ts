@@ -651,6 +651,46 @@ export async function testFeishuIntegration(): Promise<{ ok: true }> {
   return res.json();
 }
 
+export interface ApiTokenListItem {
+  id: string;
+  name: string;
+  tokenPrefix: string;
+  author: string;
+  createdAt: number;
+  lastUsedAt: number | null;
+}
+
+export interface CreateApiTokenResult extends ApiTokenListItem {
+  token: string;
+}
+
+export async function fetchApiTokens(): Promise<{ items: ApiTokenListItem[] }> {
+  const res = await fetch(`${BASE}/api/api-tokens`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载 API Token 失败");
+  return res.json();
+}
+
+export async function createApiToken(name: string): Promise<CreateApiTokenResult> {
+  const res = await fetch(`${BASE}/api/api-tokens`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ name }),
+  });
+  await assertOk(res, "创建 API Token 失败");
+  return res.json();
+}
+
+export async function revokeApiToken(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/api-tokens/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  await assertOk(res, "撤销 API Token 失败");
+}
+
 export type NotificationEventKind = "entry" | "comment" | "letter";
 
 export interface NotificationChannelPrefs {
