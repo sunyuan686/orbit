@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { RequireAuth } from "./components/RequireAuth";
 import { ArticleList } from "./pages/ArticleList";
@@ -8,6 +8,7 @@ import { Login } from "./pages/Login";
 import { Join } from "./pages/Join";
 import { SearchPage } from "./pages/Search";
 import { GalleryPage } from "./pages/Gallery";
+import { HomePage } from "./pages/Home";
 import { SettingsPage } from "./pages/Settings";
 
 export default function App() {
@@ -22,7 +23,7 @@ export default function App() {
           </RequireAuth>
         }
       >
-        <Route index element={<Navigate to="/diary" replace />} />
+        <Route index element={<HomePage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/gallery" element={<GalleryPage />} />
         <Route path="/settings" element={<SettingsPage />} />

@@ -200,7 +200,7 @@ Orbit 是**双人情侣空间**，账号开通遵循「一人注册 → 邀请�
 | 功能       | 状态  | 说明                                                                        |
 | -------- | --- | ------------------------------------------------------------------------- |
 | 空间档案     | ✅   | `GET/PUT /api/space`（底层复用 `settings` 表）；`/settings?tab=space` 编辑（`SpaceSettingsPanel.tsx`）；侧栏常驻展示纪念日；双方爱称见 `/settings?tab=account` |
-| 首页 / 仪表盘 | 💡  | 有个人特点的首页：纪念日、精选照片、近期动态等；布局与信息架构尚未定稿，待空间档案落地后再设计                           |
+| 首页 / 仪表盘 | ⚠️  | MVP 已落地（`/`）：Hero、探索卡、最近动态与照片；封面图、统计卡等待做 |
 | 侧栏纪念日展示  | ✅   | 依赖空间档案 API；点击可进入 `/settings?tab=space` 编辑                                 |
 
 
@@ -395,6 +395,7 @@ Orbit 是**双人情侣空间**，账号开通遵循「一人注册 → 邀请�
 | AI 集成 / 接口变更 | [AI.md](./AI.md)                                 |
 | 版本发布        | [CHANGELOG.md](../CHANGELOG.md)（**自动生成**，勿手改） |
 | 架构 / 表结构变更  | [ARCHITECTURE.md](./ARCHITECTURE.md)          |
+| 首页设计与行为     | [HOME.md](./HOME.md)                          |
 | 提交与发布规范     | [CONTRIBUTING.md](./CONTRIBUTING.md)          |
 
 

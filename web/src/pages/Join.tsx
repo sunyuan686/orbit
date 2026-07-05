@@ -76,7 +76,7 @@ export function Join() {
   }
 
   if (session) {
-    return <Navigate to="/diary" replace />;
+    return <Navigate to="/" replace />;
   }
 
   if (!token || inviteInvalid) {
@@ -115,7 +115,7 @@ export function Join() {
       }
       toast.success("欢迎加入");
       await refetch();
-      navigate("/diary", { replace: true });
+      navigate("/", { replace: true });
     } catch (err) {
       if (shouldToastApiError(err)) {
         toast.error(getApiErrorMessage(err, "加入失败，请检查信息后重试"));

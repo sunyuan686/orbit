@@ -20,7 +20,7 @@ export function Login() {
 
   const from =
     (location.state as { from?: { pathname: string } } | null)?.from?.pathname ??
-    "/diary";
+    "/";
 
   useEffect(() => {
     setPageTitle("登录");

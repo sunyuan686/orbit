@@ -6,7 +6,7 @@ import { useTheme, type Theme } from "../lib/useTheme";
 import { SpaceProvider, useSpace } from "../lib/spaceContext";
 import { AppSettingsProvider } from "../lib/appSettingsContext";
 import { UserAccount } from "./UserAccount";
-import { SettingsIcon, SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, GalleryIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
+import { SettingsIcon, SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, GalleryIcon, HomeIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
 import { NotificationBell } from "./NotificationBell";
 import { AiChatFab } from "./AiChatFab";
 import { AiChatPanel, type AiChatContext } from "./AiChatPanel";
@@ -69,7 +69,11 @@ function LayoutShell() {
 
   useEffect(() => {
     const segment = location.pathname.split("/").filter(Boolean)[0];
-    if (!segment || segment === "login") return;
+    if (!segment) {
+      setPageTitle("首页");
+      return;
+    }
+    if (segment === "login") return;
     if (segment === "search") {
       setPageTitle("搜索");
       return;
@@ -192,9 +196,9 @@ function LayoutShell() {
           ) : (
             <>
               <Link
-                to="/settings?tab=space"
+                to="/"
                 className="orbit-sidebar-brand-link min-w-0 flex-1"
-                title="空间档案"
+                title="首页"
               >
                 <h1 className="orbit-sidebar-title tracking-tight">Orbit</h1>
                 <p className="orbit-sidebar-tagline truncate mt-0.5">
@@ -225,6 +229,19 @@ function LayoutShell() {
 
         {/* 导航 */}
         <nav className={`flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden ${collapsed ? "px-2" : "px-2"}`}>
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) =>
+              `flex items-center rounded-md transition-colors whitespace-nowrap ${
+                collapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2"
+              } ${isActive ? "orbit-nav-item active" : "orbit-nav-item"}`
+            }
+            title={collapsed ? "首页" : undefined}
+          >
+            <HomeIcon size="nav" className="orbit-nav-icon" />
+            {!collapsed && <span className="orbit-nav-label">首页</span>}
+          </NavLink>
           {navItems.map((item) => {
             const NavIcon = NAV_CONTENT_ICONS[item.type];
             return (
