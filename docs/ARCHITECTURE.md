@@ -56,7 +56,8 @@ asset      — 图片 / 文件（关联 entry）
 memo       — 备忘录（长期维护文档）
 comment    — 底部评论 + 行内边注
 settings   — 全局配置（纪念日、主题色 accent 等）；空间档案 `GET/PUT /api/space`，偏好 `GET/PUT /api/settings`
-audit_log  — 操作审计（创建 / 编辑 / 删除 / 评论 / 空间与设置变更）；`GET /api/audit`
+audit_log  — 操作审计（创建 / 编辑 / 删除 / 评论 / 空间与设置变更 / API Token）；`GET /api/audit`
+api_token  — 外部访问 Bearer Token（仅存哈希）；`GET/POST/DELETE /api/api-tokens`（管理需会话）
 ai_conversation / ai_message  — AI 聊天会话与消息（见 [AI.md](./AI.md)）
 user / session / account / verification  — better-auth 标准表
 ```
@@ -97,6 +98,17 @@ user / session / account / verification  — better-auth 标准表
 | `author` / `userId` | 操作者 |
 
 查询：`GET /api/audit?limit=&offset=&action=&resourceType=&resourceId=&since=`（需登录）。
+
+### api_token
+
+| 字段 | 说明 |
+|------|------|
+| `tokenHash` | SHA-256 哈希，明文仅在创建时返回一次 |
+| `tokenPrefix` | 展示用前缀（如 `orb_a1b2c3d4`） |
+| `userId` / `author` | 创建者与署名；API 请求以此身份写入内容 |
+| `lastUsedAt` / `revokedAt` | 最近使用 / 撤销时间 |
+
+管理：`GET/POST/DELETE /api/api-tokens`（仅 Cookie 会话）。内容 API 支持 `Authorization: Bearer orb_…`（设置、账户、审计、Token 管理仍须会话）。
 
 ### memo
 

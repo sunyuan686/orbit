@@ -6,7 +6,7 @@
 >
 > 架构说明见 [ARCHITECTURE.md](./ARCHITECTURE.md)。
 >
-> 最后更新：2026-07-05 · 当前版本：[v0.0.1](../CHANGELOG.md#001---2026-06-24)（main 已含飞书集成、消息通知、相册、空间开通泛化等未发版功能）
+> 最后更新：2026-07-05 · 当前版本：[v0.0.1](../CHANGELOG.md#001---2026-06-24)（main 已含飞书集成、消息通知、相册、API Token、空间开通泛化等未发版功能）
 
 ---
 
@@ -32,7 +32,7 @@
 | --------- | ------ | --- | ----------------------------------------------------- |
 | Phase 1–4 | 核心平台   | ✅   | 数据层、认证、CRUD、TipTap、Cloudflare 部署                      |
 | Phase A   | 体验补齐   | 🚧  | 审计日志、结构化日志、评论编辑 UI、**账号开通泛化**（可配置爱称 + 邀请加入）已落地；组件细节打磨（按钮/动效/图标）**进行中**；PWA 待做 |
-| Phase B   | 外部集成   | ⚠️  | **飞书 Bot MVP 已落地**（入站写日记/图片、指令查询、设置页配置）；API Token、GitHub 同步、MCP、Telegram 待做 |
+| Phase B   | 外部集成   | ⚠️  | **飞书 Bot MVP 已落地**；**API Token MVP 已落地**；GitHub 同步、MCP 待做；Telegram 优先级最低 |
 | Phase C   | 协作增强   | ⚠️  | **消息通知 MVP 已落地**（站内铃铛 + 飞书出站、偏好设置）；版本历史、双人联署待做 |
 | Phase D   | AI 与扩展 | 🚧  | AI 聊天助手与模型配置 MVP 已落地；智能总结、恋爱地图、共同爱好等待做               |
 | Phase E   | 可视化趣味  | ⚠️  | **电子相册 MVP 已落地**；热力图、记账、立体书、彩蛋惊喜待做 |
@@ -238,7 +238,7 @@ Orbit 是**双人情侣空间**，账号开通遵循「一人注册 → 邀请�
 | 创建人 / 修改人     | ✅   | 展示作者；有编辑且修改者与作者不同时展示修改人                                          |
 | 双人联署作者        | 📋  | 每篇仅一个 `author`；memo 通过 `couple` 编辑权限共同维护                         |
 | 编辑变更 / 版本历史   | 📋  | 无 revision 表、无 diff                                              |
-| 设置页           | ✅   | `/settings?tab=`：分组侧栏（账户 / 界面 / 空间 / 集成 / 通知 / AI）；移动端 Notion 式 drill-down；主题色、账号安全、空间档案、飞书集成（`integrations`）、通知偏好（`notifications`）、AI 模型与 Key；API Token 待做（Phase B） |
+| 设置页           | ✅   | `/settings?tab=`：分组侧栏（账户 / 界面 / 空间 / 集成 / 通知 / AI / API Token）；移动端 Notion 式 drill-down；主题色、账号安全、空间档案、飞书集成、通知偏好、AI 模型与 Key、API Token 管理 |
 
 
 ---
@@ -250,10 +250,10 @@ Orbit 是**双人情侣空间**，账号开通遵循「一人注册 → 邀请�
 
 | 功能          | 状态  | 说明                              |
 | ----------- | --- | ------------------------------- |
+| API Token   | ✅  | Bearer Token；`GET/POST/DELETE /api/api-tokens`；设置页 `?tab=api-tokens`；内容 API 支持 `Authorization: Bearer orb_…` |
 | GitHub 双向同步 | 📋  | 写入自动 commit `.md`，Webhook 反向同步  |
-| API Token   | 📋  | Bearer Token，供脚本 / AI 调用        |
 | MCP 端点      | 📋  | `/api/mcp`，Claude / Cursor 直接操作 |
-| IM 连接       | ⚠️  | **飞书 MVP 已落地**；Telegram 等待做；详见下节 |
+| IM 连接       | ⚠️  | **飞书 MVP 已落地**；Telegram 优先级最低；详见下节 |
 
 
 ---
@@ -265,7 +265,7 @@ Orbit 是**双人情侣空间**，账号开通遵循「一人注册 → 邀请�
 | 功能 | 状态 | 说明 |
 | --- | --- | --- |
 | 设置页 IM 管理面板 | ✅ | `FeishuIntegrationPanel`：飞书连接配置、测试连通性；App Secret 等敏感项加密存储（对齐 AI Key 方案） |
-| Telegram 接入 | 📋 | 绑定 Bot；私信 / 指定会话 → 写日记（`entry.type=diary`）；图片 → R2 + `asset`；指令如 `/today`、`/summary` |
+| Telegram 接入 | 💡 | 绑定 Bot；私信 / 指定会话 → 写日记；**优先级最低**，待 MCP / GitHub 同步等 Phase B 核心项完成后再做 |
 | 飞书接入 | ✅ | 企业自建应用 Bot；Webhook 入站（`POST /api/integrations/feishu/events`）；文字 → 今日 diary、图片 → R2 + `asset`；指令 `/today`、`/week`、`/month`、`/搜`；详见 [FEISHU.md](./FEISHU.md) |
 | IM 用户 → 署名映射 | ✅ | 飞书 `authorOpenIds` 按 `userId` 映射；设置页动态展示空间作者 open_id |
 | 入站：文字 / 图片 / 相册 | ✅ | 飞书：文字落当天 diary、图片附当天记录；短窗口合并（`mergeWindowMs`） |
@@ -285,7 +285,7 @@ Orbit 是**双人情侣空间**，账号开通遵循「一人注册 → 邀请�
 - `src/worker.ts` / 路由 — Telegram webhook、`/api/integrations/feishu` 等入站端点
 - `docs/ARCHITECTURE.md` — 入站消息 → `entry` / `asset` 流水线说明
 
-**优先级**：Phase B 剩余项；Telegram 与 API Token 可并行推进。飞书第二期扩展（`留言：` / `信：` 前缀、`/summary` AI 月报等）见 [FEISHU.md](./FEISHU.md)。
+**优先级**：Phase B 剩余项为 MCP、GitHub 同步；Telegram 放最后。飞书第二期扩展（`留言：` / `信：` 前缀、`/summary` AI 月报等）见 [FEISHU.md](./FEISHU.md)。
 
 ---
 
@@ -372,12 +372,14 @@ Orbit 是**双人情侣空间**，账号开通遵循「一人注册 → 邀请�
 9. [ ] 组件细节打磨：按钮 / 动效 / 图标（**进行中**，首批已落地，见「设计与体验」；长期迭代，不设完成态）
 10. [x] 可配置双方署名 + 注册认领身份位（Phase A，见「账号注册与邀请」）
 11. [x] 邀请加入（一人注册 → 邀请另一方，关闭公开二次注册；Phase A，同上）
-12. [ ] API Token + REST 规范化（Phase B）
+12. [x] API Token + REST 规范化（Phase B）
 13. [x] IM 连接：飞书 Bot MVP（`?tab=integrations`、入站写日记/图片、指令查询；Phase B，见「IM 连接」）
 14. [x] 站内消息通知（Phase C，见「消息通知」）
 15. [x] 飞书消息通知（Phase C，见「消息通知」）
 16. [x] 电子相册 MVP（Phase E，`/gallery`；见 [GALLERY.md](./GALLERY.md)）
-17. [ ] Telegram 接入（Phase B，见「IM 连接」）
+17. [ ] MCP 端点（Phase B）
+18. [ ] GitHub 双向同步（Phase B）
+19. [ ] Telegram 接入（Phase B，**优先级最低**，见「IM 连接」）
 
 **后续方向（未排期）**：国际化 / 多语言（见「平台能力」，界面与本地化）；内容模板管理（见「内容分类」，降低各类型内容创建门槛）；审计日志浏览页（见「可观测性与日志」）；首页 / 仪表盘（纪念日、照片、近期内容等，展示形式待定，依赖空间档案与 `asset` 数据）；信件仪式感呈现（信纸、信封、邮票等，见「内容分类」，优先级低）；飞书第二期（`留言：` / `信：` 前缀、AI `/summary` 月报，见 [FEISHU.md](./FEISHU.md)）；更多 IM 平台连接器（微信、Discord 等，见「IM 连接」）；彩蛋惊喜（隐藏交互、纪念日动效等，见「设计与体验」，优先级最低）。
 

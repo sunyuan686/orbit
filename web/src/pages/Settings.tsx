@@ -17,14 +17,15 @@ import { ACCENT_PRESET_LIST, applyAccentPreset } from "../lib/accent";
 import { useAppSettings } from "../lib/appSettingsContext";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../lib/useToast";
+import { ApiTokenSettingsPanel } from "../components/ApiTokenSettingsPanel";
 import { AiProvidersSettingsPanel } from "../components/AiProvidersSettingsPanel";
 import { FeishuIntegrationPanel } from "../components/FeishuIntegrationPanel";
 import { NotificationsSettingsPanel } from "../components/NotificationsSettingsPanel";
-import { AiIcon, BellIcon, ChevronLeftIcon, ChevronRightIcon, MessageIcon, PaletteIcon, TimelineIcon, UserIcon } from "../components/OrbitIcons";
+import { AiIcon, BellIcon, ChevronLeftIcon, ChevronRightIcon, KeyIcon, MessageIcon, PaletteIcon, TimelineIcon, UserIcon } from "../components/OrbitIcons";
 import { SpaceSettingsPanel } from "../components/SpaceSettingsPanel";
 import { useMaxWidthMd } from "../lib/useBreakpoint";
 
-type SettingsTab = "appearance" | "account" | "ai" | "space" | "integrations" | "notifications";
+type SettingsTab = "appearance" | "account" | "ai" | "space" | "integrations" | "notifications" | "api-tokens";
 
 type SettingsTabConfig = {
   id: SettingsTab;
@@ -90,6 +91,12 @@ const SETTINGS_NAV_GROUPS: {
         description: "站内与飞书推送偏好",
         icon: (props) => <BellIcon {...props} />,
       },
+      {
+        id: "api-tokens",
+        label: "API Token",
+        description: "脚本与外部工具访问",
+        icon: (props) => <KeyIcon {...props} />,
+      },
     ],
   },
   {
@@ -131,7 +138,8 @@ function isSettingsTab(value: string | null): value is SettingsTab {
     value === "ai" ||
     value === "space" ||
     value === "integrations" ||
-    value === "notifications"
+    value === "notifications" ||
+    value === "api-tokens"
   );
 }
 
@@ -756,6 +764,8 @@ export function SettingsPage() {
           {activeTab === "integrations" ? <FeishuIntegrationPanel /> : null}
 
           {activeTab === "notifications" ? <NotificationsSettingsPanel /> : null}
+
+          {activeTab === "api-tokens" ? <ApiTokenSettingsPanel /> : null}
         </div>
         ) : null}
       </div>

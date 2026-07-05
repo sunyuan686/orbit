@@ -1,7 +1,6 @@
 import "dotenv/config";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
-import type { Context, Next } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
@@ -24,6 +23,8 @@ import { DEV_FRONTEND_ORIGINS } from "../config/auth.js";
 import { db } from "../db/index.js";
 import { createLogger } from "../lib/logger.js";
 import { requestContext } from "../lib/request-context.js";
+import { createRequireAuth } from "../lib/request-auth.js";
+import { apiTokens } from "./routes/api-tokens.js";
 
 const bootLog = createLogger("server");
 
@@ -49,11 +50,17 @@ app.use(
 // better-auth 路由（/api/auth/*）
 app.on(["GET", "POST"], "/api/auth/**", (c) => auth.handler(c.req.raw));
 
-async function requireAuth(c: Context, next: Next) {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session) return c.json({ error: "Unauthorized" }, 401);
-  return next();
-}
+const requireAuth = createRequireAuth({
+  getAuth: () => auth,
+  getDb: () => db,
+  allowApiToken: true,
+});
+
+const requireSession = createRequireAuth({
+  getAuth: () => auth,
+  getDb: () => db,
+  allowApiToken: false,
+});
 
 // 所有内容 API 与媒体资源均需登录
 app.use("/api/articles/*", requireAuth);
@@ -73,16 +80,18 @@ app.use("/api/space", async (c, next) => {
   if (path === "/api/space/status") return next();
   return requireAuth(c, next);
 });
-app.use("/api/account/*", requireAuth);
-app.use("/api/account", requireAuth);
-app.use("/api/settings/*", requireAuth);
-app.use("/api/settings", requireAuth);
-app.use("/api/audit/*", requireAuth);
-app.use("/api/audit", requireAuth);
+app.use("/api/account/*", requireSession);
+app.use("/api/account", requireSession);
+app.use("/api/settings/*", requireSession);
+app.use("/api/settings", requireSession);
+app.use("/api/audit/*", requireSession);
+app.use("/api/audit", requireSession);
+app.use("/api/api-tokens/*", requireSession);
+app.use("/api/api-tokens", requireSession);
 app.use("/api/ai/*", requireAuth);
 app.use("/api/ai", requireAuth);
-app.use("/api/notifications/*", requireAuth);
-app.use("/api/notifications", requireAuth);
+app.use("/api/notifications/*", requireSession);
+app.use("/api/notifications", requireSession);
 app.use("/api/gallery/*", requireAuth);
 app.use("/api/gallery", requireAuth);
 app.use("/api/integrations/*", async (c, next) => {
@@ -93,7 +102,7 @@ app.use("/api/integrations/*", async (c, next) => {
   ) {
     return next();
   }
-  return requireAuth(c, next);
+  return requireSession(c, next);
 });
 app.use("/assets/*", requireAuth);
 
@@ -107,6 +116,7 @@ app.route("/api/invite", invite);
 app.route("/api/account", account);
 app.route("/api/settings", settings);
 app.route("/api/audit", audit);
+app.route("/api/api-tokens", apiTokens);
 app.route("/api/ai", ai);
 app.route("/api/integrations", integrations);
 app.route("/api/notifications", notifications);

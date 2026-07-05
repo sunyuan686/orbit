@@ -28,9 +28,11 @@ import { createNotificationsRoutes } from "./api/notifications.js";
 import { createInviteRoutes } from "./api/invite.js";
 import { createAccountRoutes } from "./api/account.js";
 import { createGalleryRoutes } from "./api/gallery.js";
+import { createApiTokenRoutes } from "./api/api-tokens.js";
 import { listAllR2Objects } from "./services/gallery.js";
 import { getSessionAuthor } from "./api/session-author.js";
 import { requestContext } from "./lib/request-context.js";
+import { createRequireAuth } from "./lib/request-auth.js";
 import type { NotifyRuntime } from "./services/notify.js";
 
 export interface Env {
@@ -76,15 +78,24 @@ app.on(["GET", "POST"], "/api/auth/**", async (c) => {
 
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 
-async function requireAuth(c: Context<HonoEnv>, next: () => Promise<void>) {
-  const auth = createAuth(getDb(c), {
+function workerAuth(c: Context<HonoEnv>) {
+  return createAuth(getDb(c), {
     secret: c.env.BETTER_AUTH_SECRET,
     baseURL: c.env.BETTER_AUTH_URL,
   });
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session) return c.json({ error: "Unauthorized" }, 401);
-  return next();
 }
+
+const requireAuth = createRequireAuth({
+  getAuth: (c) => workerAuth(c as Context<HonoEnv>),
+  getDb: (c) => getDb(c as Context<HonoEnv>),
+  allowApiToken: true,
+});
+
+const requireSession = createRequireAuth({
+  getAuth: (c) => workerAuth(c as Context<HonoEnv>),
+  getDb: (c) => getDb(c as Context<HonoEnv>),
+  allowApiToken: false,
+});
 
 app.use("/api/articles/*", requireAuth);
 app.use("/api/articles", requireAuth);
@@ -103,12 +114,14 @@ app.use("/api/space", async (c, next) => {
   if (path === "/api/space/status") return next();
   return requireAuth(c, next);
 });
-app.use("/api/account/*", requireAuth);
-app.use("/api/account", requireAuth);
-app.use("/api/settings/*", requireAuth);
-app.use("/api/settings", requireAuth);
-app.use("/api/audit/*", requireAuth);
-app.use("/api/audit", requireAuth);
+app.use("/api/account/*", requireSession);
+app.use("/api/account", requireSession);
+app.use("/api/settings/*", requireSession);
+app.use("/api/settings", requireSession);
+app.use("/api/audit/*", requireSession);
+app.use("/api/audit", requireSession);
+app.use("/api/api-tokens/*", requireSession);
+app.use("/api/api-tokens", requireSession);
 app.use("/api/ai/*", requireAuth);
 app.use("/api/ai", requireAuth);
 
@@ -129,8 +142,8 @@ function runInBackground(c: Context<HonoEnv>, task: Promise<unknown>): void {
   c.executionCtx.waitUntil(task);
 }
 
-app.use("/api/notifications/*", requireAuth);
-app.use("/api/notifications", requireAuth);
+app.use("/api/notifications/*", requireSession);
+app.use("/api/notifications", requireSession);
 app.use("/api/gallery/*", requireAuth);
 app.use("/api/gallery", requireAuth);
 app.use("/api/integrations/*", async (c, next) => {
@@ -141,8 +154,13 @@ app.use("/api/integrations/*", async (c, next) => {
   ) {
     return next();
   }
-  return requireAuth(c, next);
+  return requireSession(c, next);
 });
+
+app.route("/api/api-tokens", createApiTokenRoutes(getDb, {
+  getSessionAuthor: (c) =>
+    getSessionAuthor(c, workerAuth(c as Context<HonoEnv>), getDb),
+}));
 
 // ─── Shared API routes ───────────────────────────────────────────────────────
 

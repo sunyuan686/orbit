@@ -85,6 +85,13 @@
       "when": 1782600000000,
       "tag": "0011_space_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1782700000000,
+      "tag": "0012_api_token",
+      "breakpoints": true
     }
   ]
 }

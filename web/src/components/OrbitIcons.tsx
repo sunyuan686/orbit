@@ -118,6 +118,17 @@ export function SettingsIcon(props: OrbitIconProps) {
   );
 }
 
+export function KeyIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <circle cx="8" cy="15" r="4" />
+      <path d="m11.5 11.5 8.5-8.5" />
+      <path d="M17 3l4 4" />
+      <path d="M14 6l2 2" />
+    </OrbitIcon>
+  );
+}
+
 export function AiIcon(props: OrbitIconProps) {
   return (
     <OrbitIcon {...props}>

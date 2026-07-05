@@ -324,6 +324,32 @@ export const notification = sqliteTable(
   ]
 );
 
+/**
+ * API Token（Phase B）
+ * 仅存 token 哈希；明文仅在创建时返回一次
+ */
+export const apiToken = sqliteTable(
+  "api_token",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    tokenPrefix: text("token_prefix").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    author: text("author").notNull().default(""),
+    lastUsedAt: integer("last_used_at"),
+    revokedAt: integer("revoked_at"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [
+    index("idx_api_token_user").on(t.userId),
+    index("idx_api_token_revoked").on(t.revokedAt),
+  ]
+);
+
 export const aiMessage = sqliteTable(
   "ai_message",
   {
