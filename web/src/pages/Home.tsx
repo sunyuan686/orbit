@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   TYPE_LABEL,
+  fetchActivityStats,
   fetchEntries,
   fetchGallery,
   fetchSpaceStatus,
@@ -10,6 +11,7 @@ import {
   formatSpaceTagline,
   getApiErrorMessage,
   shouldToastApiError,
+  type ActivityStats,
   type EntrySummary,
   type GalleryItem,
   type SpaceAuthor,
@@ -18,6 +20,7 @@ import { entryDisplayLabel } from "../lib/letterThread";
 import { useSpace } from "../lib/spaceContext";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../lib/useToast";
+import { ActivityHeatmap } from "../components/ActivityHeatmap";
 import {
   DiaryIcon,
   TimelineIcon,
@@ -90,6 +93,7 @@ export function HomePage() {
   const [authors, setAuthors] = useState<SpaceAuthor[]>([]);
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const [photos, setPhotos] = useState<GalleryItem[]>([]);
+  const [activity, setActivity] = useState<ActivityStats | null>(null);
   const [loadingFeed, setLoadingFeed] = useState(true);
 
   useEffect(() => {
@@ -107,10 +111,12 @@ export function HomePage() {
       fetchEntries("message"),
       fetchEntries("letter", { roots: true }),
       fetchGallery({ filter: "all", limit: 8, offset: 0 }),
+      fetchActivityStats(365),
     ])
-      .then(([status, diary, timeline, message, letters, gallery]) => {
+      .then(([status, diary, timeline, message, letters, gallery, activityStats]) => {
         if (cancelled) return;
         setAuthors(status.authors);
+        setActivity(activityStats);
 
         const merged: RecentItem[] = [
           ...diary.map((e) => ({ ...e, contentType: "diary" })),
@@ -188,6 +194,29 @@ export function HomePage() {
           <ChevronRightIcon size="sm" />
         </Link>
       </section>
+
+      {!loadingFeed && activity && (
+        <section className="orbit-home-section" aria-labelledby="home-activity-title">
+          <div className="orbit-home-section-header">
+            <div>
+              <h2 className="orbit-home-section-title" id="home-activity-title">
+                记录节奏
+              </h2>
+              <p className="orbit-home-activity-meta">
+                连续 {activity.streak.current} 天
+                <span className="orbit-home-activity-meta-sep" aria-hidden>
+                  ·
+                </span>
+                近 {activity.summary.rangeDays} 天活跃 {activity.summary.activeDays} 天
+              </p>
+            </div>
+            <Link to="/activity" className="orbit-text-link orbit-home-section-link">
+              查看详情
+            </Link>
+          </div>
+          <ActivityHeatmap days={activity.days} recentDays={84} compact />
+        </section>
+      )}
 
       <section className="orbit-home-quick" aria-label="快速记录">
         <p className="orbit-home-section-label">今天想记录点什么</p>
