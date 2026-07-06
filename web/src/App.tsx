@@ -8,6 +8,7 @@ import { Login } from "./pages/Login";
 import { Join } from "./pages/Join";
 import { SearchPage } from "./pages/Search";
 import { GalleryPage } from "./pages/Gallery";
+import { ActivityPage } from "./pages/Activity";
 import { HomePage } from "./pages/Home";
 import { SettingsPage } from "./pages/Settings";
 
@@ -24,6 +25,7 @@ export default function App() {
         }
       >
         <Route index element={<HomePage />} />
+        <Route path="/activity" element={<ActivityPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/gallery" element={<GalleryPage />} />
         <Route path="/settings" element={<SettingsPage />} />

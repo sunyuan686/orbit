@@ -25,6 +25,7 @@ import { createLogger } from "../lib/logger.js";
 import { requestContext } from "../lib/request-context.js";
 import { createRequireAuth } from "../lib/request-auth.js";
 import { apiTokens } from "./routes/api-tokens.js";
+import { activity } from "./routes/activity.js";
 
 const bootLog = createLogger("server");
 
@@ -94,6 +95,8 @@ app.use("/api/notifications/*", requireSession);
 app.use("/api/notifications", requireSession);
 app.use("/api/gallery/*", requireAuth);
 app.use("/api/gallery", requireAuth);
+app.use("/api/stats/*", requireAuth);
+app.use("/api/stats", requireAuth);
 app.use("/api/integrations/*", async (c, next) => {
   const path = new URL(c.req.url).pathname;
   if (
@@ -121,6 +124,7 @@ app.route("/api/ai", ai);
 app.route("/api/integrations", integrations);
 app.route("/api/notifications", notifications);
 app.route("/api/gallery", gallery);
+app.route("/api/stats/activity", activity);
 
 // 静态文件：图片资源（需登录，见上方 /assets/* 中间件）
 app.use(

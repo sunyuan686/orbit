@@ -6203,3 +6203,155 @@ a.orbit-settings-mobile-row {
     margin-top: 0;
   }
 }
+
+/* ─── Activity heatmap ───────────────────────────────────────────────────── */
+
+.orbit-activity {
+  max-width: var(--layout-settings);
+}
+
+.orbit-activity-header {
+  margin-bottom: var(--space-xl);
+}
+
+.orbit-activity-subtitle {
+  margin-top: var(--space-xs);
+  font-size: var(--type-secondary);
+}
+
+.orbit-activity-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+@media (min-width: 640px) {
+  .orbit-activity-summary {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.orbit-activity-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--color-border-light);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.orbit-activity-stat-value {
+  font-family: var(--font-heading);
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 500;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+
+.orbit-activity-stat-label {
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+}
+
+.orbit-activity-chart {
+  margin-bottom: var(--space-xl);
+}
+
+.orbit-activity-day {
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border-light);
+}
+
+.orbit-activity-heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  overflow-x: auto;
+  padding-bottom: var(--space-xs);
+}
+
+.orbit-activity-weeks {
+  display: flex;
+  gap: 3px;
+  min-width: min-content;
+}
+
+.orbit-activity-week {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.orbit-activity-cell {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: none;
+  padding: 0;
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface-raised));
+  transition: transform var(--motion-fast), box-shadow var(--motion-fast);
+}
+
+.orbit-activity-cell--compact {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.orbit-activity-cell--empty {
+  background: transparent;
+}
+
+.orbit-activity-cell--level-0 {
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface-raised));
+}
+
+.orbit-activity-cell--level-1 {
+  background: color-mix(in srgb, var(--color-accent) 28%, var(--color-surface-raised));
+}
+
+.orbit-activity-cell--level-2 {
+  background: color-mix(in srgb, var(--color-accent) 48%, var(--color-surface-raised));
+}
+
+.orbit-activity-cell--level-3 {
+  background: color-mix(in srgb, var(--color-accent) 68%, var(--color-surface-raised));
+}
+
+.orbit-activity-cell--level-4 {
+  background: color-mix(in srgb, var(--color-accent) 88%, var(--color-surface-raised));
+}
+
+button.orbit-activity-cell {
+  cursor: pointer;
+}
+
+button.orbit-activity-cell:hover {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+.orbit-activity-cell--selected {
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+.orbit-activity-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+}
+
+.orbit-home-activity-meta {
+  margin-top: var(--space-xs);
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+}
+
+.orbit-home-activity-meta-sep {
+  margin: 0 0.35rem;
+}

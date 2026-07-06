@@ -456,3 +456,19 @@ export function RedoIcon(props: OrbitIconProps) {
     </OrbitIcon>
   );
 }
+
+export function ActivityIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M3 10h18" />
+      <path d="M8 2v4" />
+      <path d="M16 2v4" />
+      <path d="M7 14h2" />
+      <path d="M11 14h2" />
+      <path d="M15 14h2" />
+      <path d="M7 18h2" />
+      <path d="M11 18h6" />
+    </OrbitIcon>
+  );
+}

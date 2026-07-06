@@ -6,7 +6,7 @@ import { useTheme, type Theme } from "../lib/useTheme";
 import { SpaceProvider, useSpace } from "../lib/spaceContext";
 import { AppSettingsProvider } from "../lib/appSettingsContext";
 import { UserAccount } from "./UserAccount";
-import { SettingsIcon, SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, GalleryIcon, HomeIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
+import { SettingsIcon, SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, GalleryIcon, ActivityIcon, HomeIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
 import { NotificationBell } from "./NotificationBell";
 import { AiChatFab } from "./AiChatFab";
 import { AiChatPanel, type AiChatContext } from "./AiChatPanel";
@@ -21,6 +21,7 @@ const navItems: { to: string; label: string; type: NavContentType }[] = [
 ];
 
 const galleryNav = { to: "/gallery", label: "相册" };
+const activityNav = { to: "/activity", label: "记录活动" };
 
 const COLLAPSED_KEY = "orbit-sidebar-collapsed";
 const WIDTH_KEY = "orbit-sidebar-width";
@@ -80,6 +81,10 @@ function LayoutShell() {
     }
     if (segment === "gallery") {
       setPageTitle("相册");
+      return;
+    }
+    if (segment === "activity") {
+      setPageTitle("记录活动");
       return;
     }
     if (segment === "settings") {
@@ -271,6 +276,18 @@ function LayoutShell() {
           >
             <GalleryIcon size="nav" className="orbit-nav-icon" />
             {!collapsed && <span className="orbit-nav-label">{galleryNav.label}</span>}
+          </NavLink>
+          <NavLink
+            to={activityNav.to}
+            className={({ isActive }) =>
+              `flex items-center rounded-md transition-colors whitespace-nowrap ${
+                collapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2"
+              } ${isActive ? "orbit-nav-item active" : "orbit-nav-item"}`
+            }
+            title={collapsed ? activityNav.label : undefined}
+          >
+            <ActivityIcon size="nav" className="orbit-nav-icon" />
+            {!collapsed && <span className="orbit-nav-label">{activityNav.label}</span>}
           </NavLink>
         </nav>
 

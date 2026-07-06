@@ -1006,3 +1006,53 @@ export function computeDaysTogetherFromIso(isoDate: string): number | null {
   if (startMs > todayMs) return null;
   return Math.floor((todayMs - startMs) / 86_400_000) + 1;
 }
+
+export interface ActivityDayCount {
+  date: string;
+  count: number;
+}
+
+export interface ActivityStreak {
+  current: number;
+  longest: number;
+}
+
+export interface ActivitySummary {
+  activeDays: number;
+  totalEntries: number;
+  rangeDays: number;
+}
+
+export interface ActivityStats {
+  days: ActivityDayCount[];
+  streak: ActivityStreak;
+  summary: ActivitySummary;
+}
+
+export interface ActivityDayEntry {
+  id: string;
+  type: string;
+  title: string | null;
+  author: string;
+  entryDate: number | null;
+}
+
+export async function fetchActivityStats(days = 365): Promise<ActivityStats> {
+  const params = new URLSearchParams({ days: String(days) });
+  const res = await fetch(`${BASE}/api/stats/activity?${params}`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载活动统计失败");
+  return res.json();
+}
+
+export async function fetchActivityDayEntries(
+  date: string
+): Promise<{ date: string; entries: ActivityDayEntry[] }> {
+  const params = new URLSearchParams({ date });
+  const res = await fetch(`${BASE}/api/stats/activity?${params}`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载当日记录失败");
+  return res.json();
+}
