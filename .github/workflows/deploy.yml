@@ -45,6 +45,10 @@ jobs:
         run: npm run build
         working-directory: web
 
+      - name: Verify PWA build artifacts
+        run: npm run verify:pwa
+        working-directory: web
+
       # 仅应用尚未记录的增量迁移（见 wrangler.toml migrations_dir）
       - name: Apply D1 migrations
         run: npx wrangler d1 migrations apply orbit-db --remote
