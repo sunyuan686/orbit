@@ -5211,7 +5211,7 @@ a.orbit-settings-mobile-row {
   align-self: flex-start;
   max-width: calc(100% - 1.75rem);
   margin: 0.75rem 0 0 0.875rem;
-  padding: 0.25rem 0.5rem;
+  padding: 0.2rem 0.35rem 0.2rem 0.45rem;
   border-radius: 6px;
   background: var(--color-bg);
   font-size: var(--type-secondary);
@@ -5219,10 +5219,42 @@ a.orbit-settings-mobile-row {
   color: var(--color-text-secondary);
 }
 
+.orbit-ai-context-pill-icon {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
 .orbit-ai-context-pill-label {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.orbit-ai-context-pill-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.orbit-ai-context-pill-dismiss:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+}
+
+.orbit-ai-context-pill-dismiss:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
 }
 
 .orbit-ai-composer-input {

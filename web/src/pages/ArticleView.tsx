@@ -26,11 +26,14 @@ import { extractToc } from "../lib/toc";
 import { getCommentCapabilities } from "../lib/commentCapabilities";
 import { canEditContent, canDeleteContent } from "../lib/contentPolicies";
 import { LetterThreadPanel } from "../components/LetterThreadPanel";
+import { useAiArticleMeta } from "../lib/aiArticleContext";
+import { formatAiArticleContextLabel } from "../lib/aiArticleLabel";
 
 export function ArticleView() {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
   const toast = useToast();
+  const { setMeta: setAiArticleMeta } = useAiArticleMeta();
   const { data: session } = authClient.useSession();
   const [entry, setEntry] = useState<EntryDetail | null>(null);
   const [comments, setComments] = useState<CommentGroups>({ bottom: [], inline: [] });
@@ -106,6 +109,15 @@ export function ArticleView() {
       cancelled = true;
     };
   }, [id, loadComments, type, toast]);
+
+  useEffect(() => {
+    if (!entry) return;
+    setAiArticleMeta({
+      articleId: entry.id,
+      title: formatAiArticleContextLabel(entry),
+    });
+    return () => setAiArticleMeta(null);
+  }, [entry, setAiArticleMeta]);
 
   const toc = useMemo(
     () => (entry ? extractToc(entry.body) : []),

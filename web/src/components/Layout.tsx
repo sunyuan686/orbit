@@ -5,6 +5,7 @@ import { setPageTitle } from "../lib/pageTitle";
 import { useTheme, type Theme } from "../lib/useTheme";
 import { SpaceProvider, useSpace } from "../lib/spaceContext";
 import { AppSettingsProvider } from "../lib/appSettingsContext";
+import { AiArticleProvider, useAiArticleMeta } from "../lib/aiArticleContext";
 import { UserAccount } from "./UserAccount";
 import { SettingsIcon, SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, GalleryIcon, ActivityIcon, HomeIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
 import { NotificationBell } from "./NotificationBell";
@@ -34,7 +35,9 @@ export function Layout() {
   return (
     <SpaceProvider>
       <AppSettingsProvider>
-        <LayoutShell />
+        <AiArticleProvider>
+          <LayoutShell />
+        </AiArticleProvider>
       </AppSettingsProvider>
     </SpaceProvider>
   );
@@ -54,6 +57,7 @@ function LayoutShell() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const { profile, loading: spaceLoading } = useSpace();
+  const { meta: aiArticleMeta } = useAiArticleMeta();
 
   const articleMatch = location.pathname.match(
     /^\/(diary|timeline|message|letter)\/([^/]+)$/
@@ -61,6 +65,13 @@ function LayoutShell() {
   const aiContext: AiChatContext = articleMatch
     ? { mode: "article", articleId: articleMatch[2] }
     : { mode: "global" };
+  const aiArticleTitle =
+    aiContext.mode === "article" &&
+    aiArticleMeta &&
+    aiArticleMeta.articleId === aiContext.articleId
+      ? aiArticleMeta.title
+      : undefined;
+  const aiArticleType = articleMatch?.[1] as NavContentType | undefined;
 
   const [prevPathname, setPrevPathname] = useState(location.pathname);
   if (location.pathname !== prevPathname) {
@@ -369,6 +380,8 @@ function LayoutShell() {
         open={aiOpen}
         onClose={() => setAiOpen(false)}
         context={aiContext}
+        articleTitle={aiArticleTitle}
+        articleType={aiArticleType}
       />
     </div>
   );

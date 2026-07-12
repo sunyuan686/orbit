@@ -22,8 +22,11 @@ import {
   ArrowUpIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  CloseIcon,
   PlusIcon,
   SearchIcon,
+  NAV_CONTENT_ICONS,
+  type NavContentType,
 } from "./OrbitIcons";
 
 export interface AiChatContext {
@@ -36,6 +39,7 @@ interface AiChatPanelProps {
   onClose: () => void;
   context: AiChatContext;
   articleTitle?: string;
+  articleType?: NavContentType;
 }
 
 const AI_PANEL_WIDTH_KEY = "orbit-ai-panel-width";
@@ -138,6 +142,7 @@ export function AiChatPanel({
   onClose,
   context,
   articleTitle,
+  articleType,
 }: AiChatPanelProps) {
   const toast = useToast();
   const [conversations, setConversations] = useState<AiConversationListItem[]>([]);
@@ -156,6 +161,7 @@ export function AiChatPanel({
   const [resizing, setResizing] = useState(false);
   const [floatingPos, setFloatingPos] = useState(() => readStoredFloatingPos(readStoredAiPanelWidth()));
   const [floatingDragging, setFloatingDragging] = useState(false);
+  const [contextDismissed, setContextDismissed] = useState(false);
   const floatingDragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const floatingPosRef = useRef(floatingPos);
   const panelRef = useRef<HTMLElement>(null);
@@ -164,11 +170,20 @@ export function AiChatPanel({
     createChatSession()
   );
   const chatSessionRef = useRef(chatSession);
-  const contextRef = useRef(context);
   const openSessionRef = useRef<string | null>(null);
   const assignConversationIdRef = useRef<(id: string | undefined) => void>(() => {});
+
+  const effectiveContext = useMemo<AiChatContext>(() => {
+    if (context.mode === "article" && !contextDismissed) {
+      return context;
+    }
+    return { mode: "global" };
+  }, [context, contextDismissed]);
+
   chatSessionRef.current = chatSession;
-  contextRef.current = context;
+
+  const effectiveContextRef = useRef(effectiveContext);
+  effectiveContextRef.current = effectiveContext;
 
   assignConversationIdRef.current = (id: string | undefined) => {
     const next = { ...chatSessionRef.current, conversationId: id };
@@ -185,7 +200,7 @@ export function AiChatPanel({
         credentials: "include",
         body: () => ({
           conversationId: chatSessionRef.current.conversationId,
-          context: contextRef.current,
+          context: effectiveContextRef.current,
         }),
         fetch: async (url, init) => {
           const res = await fetch(url, init);
@@ -209,7 +224,8 @@ export function AiChatPanel({
     setListLoading(true);
     try {
       const data = await fetchAiConversations({
-        articleId: context.mode === "article" ? context.articleId : undefined,
+        articleId:
+          effectiveContext.mode === "article" ? effectiveContext.articleId : undefined,
       });
       setConversations(data.items);
     } catch (err) {
@@ -219,7 +235,11 @@ export function AiChatPanel({
     } finally {
       setListLoading(false);
     }
-  }, [context.articleId, context.mode, toast]);
+  }, [effectiveContext.articleId, effectiveContext.mode, toast]);
+
+  useEffect(() => {
+    setContextDismissed(false);
+  }, [context.articleId, context.mode]);
 
   useEffect(() => {
     if (!open) {
@@ -227,7 +247,7 @@ export function AiChatPanel({
       return;
     }
 
-    const sessionKey = `${context.mode}:${context.articleId ?? ""}`;
+    const sessionKey = `${effectiveContext.mode}:${effectiveContext.articleId ?? ""}`;
     if (openSessionRef.current === sessionKey) return;
 
     openSessionRef.current = sessionKey;
@@ -239,7 +259,7 @@ export function AiChatPanel({
     setShowListMobile(true);
     setShowHistory(false);
     clearError();
-  }, [open, context.articleId, context.mode]);
+  }, [open, effectiveContext.articleId, effectiveContext.mode, clearError]);
 
   useEffect(() => {
     if (!open) return;
@@ -489,13 +509,13 @@ export function AiChatPanel({
   const conversationId = chatSession.conversationId;
   const activeConversation = conversations.find((item) => item.id === conversationId);
   const headerTitle = activeConversation?.title ?? "新对话";
-  const contextLabel =
-    context.mode === "article"
-      ? articleTitle ?? "文章上下文"
-      : "全局";
+  const showArticleContextPill =
+    context.mode === "article" && !contextDismissed;
+  const contextLabel = articleTitle?.trim() || "当前文档";
+  const ContextIcon = articleType ? NAV_CONTENT_ICONS[articleType] : null;
 
   const suggestions =
-    context.mode === "article"
+    effectiveContext.mode === "article"
       ? [
           "总结这篇文章",
           "帮我扩展这段内容",
@@ -718,9 +738,23 @@ export function AiChatPanel({
 
             <form className="orbit-ai-composer" onSubmit={(e) => void handleSubmit(e)}>
               <div className="orbit-ai-composer-card">
-                {context.mode === "article" ? (
+                {showArticleContextPill ? (
                   <div className="orbit-ai-context-pill">
-                    <span className="orbit-ai-context-pill-label">{contextLabel}</span>
+                    {ContextIcon ? (
+                      <ContextIcon size="sm" className="orbit-ai-context-pill-icon" />
+                    ) : null}
+                    <span className="orbit-ai-context-pill-label" title={contextLabel}>
+                      {contextLabel}
+                    </span>
+                    <button
+                      type="button"
+                      className="orbit-ai-context-pill-dismiss"
+                      aria-label="移除文章上下文"
+                      title="移除文章上下文"
+                      onClick={() => setContextDismissed(true)}
+                    >
+                      <CloseIcon size="sm" />
+                    </button>
                   </div>
                 ) : null}
                 <textarea
