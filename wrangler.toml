@@ -3,6 +3,10 @@ main = "src/worker.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Worker 靠近 D1，减少 API 多次查询的跨区 RTT
+[placement]
+mode = "smart"
+
 # 前端静态资源（vite build 输出目录）
 [assets]
 directory = "web/dist"

@@ -18,6 +18,13 @@ export interface EntrySummary {
   parentId: string | null;
 }
 
+export interface EntryListPage {
+  items: EntrySummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface EntryDetail {
   id: string;
   type: string;
@@ -191,9 +198,21 @@ async function assertOk(res: Response, fallback: string): Promise<void> {
 export async function fetchEntries(
   type: string,
   opts?: { roots?: boolean }
-): Promise<EntrySummary[]> {
+): Promise<EntrySummary[]>;
+export async function fetchEntries(
+  type: string,
+  opts: { roots?: boolean; limit: number; offset?: number }
+): Promise<EntryListPage>;
+export async function fetchEntries(
+  type: string,
+  opts?: { roots?: boolean; limit?: number; offset?: number }
+): Promise<EntrySummary[] | EntryListPage> {
   const params = new URLSearchParams({ type });
   if (opts?.roots === false) params.set("roots", "0");
+  if (opts?.limit != null) {
+    params.set("limit", String(opts.limit));
+    params.set("offset", String(opts.offset ?? 0));
+  }
   const res = await fetch(`${BASE}/api/articles?${params}`, {
     credentials: "include",
   });

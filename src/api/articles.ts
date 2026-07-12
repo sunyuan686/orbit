@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { eq, and, isNull, asc, desc } from "drizzle-orm";
+import { eq, and, isNull, asc, desc, sql } from "drizzle-orm";
 import { canEditContent, canDeleteContent } from "../content-policies.js";
 import { toPlainText, isEmptyBody } from "../lib/plain-text.js";
 import { generateId } from "../lib/id.js";
@@ -28,10 +28,39 @@ import {
 
 type DbProvider = (c: Context) => any | Promise<any>;
 
+const ARTICLES_PAGE_MAX = 100;
+
 export interface ArticleRouteOptions {
   getSessionAuthor?: (c: Context) => Promise<SessionAuthor | null>;
   getNotifyRuntime?: (c: Context) => NotifyRuntime | undefined;
   waitUntil?: (c: Context, task: Promise<unknown>) => void;
+}
+
+function parseOptionalPage(c: Context):
+  | { ok: true; paginate: false }
+  | { ok: true; paginate: true; limit: number; offset: number }
+  | { ok: false; response: Response } {
+  const limitRaw = c.req.query("limit");
+  const offsetRaw = c.req.query("offset");
+  if (limitRaw == null || limitRaw === "") {
+    return { ok: true, paginate: false };
+  }
+
+  const limitNum = Number(limitRaw);
+  const offsetNum = offsetRaw == null || offsetRaw === "" ? 0 : Number(offsetRaw);
+  if (!Number.isFinite(limitNum) || limitNum < 1) {
+    return { ok: false, response: c.json({ error: "limit 参数无效" }, 400) };
+  }
+  if (!Number.isFinite(offsetNum) || offsetNum < 0) {
+    return { ok: false, response: c.json({ error: "offset 参数无效" }, 400) };
+  }
+
+  return {
+    ok: true,
+    paginate: true,
+    limit: Math.min(Math.floor(limitNum), ARTICLES_PAGE_MAX),
+    offset: Math.floor(offsetNum),
+  };
 }
 
 function authorRequiredResponse(c: Context) {
@@ -109,13 +138,17 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
 
   // GET /api/articles?type=diary|timeline|message|letter|memo
   // letter 默认只返回主信（parentId=null）；?roots=0 返回全部
+  // 无 limit：仍返回数组（兼容）；有 limit：{ items, total, limit, offset }
   articles.get("/", async (c) => {
     const db = await getDb(c);
     const type = c.req.query("type");
     const rootsOnly = c.req.query("roots") !== "0";
+    const page = parseOptionalPage(c);
+    if (!page.ok) return page.response;
 
     if (type === "memo") {
-      const memos = await db
+      const where = isNull(memo.deletedAt);
+      const baseQuery = db
         .select({
           id: memo.id,
           type: memo.key,
@@ -125,32 +158,50 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
           entryDate: memo.updatedAt,
         })
         .from(memo)
-        .where(isNull(memo.deletedAt))
+        .where(where)
         .orderBy(asc(memo.title));
 
+      const listQuery = page.paginate
+        ? baseQuery.limit(page.limit).offset(page.offset)
+        : baseQuery;
+      const countQuery = page.paginate
+        ? db.select({ count: sql<number>`count(*)` }).from(memo).where(where).get()
+        : null;
+
+      const [memos, countRow] = await Promise.all([
+        listQuery,
+        countQuery ?? Promise.resolve(null),
+      ]);
       const nameMap = await loadUserNameMap(db, memos.map((m: { userId: string | null }) => m.userId));
-      return c.json(
-        memos.map(
-          (m: {
-            id: string;
-            title: string;
-            author: string;
-            userId: string | null;
-            entryDate: number;
-          }) => {
-            const authorName = resolveUserName(nameMap, m.userId, m.author);
-            return {
-              id: m.id,
-              type: "memo",
-              title: m.title,
-              userId: m.userId,
-              author: authorName,
-              authorName,
-              entryDate: m.entryDate,
-            };
-          }
-        )
+      const items = memos.map(
+        (m: {
+          id: string;
+          title: string;
+          author: string;
+          userId: string | null;
+          entryDate: number;
+        }) => {
+          const authorName = resolveUserName(nameMap, m.userId, m.author);
+          return {
+            id: m.id,
+            type: "memo",
+            title: m.title,
+            userId: m.userId,
+            author: authorName,
+            authorName,
+            entryDate: m.entryDate,
+          };
+        }
       );
+
+      if (!page.paginate) return c.json(items);
+
+      return c.json({
+        items,
+        total: Number(countRow?.count ?? 0),
+        limit: page.limit,
+        offset: page.offset,
+      });
     }
 
     const conditions = [isNull(entry.deletedAt)];
@@ -160,8 +211,9 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     if (type === "letter" && rootsOnly) {
       conditions.push(isNull(entry.parentId));
     }
+    const where = and(...conditions);
 
-    const entries = await db
+    const baseQuery = db
       .select({
         id: entry.id,
         type: entry.type,
@@ -173,11 +225,33 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
         parentId: entry.parentId,
       })
       .from(entry)
-      .where(and(...conditions))
+      .where(where)
       .orderBy(desc(entry.entryDate), desc(entry.createdAt));
 
+    const listQuery = page.paginate
+      ? baseQuery.limit(page.limit).offset(page.offset)
+      : baseQuery;
+    const countQuery = page.paginate
+      ? db.select({ count: sql<number>`count(*)` }).from(entry).where(where).get()
+      : null;
+
+    const [entries, countRow] = await Promise.all([
+      listQuery,
+      countQuery ?? Promise.resolve(null),
+    ]);
     const nameMap = await loadUserNameMap(db, entries.map((e: { userId: string | null }) => e.userId));
-    return c.json(entries.map((row: Parameters<typeof mapEntrySummary>[0]) => mapEntrySummary(row, nameMap)));
+    const items = entries.map((row: Parameters<typeof mapEntrySummary>[0]) =>
+      mapEntrySummary(row, nameMap)
+    );
+
+    if (!page.paginate) return c.json(items);
+
+    return c.json({
+      items,
+      total: Number(countRow?.count ?? 0),
+      limit: page.limit,
+      offset: page.offset,
+    });
   });
 
   // GET /api/articles/:id/replies — 某封信的回信列表

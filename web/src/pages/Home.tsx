@@ -106,10 +106,10 @@ export function HomePage() {
 
     void Promise.all([
       fetchSpaceStatus(),
-      fetchEntries("diary"),
-      fetchEntries("timeline"),
-      fetchEntries("message"),
-      fetchEntries("letter", { roots: true }),
+      fetchEntries("diary", { limit: 8, offset: 0 }),
+      fetchEntries("timeline", { limit: 8, offset: 0 }),
+      fetchEntries("message", { limit: 8, offset: 0 }),
+      fetchEntries("letter", { roots: true, limit: 8, offset: 0 }),
       fetchGallery({ filter: "all", limit: 8, offset: 0 }),
       fetchActivityStats(365),
     ])
@@ -119,10 +119,10 @@ export function HomePage() {
         setActivity(activityStats);
 
         const merged: RecentItem[] = [
-          ...diary.map((e) => ({ ...e, contentType: "diary" })),
-          ...timeline.map((e) => ({ ...e, contentType: "timeline" })),
-          ...message.map((e) => ({ ...e, contentType: "message" })),
-          ...letters.map((e) => ({ ...e, contentType: "letter" })),
+          ...diary.items.map((e) => ({ ...e, contentType: "diary" })),
+          ...timeline.items.map((e) => ({ ...e, contentType: "timeline" })),
+          ...message.items.map((e) => ({ ...e, contentType: "message" })),
+          ...letters.items.map((e) => ({ ...e, contentType: "letter" })),
         ];
         merged.sort((a, b) => (b.entryDate ?? 0) - (a.entryDate ?? 0));
         setRecent(merged.slice(0, 6));

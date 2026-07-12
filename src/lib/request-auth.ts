@@ -1,9 +1,6 @@
 import type { Context, Next } from "hono";
-import { eq } from "drizzle-orm";
 import type { Auth } from "../auth.js";
-import { user } from "../db/schema.js";
 import type { SessionAuthor } from "../api/session-author.js";
-import { isSpaceUserId } from "../services/space-authors.js";
 import { verifyApiToken } from "../services/api-token.js";
 
 declare module "hono" {
@@ -37,24 +34,18 @@ export async function resolveSessionAuthor(
     // not set yet
   }
 
+  // 信任 better-auth session（含 cookieCache）；不再重复查 user / isSpaceUserId
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (session?.user?.id) {
-    const db = await getDb(c);
-    const row = await db
-      .select({ id: user.id, name: user.name })
-      .from(user)
-      .where(eq(user.id, session.user.id))
-      .get();
-
-    if (row?.name?.trim() && (await isSpaceUserId(db, row.id))) {
-      const author: SessionAuthor = {
-        userId: row.id,
-        author: row.name.trim(),
-      };
-      c.set("sessionAuthor", author);
-      c.set("authMethod", "session");
-      return author;
-    }
+  const sessionName =
+    typeof session?.user?.name === "string" ? session.user.name.trim() : "";
+  if (session?.user?.id && sessionName) {
+    const author: SessionAuthor = {
+      userId: session.user.id,
+      author: sessionName,
+    };
+    c.set("sessionAuthor", author);
+    c.set("authMethod", "session");
+    return author;
   }
 
   const bearer = parseBearerToken(c.req.header("Authorization"));
