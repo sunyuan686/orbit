@@ -3,6 +3,7 @@ import type { Context } from "hono";
 import { eq, and, isNull, asc, desc } from "drizzle-orm";
 import { canEditContent, canDeleteContent } from "../content-policies.js";
 import { toPlainText, isEmptyBody } from "../lib/plain-text.js";
+import { generateId } from "../lib/id.js";
 import { getRequestId } from "../lib/request-context.js";
 import { loadUserNameMap, resolveUserName } from "../lib/author-present.js";
 import {
@@ -53,16 +54,6 @@ async function requireSessionAuthor(
 
 function now(): number {
   return Math.floor(Date.now() / 1000);
-}
-
-function generateId(prefix: string): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(10));
-  let suffix = "";
-  for (const byte of bytes) {
-    suffix += chars[byte % chars.length];
-  }
-  return `${prefix}_${suffix}`;
 }
 
 async function auditArticleWrite(

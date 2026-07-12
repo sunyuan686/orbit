@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { eq } from "drizzle-orm";
 import { asset } from "../db/schema.js";
+import { generateId } from "../lib/id.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 
@@ -13,16 +14,6 @@ interface SaveAssetInput {
 
 interface AssetStorage {
   save(input: SaveAssetInput, c: Context): Promise<string>;
-}
-
-function generateId(prefix: string): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(10));
-  let suffix = "";
-  for (const byte of bytes) {
-    suffix += chars[byte % chars.length];
-  }
-  return `${prefix}_${suffix}`;
 }
 
 async function sha256Prefix(body: ArrayBuffer): Promise<string> {

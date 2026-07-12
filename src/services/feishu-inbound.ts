@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, isNull, lt } from "drizzle-orm";
 import { entry, asset } from "../db/schema.js";
 import { toPlainText } from "../lib/plain-text.js";
+import { generateId } from "../lib/id.js";
 import {
   resolveUserIdFromOpenId,
   type FeishuConfigStored,
@@ -28,16 +29,6 @@ import type { AiRuntimeEnv } from "./ai-model.js";
 
 function now(): number {
   return Math.floor(Date.now() / 1000);
-}
-
-function generateId(prefix: string): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(10));
-  let suffix = "";
-  for (const byte of bytes) {
-    suffix += chars[byte % chars.length];
-  }
-  return `${prefix}_${suffix}`;
 }
 
 function textToHtml(text: string): string {

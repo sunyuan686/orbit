@@ -10,6 +10,7 @@ import {
 import { createSpaceUser } from "../services/user-signup.js";
 import { recordAudit } from "../services/audit.js";
 import { getRequestId } from "../lib/request-context.js";
+import { generateId } from "../lib/id.js";
 import type { SessionAuthor } from "./session-author.js";
 import { INVALID_SESSION_ERROR } from "./session-author.js";
 
@@ -24,16 +25,6 @@ export interface InviteRouteOptions {
 
 function now(): number {
   return Math.floor(Date.now() / 1000);
-}
-
-function generateId(prefix: string): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(10));
-  let suffix = "";
-  for (const byte of bytes) {
-    suffix += chars[byte % chars.length];
-  }
-  return `${prefix}_${suffix}`;
 }
 
 function generateToken(): string {

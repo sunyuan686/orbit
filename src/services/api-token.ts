@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { apiToken } from "../db/schema.js";
 import type { SessionAuthor } from "../api/session-author.js";
+import { generateId } from "../lib/id.js";
 
 export const API_TOKEN_PREFIX = "orb_";
 export const MAX_API_TOKENS = 10;
@@ -22,16 +23,6 @@ export interface CreateApiTokenResult extends ApiTokenListItem {
 
 function now(): number {
   return Math.floor(Date.now() / 1000);
-}
-
-function generateId(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(10));
-  let suffix = "";
-  for (const byte of bytes) {
-    suffix += chars[byte % chars.length];
-  }
-  return `atk_${suffix}`;
 }
 
 export function generateApiTokenValue(): string {
@@ -136,7 +127,7 @@ export async function createApiToken(
 
   const token = generateApiTokenValue();
   const tokenHash = await hashApiToken(token);
-  const id = generateId();
+  const id = generateId("atk");
   const timestamp = now();
 
   await db.insert(apiToken).values({

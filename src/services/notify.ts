@@ -15,6 +15,7 @@ import { recordAudit } from "./audit.js";
 import type { AiRuntimeEnv } from "./ai-model.js";
 import { getOtherUserId, getUserById } from "./space-authors.js";
 import { loadUserNameMap, resolveUserName } from "../lib/author-present.js";
+import { generateId } from "../lib/id.js";
 
 const FEISHU_MIN_INTERVAL_MS = 220;
 
@@ -41,16 +42,6 @@ export interface DispatchNotificationInput {
 
 function now(): number {
   return Math.floor(Date.now() / 1000);
-}
-
-function generateId(prefix: string): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(10));
-  let suffix = "";
-  for (const byte of bytes) {
-    suffix += chars[byte % chars.length];
-  }
-  return `${prefix}_${suffix}`;
 }
 
 export function buildContentLink(
