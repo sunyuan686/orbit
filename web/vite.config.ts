@@ -1,9 +1,76 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { VitePWA } from "vite-plugin-pwa";
+
+/** R2 / 本地媒体：8 位十六进制 hash + 图片扩展名，与 Vite 打包产物区分 */
+const USER_MEDIA_ASSET = /^\/assets\/[a-f0-9]{8}\.(?:jpe?g|png|gif|webp)$/i;
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    VitePWA({
+      registerType: "autoUpdate",
+      includeAssets: [
+        "favicon.svg",
+        "apple-touch-icon.png",
+        "pwa-192.png",
+        "pwa-512.png",
+        "pwa-maskable-512.png",
+      ],
+      manifest: {
+        id: "/",
+        name: "Orbit",
+        short_name: "Orbit",
+        description: "两个人的时间轨道",
+        lang: "zh-CN",
+        start_url: "/",
+        scope: "/",
+        display: "standalone",
+        orientation: "portrait-primary",
+        theme_color: "#1c1917",
+        background_color: "#fafaf9",
+        categories: ["lifestyle", "productivity"],
+        icons: [
+          {
+            src: "pwa-192.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "pwa-512.png",
+            sizes: "512x512",
+            type: "image/png",
+          },
+          {
+            src: "pwa-maskable-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
+        ],
+      },
+      workbox: {
+        navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/api\//, USER_MEDIA_ASSET],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webmanifest}"],
+        runtimeCaching: [
+          {
+            urlPattern: USER_MEDIA_ASSET,
+            handler: "NetworkOnly",
+          },
+          {
+            urlPattern: /^\/api\//,
+            handler: "NetworkOnly",
+          },
+        ],
+      },
+      devOptions: {
+        enabled: false,
+      },
+    }),
+  ],
   server: {
     // cloudflared 走 127.0.0.1（IPv4）；默认 localhost 在 macOS 上可能只绑 ::1
     host: "127.0.0.1",

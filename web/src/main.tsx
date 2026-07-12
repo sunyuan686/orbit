@@ -4,7 +4,10 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { ToastProvider } from "./lib/useToast";
 import { globalLogger } from "./lib/logger";
+import { registerPwaServiceWorker } from "./lib/pwa";
 import "./index.css";
+
+registerPwaServiceWorker();
 
 if (import.meta.env.DEV) {
   window.addEventListener("error", (event) => {

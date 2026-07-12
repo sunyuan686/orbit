@@ -31,7 +31,7 @@
 | 阶段        | 名称     | 状态  | 说明                                                    |
 | --------- | ------ | --- | ----------------------------------------------------- |
 | Phase 1–4 | 核心平台   | ✅   | 数据层、认证、CRUD、TipTap、Cloudflare 部署                      |
-| Phase A   | 体验补齐   | 🚧  | 审计日志、结构化日志、评论编辑 UI、**账号开通泛化**（可配置爱称 + 邀请加入）已落地；组件细节打磨（按钮/动效/图标）**进行中**；PWA 待做 |
+| Phase A   | 体验补齐   | 🚧  | 审计日志、结构化日志、评论编辑 UI、**账号开通泛化**（可配置爱称 + 邀请加入）已落地；**PWA 已落地**；组件细节打磨（按钮/动效/图标）**进行中** |
 | Phase B   | 外部集成   | ⚠️  | **飞书 Bot MVP 已落地**；**API Token MVP 已落地**；GitHub 同步、MCP 待做；Telegram 优先级最低 |
 | Phase C   | 协作增强   | ⚠️  | **消息通知 MVP 已落地**（站内铃铛 + 飞书出站、偏好设置）；版本历史、双人联署待做 |
 | Phase D   | AI 与扩展 | 🚧  | AI 聊天助手与模型配置 MVP 已落地；智能总结、恋爱地图、共同爱好等待做               |
@@ -166,6 +166,7 @@ Orbit 是**双人情侣空间**，账号开通遵循「一人注册 → 邀请�
 | 双模式运行         | ✅   | Node 本地 + Cloudflare 生产        | `src/server/`，`src/worker.ts`                                                               |
 | CI/CD 部署      | ✅   | push main 自动部署                 | `.github/workflows/deploy.yml`                                                              |
 | 响应式 + 暗色主题    | ✅   | 移动端布局、主题切换                     | `web/src/components/Layout.tsx`                                                             |
+| PWA（可安装 + 离线壳） | ✅   | `manifest`、Service Worker 缓存静态资源；`/api` 与用户媒体走 NetworkOnly | `web/vite.config.ts`，`web/src/lib/pwa.ts`，`web/scripts/verify-pwa.mjs` |
 | 文章目录 TOC      | ✅   | 桌面左侧可折叠 TOC 轨（默认收起）+ 移动 FAB/抽屉 | `TableOfContents.tsx`，`railPreferences.ts`；见 [MARGINALIA-LAYOUT.md](./MARGINALIA-LAYOUT.md) |
 | 国际化 / 多语言     | 📋  | 界面文案 i18n（如中 / 英切换）、日期与数字本地化；富文本与搜索对多语言内容的策略待定 | — |
 
@@ -350,7 +351,7 @@ Orbit 是**双人情侣空间**，账号开通遵循「一人注册 → 邀请�
 | 记账              | 💡  | 独立模块                     |
 | 立体书             | 💡  | 创意展示，优先级较低               |
 | 彩蛋惊喜            | 💡  | 见「设计与体验」；隐藏交互与惊喜时刻，优先级最低 |
-| 移动端 APP         | 💡  | PWA 优先，原生壳待定             |
+| 移动端 APP         | ⚠️  | **PWA 已落地**；原生壳待定             |
 
 
 ---
@@ -378,9 +379,10 @@ Orbit 是**双人情侣空间**，账号开通遵循「一人注册 → 邀请�
 15. [x] 飞书消息通知（Phase C，见「消息通知」）
 16. [x] 电子相册 MVP（Phase E，`/gallery`；见 [GALLERY.md](./GALLERY.md)）
 17. [x] 写作热力图与连续记录（Phase E，`/activity`；见 [ACTIVITY.md](./ACTIVITY.md)）
-18. [ ] MCP 端点（Phase B）
-19. [ ] GitHub 双向同步（Phase B）
-20. [ ] Telegram 接入（Phase B，**优先级最低**，见「IM 连接」）
+18. [x] PWA：可安装应用 + 离线壳（Phase A；`web/vite.config.ts` + `npm run verify:pwa`）
+19. [ ] MCP 端点（Phase B）
+20. [ ] GitHub 双向同步（Phase B）
+21. [ ] Telegram 接入（Phase B，**优先级最低**，见「IM 连接」）
 
 **后续方向（未排期）**：国际化 / 多语言（见「平台能力」，界面与本地化）；内容模板管理（见「内容分类」，降低各类型内容创建门槛）；审计日志浏览页（见「可观测性与日志」）；首页 / 仪表盘（纪念日、照片、近期内容等，展示形式待定，依赖空间档案与 `asset` 数据）；信件仪式感呈现（信纸、信封、邮票等，见「内容分类」，优先级低）；飞书第二期（`留言：` / `信：` 前缀、AI `/summary` 月报，见 [FEISHU.md](./FEISHU.md)）；更多 IM 平台连接器（微信、Discord 等，见「IM 连接」）；彩蛋惊喜（隐藏交互、纪念日动效等，见「设计与体验」，优先级最低）。
 
