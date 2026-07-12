@@ -4,7 +4,7 @@
 >
 > SDK：**Vercel AI SDK**（`ai`）+ **Cloudflare Workers AI**（`workers-ai-provider`）
 >
-> 功能进度见 [ROADMAP.md](./ROADMAP.md#ai-能力phase-d)；架构背景见 [ARCHITECTURE.md](./ARCHITECTURE.md)。
+> 功能进度见 [ROADMAP.md](../../ROADMAP.md#aiphase-d)；架构背景见 [ARCHITECTURE.md](../ARCHITECTURE.md)。
 
 ---
 
@@ -111,7 +111,7 @@ toDataStreamResponse() → 前端流式渲染
 
 ### 3.2 双模式运行与 Workers AI 接入
 
-与 [ARCHITECTURE.md#双模式运行](./ARCHITECTURE.md#双模式运行) 一致：`src/api/ai.ts` 在 Node Server 与 Worker 间共享。
+与 [ARCHITECTURE.md#双模式运行](../ARCHITECTURE.md#双模式运行) 一致：`src/api/ai.ts` 在 Node Server 与 Worker 间共享。
 
 **本地完全可以走 Workers AI。** 分环境不是因为「本地不能用 CF 模型」，而是因为 **接入方式** 不同：
 
@@ -209,7 +209,7 @@ binding = "AI"
 
 ### 4.4 设置页 UI
 
-在 [Settings.tsx](../web/src/pages/Settings.tsx) 新增「AI」区块：
+在 [Settings.tsx](../../../web/src/pages/Settings.tsx) 新增「AI」区块：
 
 - Provider 单选：Cloudflare（默认）/ OpenAI / Anthropic
 - API Key 密码框（保存后显示「已配置」，可清除）
@@ -396,7 +396,7 @@ ORDER BY updated_at DESC
 `buildSystemPrompt(context)` 职责：
 
 1. **身份**：Orbit 情侣空间助手，语气温暖、简洁，用中文
-2. **作者规范**：小圆子 / 小麟子（与 [ARCHITECTURE.md#作者规范](./ARCHITECTURE.md#作者规范) 一致）
+2. **作者规范**：小圆子 / 小麟子（与 [ARCHITECTURE.md#作者规范](../ARCHITECTURE.md#作者规范) 一致）
 3. **能力说明**：可搜索日记、时间线、留言、信件、备忘录；不确定时先 `search_entries`
 4. **隐私**：不编造未检索到的内容；引用时说明来源标题与日期
 5. **context=article**：注入当前文标题、`entryDate`、作者、`bodyText` 摘要（全文过长则截断 + 提示可用 `get_entry`）
@@ -419,7 +419,7 @@ ORDER BY updated_at DESC
 }
 ```
 
-实现：复用 `createSearchService(db).search()`（[src/services/search.ts](../src/services/search.ts)）。
+实现：复用 `createSearchService(db).search()`（[src/services/search.ts](../../../src/services/search.ts)）。
 
 返回：`(id, type, title, entryDate, snippet)[]`。
 
@@ -489,7 +489,7 @@ ORDER BY updated_at DESC
 | `Layout.tsx` 全局按钮 | `mode: global` |
 | `ArticleView.tsx` 文章内按钮 | `mode: article`, `articleId` |
 
-桌面：右侧浮层（宽 360–400px）；移动：全屏 Sheet。样式遵循 [DESIGN.md](../DESIGN.md)。
+桌面：右侧浮层（宽 360–400px）；移动：全屏 Sheet。样式遵循 [DESIGN.md](../../DESIGN.md)。
 
 文章页打开面板时：`?articleId=` 筛会话列表，新对话默认 `contextMode=article`。
 
@@ -627,7 +627,7 @@ async function setShared(conversationId: string, shared: boolean) {
 
 | 文档 | 用途 |
 |------|------|
-| [ROADMAP.md](./ROADMAP.md) | AI 功能状态与优先级 |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | 双模式、表结构、搜索 |
-| [DESIGN.md](./DESIGN.md) | 聊天 UI 视觉规范 |
+| [ROADMAP.md](../../ROADMAP.md) | AI 功能状态与优先级 |
+| [ARCHITECTURE.md](../ARCHITECTURE.md) | 双模式、表结构、搜索 |
+| [DESIGN.md](../../DESIGN.md) | 聊天 UI 视觉规范 |
 | [Cloudflare Workers AI + AI SDK](https://developers.cloudflare.com/workers-ai/configuration/ai-sdk/) | Provider 官方集成说明 |

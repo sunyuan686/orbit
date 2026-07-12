@@ -1,8 +1,8 @@
 # 记录活动（写作热力图）
 
 > 可视化双人空间的写作节奏：按日聚合、连续记录（streak）、近一年热力图。  
-> 进度见 [ROADMAP.md](./ROADMAP.md)（Phase E · 热力图）。  
-> 首页摘要见 [HOME.md](./HOME.md)「记录节奏」。
+> 进度见 [ROADMAP.md](../../ROADMAP.md)（Phase E · 热力图）。  
+> 首页摘要见 [home.md](./home.md)「记录节奏」。
 
 ---
 

@@ -61,10 +61,11 @@ BREAKING CHANGE: /api/import-md removed; content is managed in the database via 
 
 | 文档 | 何时更新 | 是否手改 |
 |------|----------|----------|
-| [docs/ROADMAP.md](./ROADMAP.md) | 功能状态变化、排期调整 | ✅ 手改 |
-| [docs/ARCHITECTURE.md](./ARCHITECTURE.md) | 架构、表结构、目录变更 | ✅ 手改 |
-| [docs/DEBUGGING.md](./DEBUGGING.md) | 白屏/边注等排障案例、日志约定 | ✅ 手改 |
-| [docs/BUGS.md](./BUGS.md) | 已知 Bug 清单与回归记录 | ✅ 手改 |
+| [ROADMAP.md](../ROADMAP.md) | 功能状态变化、排期调整 | ✅ 手改 |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | 架构、表结构、目录变更 | ✅ 手改 |
+| [DEBUGGING.md](./DEBUGGING.md) | 白屏/边注等排障案例、日志约定 | ✅ 手改 |
+| [BUGS.md](./BUGS.md) | 已知 Bug 清单与回归记录 | ✅ 手改 |
+| [specs/](./specs/) | 各产品能力设计稿（对应 ROADMAP 条目）；文件名小写 + `-` | ✅ 手改 |
 | [DESIGN.md](../DESIGN.md) | 视觉 token、组件、文案规则变更 | ✅ 手改，并同步 `web/src/index.css` |
 | [CHANGELOG.md](../CHANGELOG.md) | 每次发布 | ❌ **由 release-please 自动生成** |
 | [README.md](../README.md) | 启动方式、项目定位变化 | ✅ 手改 |
@@ -73,10 +74,10 @@ BREAKING CHANGE: /api/import-md removed; content is managed in the database via 
 
 功能 PR 合并前请确认：
 
-- [ ] 若涉及功能增减，已更新 `docs/ROADMAP.md` 对应行状态
+- [ ] 若涉及功能增减，已更新 [ROADMAP.md](../ROADMAP.md) 对应行状态
 - [ ] 若改 UI，已对照 [DESIGN.md](../DESIGN.md)，并同步 `web/src/index.css` tokens
 - [ ] commit message 符合 Conventional Commits
-- [ ] 若改架构，已更新 `docs/ARCHITECTURE.md`
+- [ ] 若改架构，已更新 [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 ---
 

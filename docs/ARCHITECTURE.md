@@ -1,6 +1,6 @@
 # Orbit 架构说明
 
-> 描述系统如何运行、技术选型与目录结构。功能进度见 [ROADMAP.md](./ROADMAP.md)，版本发布见 [CHANGELOG.md](../CHANGELOG.md)。
+> 描述系统如何运行、技术选型与目录结构。功能进度见 [ROADMAP.md](../ROADMAP.md)，版本发布见 [CHANGELOG.md](../CHANGELOG.md)。
 
 ---
 
@@ -24,7 +24,7 @@
 | 生产 | `src/worker.ts` | Cloudflare D1 | Cloudflare R2 |
 
 - **共享 API**：`src/api/`，Node.js Server 与 Worker 复用同一套路由
-- **认证**：`better-auth`，邮箱 + 密码，最多 2 个账号（情侣专属）；开通与署名见 [SPACE-ONBOARDING.md](./SPACE-ONBOARDING.md)
+- **认证**：`better-auth`，邮箱 + 密码，最多 2 个账号（情侣专属）；开通与署名见 [space-onboarding.md](./specs/space-onboarding.md)
 - **部署**：push 到 `main` → GitHub Actions 自动 `wrangler deploy`（见 `.github/workflows/deploy.yml`）
 
 ---
@@ -58,7 +58,7 @@ comment    — 底部评论 + 行内边注
 settings   — 全局配置（纪念日、主题色 accent 等）；空间档案 `GET/PUT /api/space`，偏好 `GET/PUT /api/settings`
 audit_log  — 操作审计（创建 / 编辑 / 删除 / 评论 / 空间与设置变更 / API Token）；`GET /api/audit`
 api_token  — 外部访问 Bearer Token（仅存哈希）；`GET/POST/DELETE /api/api-tokens`（管理需会话）
-ai_conversation / ai_message  — AI 聊天会话与消息（见 [AI.md](./AI.md)）
+ai_conversation / ai_message  — AI 聊天会话与消息（见 [ai.md](./specs/ai.md)）
 user / session / account / verification  — better-auth 标准表
 ```
 
@@ -68,7 +68,7 @@ user / session / account / verification  — better-auth 标准表
 |------|------|
 | `type` | `diary` \| `timeline` \| `message` \| `letter` |
 | `userId` | **作者身份**（`user.id`）；权限与通知关联以此为准 |
-| `author` | 冗余爱称（写入时同步 `user.name`）；FTS / 兼容用；**展示**由 `userId` → `user.name` resolve，见 [SPACE-ONBOARDING.md](./SPACE-ONBOARDING.md) |
+| `author` | 冗余爱称（写入时同步 `user.name`）；FTS / 兼容用；**展示**由 `userId` → `user.name` resolve，见 [space-onboarding.md](./specs/space-onboarding.md) |
 | `modifiedByUserId` | 最后编辑者身份（**待 migration 补列**） |
 | `modifiedBy` | 冗余爱称；展示由 `modifiedByUserId` → `user.name` resolve |
 | `body` | TipTap 输出的 HTML |
@@ -142,7 +142,7 @@ user / session / account / verification  — better-auth 标准表
 
 ### 作者与爱称
 
-空间内作者以 `user.id` + `user.name`（爱称）为准；各业务表 `user_id` 与 `author` **双写**。开通、邀请、改爱称见 [SPACE-ONBOARDING.md](./SPACE-ONBOARDING.md)。
+空间内作者以 `user.id` + `user.name`（爱称）为准；各业务表 `user_id` 与 `author` **双写**。开通、邀请、改爱称见 [space-onboarding.md](./specs/space-onboarding.md)。
 
 存量实例规范名「小圆子 / 小麟子」及别名映射见 `src/authors.ts`（迁移回填用）。
 
@@ -193,7 +193,7 @@ orbit/
 │       └── lib/
 ├── scripts/                    # 运维脚本（搜索状态、R2 上传等）
 ├── content/                    # Markdown 归档（不自动同步 DB）
-├── docs/                       # 项目文档
+├── docs/                       # 项目文档（平台见顶层；specs/ 产品 spec；archive/ 历史）
 ├── data/                       # 本地运行时（.gitignore）
 ├── drizzle.config.ts
 ├── wrangler.toml
@@ -208,10 +208,10 @@ orbit/
 
 | 文档 | 用途 |
 |------|------|
-| [ROADMAP.md](./ROADMAP.md) | 功能清单与迭代计划 |
-| [AI.md](./AI.md) | AI 集成设计（Vercel AI SDK + Workers AI） |
-| [API-TOKEN.md](./API-TOKEN.md) | API Token 与 Bearer 鉴权 |
+| [ROADMAP.md](../ROADMAP.md) | 功能清单与迭代计划 |
+| [specs/ai.md](./specs/ai.md) | AI 集成设计（Vercel AI SDK + Workers AI） |
+| [specs/api-token.md](./specs/api-token.md) | API Token 与 Bearer 鉴权 |
 | [CHANGELOG.md](../CHANGELOG.md) | 版本发布记录（自动生成） |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | 提交规范与文档维护 |
-| [ALIGNMENT_PLAN.md](./ALIGNMENT_PLAN.md) | 历史技术对齐计划（Phase 1–4 已完成） |
-| [DB_DESIGN_REVIEW.md](./DB_DESIGN_REVIEW.md) | 历史表设计 review |
+| [archive/alignment-plan.md](./archive/alignment-plan.md) | 历史技术对齐计划（Phase 1–4 已完成） |
+| [archive/db-design-review.md](./archive/db-design-review.md) | 历史表设计 review |

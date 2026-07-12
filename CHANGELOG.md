@@ -4,7 +4,7 @@
 
 **v0.0.1 为基线发布**（手工整理历史能力）。此后由 [release-please](https://github.com/googleapis/release-please) 根据 Conventional Commits 自动更新。
 
-功能路线图见 [docs/ROADMAP.md](docs/ROADMAP.md)。
+功能路线图见 [ROADMAP.md](ROADMAP.md)。
 
 ---
 

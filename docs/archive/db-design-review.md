@@ -1,9 +1,9 @@
 # 数据库表设计 Review
 
 > ⚠️ **历史文档**：部分建议已采纳（如仅存 `storage_key`、FTS5 虚拟表、去掉 `body_html`）。
-> 当前表结构以 [ARCHITECTURE.md](./ARCHITECTURE.md) 与 `src/db/schema.ts` 为准。
+> 当前表结构以 [ARCHITECTURE.md](../ARCHITECTURE.md) 与 `src/db/schema.ts` 为准。
 >
-> 基于 `ALIGNMENT_PLAN.md` 中的 4 张表设计（entry / asset / memo / settings）
+> 基于 [alignment-plan.md](./alignment-plan.md) 中的 4 张表设计（entry / asset / memo / settings）
 
 ---
 

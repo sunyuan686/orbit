@@ -174,4 +174,4 @@
 
 ## 相关文档
 
-- [DESIGN.md](../DESIGN.md) · [ARCHITECTURE.md](./ARCHITECTURE.md) · [ROADMAP.md](./ROADMAP.md)
+- [DESIGN.md](../../DESIGN.md) · [ARCHITECTURE.md](../ARCHITECTURE.md) · [ROADMAP.md](../../ROADMAP.md)

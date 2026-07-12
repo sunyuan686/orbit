@@ -429,7 +429,7 @@ Edit and read modes **must share** the same heading sizes, blockquote, code, and
 - **Inline highlight** in prose: amber `highlight-comment`—warm, not system yellow
 - Quote block: left border + `surface-raised` fill (`.orbit-comment-quote`)
 
-Detail: [docs/MARGINALIA-LAYOUT.md](docs/MARGINALIA-LAYOUT.md)
+Detail: [docs/specs/marginalia-layout.md](docs/specs/marginalia-layout.md)
 
 ### Forms
 

@@ -1,6 +1,6 @@
 # Orbit 已知 Bug 清单
 
-> 记录已确认、尚未修复的问题。排障流程见 [DEBUGGING.md](./DEBUGGING.md)，功能进度见 [ROADMAP.md](./ROADMAP.md)。
+> 记录已确认、尚未修复的问题。排障流程见 [DEBUGGING.md](./DEBUGGING.md)，功能进度见 [ROADMAP.md](../ROADMAP.md)。
 >
 > 最后更新：2026-06-26
 
@@ -191,8 +191,8 @@ document.querySelector('[data-comment-id="<comment_id>"]')
 ## 相关文档
 
 - [DEBUGGING.md](./DEBUGGING.md) — 排障案例与 TipTap 陷阱
-- [MARGINALIA-LAYOUT.md](./MARGINALIA-LAYOUT.md) — 边注交互设计
-- [ROADMAP.md](./ROADMAP.md) — 功能进度与排期
+- [marginalia-layout.md](./specs/marginalia-layout.md) — 边注交互设计
+- [ROADMAP.md](../ROADMAP.md) — 功能进度与排期
 
 ---
 

@@ -16,7 +16,7 @@
 
 | 文档 | 说明 |
 |------|------|
-| [docs/ROADMAP.md](docs/ROADMAP.md) | **功能清单与迭代进度**（单一进度源） |
+| [ROADMAP.md](ROADMAP.md) | **功能清单与迭代进度**（单一进度源） |
 | [DESIGN.md](DESIGN.md) | **视觉设计标准**（Design Tokens、组件、文案；AI Agent 可读） |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架构、技术栈、数据库、目录结构 |
 | [CHANGELOG.md](CHANGELOG.md) | 版本发布记录（Conventional Commits 自动生成） |
@@ -79,7 +79,7 @@ push 到 `main` 分支 → GitHub Actions 自动构建并部署到 Cloudflare Wo
 
 Orbit 支持五类内容：**日记**、**时间线**、**留言板**、**信箱**、**备忘录**，配备 TipTap 富文本编辑、图片上传、FTS5 全文搜索、行内边注评论等能力。
 
-👉 完整功能状态与迭代计划见 **[docs/ROADMAP.md](docs/ROADMAP.md)**
+👉 完整功能状态与迭代计划见 **[ROADMAP.md](ROADMAP.md)**
 
 ---
 

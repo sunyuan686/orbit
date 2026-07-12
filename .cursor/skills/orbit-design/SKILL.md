@@ -73,6 +73,5 @@ Full list: `index.css` or DESIGN.md Components section.
 ## References
 
 - Spec: [DESIGN.md](../../DESIGN.md)
-- Layout: [docs/MARGINALIA-LAYOUT.md](../../docs/MARGINALIA-LAYOUT.md)
-- Index: [docs/DESIGN.md](../../docs/DESIGN.md)
+- Layout: [docs/specs/marginalia-layout.md](../../docs/specs/marginalia-layout.md)
 - Aesthetic refs: [Notion](https://getdesign.md/notion/design-md), [Geist](https://vercel.com/design.md) (structure only)

@@ -3,7 +3,7 @@
 > 飞书 Bot 作为 Orbit 的**移动端输入端 + 查询入口 + 通知通道**。
 >
 > 内容仍落在 Orbit 的 `entry` / `asset` / 评论体系，不替代网站编辑体验。  
-> 进度总览见 [ROADMAP.md](./ROADMAP.md)（Phase B IM 连接、Phase C 消息通知）。
+> 进度总览见 [ROADMAP.md](../../ROADMAP.md)（Phase B IM 连接、Phase C 消息通知）。
 
 ---
 
@@ -156,7 +156,7 @@
 | --- | --- |
 | `{userId}` → open_id | 飞书用户 open_id |
 
-实现见 [SPACE-ONBOARDING.md](./SPACE-ONBOARDING.md)。
+实现见 [space-onboarding.md](./space-onboarding.md)。
 
 
 **写入行为**（可折叠「高级」）：
@@ -207,7 +207,7 @@
 
 ## 参考
 
-- [飞书接入调试备忘](./FEISHU-DEV.md) — 联调排障、本地隧道、常见 401/无日志/图片/日期问题
+- [飞书接入调试备忘](./feishu-dev.md) — 联调排障、本地隧道、常见 401/无日志/图片/日期问题
 - [飞书机器人概述](https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/bot-v3/bot-overview)
 - [事件订阅 / 验签](https://open.feishu.cn/document/server-docs/event-subscription-guide/event-subscription-configure-/encrypt-key-encryption-configuration-case)
 - 开源实现：`larksuite/openclaw-lark`、`NousResearch/hermes-agent`（dedup、post 解析、@ 门控、Webhook 安全可借鉴）

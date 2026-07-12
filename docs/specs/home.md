@@ -1,8 +1,8 @@
 # 首页
 
 > 登录后的默认落地页（`/`），聚合空间身份与近期内容，不承担完整列表或编辑职责。  
-> 视觉规范见 [DESIGN.md](../DESIGN.md)；进度见 [ROADMAP.md](./ROADMAP.md)「空间与首页」。  
-> 记录节奏热力图详见 [ACTIVITY.md](./ACTIVITY.md)。
+> 视觉规范见 [DESIGN.md](../../DESIGN.md)；进度见 [ROADMAP.md](../../ROADMAP.md)「空间与首页」。  
+> 记录节奏热力图详见 [activity.md](./activity.md)。
 
 ---
 

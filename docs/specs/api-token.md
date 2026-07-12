@@ -1,7 +1,7 @@
 # API Token 设计
 
 > 供脚本、Cursor、后续 MCP 客户端以 Bearer 方式调用 Orbit 内容 API。  
-> 进度见 [ROADMAP.md](./ROADMAP.md) Phase B。
+> 进度见 [ROADMAP.md](../../ROADMAP.md) Phase B。
 
 ---
 
@@ -46,7 +46,7 @@
 | 上限 | 空间内最多 10 个未撤销 Token |
 | 撤销 | 软删除 `revoked_at`；校验时拒绝 |
 
-表：`api_token`（migration `0012_api_token.sql`）。字段说明见 [ARCHITECTURE.md](./ARCHITECTURE.md#api_token)。
+表：`api_token`（migration `0012_api_token.sql`）。字段说明见 [ARCHITECTURE.md](../ARCHITECTURE.md#api_token)。
 
 ---
 
@@ -119,4 +119,4 @@ Authorization: Bearer orb_e275ccf798ff606da6efc8e001d9f9e9be7297bd0257c868
 | Scope | 按需拆分只读 / 读写 |
 | 过期 | `expires_at` 列 + 定时清理 |
 
-Telegram 接入优先级低于 MCP、GitHub 同步，见 [ROADMAP.md](./ROADMAP.md)。
+Telegram 接入优先级低于 MCP、GitHub 同步，见 [ROADMAP.md](../../ROADMAP.md)。

@@ -41,7 +41,7 @@ docs(roadmap): mark audit log as planned
 
 ```
 - [ ] commit message 符合上述格式
-- [ ] 功能增减 → 更新 docs/ROADMAP.md 状态
+- [ ] 功能增减 → 更新 ROADMAP.md 状态
 - [ ] 架构/表结构变更 → 更新 docs/ARCHITECTURE.md
 - [ ] 不手改 CHANGELOG.md（release-please 自动生成）
 - [ ] 不提交 .env、密钥、data/ 运行时数据

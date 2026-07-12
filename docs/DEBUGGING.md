@@ -88,7 +88,7 @@ console.warn("[anchor] Failed to apply inline highlight mark", comment.id, err);
 
 ### 根因（UI 迁移断层 + 渲染时序）
 
-边注布局重构（见 [MARGINALIA-LAYOUT.md](./MARGINALIA-LAYOUT.md)）后，起草流程发生变化：
+边注布局重构（见 [marginalia-layout.md](./specs/marginalia-layout.md)）后，起草流程发生变化：
 
 | 阶段 | 旧行为 | 新行为 |
 |------|--------|--------|
@@ -413,8 +413,8 @@ sqlite3 data/orbit.db "SELECT id, title FROM entry ORDER BY updated_at DESC LIMI
 ## 8. 相关文档
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — 目录与 API
-- [ROADMAP.md](./ROADMAP.md) — **可观测性与日志**排期
-- [MARGINALIA-LAYOUT.md](./MARGINALIA-LAYOUT.md) — 边注交互与组件  
+- [ROADMAP.md](../ROADMAP.md) — **可观测性与日志**排期
+- [marginalia-layout.md](./specs/marginalia-layout.md) — 边注交互与组件  
 - [CONTRIBUTING.md](./CONTRIBUTING.md) — 开发流程  
 
 ---
