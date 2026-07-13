@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import { asset, entry, milestoneUnlock } from "../db/schema.js";
 import { generateId } from "../lib/id.js";
 import { readSettingsMap } from "../db/settings-store.js";
@@ -220,10 +220,10 @@ function truncateSnippet(text: string | null | undefined): string {
 
 function computeWeight(input: {
   type: string;
-  bodyText: string | null;
+  bodyLen: number;
   hasCover: boolean;
 }): MemoryWeight {
-  const long = (input.bodyText?.length ?? 0) > 200;
+  const long = input.bodyLen > 200;
   if ((input.type === "letter" && input.hasCover) || (input.hasCover && long)) {
     return 3;
   }
@@ -238,7 +238,8 @@ function toNode(
     id: string;
     type: string;
     title: string | null;
-    bodyText: string | null;
+    snippetRaw: string | null;
+    bodyLen: number | null;
     author: string;
     entryDate: number | null;
     createdAt: number;
@@ -247,6 +248,7 @@ function toNode(
   coverImage: string | null
 ): MemoryNode {
   const occurredAt = row.entryDate ?? row.createdAt;
+  const bodyLen = Number(row.bodyLen ?? 0);
   return {
     id: `entry:${row.id}`,
     sourceType: "entry",
@@ -254,18 +256,30 @@ function toNode(
     contentType: row.type,
     occurredAt,
     title: row.title,
-    snippet: truncateSnippet(row.bodyText),
+    snippet: truncateSnippet(row.snippetRaw),
     coverImage,
     author: row.author,
     weight: computeWeight({
       type: row.type,
-      bodyText: row.bodyText,
+      bodyLen,
       hasCover: Boolean(coverImage),
     }),
     parentId: row.parentId,
     link: `/${row.type}/${row.id}`,
   };
 }
+
+const entryListColumns = {
+  id: entry.id,
+  type: entry.type,
+  title: entry.title,
+  snippetRaw: sql<string>`substr(coalesce(${entry.bodyText}, ''), 1, 120)`,
+  bodyLen: sql<number>`length(coalesce(${entry.bodyText}, ''))`,
+  author: entry.author,
+  entryDate: entry.entryDate,
+  createdAt: entry.createdAt,
+  parentId: entry.parentId,
+};
 
 function buildEntryConditions(options: ListMemoryNodesOptions) {
   const conditions = [
@@ -349,16 +363,7 @@ export async function listMemoryNodes(
       .where(coveredWhere);
 
     const covered = await db
-      .select({
-        id: entry.id,
-        type: entry.type,
-        title: entry.title,
-        bodyText: entry.bodyText,
-        author: entry.author,
-        entryDate: entry.entryDate,
-        createdAt: entry.createdAt,
-        parentId: entry.parentId,
-      })
+      .select(entryListColumns)
       .from(entry)
       .where(coveredWhere)
       .orderBy(desc(entry.entryDate), desc(entry.createdAt))
@@ -384,16 +389,7 @@ export async function listMemoryNodes(
     .where(where);
 
   const rows = await db
-    .select({
-      id: entry.id,
-      type: entry.type,
-      title: entry.title,
-      bodyText: entry.bodyText,
-      author: entry.author,
-      entryDate: entry.entryDate,
-      createdAt: entry.createdAt,
-      parentId: entry.parentId,
-    })
+    .select(entryListColumns)
     .from(entry)
     .where(where)
     .orderBy(desc(entry.entryDate), desc(entry.createdAt))
