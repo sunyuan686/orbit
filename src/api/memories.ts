@@ -88,7 +88,8 @@ export function createMemoriesRoutes(
       return c.json(result);
     } catch (err) {
       log.error("nodes failed", err);
-      return c.json({ error: "读取记忆节点失败" }, 500);
+      const detail = err instanceof Error ? err.message : String(err);
+      return c.json({ error: "读取记忆节点失败", detail }, 500);
     }
   });
 

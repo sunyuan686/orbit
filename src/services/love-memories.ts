@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, gte, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import { asset, entry, milestoneUnlock } from "../db/schema.js";
 import { generateId } from "../lib/id.js";
 import { readSettingsMap } from "../db/settings-store.js";
@@ -306,6 +306,9 @@ function buildEntryConditions(options: ListMemoryNodesOptions) {
   return and(...conditions);
 }
 
+/** D1 max bound parameters per query is 100; leave headroom for other predicates. */
+const D1_IN_CHUNK = 90;
+
 async function loadCoversForEntries(
   db: any,
   entryIds: string[]
@@ -313,24 +316,27 @@ async function loadCoversForEntries(
   const map = new Map<string, string>();
   if (entryIds.length === 0) return map;
 
-  const rows = await db
-    .select({
-      entryId: asset.entryId,
-      storageKey: asset.storageKey,
-    })
-    .from(asset)
-    .where(
-      and(
-        inArray(asset.entryId, entryIds),
-        isNull(asset.deletedAt),
-        isNotNull(asset.entryId)
+  for (let i = 0; i < entryIds.length; i += D1_IN_CHUNK) {
+    const chunk = entryIds.slice(i, i + D1_IN_CHUNK);
+    const rows = await db
+      .select({
+        entryId: asset.entryId,
+        storageKey: asset.storageKey,
+      })
+      .from(asset)
+      .where(
+        and(
+          inArray(asset.entryId, chunk),
+          isNull(asset.deletedAt),
+          isNotNull(asset.entryId)
+        )
       )
-    )
-    .orderBy(asc(asset.position), asc(asset.createdAt));
+      .orderBy(asc(asset.position), asc(asset.createdAt));
 
-  for (const row of rows) {
-    if (!row.entryId || map.has(row.entryId)) continue;
-    map.set(row.entryId, `/assets/${row.storageKey}`);
+    for (const row of rows) {
+      if (!row.entryId || map.has(row.entryId)) continue;
+      map.set(row.entryId, `/assets/${row.storageKey}`);
+    }
   }
   return map;
 }
@@ -344,19 +350,15 @@ export async function listMemoryNodes(
   const where = buildEntryConditions(options);
 
   if (options.hasCover) {
-    const assetEntryIds = await db
-      .selectDistinct({ entryId: asset.entryId })
-      .from(asset)
-      .where(and(isNull(asset.deletedAt), isNotNull(asset.entryId)));
-    const ids = assetEntryIds
-      .map((row: { entryId: string | null }) => row.entryId)
-      .filter(Boolean) as string[];
-
-    if (ids.length === 0) {
-      return { nodes: [], total: 0, limit, offset };
-    }
-
-    const coveredWhere = and(where, inArray(entry.id, ids));
+    const coveredWhere = and(
+      where,
+      exists(
+        db
+          .select({ id: asset.id })
+          .from(asset)
+          .where(and(eq(asset.entryId, entry.id), isNull(asset.deletedAt)))
+      )
+    );
     const [totalRow] = await db
       .select({ value: count() })
       .from(entry)
