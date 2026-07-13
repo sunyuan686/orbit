@@ -5,6 +5,7 @@ import {
   fetchActivityStats,
   fetchEntries,
   fetchGallery,
+  fetchMemorySummary,
   fetchSpaceStatus,
   formatAnniversaryCn,
   formatDate,
@@ -14,6 +15,7 @@ import {
   type ActivityStats,
   type EntrySummary,
   type GalleryItem,
+  type MemorySummary,
   type SpaceAuthor,
 } from "../lib/api";
 import { entryDisplayLabel } from "../lib/letterThread";
@@ -28,6 +30,7 @@ import {
   LetterIcon,
   MemoIcon,
   GalleryIcon,
+  MemoriesIcon,
   ChevronRightIcon,
 } from "../components/OrbitIcons";
 
@@ -70,6 +73,12 @@ const NAV_CARDS = [
     desc: "一起留下的照片",
     Icon: GalleryIcon,
   },
+  {
+    to: "/memories",
+    label: "记忆",
+    desc: "星图与图鉴",
+    Icon: MemoriesIcon,
+  },
 ] as const;
 
 const QUICK_ACTIONS = [
@@ -94,6 +103,7 @@ export function HomePage() {
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const [photos, setPhotos] = useState<GalleryItem[]>([]);
   const [activity, setActivity] = useState<ActivityStats | null>(null);
+  const [memories, setMemories] = useState<MemorySummary | null>(null);
   const [loadingFeed, setLoadingFeed] = useState(true);
 
   useEffect(() => {
@@ -102,7 +112,6 @@ export function HomePage() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoadingFeed(true);
 
     void Promise.all([
       fetchSpaceStatus(),
@@ -112,11 +121,23 @@ export function HomePage() {
       fetchEntries("letter", { roots: true, limit: 8, offset: 0 }),
       fetchGallery({ filter: "all", limit: 8, offset: 0 }),
       fetchActivityStats(365),
+      fetchMemorySummary(),
     ])
-      .then(([status, diary, timeline, message, letters, gallery, activityStats]) => {
+      .then(
+        ([
+          status,
+          diary,
+          timeline,
+          message,
+          letters,
+          gallery,
+          activityStats,
+          memorySummary,
+        ]) => {
         if (cancelled) return;
         setAuthors(status.authors);
         setActivity(activityStats);
+        setMemories(memorySummary);
 
         const merged: RecentItem[] = [
           ...diary.items.map((e) => ({ ...e, contentType: "diary" })),
@@ -127,15 +148,14 @@ export function HomePage() {
         merged.sort((a, b) => (b.entryDate ?? 0) - (a.entryDate ?? 0));
         setRecent(merged.slice(0, 6));
         setPhotos(gallery.items);
+        setLoadingFeed(false);
       })
       .catch((err) => {
         if (cancelled) return;
         if (shouldToastApiError(err)) {
           toast.error(getApiErrorMessage(err, "首页加载失败"));
         }
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingFeed(false);
+        setLoadingFeed(false);
       });
 
     return () => {
@@ -215,6 +235,50 @@ export function HomePage() {
             </Link>
           </div>
           <ActivityHeatmap days={activity.days} recentDays={84} compact />
+        </section>
+      )}
+
+      {!loadingFeed && memories && memories.totalNodes > 0 && (
+        <section className="orbit-home-section" aria-labelledby="home-memories-title">
+          <div className="orbit-home-section-header">
+            <div>
+              <h2 className="orbit-home-section-title" id="home-memories-title">
+                恋爱记忆
+              </h2>
+              <p className="orbit-home-activity-meta">
+                {memories.totalNodes} 个瞬间
+                <span className="orbit-home-activity-meta-sep" aria-hidden>
+                  ·
+                </span>
+                {memories.milestoneCount} 里程碑
+                {memories.latestMilestone ? (
+                  <>
+                    <span className="orbit-home-activity-meta-sep" aria-hidden>
+                      ·
+                    </span>
+                    最近点亮了 {memories.latestMilestone.title}
+                  </>
+                ) : null}
+              </p>
+            </div>
+            <Link to="/memories" className="orbit-text-link orbit-home-section-link">
+              打开星图
+            </Link>
+          </div>
+          {memories.recent ? (
+            <Link to={memories.recent.link} className="orbit-home-memory-recent">
+              <span className="orbit-home-recent-type">
+                {TYPE_LABEL[memories.recent.contentType] ??
+                  memories.recent.contentType}
+              </span>
+              <span className="orbit-entry-title orbit-entry-title-truncate">
+                {memories.recent.title?.trim() ||
+                  memories.recent.snippet ||
+                  "最近一个瞬间"}
+              </span>
+              <ChevronRightIcon size="sm" />
+            </Link>
+          ) : null}
         </section>
       )}
 

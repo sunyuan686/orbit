@@ -1075,3 +1075,141 @@ export async function fetchActivityDayEntries(
   await assertOk(res, "加载当日记录失败");
   return res.json();
 }
+
+export type MemoryWeight = 1 | 2 | 3;
+
+export interface MemoryNode {
+  id: string;
+  sourceType: "entry";
+  sourceId: string;
+  contentType: string;
+  occurredAt: number;
+  title: string | null;
+  snippet: string;
+  coverImage: string | null;
+  author: string;
+  weight: MemoryWeight;
+  parentId: string | null;
+  link: string;
+  x?: number;
+  y?: number;
+}
+
+export interface MemorySummary {
+  totalNodes: number;
+  byType: Record<string, number>;
+  milestoneCount: number;
+  constellationCount?: number;
+  recent: MemoryNode | null;
+  latestMilestone?: MilestoneUnlock | null;
+  daysTogether: number | null;
+  anniversaryDate: string | null;
+}
+
+export interface MilestoneUnlock {
+  key: string;
+  title: string;
+  description: string;
+  category:
+    | "relationship"
+    | "creation"
+    | "streak"
+    | "gallery"
+    | "constellation";
+  unlockedAt: number;
+  celebratedAt: number | null;
+  isNew: boolean;
+}
+
+export interface MemoryNodesPage {
+  nodes: MemoryNode[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface MemoryThemeAlbum {
+  key: string;
+  title: string;
+  count: number;
+  nodes: MemoryNode[];
+}
+
+export async function fetchMemorySummary(): Promise<MemorySummary> {
+  const res = await fetch(`${BASE}/api/memories/summary`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载记忆摘要失败");
+  return res.json();
+}
+
+export async function fetchMemoryNodes(options: {
+  limit?: number;
+  offset?: number;
+  type?: string;
+  year?: number;
+  hasCover?: boolean;
+} = {}): Promise<MemoryNodesPage> {
+  const params = new URLSearchParams();
+  if (options.limit != null) params.set("limit", String(options.limit));
+  if (options.offset != null) params.set("offset", String(options.offset));
+  if (options.type) params.set("type", options.type);
+  if (options.year != null) params.set("year", String(options.year));
+  if (options.hasCover) params.set("hasCover", "1");
+  const qs = params.toString();
+  const res = await fetch(`${BASE}/api/memories/nodes${qs ? `?${qs}` : ""}`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载记忆节点失败");
+  return res.json();
+}
+
+export async function fetchMemoryTimeline(
+  limit = 200
+): Promise<{
+  total: number;
+  width: number;
+  height: number;
+  nodes: MemoryNode[];
+}> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  const res = await fetch(`${BASE}/api/memories/timeline?${params}`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载星图失败");
+  return res.json();
+}
+
+export async function fetchMemoryMilestones(): Promise<{
+  milestones: MilestoneUnlock[];
+  newlyUnlocked?: string[];
+}> {
+  const res = await fetch(`${BASE}/api/memories/milestones`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载里程碑失败");
+  return res.json();
+}
+
+export async function celebrateMemoryMilestones(
+  keys: string[]
+): Promise<{ milestones: MilestoneUnlock[] }> {
+  const res = await fetch(`${BASE}/api/memories/milestones/celebrate`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ keys }),
+  });
+  await assertOk(res, "标记里程碑失败");
+  return res.json();
+}
+
+export async function fetchMemoryThemes(): Promise<{
+  albums: MemoryThemeAlbum[];
+}> {
+  const res = await fetch(`${BASE}/api/memories/themes`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载主题分册失败");
+  return res.json();
+}

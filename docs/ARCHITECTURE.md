@@ -58,6 +58,7 @@ comment    — 底部评论 + 行内边注
 settings   — 全局配置（纪念日、主题色 accent 等）；空间档案 `GET/PUT /api/space`，偏好 `GET/PUT /api/settings`
 audit_log  — 操作审计（创建 / 编辑 / 删除 / 评论 / 空间与设置变更 / API Token）；`GET /api/audit`
 api_token  — 外部访问 Bearer Token（仅存哈希）；`GET/POST/DELETE /api/api-tokens`（管理需会话）
+milestone_unlock — 恋爱记忆里程碑解锁（派生规则命中后物化；见 [love-memories.md](./specs/love-memories.md)）
 ai_conversation / ai_message  — AI 聊天会话与消息（见 [ai.md](./specs/ai.md)）
 user / session / account / verification  — better-auth 标准表
 ```
@@ -132,6 +133,18 @@ user / session / account / verification  — better-auth 标准表
 |------|------|
 | `recipientUserId` / `actorUserId` | 收件人 / 发起人身份（**待 migration 补列**） |
 | `recipient` / `actor` | 冗余爱称，双写 |
+
+### milestone_unlock
+
+恋爱记忆里程碑解锁状态（规则派生后物化，用于庆祝去重与飞书推送）。
+
+| 字段 | 说明 |
+|------|------|
+| `milestoneKey` | 规则 key（如 `days_365`、`constellation_penpals`） |
+| `unlockedAt` | 首次达成时间 |
+| `celebratedAt` | 站内已庆祝时间；空表示待庆祝 |
+
+API：`/api/memories/*`（summary / nodes / milestones / themes 等），见 [love-memories.md](./specs/love-memories.md)。
 
 ### ai_message
 
@@ -211,6 +224,7 @@ orbit/
 | [ROADMAP.md](../ROADMAP.md) | 功能清单与迭代计划 |
 | [specs/ai.md](./specs/ai.md) | AI 集成设计（Vercel AI SDK + Workers AI） |
 | [specs/api-token.md](./specs/api-token.md) | API Token 与 Bearer 鉴权 |
+| [specs/love-memories.md](./specs/love-memories.md) | 恋爱记忆（星图 / 图鉴 / 里程碑） |
 | [CHANGELOG.md](../CHANGELOG.md) | 版本发布记录（自动生成） |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | 提交规范与文档维护 |
 | [archive/alignment-plan.md](./archive/alignment-plan.md) | 历史技术对齐计划（Phase 1–4 已完成） |

@@ -11,6 +11,7 @@ import { GalleryPage } from "./pages/Gallery";
 import { ActivityPage } from "./pages/Activity";
 import { HomePage } from "./pages/Home";
 import { SettingsPage } from "./pages/Settings";
+import { MemoriesPage, MemoryAtlasPage } from "./pages/Memories";
 
 export default function App() {
   return (
@@ -25,6 +26,8 @@ export default function App() {
         }
       >
         <Route index element={<HomePage />} />
+        <Route path="/memories" element={<MemoriesPage />} />
+        <Route path="/memories/atlas" element={<MemoryAtlasPage />} />
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/gallery" element={<GalleryPage />} />

@@ -90,6 +90,18 @@ export function GalleryIcon(props: OrbitIconProps) {
   );
 }
 
+export function MemoriesIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M12 3.5 13.6 8.2 18.5 9l-3.6 3.4.9 4.8L12 15.2 8.2 17.2l.9-4.8L5.5 9l4.9-.8L12 3.5z" />
+      <path d="M18.5 4.5v2" />
+      <path d="M17.5 5.5h2" />
+      <path d="M5 16.5v1.5" />
+      <path d="M4.25 17.25h1.5" />
+    </OrbitIcon>
+  );
+}
+
 export function HomeIcon(props: OrbitIconProps) {
   return (
     <OrbitIcon {...props}>

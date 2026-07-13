@@ -110,7 +110,8 @@
 | **B-2** | `/month`、FTS 搜索、补记/类型前缀、群 @ 门控                                       |
 | **C-1** | 站内通知（铃铛），可与 B 并行                                                     |
 | **C-2** | 飞书出站通知 + 偏好 + 节流                                                     |
-| **可选**  | AI 问答、`/summary`、交互卡片、纪念日推送                                          |
+| **可选**  | AI 问答、`/summary`、纪念日定时推送                                          |
+| **已落地** | 恋爱记忆里程碑解锁 → interactive card（见 [love-memories.md](./love-memories.md)） |
 
 
 ---
@@ -207,6 +208,7 @@
 
 ## 参考
 
+- [恋爱记忆](./love-memories.md) — 里程碑飞书卡片出站
 - [飞书接入调试备忘](./feishu-dev.md) — 联调排障、本地隧道、常见 401/无日志/图片/日期问题
 - [飞书机器人概述](https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/bot-v3/bot-overview)
 - [事件订阅 / 验签](https://open.feishu.cn/document/server-docs/event-subscription-guide/event-subscription-configure-/encrypt-key-encryption-configuration-case)

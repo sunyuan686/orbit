@@ -111,6 +111,28 @@ export async function sendFeishuTextMessage(
   );
 }
 
+/** 飞书 interactive 卡片（schema 1.0 简易结构） */
+export async function sendFeishuInteractiveCard(
+  accessToken: string,
+  receiveId: string,
+  receiveIdType: "open_id" | "chat_id",
+  card: Record<string, unknown>
+): Promise<void> {
+  const params = new URLSearchParams({ receive_id_type: receiveIdType });
+  await feishuJson(
+    `${FEISHU_API}/im/v1/messages?${params.toString()}`,
+    {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({
+        receive_id: receiveId,
+        msg_type: "interactive",
+        content: JSON.stringify(card),
+      }),
+    }
+  );
+}
+
 export async function downloadFeishuMessageImage(
   accessToken: string,
   messageId: string,

@@ -371,3 +371,18 @@ export const aiMessage = sqliteTable(
     index("idx_ai_message_conversation").on(t.conversationId, t.createdAt),
   ]
 );
+
+/**
+ * 恋爱记忆里程碑解锁（派生规则命中后物化，用于庆祝去重）
+ * milestoneKey 见 src/services/love-memories.ts 规则常量
+ */
+export const milestoneUnlock = sqliteTable(
+  "milestone_unlock",
+  {
+    id: text("id").primaryKey(),
+    milestoneKey: text("milestone_key").notNull().unique(),
+    unlockedAt: integer("unlocked_at").notNull(),
+    celebratedAt: integer("celebrated_at"),
+  },
+  (t) => [index("idx_milestone_unlock_unlocked").on(t.unlockedAt)]
+);

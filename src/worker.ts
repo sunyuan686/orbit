@@ -30,6 +30,7 @@ import { createAccountRoutes } from "./api/account.js";
 import { createGalleryRoutes } from "./api/gallery.js";
 import { createApiTokenRoutes } from "./api/api-tokens.js";
 import { createActivityRoutes } from "./api/activity.js";
+import { createMemoriesRoutes } from "./api/memories.js";
 import { listAllR2Objects } from "./services/gallery.js";
 import { getSessionAuthor } from "./api/session-author.js";
 import { requestContext } from "./lib/request-context.js";
@@ -149,6 +150,8 @@ app.use("/api/gallery/*", requireAuth);
 app.use("/api/gallery", requireAuth);
 app.use("/api/stats/*", requireAuth);
 app.use("/api/stats", requireAuth);
+app.use("/api/memories/*", requireAuth);
+app.use("/api/memories", requireAuth);
 app.use("/api/integrations/*", async (c, next) => {
   const path = new URL(c.req.url).pathname;
   if (
@@ -283,6 +286,10 @@ app.route(
   })
 );
 app.route("/api/stats/activity", createActivityRoutes(getDb));
+app.route("/api/memories", createMemoriesRoutes(getDb, {
+  getNotifyRuntime: (c) => getNotifyRuntime(c),
+  waitUntil: (c, task) => runInBackground(c, task),
+}));
 
 // R2 媒体文件代理（需登录，路径与本地 dev 一致）
 app.get("/assets/:filename", requireAuth, async (c) => {
