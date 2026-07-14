@@ -192,6 +192,14 @@ export function TiptapEditor({
 
       try {
         const url = await uploadImage(file, entryId);
+        // 先预加载正式 URL，再换 src，避免 blob→远程替换时闪白
+        await new Promise<void>((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+          img.src = url;
+        });
+        if (ed.isDestroyed) return;
         ed.view.state.doc.descendants((node, pos) => {
           if (node.type.name === "image" && node.attrs.src === blobUrl) {
             const tr = ed.view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, src: url });
@@ -200,13 +208,15 @@ export function TiptapEditor({
           }
         });
       } catch (err) {
-        ed.view.state.doc.descendants((node, pos) => {
-          if (node.type.name === "image" && node.attrs.src === blobUrl) {
-            const tr = ed.view.state.tr.delete(pos, pos + node.nodeSize);
-            ed.view.dispatch(tr);
-            return false;
-          }
-        });
+        if (!ed.isDestroyed) {
+          ed.view.state.doc.descendants((node, pos) => {
+            if (node.type.name === "image" && node.attrs.src === blobUrl) {
+              const tr = ed.view.state.tr.delete(pos, pos + node.nodeSize);
+              ed.view.dispatch(tr);
+              return false;
+            }
+          });
+        }
         toast.error(getApiErrorMessage(err, "图片上传失败"));
       } finally {
         URL.revokeObjectURL(blobUrl);
@@ -267,10 +277,7 @@ export function TiptapEditor({
             event.preventDefault();
             const file = item.getAsFile();
             if (!file || !editorRef.current) return true;
-            const ed = editorRef.current;
-            const blobUrl = URL.createObjectURL(file);
-            ed.chain().focus().setImage({ src: blobUrl }).run();
-            void uploadImageToEditor(ed, file);
+            void uploadImageToEditor(editorRef.current, file);
             return true;
           }
         }
@@ -283,10 +290,7 @@ export function TiptapEditor({
           if (file.type.startsWith("image/")) {
             event.preventDefault();
             if (!editorRef.current) return true;
-            const ed = editorRef.current;
-            const blobUrl = URL.createObjectURL(file);
-            ed.chain().focus().setImage({ src: blobUrl }).run();
-            void uploadImageToEditor(ed, file);
+            void uploadImageToEditor(editorRef.current, file);
             return true;
           }
         }
