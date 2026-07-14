@@ -4,9 +4,9 @@
 
 - Orbit = 轨道/环绕
 - 两人彼此吸引、围绕彼此，稳定长期有节奏
-- 克制、浪漫、高级
+- 克制、浪漫、高级、好玩、有趣、温馨、成长、回忆
 
-目标：写方便，随时随地，无压力，移动端友好。数据格式通用，AI 友好读写。
+目标：写方便，随时随地，无压力，重设计和交互。移动端友好。数据格式通用，Agent 友好。智能、回忆。
 
 定位：通用情侣恋爱记录平台，面向开源。
 
@@ -18,9 +18,7 @@
 |------|------|
 | [ROADMAP.md](ROADMAP.md) | **功能清单与迭代进度**（单一进度源） |
 | [DESIGN.md](DESIGN.md) | **视觉设计标准**（Design Tokens、组件、文案；AI Agent 可读） |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架构、技术栈、数据库、目录结构 |
-| [CHANGELOG.md](CHANGELOG.md) | 版本发布记录（Conventional Commits 自动生成） |
-| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | 提交规范、文档维护、发布流程 |
+
 
 ---
 
@@ -88,11 +86,3 @@ Orbit 支持五类内容：**日记**、**时间线**、**留言板**、**信箱
 React + Vite · TipTap · Hono · Drizzle ORM · SQLite / Cloudflare D1 · R2 · better-auth
 
 👉 详细架构见 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
-
----
-
-## 参与贡献
-
-提交请遵循 [Conventional Commits](docs/CONTRIBUTING.md#commit-规范conventional-commits)。合并 `feat` / `fix` 到 `main` 后，[release-please](https://github.com/googleapis/release-please) 会自动打开 Release PR 更新 [CHANGELOG.md](CHANGELOG.md) 与版本号。
-
-详见 [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)。

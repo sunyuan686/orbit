@@ -2,7 +2,7 @@
 
 > 版本记录 [CHANGELOG.md](./CHANGELOG.md) · 架构 [ARCHITECTURE.md](docs/ARCHITECTURE.md)
 >
-> 最后更新：2026-07-13
+> 最后更新：2026-07-14
 
 ## 状态说明
 
@@ -53,7 +53,9 @@
 | 留言板仪式感呈现       | 📋  | 留言展示形式优化，优先级低        |
 
 
-编辑：TipTap 富文本、图片上传（SHA256 去重）、本地 / R2 双存储 ✅；HEIC 转换 📋（远期）。
+编辑：TipTap 富文本、图片上传（SHA256 去重）、本地 / R2 双存储 ✅。
+
+图片增强 📋（远期）：解析原始信息（EXIF 拍摄时间 / 设备 / 方位等）、HEIC 转换与展示、Live Photo（静图 + 短视频）支持。
 
 评论：底部嵌套回复、选中文字边注（桌面轨 + 移动 Sheet）、作者编辑 ✅。矩阵见 [ARCHITECTURE.md#评论能力矩阵](docs/ARCHITECTURE.md#评论能力矩阵)。
 
