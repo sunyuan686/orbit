@@ -193,8 +193,9 @@ export function TiptapEditor({
       try {
         const url = await uploadImage(file, entryId);
         // 先预加载正式 URL，再换 src，避免 blob→远程替换时闪白
+        // 用 createElement，避免与 TipTap Image 扩展同名冲突
         await new Promise<void>((resolve) => {
-          const img = new Image();
+          const img = document.createElement("img");
           img.onload = () => resolve();
           img.onerror = () => resolve();
           img.src = url;
