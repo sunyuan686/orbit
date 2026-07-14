@@ -1,6 +1,5 @@
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import { useEffect, useLayoutEffect, useCallback, useMemo, useRef, useState } from "react";
 import { uploadImage, getApiErrorMessage } from "../lib/api";
@@ -8,6 +7,7 @@ import type { CommentItem } from "../lib/api";
 import { normalizeBodyForEditor } from "../lib/content";
 import { useToast } from "../lib/useToast";
 import { CommentHighlight } from "../extensions/CommentHighlight";
+import { OrbitImage } from "../extensions/OrbitImage";
 import { ORBIT_ALLOW_DOC_CHANGE, ReadonlyGuard } from "../extensions/ReadonlyGuard";
 import { resolveCommentPosition, getAnchorContext } from "../lib/anchor";
 import type { InlineDraft } from "../lib/inlineComment";
@@ -239,7 +239,7 @@ export function TiptapEditor({
       StarterKit,
       ReadonlyGuard,
       CommentHighlight,
-      Image.configure({
+      OrbitImage.configure({
         inline: false,
         allowBase64: false,
         HTMLAttributes: { class: "orbit-prose-img" },

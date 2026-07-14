@@ -3586,15 +3586,53 @@ a.orbit-settings-mobile-row {
 
 
 /* Images */
+.orbit-image-frame {
+  display: block;
+  position: relative;
+  margin: 1rem 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-light);
+  min-height: 12rem;
+  transition:
+    background var(--motion-fast),
+    border-color var(--motion-fast),
+    min-height var(--motion-normal);
+}
+
+.orbit-image-frame.is-loaded {
+  min-height: 0;
+  background: transparent;
+  border-color: transparent;
+}
+
+.orbit-image-frame.is-error {
+  min-height: 6rem;
+}
+
 .ProseMirror img,
 .orbit-prose-img {
   max-width: 100%;
   border-radius: 8px;
-  margin: 1rem 0;
   display: block;
 }
 
-.ProseMirror img.ProseMirror-selectednode {
+.orbit-image-frame .orbit-prose-img {
+  margin: 0;
+  opacity: 0;
+  transition: opacity var(--motion-normal) var(--motion-ease-enter);
+}
+
+.orbit-image-frame.is-loaded .orbit-prose-img {
+  opacity: 1;
+}
+
+.orbit-image-frame.is-error .orbit-prose-img {
+  opacity: 0;
+}
+
+.ProseMirror .orbit-image-frame.ProseMirror-selectednode {
   outline: 2px solid var(--color-border);
   outline-offset: 2px;
 }
