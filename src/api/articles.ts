@@ -13,6 +13,11 @@ import {
   presentMemoDetail,
 } from "../lib/article-present.js";
 import { entry, memo, comment } from "../db/schema.js";
+import { loadCoversForEntries } from "../lib/entry-covers.js";
+import {
+  snippetFromBody,
+  truncateListSnippet,
+} from "../lib/list-snippet.js";
 import {
   AuditAction,
   AuditResourceType,
@@ -115,8 +120,10 @@ function mapEntrySummary(
     entryDate: number | null;
     createdAt: number;
     parentId: string | null;
+    snippetRaw?: string | null;
   },
-  nameMap: Map<string, string>
+  nameMap: Map<string, string>,
+  covers?: Map<string, string>
 ) {
   const authorName = resolveUserName(nameMap, row.userId, row.author);
   return {
@@ -129,6 +136,8 @@ function mapEntrySummary(
     entryDate: row.entryDate,
     createdAt: row.createdAt,
     parentId: row.parentId,
+    snippet: truncateListSnippet(row.snippetRaw),
+    coverUrl: covers?.get(row.id) ?? null,
   };
 }
 
@@ -151,11 +160,12 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       const baseQuery = db
         .select({
           id: memo.id,
-          type: memo.key,
+          key: memo.key,
           title: memo.title,
           author: memo.author,
           userId: memo.userId,
           entryDate: memo.updatedAt,
+          bodyPreview: sql<string>`substr(coalesce(${memo.body}, ''), 1, 500)`,
         })
         .from(memo)
         .where(where)
@@ -176,20 +186,26 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       const items = memos.map(
         (m: {
           id: string;
+          key: string;
           title: string;
           author: string;
           userId: string | null;
           entryDate: number;
+          bodyPreview: string | null;
         }) => {
           const authorName = resolveUserName(nameMap, m.userId, m.author);
           return {
             id: m.id,
             type: "memo",
+            key: m.key,
             title: m.title,
             userId: m.userId,
             author: authorName,
             authorName,
             entryDate: m.entryDate,
+            parentId: null as string | null,
+            snippet: snippetFromBody(m.bodyPreview),
+            coverUrl: null as string | null,
           };
         }
       );
@@ -223,6 +239,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
         entryDate: entry.entryDate,
         createdAt: entry.createdAt,
         parentId: entry.parentId,
+        snippetRaw: sql<string>`substr(coalesce(${entry.bodyText}, ''), 1, 160)`,
       })
       .from(entry)
       .where(where)
@@ -239,9 +256,16 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       listQuery,
       countQuery ?? Promise.resolve(null),
     ]);
-    const nameMap = await loadUserNameMap(db, entries.map((e: { userId: string | null }) => e.userId));
+    const nameMap = await loadUserNameMap(
+      db,
+      entries.map((e: { userId: string | null }) => e.userId)
+    );
+    const covers = await loadCoversForEntries(
+      db,
+      entries.map((e: { id: string }) => e.id)
+    );
     const items = entries.map((row: Parameters<typeof mapEntrySummary>[0]) =>
-      mapEntrySummary(row, nameMap)
+      mapEntrySummary(row, nameMap, covers)
     );
 
     if (!page.paginate) return c.json(items);

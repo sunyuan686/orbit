@@ -4,6 +4,7 @@ import {
   fetchEntries,
   TYPE_LABEL,
   formatDate,
+  formatDiaryDateParts,
   getApiErrorMessage,
   shouldToastApiError,
   type EntrySummary,
@@ -21,6 +22,48 @@ import { ChevronRightIcon } from "../components/OrbitIcons";
 /** letter 仍全量拉取以拼线程树；其余类型分页 */
 const PAGE_SIZE = 30;
 
+function authorToneKey(entry: EntrySummary): string {
+  return entry.userId || entry.author || entry.id;
+}
+
+function useAuthorTones(entries: EntrySummary[]): Map<string, "a" | "b"> {
+  return useMemo(() => {
+    const order: string[] = [];
+    for (const entry of entries) {
+      const key = authorToneKey(entry);
+      if (!order.includes(key)) order.push(key);
+    }
+    return new Map(
+      order.map((key, index) => [key, index % 2 === 0 ? "a" : "b"])
+    );
+  }, [entries]);
+}
+
+function Snippet({ text, className }: { text?: string | null; className?: string }) {
+  if (!text) return null;
+  return <p className={className ?? "orbit-entry-snippet"}>{text}</p>;
+}
+
+function CoverImg({
+  src,
+  className,
+}: {
+  src?: string | null;
+  className?: string;
+}) {
+  if (!src) return null;
+  return (
+    <img
+      className={className ?? "orbit-entry-cover"}
+      src={src}
+      alt=""
+      loading="lazy"
+      decoding="async"
+    />
+  );
+}
+
+/** 回信等仍用紧凑行 */
 function EntryRow({
   entry,
   type,
@@ -55,11 +98,163 @@ function EntryRow({
           <span className="orbit-entry-author">{entry.author}</span>
         )}
       </span>
-      {entry.entryDate && (
+      {entry.entryDate != null && (
         <span className="orbit-entry-date shrink-0">
           {formatDate(entry.entryDate)}
         </span>
       )}
+    </Link>
+  );
+}
+
+function MessageCard({
+  entry,
+  tone,
+  tilt,
+}: {
+  entry: EntrySummary;
+  tone: "a" | "b";
+  tilt: "a" | "b" | "none";
+}) {
+  const body = entry.snippet || entry.title || "（无内容）";
+  const hasCover = Boolean(entry.coverUrl);
+  const className = [
+    "orbit-msg-card",
+    `orbit-msg-card--${tone}`,
+    tilt !== "none" ? `orbit-msg-card--tilt-${tilt}` : "",
+    hasCover ? "orbit-msg-card--has-cover" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <Link to={`/message/${entry.id}`} className={className}>
+      <p className="orbit-msg-card-body">{body}</p>
+      <CoverImg src={entry.coverUrl} className="orbit-msg-card-cover" />
+      <div className="orbit-msg-card-meta">
+        {entry.author && (
+          <span className="orbit-msg-card-author">{entry.author}</span>
+        )}
+        {entry.entryDate != null && (
+          <span className="orbit-entry-date">{formatDate(entry.entryDate)}</span>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+function DiaryCard({ entry }: { entry: EntrySummary }) {
+  const hasCover = Boolean(entry.coverUrl);
+  const parts =
+    entry.entryDate != null ? formatDiaryDateParts(entry.entryDate) : null;
+
+  return (
+    <Link
+      to={`/diary/${entry.id}`}
+      className={`orbit-diary-card${hasCover ? " orbit-diary-card--has-cover" : ""}`}
+    >
+      <div className="orbit-diary-card-date">
+        {parts ? (
+          <>
+            <span className="orbit-diary-card-day">{parts.day}</span>
+            <span className="orbit-diary-card-month">{parts.month}</span>
+            <span className="orbit-diary-card-year">{parts.year}</span>
+          </>
+        ) : (
+          <span className="orbit-diary-card-month">—</span>
+        )}
+      </div>
+      {hasCover && (
+        <div className="orbit-diary-card-cover-wrap">
+          <CoverImg src={entry.coverUrl} className="orbit-diary-card-cover" />
+        </div>
+      )}
+      <div className="orbit-diary-card-body">
+        {entry.title && <h3 className="orbit-diary-card-title">{entry.title}</h3>}
+        <Snippet text={entry.snippet} />
+        {entry.author && (
+          <div className="orbit-diary-card-meta">
+            <span className="orbit-entry-author">{entry.author}</span>
+          </div>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+function TimelineCard({ entry }: { entry: EntrySummary }) {
+  const hasCover = Boolean(entry.coverUrl);
+
+  return (
+    <div className="orbit-tl-item">
+      <Link
+        to={`/timeline/${entry.id}`}
+        className={`orbit-tl-card${hasCover ? " orbit-tl-card--has-cover" : ""}`}
+      >
+        <div className="orbit-tl-card-body">
+          {entry.entryDate != null && (
+            <div className="orbit-tl-card-date">{formatDate(entry.entryDate)}</div>
+          )}
+          {entry.title && <h3 className="orbit-tl-card-title">{entry.title}</h3>}
+          <Snippet text={entry.snippet} />
+        </div>
+        <CoverImg src={entry.coverUrl} className="orbit-tl-card-cover" />
+      </Link>
+    </div>
+  );
+}
+
+function MemoCard({ entry }: { entry: EntrySummary }) {
+  return (
+    <Link to={`/memo/${entry.id}`} className="orbit-memo-card">
+      {entry.key && <div className="orbit-memo-card-key">{entry.key}</div>}
+      <h3 className="orbit-memo-card-title">
+        {entry.title || entry.key || "无标题"}
+      </h3>
+      <Snippet text={entry.snippet} />
+      <div className="orbit-memo-card-foot">
+        {entry.author && (
+          <span className="orbit-entry-author">{entry.author}</span>
+        )}
+        {entry.entryDate != null && (
+          <span className="orbit-memo-card-updated">
+            更新于 {formatDate(entry.entryDate)}
+          </span>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+function LetterRootCard({
+  entry,
+  replyCount,
+}: {
+  entry: EntrySummary;
+  replyCount: number;
+}) {
+  const hasCover = Boolean(entry.coverUrl);
+  const title = entryDisplayLabel(entry) || "无标题";
+
+  return (
+    <Link
+      to={`/letter/${entry.id}`}
+      className={`orbit-letter-card${hasCover ? " orbit-letter-card--has-cover" : ""}`}
+    >
+      <h3 className="orbit-letter-card-title">{title}</h3>
+      <Snippet text={entry.snippet} />
+      <div className="orbit-letter-card-meta">
+        {entry.author && (
+          <span className="orbit-entry-author">{entry.author}</span>
+        )}
+        {entry.entryDate != null && (
+          <span className="orbit-entry-date">{formatDate(entry.entryDate)}</span>
+        )}
+        {replyCount > 0 && (
+          <span className="orbit-letter-card-badge">{replyCount} 封回信</span>
+        )}
+      </div>
+      <CoverImg src={entry.coverUrl} className="orbit-letter-card-cover" />
     </Link>
   );
 }
@@ -72,7 +267,7 @@ function LetterThreadItem({ thread }: { thread: LetterThread }) {
 
   return (
     <article className="orbit-letter-thread">
-      <EntryRow entry={root} type="letter" variant="root" />
+      <LetterRootCard entry={root} replyCount={replies.length} />
 
       {hasReplies && (
         <>
@@ -114,6 +309,76 @@ function LetterThreadItem({ thread }: { thread: LetterThread }) {
         </p>
       )}
     </article>
+  );
+}
+
+function TypedEntryList({
+  type,
+  entries,
+}: {
+  type: string;
+  entries: EntrySummary[];
+}) {
+  const tones = useAuthorTones(entries);
+
+  if (type === "message") {
+    return (
+      <ul className="orbit-list-plain orbit-msg-board">
+        {entries.map((entry, index) => (
+          <li key={entry.id}>
+            <MessageCard
+              entry={entry}
+              tone={tones.get(authorToneKey(entry)) ?? "a"}
+              tilt={index % 2 === 0 ? "a" : "b"}
+            />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (type === "diary") {
+    return (
+      <ul className="orbit-list-plain orbit-diary-list">
+        {entries.map((entry) => (
+          <li key={entry.id}>
+            <DiaryCard entry={entry} />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (type === "timeline") {
+    return (
+      <div className="orbit-tl-wrap">
+        {entries.map((entry) => (
+          <TimelineCard key={entry.id} entry={entry} />
+        ))}
+      </div>
+    );
+  }
+
+  if (type === "memo") {
+    return (
+      <ul className="orbit-list-plain orbit-memo-list">
+        {entries.map((entry) => (
+          <li key={entry.id}>
+            <MemoCard entry={entry} />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return (
+    <ul className="orbit-list-plain orbit-entry-list">
+      {entries.map((entry) => (
+        <li key={entry.id}>
+          <EntryRow entry={entry} type={type} />
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -229,13 +494,7 @@ export function ArticleList() {
         </ul>
       ) : (
         <>
-          <ul className="orbit-list-plain orbit-entry-list">
-            {entries.map((entry) => (
-              <li key={entry.id}>
-                <EntryRow entry={entry} type={type || "diary"} />
-              </li>
-            ))}
-          </ul>
+          <TypedEntryList type={type || "diary"} entries={entries} />
           {hasMore && (
             <div className="mt-6 flex justify-center">
               <button

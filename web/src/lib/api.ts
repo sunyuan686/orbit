@@ -16,6 +16,12 @@ export interface EntrySummary {
   userId?: string | null;
   entryDate: number | null;
   parentId: string | null;
+  /** memo 稳定 slug；仅 type=memo 时有 */
+  key?: string | null;
+  /** 正文纯文本预览 */
+  snippet?: string | null;
+  /** 首图；无图为 null */
+  coverUrl?: string | null;
 }
 
 export interface EntryListPage {
@@ -102,6 +108,20 @@ function beijingDateParts(ts: number): { y: number; m: number; day: number } {
 export function formatDate(ts: number): string {
   const { y, m, day } = beijingDateParts(ts);
   return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** 日记列表左栏：日 / 月 / 年（北京时间） */
+export function formatDiaryDateParts(ts: number): {
+  day: string;
+  month: string;
+  year: string;
+} {
+  const { y, m, day } = beijingDateParts(ts);
+  return {
+    day: String(day).padStart(2, "0"),
+    month: `${m}月`,
+    year: String(y),
+  };
 }
 
 /** 格式化 Unix 时间戳为 YYYY-MM-DD HH:mm（本地时区） */
