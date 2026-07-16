@@ -1,6 +1,17 @@
-/** 从 Markdown 提取纯文本，供搜索索引与摘要使用 */
-export function toPlainText(md: string): string {
-  return md
+/** 从正文提取纯文本，供搜索索引与摘要使用（兼容 HTML / Markdown / 纯文本） */
+export function toPlainText(input: string): string {
+  return input
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<img[^>]*>/gi, " ")
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<\/?(p|div|h[1-6]|li|ul|ol|blockquote|tr|table|section)[^>]*>/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
     .replace(/!\[[^\]]*\]\([^)]+\)/g, "")
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/^#+\s+/gm, "")
@@ -15,12 +26,5 @@ export function toPlainText(md: string): string {
  */
 export function isEmptyBody(value: string | null | undefined): boolean {
   if (!value) return true;
-  return value
-    .replace(/<!--[\s\S]*?-->/g, "")
-    .replace(/<img[^>]*>/gi, "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/!\[[^\]]*\]\([^)]+\)/g, "")
-    .replace(/\s+/g, "")
-    .length === 0;
+  return toPlainText(value).replace(/\s+/g, "").length === 0;
 }
