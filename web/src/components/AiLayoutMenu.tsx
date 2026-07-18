@@ -51,7 +51,7 @@ export function AiLayoutMenu({
     <div className="orbit-ai-layout-menu" ref={rootRef}>
       <button
         type="button"
-        className={`orbit-icon-btn${open ? " orbit-icon-btn--active" : ""}`}
+        className={`orbit-icon-btn inline-flex${open ? " orbit-icon-btn--active" : ""}`}
         aria-label="切换面板布局"
         aria-expanded={open}
         title="切换布局"

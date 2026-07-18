@@ -13,6 +13,7 @@ import {
   type AiConversationListItem,
 } from "../lib/api";
 import { parseAssistantContent } from "../lib/ai-message-content";
+import { useConfirm } from "../lib/useConfirm";
 import { useToast } from "../lib/useToast";
 import { AiConversationList } from "./AiConversationList";
 import { AiLayoutMenu, type AiPanelLayout } from "./AiLayoutMenu";
@@ -145,6 +146,7 @@ export function AiChatPanel({
   articleType,
 }: AiChatPanelProps) {
   const toast = useToast();
+  const confirm = useConfirm();
   const [conversations, setConversations] = useState<AiConversationListItem[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -465,7 +467,13 @@ export function AiChatPanel({
 
   async function handleToggleShared(next: boolean) {
     if (!conversationId || !isOwner) return;
-    if (next && !window.confirm("对方将看到完整对话内容，确定开启共享吗？")) {
+    if (
+      next &&
+      !(await confirm({
+        message: "对方将看到完整对话内容，确定开启共享吗？",
+        confirmLabel: "开启共享",
+      }))
+    ) {
       return;
     }
     try {
@@ -481,7 +489,15 @@ export function AiChatPanel({
   }
 
   async function handleDeleteConversation(id: string) {
-    if (!window.confirm("删除后双方都无法再查看此对话，确定吗？")) return;
+    if (
+      !(await confirm({
+        message: "删除后双方都无法再查看此对话，确定吗？",
+        confirmLabel: "删除",
+        danger: true,
+      }))
+    ) {
+      return;
+    }
     try {
       await deleteAiConversation(id);
       if (conversationId === id) startNewConversation();
@@ -591,7 +607,7 @@ export function AiChatPanel({
           <div className="orbit-ai-panel-header-actions">
             <button
               type="button"
-              className="orbit-icon-btn"
+              className="orbit-icon-btn inline-flex"
               aria-label="新对话"
               title="新对话"
               onClick={startNewConversation}
@@ -606,7 +622,7 @@ export function AiChatPanel({
             />
             <button
               type="button"
-              className="orbit-icon-btn"
+              className="orbit-icon-btn inline-flex"
               aria-label="收起"
               title={isFloatingLayout ? "收起（可拖动标题栏移动窗口）" : "收起"}
               onClick={onClose}

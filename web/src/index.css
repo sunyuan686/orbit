@@ -1219,7 +1219,6 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .orbit-icon-btn {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -4511,6 +4510,70 @@ a.orbit-settings-mobile-row {
 .orbit-toast-message {
   flex: 1;
   min-width: 0;
+}
+
+/* ──────────────────────────────────────────────────────────
+   Confirm dialog
+   ────────────────────────────────────────────────────────── */
+.orbit-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+}
+
+.orbit-confirm-scrim {
+  position: absolute;
+  inset: 0;
+  border: none;
+  cursor: pointer;
+}
+
+.orbit-confirm-panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 22rem);
+  padding: 1.25rem;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-light);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-float-strong);
+  animation: orbit-confirm-enter var(--motion-slow) var(--motion-ease-enter);
+}
+
+.orbit-confirm-message {
+  margin: 0;
+  font-size: var(--type-secondary);
+  line-height: 1.55;
+  color: var(--color-text-primary);
+}
+
+.orbit-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+@keyframes orbit-confirm-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.4rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-confirm-panel {
+    animation: none;
+  }
 }
 
 /* ── Search highlights ─────────────────────────────────── */

@@ -12,6 +12,7 @@ import {
   type GalleryItem,
 } from "../lib/api";
 import { setPageTitle } from "../lib/pageTitle";
+import { useConfirm } from "../lib/useConfirm";
 import { useToast } from "../lib/useToast";
 import { CloseIcon } from "../components/OrbitIcons";
 
@@ -25,6 +26,7 @@ const FILTER_OPTIONS: { value: GalleryFilter; label: string }[] = [
 
 export function GalleryPage() {
   const toast = useToast();
+  const confirm = useConfirm();
   const [filter, setFilter] = useState<GalleryFilter>("all");
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -89,7 +91,12 @@ export function GalleryPage() {
 
   const handleDelete = async () => {
     if (!activeItem || activeItem.linked) return;
-    if (!window.confirm("确定删除这张图片？此操作不可恢复。")) return;
+    const confirmed = await confirm({
+      message: "确定删除这张图片？此操作不可恢复。",
+      confirmLabel: "删除",
+      danger: true,
+    });
+    if (!confirmed) return;
 
     setDeleting(true);
     try {
@@ -180,7 +187,7 @@ export function GalleryPage() {
           <div className="orbit-gallery-lightbox-panel" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
-              className="orbit-gallery-lightbox-close orbit-icon-btn"
+              className="orbit-gallery-lightbox-close orbit-icon-btn inline-flex"
               aria-label="关闭预览"
               onClick={() => setActiveItem(null)}
             >

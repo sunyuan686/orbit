@@ -15,6 +15,7 @@ import {
   type EntryDetail,
 } from "../lib/api";
 import { setPageTitle } from "../lib/pageTitle";
+import { useConfirm } from "../lib/useConfirm";
 import { useToast } from "../lib/useToast";
 import { TiptapEditor } from "../components/TiptapEditor";
 import { ArrowLeftIcon } from "../components/OrbitIcons";
@@ -33,6 +34,7 @@ export function ArticleView() {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
   const { setMeta: setAiArticleMeta } = useAiArticleMeta();
   const { data: session } = authClient.useSession();
   const [entry, setEntry] = useState<EntryDetail | null>(null);
@@ -192,7 +194,11 @@ export function ArticleView() {
 
   async function handleDeleteArticle() {
     if (!entry) return;
-    const confirmed = window.confirm("确定删除这条内容吗？删除后无法恢复。");
+    const confirmed = await confirm({
+      message: "确定删除这条内容吗？删除后无法恢复。",
+      confirmLabel: "删除",
+      danger: true,
+    });
     if (!confirmed) return;
     try {
       await deleteEntry(entry.id);

@@ -1044,7 +1044,7 @@ export function AiProvidersSettingsPanel() {
                 {modelSearch ? (
                   <button
                     type="button"
-                    className="orbit-icon-btn orbit-settings-model-search-clear"
+                    className="orbit-icon-btn inline-flex orbit-settings-model-search-clear"
                     aria-label="清除搜索"
                     onClick={() => setModelSearch("")}
                   >
