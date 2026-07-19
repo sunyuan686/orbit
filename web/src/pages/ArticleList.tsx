@@ -4,6 +4,7 @@ import {
   fetchEntries,
   TYPE_LABEL,
   formatDate,
+  formatDateCn,
   formatDiaryDateParts,
   getApiErrorMessage,
   shouldToastApiError,
@@ -234,27 +235,33 @@ function LetterRootCard({
   replyCount: number;
 }) {
   const hasCover = Boolean(entry.coverUrl);
-  const title = entryDisplayLabel(entry) || "无标题";
+  const title = entryDisplayLabel(entry);
 
   return (
-    <Link
-      to={`/letter/${entry.id}`}
-      className={`orbit-letter-card${hasCover ? " orbit-letter-card--has-cover" : ""}`}
-    >
-      <h3 className="orbit-letter-card-title">{title}</h3>
-      <Snippet text={entry.snippet} />
-      <div className="orbit-letter-card-meta">
-        {entry.author && (
-          <span className="orbit-entry-author">{entry.author}</span>
-        )}
-        {entry.entryDate != null && (
-          <span className="orbit-entry-date">{formatDate(entry.entryDate)}</span>
-        )}
-        {replyCount > 0 && (
-          <span className="orbit-letter-card-badge">{replyCount} 封回信</span>
-        )}
+    <Link to={`/letter/${entry.id}`} className="orbit-letter-peek">
+      <span className="orbit-letter-peek-flap" aria-hidden="true" />
+      <div
+        className={`orbit-letter-peek-paper${hasCover ? " orbit-letter-peek-paper--has-cover" : ""}`}
+      >
+        {title ? <h3 className="orbit-letter-peek-title">{title}</h3> : null}
+        <Snippet text={entry.snippet} className="orbit-letter-peek-snip" />
+        <CoverImg src={entry.coverUrl} className="orbit-letter-peek-cover" />
       </div>
-      <CoverImg src={entry.coverUrl} className="orbit-letter-card-cover" />
+      <div className="orbit-letter-peek-pocket">
+        <div className="orbit-letter-peek-foot">
+          <span className="orbit-letter-peek-meta">
+            {entry.entryDate != null && (
+              <span className="orbit-entry-date">{formatDateCn(entry.entryDate)}</span>
+            )}
+            {replyCount > 0 && (
+              <span className="orbit-letter-peek-badge">{replyCount} 封回信</span>
+            )}
+          </span>
+          {entry.author ? (
+            <span className="orbit-letter-peek-sign">— {entry.author}</span>
+          ) : null}
+        </div>
+      </div>
     </Link>
   );
 }

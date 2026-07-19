@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" data-variant="illus">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Orbit 信箱 · 人味细节选型</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;1,8..60,400&display=swap" rel="stylesheet" />
+  <style>
+    :root, [data-theme="light"] {
+      --bg: oklch(0.99 0.002 80);
+      --surface: #fff;
+      --raised: oklch(0.975 0.004 80);
+      --border: oklch(0.88 0.005 80);
+      --border-light: oklch(0.93 0.003 80);
+      --text: oklch(0.18 0.01 80);
+      --secondary: oklch(0.52 0.015 80);
+      --muted: oklch(0.68 0.01 80);
+      --serif: "Instrument Serif", "Source Serif 4", "Songti SC", Georgia, serif;
+      --ui: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif;
+      --shadow: 0 1px 2px oklch(0.4 0.02 60 / 0.04), 0 8px 24px oklch(0.4 0.02 60 / 0.05);
+    }
+    [data-theme="dark"] {
+      --bg: oklch(0.14 0.008 80);
+      --surface: oklch(0.17 0.01 80);
+      --raised: oklch(0.21 0.012 80);
+      --border: oklch(0.32 0.012 80);
+      --border-light: oklch(0.26 0.01 80);
+      --text: oklch(0.93 0.006 80);
+      --secondary: oklch(0.72 0.012 80);
+      --muted: oklch(0.56 0.01 80);
+      --shadow: 0 1px 2px oklch(0 0 0 / 0.2), 0 8px 24px oklch(0 0 0 / 0.28);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      font-family: var(--ui); background: var(--bg); color: var(--text); line-height: 1.5;
+    }
+    .shell { max-width: 640px; margin: 0 auto; padding: 28px 20px 96px; }
+    .top { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .top h1 { margin: 0; font-size: 1.15rem; font-weight: 500; letter-spacing: -0.02em; }
+    .top p { margin: 4px 0 0; font-size: 0.78rem; color: var(--muted); line-height: 1.45; }
+    .btn {
+      height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); color: var(--text); font: 500 0.78rem/1 var(--ui); cursor: pointer;
+    }
+
+    .picker {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 18px 0 14px;
+    }
+    @media (max-width: 520px) { .picker { grid-template-columns: 1fr; } }
+    .pick {
+      text-align: left; padding: 12px 14px; border: 1px solid var(--border);
+      border-radius: 10px; background: var(--surface); cursor: pointer;
+      font: inherit; color: inherit; transition: border-color 120ms ease, box-shadow 120ms ease;
+    }
+    .pick:hover { border-color: oklch(0.75 0.01 80); }
+    .pick[aria-selected="true"] {
+      border-color: oklch(0.45 0.02 80);
+      box-shadow: inset 0 0 0 1px oklch(0.45 0.02 80 / 0.25);
+    }
+    [data-theme="dark"] .pick[aria-selected="true"] { border-color: oklch(0.7 0.01 80); }
+    .pick strong { display: block; font-size: 0.88rem; font-weight: 550; margin-bottom: 4px; }
+    .pick span { display: block; font-size: 0.72rem; color: var(--muted); line-height: 1.4; }
+
+    .diff {
+      margin: 0 0 18px; padding: 10px 12px; border-radius: 8px;
+      background: var(--raised); border: 1px dashed var(--border);
+      font-size: 0.75rem; color: var(--secondary); line-height: 1.55;
+    }
+    .diff b { font-weight: 550; color: var(--text); }
+
+    .list { display: flex; flex-direction: column; gap: 12px; }
+    .card {
+      display: block; width: 100%; text-align: left; font: inherit; color: inherit;
+      padding: 0; border: 0; background: transparent; cursor: pointer;
+    }
+    .card:focus-visible { outline: 2px solid oklch(0.45 0.12 250); outline-offset: 3px; }
+
+    /* —— shared letter card shell —— */
+    .letter {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 18px 16px;
+      box-shadow: var(--shadow);
+      transition: transform 140ms ease, box-shadow 140ms ease;
+    }
+    .card:hover .letter { transform: translateY(-1px); }
+
+    .dear {
+      margin: 0 0 6px;
+      font-size: 0.8rem; color: var(--muted); letter-spacing: 0.01em;
+    }
+    .title {
+      margin: 0 0 8px;
+      font-family: var(--serif); font-size: 1.28rem; font-weight: 400;
+      letter-spacing: -0.02em; line-height: 1.25;
+    }
+    .snip {
+      margin: 0;
+      font-size: 0.875rem; color: var(--secondary); line-height: 1.55;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .foot {
+      margin-top: 14px;
+      display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+      font-size: 0.75rem; color: var(--muted);
+    }
+    .meta-left { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+    .sign {
+      font-family: var(--serif); font-style: italic; font-size: 0.95rem; color: var(--secondary);
+    }
+    .when { white-space: nowrap; }
+
+    /* A · 文字手迹 */
+    [data-variant="trace"] .letter::before {
+      content: "";
+      position: absolute; top: 0; left: 16px; right: 16px; height: 1px;
+      background: linear-gradient(90deg, transparent, oklch(0.78 0.02 70 / 0.85), transparent);
+    }
+    [data-variant="trace"] .sign { margin-left: auto; text-align: right; padding-right: 4px; }
+
+    /* B · 未拆封口 */
+    [data-variant="sealed"] .letter.unread {
+      padding-top: 22px;
+    }
+    [data-variant="sealed"] .letter.unread::after {
+      content: "";
+      position: absolute; left: 12px; right: 12px; top: 0; height: 11px;
+      background: var(--raised);
+      border-bottom: 1px solid var(--border);
+      border-radius: 9px 9px 0 0;
+      box-shadow: 0 1px 0 oklch(0.7 0.02 70 / 0.2);
+    }
+    [data-variant="sealed"] .badge-sealed {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.68rem; color: var(--muted);
+    }
+    [data-variant="sealed"] .badge-sealed i {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: oklch(0.62 0.08 55); display: inline-block;
+    }
+    [data-variant="sealed"] .letter:not(.unread) .badge-sealed { display: none; }
+    [data-variant="sealed"] .letter::before {
+      content: "";
+      position: absolute; top: 0; left: 16px; right: 16px; height: 1px;
+      background: linear-gradient(90deg, transparent, oklch(0.78 0.02 70 / 0.5), transparent);
+    }
+
+    /* C · 夹照 */
+    [data-variant="clip"] .letter {
+      display: grid; grid-template-columns: 1fr 76px; gap: 14px; align-items: start;
+    }
+    [data-variant="clip"] .letter.no-cover { grid-template-columns: 1fr; }
+    [data-variant="clip"] .clip {
+      position: relative; width: 76px; height: 92px; justify-self: end;
+    }
+    [data-variant="clip"] .clip img {
+      width: 100%; height: 100%; object-fit: cover;
+      border-radius: 3px;
+      box-shadow: 0 2px 8px oklch(0.35 0.02 60 / 0.18);
+      transform: rotate(3.5deg);
+      border: 3px solid #fff;
+      background: var(--raised);
+    }
+    [data-theme="dark"] [data-variant="clip"] .clip img { border-color: oklch(0.25 0.01 80); }
+    [data-variant="clip"] .clip::before {
+      content: "";
+      position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+      width: 18px; height: 10px; border-radius: 2px;
+      background: oklch(0.78 0.02 80);
+      border: 1px solid oklch(0.7 0.02 80);
+      z-index: 1;
+      box-shadow: 0 1px 2px oklch(0 0 0 / 0.08);
+    }
+    [data-variant="clip"] .letter::before {
+      content: "";
+      position: absolute; top: 0; left: 16px; right: 100px; height: 1px;
+      background: linear-gradient(90deg, transparent, oklch(0.78 0.02 70 / 0.85), transparent);
+    }
+
+    /* D · 回信贴附 */
+    [data-variant="tuck"] .wrap { display: grid; gap: 0; }
+    [data-variant="tuck"] .letter { z-index: 1; }
+    [data-variant="tuck"] .letter::before {
+      content: "";
+      position: absolute; top: 0; left: 16px; right: 16px; height: 1px;
+      background: linear-gradient(90deg, transparent, oklch(0.78 0.02 70 / 0.85), transparent);
+    }
+    [data-variant="tuck"] .replies {
+      margin: -6px 10px 0; padding: 14px 14px 10px;
+      background: var(--raised);
+      border: 1px solid var(--border-light);
+      border-radius: 0 0 10px 10px;
+      display: grid; gap: 8px;
+    }
+    [data-variant="tuck"] .reply {
+      font-size: 0.78rem; color: var(--secondary); line-height: 1.4;
+      padding-left: 10px;
+      border-left: 2px solid oklch(0.78 0.03 70);
+    }
+    [data-variant="tuck"] .reply small {
+      display: block; margin-top: 2px; font-size: 0.68rem; color: var(--muted);
+    }
+    [data-variant="tuck"] .replies-empty { display: none; }
+
+    /* E · 口袋探出 — 克制扁平 */
+    [data-variant="peek"] .list { gap: 18px; }
+    [data-variant="peek"] .env-peek {
+      position: relative;
+      padding-top: 28px;
+    }
+    [data-variant="peek"] .env-peek-paper {
+      position: relative; z-index: 1;
+      margin: 0 12px -8px;
+      padding: 14px 16px 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-bottom: 0;
+      border-radius: 8px 8px 0 0;
+      box-shadow: 0 -2px 10px oklch(0.4 0.02 60 / 0.04);
+    }
+    [data-variant="peek"] .env-peek-paper .title { font-size: 1.15rem; margin-bottom: 4px; }
+    [data-variant="peek"] .env-peek-paper .snip { -webkit-line-clamp: 2; }
+    [data-variant="peek"] .env-peek-pocket {
+      position: relative; z-index: 2;
+      background: oklch(0.94 0.012 75);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 16px 14px;
+      box-shadow: var(--shadow);
+    }
+    [data-theme="dark"] [data-variant="peek"] .env-peek-pocket {
+      background: oklch(0.22 0.015 75);
+    }
+    [data-variant="peek"] .env-peek-pocket::before {
+      content: "";
+      position: absolute; left: 0; right: 0; top: 0; height: 18px;
+      background: linear-gradient(180deg, oklch(0.88 0.015 70 / 0.55), transparent);
+      border-radius: 10px 10px 0 0;
+      pointer-events: none;
+    }
+    [data-variant="peek"] .env-peek-flap {
+      position: absolute; left: 10%; right: 10%; top: 6px; height: 20px; z-index: 3;
+      background: oklch(0.91 0.015 72);
+      border: 1px solid var(--border);
+      border-bottom: 0;
+      clip-path: polygon(0 100%, 50% 0, 100% 100%);
+      opacity: 0.55;
+    }
+    [data-theme="dark"] [data-variant="peek"] .env-peek-flap {
+      background: oklch(0.26 0.015 72);
+    }
+    [data-variant="peek"] .card:hover .env-peek-paper {
+      transform: translateY(-3px); transition: transform 160ms ease;
+    }
+    [data-variant="peek"] .env-peek .foot { margin-top: 8px; }
+
+    /* F · 暖色封套（静态外形，无开封差） */
+    [data-variant="softenv"] .list { gap: 16px; }
+    [data-variant="softenv"] .env-soft {
+      position: relative;
+      background: oklch(0.95 0.014 78);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 34px 18px 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      transition: transform 140ms ease;
+    }
+    [data-theme="dark"] [data-variant="softenv"] .env-soft {
+      background: oklch(0.2 0.014 78);
+    }
+    [data-variant="softenv"] .card:hover .env-soft { transform: translateY(-2px); }
+    [data-variant="softenv"] .env-soft-flap {
+      position: absolute; left: 0; right: 0; top: 0; height: 36px;
+      background: oklch(0.91 0.018 72);
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+      z-index: 2;
+      opacity: 0.85;
+    }
+    [data-theme="dark"] [data-variant="softenv"] .env-soft-flap {
+      background: oklch(0.26 0.018 72);
+    }
+    [data-variant="softenv"] .env-soft-flap::after {
+      content: "";
+      position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%);
+      width: 8px; height: 8px; border-radius: 50%;
+      background: oklch(0.72 0.04 55);
+      box-shadow: 0 0 0 2px oklch(0.95 0.014 78);
+    }
+    [data-theme="dark"] [data-variant="softenv"] .env-soft-flap::after {
+      box-shadow: 0 0 0 2px oklch(0.2 0.014 78);
+    }
+    [data-variant="softenv"] .env-soft .dear { margin-top: 2px; }
+    [data-variant="softenv"] .env-soft .title { font-size: 1.2rem; }
+
+    /* H · 插画级信封 */
+    [data-variant="illus"] .list { gap: 28px; }
+    [data-variant="illus"] .env-illus { display: grid; gap: 10px; }
+    [data-variant="illus"] .env-illus-art {
+      position: relative;
+      width: 100%;
+      max-width: 360px;
+      margin: 0 auto;
+      aspect-ratio: 320 / 220;
+    }
+    [data-variant="illus"] .env-illus-art svg {
+      display: block; width: 100%; height: 100%;
+      overflow: visible;
+    }
+    [data-variant="illus"] .env-illus-onpaper {
+      position: absolute;
+      left: 20%; right: 20%;
+      top: 18%;
+      height: 28%;
+      padding: 0 4px;
+      display: flex; flex-direction: column; justify-content: flex-start; gap: 1px;
+      text-align: left;
+      pointer-events: none;
+      color: #2a2620;
+      z-index: 2;
+    }
+    [data-variant="illus"] .env-illus-onpaper .dear {
+      margin: 0; font-size: 0.72rem; color: #7a7368;
+    }
+    [data-variant="illus"] .env-illus-onpaper .title {
+      margin: 0; font-size: clamp(0.95rem, 3.6vw, 1.15rem);
+      line-height: 1.25;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    [data-variant="illus"] .env-illus-onpaper .snip {
+      margin: 2px 0 0; font-size: 0.7rem; color: #6b655c; line-height: 1.35;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    [data-variant="illus"] .env-illus-cap {
+      max-width: 360px; margin: 0 auto; width: 100%;
+      display: flex; justify-content: space-between; gap: 12px;
+      padding: 0 8px;
+      font-size: 0.75rem; color: var(--muted);
+    }
+    [data-variant="illus"] .env-illus-cap .sign {
+      font-family: var(--serif); font-style: italic; color: var(--secondary);
+    }
+    [data-variant="illus"] .card:hover .env-illus-art {
+      transform: translateY(-3px);
+      transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .hint {
+      margin-top: 22px; font-size: 0.72rem; color: var(--muted); line-height: 1.55;
+    }
+    .hint code { font-family: ui-monospace, Menlo, monospace; font-size: 0.68rem; }
+
+    .group-label {
+      grid-column: 1 / -1;
+      margin: 6px 0 0;
+      font-size: 0.68rem; font-weight: 500; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--muted);
+    }
+
+    /* stage */
+    .stage {
+      position: fixed; inset: 0; z-index: 40; display: none;
+      align-items: center; justify-content: center; padding: 20px;
+      background: oklch(0.15 0.01 70 / 0.4); backdrop-filter: blur(8px);
+    }
+    .stage.open { display: flex; }
+    .stage-panel {
+      width: min(440px, 100%); max-height: min(88vh, 680px); overflow: auto;
+      background: var(--surface); border-radius: 12px; border: 1px solid var(--border);
+      box-shadow: 0 24px 60px oklch(0 0 0 / 0.22);
+    }
+    .stage-head {
+      padding: 16px 20px 0; display: flex; justify-content: space-between; align-items: center;
+    }
+    .stage-head h2 {
+      margin: 0; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .read { padding: 8px 28px 24px; }
+    .read .salute {
+      margin: 0 0 10px; font-family: var(--serif); font-style: italic;
+      font-size: 1.05rem; color: var(--secondary);
+    }
+    .read h3 {
+      margin: 0 0 6px; font-family: var(--serif); font-weight: 400;
+      font-size: 1.65rem; letter-spacing: -0.02em; line-height: 1.2;
+    }
+    .read .rm { margin: 0 0 18px; font-size: 0.75rem; color: var(--muted); }
+    .read .body { font-size: 1rem; line-height: 1.85; }
+    .read .body p { margin: 0 0 1em; }
+    .read .sign-off {
+      margin: 28px 0 0; text-align: right;
+      font-family: var(--serif); font-style: italic; font-size: 1.1rem;
+    }
+    .read .sign-off small {
+      display: block; margin-top: 4px; font-style: normal; font-size: 0.68rem;
+      font-family: var(--ui); color: var(--muted);
+    }
+    .stage-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 0 20px 18px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="top">
+      <div>
+        <h1>信箱 · 定样式</h1>
+        <p>已排除开封态。当前默认：插画级信封。</p>
+      </div>
+      <button class="btn" type="button" id="theme-toggle">暗色</button>
+    </div>
+
+    <div class="picker" role="tablist" aria-label="样式方案">
+      <p class="group-label">候选（无开封态）</p>
+      <button class="pick" type="button" role="tab" aria-selected="false" data-variant="trace">
+        <strong>A · 文字手迹</strong>
+        <span>称谓 + 人话日期 + 落款 + 折痕。无信封。</span>
+      </button>
+      <button class="pick" type="button" role="tab" aria-selected="false" data-variant="peek">
+        <strong>E · 口袋探出</strong>
+        <span>扁平口袋 + 纸探出 + 手迹。已去掉假立体。</span>
+      </button>
+      <button class="pick" type="button" role="tab" aria-selected="true" data-variant="illus">
+        <strong>H · 插画信封</strong>
+        <span>完整 SVG 物件，文字叠在露出的信纸上。</span>
+      </button>
+      <button class="pick" type="button" role="tab" aria-selected="false" data-variant="softenv">
+        <strong>F · 暖色封套</strong>
+        <span>整卡封套外形 + 浅三角盖。信封感更强。</span>
+      </button>
+      <p class="group-label">可叠加细节</p>
+      <button class="pick" type="button" role="tab" aria-selected="false" data-variant="clip">
+        <strong>C · 夹照</strong>
+        <span>在 A 上加微倾封面。可与 E 思路合并，先单独看。</span>
+      </button>
+      <button class="pick" type="button" role="tab" aria-selected="false" data-variant="tuck">
+        <strong>D · 回信贴附</strong>
+        <span>回信贴在信下。可与任一主样式合并。</span>
+      </button>
+    </div>
+
+    <p class="diff" id="diff"></p>
+    <div class="list" id="list"></div>
+
+    <p class="hint">
+      文件 <code>prototype-letter-warm.html</code>。与旧总库无关，专供选型。
+      选定后回我：A / E / F / H，叠加写 +C / +D。
+    </p>
+  </div>
+
+  <div class="stage" id="stage" role="dialog" aria-modal="true">
+    <div class="stage-panel">
+      <div class="stage-head">
+        <h2>Letter</h2>
+        <button type="button" class="btn" id="stage-close">关闭</button>
+      </div>
+      <article class="read">
+        <p class="salute" id="read-salute"></p>
+        <h3 id="read-title"></h3>
+        <p class="rm" id="read-meta"></p>
+        <div class="body" id="read-body"></div>
+        <p class="sign-off" id="read-sign"></p>
+      </article>
+      <div class="stage-actions">
+        <button type="button" class="btn" id="stage-done">收好</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DIFF = {
+      trace: "<b>A</b> — 无信封，人味全靠称谓/落款/人话日期。最轻。",
+      clip: "<b>C</b> — 夹照细节。有封面才明显；可之后并进 E。",
+      tuck: "<b>D</b> — 回信贴附。可并进任一主样式。",
+      peek: "<b>E</b> — 已撤回假立体。扁平口袋 + 纸探出 + 手迹。",
+      softenv: "<b>F</b> — 整卡封套。信封感更满；注意别显得像装饰贴图。",
+      illus: "<b>H</b> — 插画级完整信封 SVG。物件一次画完，文案叠在探出的纸上。双方略分色。",
+    };
+
+    const LETTERS = [
+      {
+        title: "写给你，关于这个夏天",
+        snippet: "我想把六月里那些来不及说的话，慢慢写在纸上。不是抱怨，是想让你看见我的另一面。",
+        body: "我想把六月里那些来不及说的话，慢慢写在纸上。不是抱怨，是想让你看见我的另一面。\n\n太阳落得很晚，风里有一点海水的味道。若你也还醒着，就把这封信当作我坐在你对面。\n\n不必急着回。看见就好。",
+        salute: "亲爱的小麒子，",
+        author: "小园子",
+        when: "周二傍晚",
+        date: "2026-06-15",
+        unread: true,
+        replies: [
+          { who: "小麒子", when: "次日清晨", text: "看见了。今晚电话里说。" },
+          { who: "小园子", when: "同日夜里", text: "好，我等你。" },
+        ],
+        cover: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=240&h=300&fit=crop",
+      },
+      {
+        title: "一封没有主题的信",
+        snippet: "今天路过那家面馆，忽然想起你说想再去一次。门还开着，灯还亮着。",
+        body: "今天路过那家面馆，忽然想起你说想再去一次。门还开着，灯还亮着。\n\n我站了一会儿，没有进去。想把「下次一起」留给真的下次。",
+        salute: "亲爱的小园子，",
+        author: "小麒子",
+        when: "周五深夜",
+        date: "2026-06-20",
+        unread: true,
+        replies: [],
+        cover: "",
+      },
+      {
+        title: "关于搬家的那些纸箱",
+        snippet: "纸箱堆在走廊，像一截还没写完的句子。我想把厨房那只杯子单独包好。",
+        body: "纸箱堆在走廊，像一截还没写完的句子。我想把厨房那只杯子单独包好——你总用它喝水。\n\n其余的可以乱，这一件我想整齐。",
+        salute: "亲爱的小麒子，",
+        author: "小园子",
+        when: "周日上午",
+        date: "2026-06-22",
+        unread: false,
+        replies: [
+          { who: "小麒子", when: "当天下午", text: "杯子我记得。我来包。" },
+        ],
+        cover: "https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=240&h=300&fit=crop",
+      },
+    ];
+
+    function variant() {
+      return document.documentElement.getAttribute("data-variant") || "trace";
+    }
+
+    function cardHTML(letter, idx = 0) {
+      const v = variant();
+      const dear = letter.salute.replace(/，$/, "");
+      const body = `
+        <p class="dear">${dear}</p>
+        <h3 class="title">${letter.title}</h3>
+        <p class="snip">${letter.snippet}</p>`;
+      const foot = `
+        <div class="foot">
+          <span class="meta-left">
+            <span class="when">${letter.when}</span>
+          </span>
+          <span class="sign">— ${letter.author}</span>
+        </div>`;
+
+      if (v === "clip") {
+        const clip = letter.cover
+          ? `<div class="clip"><img src="${letter.cover}" alt="" /></div>`
+          : "";
+        return `<div class="letter${letter.cover ? "" : " no-cover"}">
+          <div>${body}${foot}</div>${clip}
+        </div>`;
+      }
+
+      if (v === "tuck") {
+        const replies = letter.replies.length
+          ? `<div class="replies">${letter.replies.map((r) =>
+              `<div class="reply">${r.text}<small>${r.who} · ${r.when}</small></div>`
+            ).join("")}</div>`
+          : "";
+        return `<div class="wrap">
+          <div class="letter">${body}${foot}</div>${replies}
+        </div>`;
+      }
+
+      if (v === "peek") {
+        return `<div class="env-peek">
+          <div class="env-peek-flap" aria-hidden="true"></div>
+          <div class="env-peek-paper">
+            <p class="dear">${dear}</p>
+            <h3 class="title">${letter.title}</h3>
+            <p class="snip">${letter.snippet}</p>
+          </div>
+          <div class="env-peek-pocket">
+            ${foot}
+          </div>
+        </div>`;
+      }
+
+      if (v === "softenv") {
+        return `<div class="env-soft">
+          <div class="env-soft-flap" aria-hidden="true"></div>
+          ${body}${foot}
+        </div>`;
+      }
+
+      if (v === "illus") {
+        const toneB = /园|圆/.test(letter.author) ? false : true;
+        const uid = `h${idx}`;
+        const bodyFill = toneB ? `url(#bodyB-${uid})` : `url(#bodyA-${uid})`;
+        const frontFill = toneB ? `url(#frontB-${uid})` : `url(#frontA-${uid})`;
+        const flapFill = toneB ? `url(#flapB-${uid})` : `url(#flapA-${uid})`;
+        return `<div class="env-illus">
+          <div class="env-illus-art">
+            <svg viewBox="0 0 320 220" aria-hidden="true">
+              <defs>
+                <linearGradient id="bodyA-${uid}" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#efe6d6"/><stop offset="100%" stop-color="#e0d2bc"/>
+                </linearGradient>
+                <linearGradient id="frontA-${uid}" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#e8dcc8"/><stop offset="100%" stop-color="#d4c4a8"/>
+                </linearGradient>
+                <linearGradient id="flapA-${uid}" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#f5ecde"/><stop offset="100%" stop-color="#dccdb6"/>
+                </linearGradient>
+                <linearGradient id="bodyB-${uid}" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#e4e8ef"/><stop offset="100%" stop-color="#cfd6e2"/>
+                </linearGradient>
+                <linearGradient id="frontB-${uid}" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#d9dee8"/><stop offset="100%" stop-color="#c2cad8"/>
+                </linearGradient>
+                <linearGradient id="flapB-${uid}" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#eef1f6"/><stop offset="100%" stop-color="#cfd6e2"/>
+                </linearGradient>
+                <linearGradient id="paper-${uid}" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#fffcf7"/><stop offset="100%" stop-color="#f3eee4"/>
+                </linearGradient>
+                <filter id="sh-${uid}" x="-25%" y="-25%" width="150%" height="170%">
+                  <feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#7a6a54" flood-opacity="0.2"/>
+                </filter>
+              </defs>
+              <ellipse cx="160" cy="208" rx="120" ry="7" fill="#8a7a62" opacity="0.14"/>
+              <g filter="url(#sh-${uid})">
+                <!-- 打开的盖：在纸后面 -->
+                <path d="M36 108 L160 22 L284 108 Z" fill="${flapFill}"/>
+                <path d="M36 108 L160 22 L284 108" fill="none" stroke="#b9a88e" stroke-width="1" opacity="0.35"/>
+                <!-- 信封底 -->
+                <rect x="32" y="100" width="256" height="100" rx="12" fill="${bodyFill}"/>
+                <!-- 信纸探出 -->
+                <rect x="58" y="34" width="204" height="126" rx="5" fill="url(#paper-${uid})" stroke="#e4d9c8" stroke-width="1"/>
+                <line x1="74" y1="58" x2="246" y2="58" stroke="#e8e0d4" stroke-width="1"/>
+                <line x1="74" y1="72" x2="246" y2="72" stroke="#e8e0d4" stroke-width="1"/>
+                <line x1="74" y1="86" x2="210" y2="86" stroke="#e8e0d4" stroke-width="1"/>
+                <!-- 前袋 -->
+                <path d="M32 108 L160 178 L288 108 L288 192 Q288 200 280 200 L40 200 Q32 200 32 192 Z" fill="${frontFill}"/>
+                <path d="M32 108 L160 178 L288 108" fill="none" stroke="#b9a88e" stroke-width="1.25" opacity="0.4"/>
+                <!-- 小圆点封 -->
+                <circle cx="160" cy="138" r="8" fill="${toneB ? "#8a9bb0" : "#c4a574"}" opacity="0.5"/>
+              </g>
+            </svg>
+            <div class="env-illus-onpaper">
+              <p class="dear">${dear}</p>
+              <h3 class="title">${letter.title}</h3>
+              <p class="snip">${letter.snippet}</p>
+            </div>
+          </div>
+          <div class="env-illus-cap">
+            <span>${letter.when}</span>
+            <span class="sign">— ${letter.author}</span>
+          </div>
+        </div>`;
+      }
+
+      return `<div class="letter">${body}${foot}</div>`;
+    }
+
+    function render() {
+      document.getElementById("diff").innerHTML = DIFF[variant()];
+      const list = document.getElementById("list");
+      list.innerHTML = "";
+      LETTERS.forEach((letter, i) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "card";
+        btn.innerHTML = cardHTML(letter, i);
+        btn.addEventListener("click", () => openStage(letter));
+        list.appendChild(btn);
+      });
+    }
+
+    function openStage(letter) {
+      document.getElementById("read-salute").textContent = letter.salute;
+      document.getElementById("read-title").textContent = letter.title;
+      document.getElementById("read-meta").textContent = `${letter.author} · ${letter.when} · ${letter.date}`;
+      document.getElementById("read-body").innerHTML = letter.body
+        .split(/\n\n+/).map((p) => `<p>${p}</p>`).join("");
+      document.getElementById("read-sign").innerHTML =
+        `${letter.author}<small>${letter.when}</small>`;
+      document.getElementById("stage").classList.add("open");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeStage() {
+      document.getElementById("stage").classList.remove("open");
+      document.body.style.overflow = "";
+    }
+
+    document.querySelectorAll(".pick").forEach((pick) => {
+      pick.addEventListener("click", () => {
+        document.documentElement.setAttribute("data-variant", pick.dataset.variant);
+        document.querySelectorAll(".pick").forEach((p) =>
+          p.setAttribute("aria-selected", String(p === pick))
+        );
+        render();
+      });
+    });
+
+    document.getElementById("stage-close").addEventListener("click", closeStage);
+    document.getElementById("stage-done").addEventListener("click", closeStage);
+    document.getElementById("stage").addEventListener("click", (e) => {
+      if (e.target.id === "stage") closeStage();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeStage();
+    });
+
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+      const root = document.documentElement;
+      const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      document.getElementById("theme-toggle").textContent = next === "dark" ? "亮色" : "暗色";
+    });
+
+    render();
+  </script>
+</body>
+</html>

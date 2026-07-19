@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Orbit 信箱信封 · 样式对比</title>
+  <style>
+    :root, [data-theme="light"] {
+      --font-heading: "New York Small", "New York", "Iowan Old Style", Charter, Georgia, "Songti SC", STSong, serif;
+      --font-body: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      --bg: oklch(0.99 0.002 80);
+      --surface: oklch(1 0 0);
+      --surface-raised: oklch(0.975 0.004 80);
+      --border: oklch(0.88 0.005 80);
+      --border-light: oklch(0.93 0.003 80);
+      --text: oklch(0.18 0.01 80);
+      --text-secondary: oklch(0.52 0.015 80);
+      --text-muted: oklch(0.68 0.01 80);
+      --accent: oklch(0.32 0.02 80);
+      --on-accent: oklch(0.99 0.002 80);
+      --paper: oklch(0.985 0.012 85);
+      --paper-edge: oklch(0.92 0.02 80);
+      --envelope: oklch(0.96 0.018 80);
+      --envelope-deep: oklch(0.91 0.022 75);
+      --fold: oklch(0.78 0.02 80 / 0.35);
+      --stamp-ring: oklch(0.45 0.04 25 / 0.55);
+      --radius: 8px;
+      --content: 680px;
+      --shadow: 0 2px 10px oklch(0 0 0 / 0.06);
+      --shadow-hover: 0 6px 18px oklch(0 0 0 / 0.09);
+    }
+
+    [data-theme="dark"] {
+      --bg: oklch(0.14 0.008 80);
+      --surface: oklch(0.17 0.01 80);
+      --surface-raised: oklch(0.21 0.012 80);
+      --border: oklch(0.32 0.012 80);
+      --border-light: oklch(0.26 0.01 80);
+      --text: oklch(0.93 0.006 80);
+      --text-secondary: oklch(0.72 0.012 80);
+      --text-muted: oklch(0.56 0.01 80);
+      --accent: oklch(0.82 0.012 80);
+      --on-accent: oklch(0.14 0.008 80);
+      --paper: oklch(0.22 0.014 80);
+      --paper-edge: oklch(0.28 0.016 80);
+      --envelope: oklch(0.2 0.014 80);
+      --envelope-deep: oklch(0.17 0.012 75);
+      --fold: oklch(0.55 0.02 80 / 0.35);
+      --stamp-ring: oklch(0.72 0.04 40 / 0.5);
+      --shadow: 0 2px 12px oklch(0 0 0 / 0.28);
+      --shadow-hover: 0 8px 22px oklch(0 0 0 / 0.4);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    .shell {
+      max-width: calc(var(--content) + 48px);
+      margin: 0 auto;
+      padding: 28px 24px 72px;
+    }
+
+    .top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .top h1 {
+      margin: 0;
+      font-family: var(--font-heading);
+      font-size: 1.5rem;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+    }
+    .top p {
+      margin: 6px 0 0;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+    }
+    .top-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .btn {
+      height: 36px;
+      padding: 0 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font: 500 0.875rem/1 var(--font-body);
+      cursor: pointer;
+    }
+    .btn:hover { background: var(--surface-raised); }
+    .btn-primary {
+      border-color: transparent;
+      background: var(--accent);
+      color: var(--on-accent);
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .tab {
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text-secondary);
+      font: 500 0.8125rem/1 var(--font-body);
+      cursor: pointer;
+    }
+    .tab:hover { background: var(--surface-raised); color: var(--text); }
+    .tab[aria-selected="true"] {
+      background: var(--surface-raised);
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    .variant-desc {
+      margin: 0 0 18px;
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+    .variant-desc strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .list { display: flex; flex-direction: column; gap: 14px; }
+
+    .snippet {
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .author { color: var(--text-secondary); }
+    .thread-hint {
+      margin: 0;
+      padding: 8px 12px 10px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .thread-hint strong { color: var(--text-secondary); font-weight: 500; }
+
+    /* ========== 0 现状 ========== */
+    .base-card {
+      display: grid;
+      gap: 6px;
+      padding: 14px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius);
+      transition: background 120ms ease;
+    }
+    .base-card.has-cover { grid-template-columns: 1fr 80px; }
+    .base-card:hover { background: var(--surface-raised); }
+    .base-card .title {
+      margin: 0;
+      font-family: var(--font-heading);
+      font-size: 1.0625rem;
+      font-weight: 400;
+    }
+    .base-card .cover {
+      width: 80px;
+      height: 80px;
+      border-radius: 6px;
+      object-fit: cover;
+      grid-row: 1 / span 3;
+      grid-column: 2;
+      background: var(--surface-raised);
+    }
+    .base-badge {
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border-light);
+      background: var(--surface-raised);
+      font-size: 0.6875rem;
+    }
+    .base-thread {
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .base-thread .thread-hint {
+      border-top: 1px solid var(--border-light);
+      background: var(--surface-raised);
+    }
+
+    /* ========== A V 形封口 ========== */
+    .env-a {
+      position: relative;
+      background: var(--envelope);
+      border: 1px solid var(--border);
+      border-radius: 4px 4px 10px 10px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 150ms ease;
+    }
+    .env-a:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+    .env-a-flap {
+      position: relative;
+      height: 32px;
+      background: var(--envelope-deep);
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+    }
+    .env-a-flap::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 40%, oklch(0 0 0 / 0.06));
+      clip-path: inherit;
+    }
+    .env-a-body {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 6px;
+      padding: 18px 16px 14px;
+      margin-top: -8px;
+    }
+    .env-a.has-cover .env-a-body {
+      grid-template-columns: 1fr 64px;
+      align-items: start;
+    }
+    .env-a .title {
+      margin: 0;
+      font-family: var(--font-heading);
+      font-size: 1.0625rem;
+      font-weight: 400;
+      line-height: 1.3;
+    }
+    .env-a .stamp {
+      width: 64px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 2px;
+      box-shadow: 0 0 0 1px oklch(0 0 0 / 0.12), 0 1px 3px oklch(0 0 0 / 0.1);
+      transform: rotate(2.5deg);
+      grid-row: 1 / span 3;
+      grid-column: 2;
+    }
+    .postmark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 2.5rem;
+      height: 2.5rem;
+      padding: 0 6px;
+      border: 1.5px solid var(--stamp-ring);
+      border-radius: 50%;
+      color: var(--stamp-ring);
+      font-size: 0.625rem;
+      font-weight: 500;
+      line-height: 1.15;
+      text-align: center;
+      letter-spacing: 0.02em;
+      transform: rotate(-8deg);
+    }
+    .env-a .meta { align-items: center; }
+    .env-a .thread-hint {
+      border-top: 1px dashed var(--border);
+      background: var(--surface-raised);
+    }
+
+    /* ========== B 对角折痕邮寄面 ========== */
+    .env-b {
+      position: relative;
+      background:
+        linear-gradient(135deg, transparent 48.5%, var(--fold) 48.5%, var(--fold) 50.5%, transparent 50.5%),
+        linear-gradient(225deg, transparent 48.5%, var(--fold) 48.5%, var(--fold) 50.5%, transparent 50.5%),
+        var(--envelope);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-shadow: var(--shadow);
+      padding: 14px 16px 12px;
+      transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 150ms ease;
+    }
+    .env-b:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+    .env-b-address {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--fold);
+    }
+    .env-b-address dl {
+      margin: 0;
+      display: grid;
+      gap: 2px;
+      font-size: 0.75rem;
+    }
+    .env-b-address dt {
+      color: var(--text-muted);
+      font-size: 0.625rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .env-b-address dd {
+      margin: 0;
+      font-family: var(--font-heading);
+      font-size: 0.9375rem;
+      color: var(--text);
+    }
+    .env-b .title {
+      margin: 0 0 4px;
+      font-family: var(--font-heading);
+      font-size: 1.0625rem;
+      font-weight: 400;
+    }
+    .env-b.has-cover {
+      display: grid;
+      grid-template-columns: 1fr 72px;
+      gap: 0 14px;
+    }
+    .env-b.has-cover .env-b-address { grid-column: 1 / -1; }
+    .env-b.has-cover .stamp {
+      grid-row: 2 / span 3;
+      grid-column: 2;
+      width: 72px;
+      height: 72px;
+      object-fit: cover;
+      border-radius: 2px;
+      padding: 3px;
+      background: var(--paper);
+      box-shadow: 0 0 0 1px var(--border), 0 1px 4px oklch(0 0 0 / 0.08);
+      transform: rotate(3deg);
+    }
+    .env-b .postmark { margin-left: auto; }
+    .env-b-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .env-b .thread-hint {
+      margin-top: 10px;
+      padding: 8px 0 0;
+      border-top: 1px dashed var(--border);
+    }
+
+    /* ========== C 平口编辑风 ========== */
+    .env-c {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      transition: border-color 150ms ease;
+    }
+    .env-c:hover { border-color: var(--text-muted); }
+    .env-c-flap {
+      height: 10px;
+      background:
+        linear-gradient(180deg, var(--envelope-deep), var(--envelope));
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+    .env-c-flap::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -5px;
+      width: 10px;
+      height: 10px;
+      margin-left: -5px;
+      background: var(--envelope);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      transform: rotate(45deg);
+    }
+    .env-c-body {
+      display: grid;
+      gap: 6px;
+      padding: 16px 18px 14px;
+    }
+    .env-c.has-cover .env-c-body {
+      grid-template-columns: 1fr 56px;
+    }
+    .env-c .title {
+      margin: 0;
+      font-family: var(--font-heading);
+      font-size: 1.125rem;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+    }
+    .env-c .seal {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      object-fit: cover;
+      grid-row: 1 / span 3;
+      grid-column: 2;
+      box-shadow: 0 0 0 3px var(--paper), 0 0 0 4px var(--border);
+    }
+    .env-c .meta-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 2px;
+    }
+    .env-c .count {
+      font-family: var(--font-heading);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+    }
+    .env-c .thread-hint {
+      border-top: 1px solid var(--border-light);
+      background: var(--surface-raised);
+    }
+
+    /* ========== D 信纸探出 ========== */
+    .env-d {
+      position: relative;
+      padding-top: 18px;
+    }
+    .env-d-paper {
+      position: relative;
+      z-index: 2;
+      margin: 0 14px -12px;
+      padding: 12px 14px 20px;
+      background: var(--paper);
+      border: 1px solid var(--paper-edge);
+      border-bottom: 0;
+      border-radius: 3px 3px 0 0;
+      box-shadow: 0 -2px 8px oklch(0 0 0 / 0.04);
+      background-image: repeating-linear-gradient(
+        transparent,
+        transparent 22px,
+        oklch(0.75 0.02 80 / 0.18) 22px,
+        oklch(0.75 0.02 80 / 0.18) 23px
+      );
+      background-position: 0 2.4em;
+    }
+    [data-theme="dark"] .env-d-paper {
+      background-image: repeating-linear-gradient(
+        transparent,
+        transparent 22px,
+        oklch(0.4 0.02 80 / 0.35) 22px,
+        oklch(0.4 0.02 80 / 0.35) 23px
+      );
+    }
+    .env-d-paper .title {
+      margin: 0 0 4px;
+      font-family: var(--font-heading);
+      font-size: 1.0625rem;
+      font-weight: 400;
+    }
+    .env-d-pocket {
+      position: relative;
+      z-index: 1;
+      background: var(--envelope);
+      border: 1px solid var(--border);
+      border-radius: 0 0 10px 10px;
+      padding: 20px 16px 12px;
+      box-shadow: var(--shadow);
+      transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .env-d:hover .env-d-pocket { transform: translateY(-1px); }
+    .env-d-pocket::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 22px;
+      background: linear-gradient(180deg, var(--envelope-deep), transparent);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    .env-d.has-cover .env-d-pocket-inner {
+      display: grid;
+      grid-template-columns: 1fr 56px;
+      gap: 10px;
+      align-items: end;
+    }
+    .env-d .stamp {
+      width: 56px;
+      height: 56px;
+      object-fit: cover;
+      border-radius: 2px;
+      transform: rotate(-2deg);
+      box-shadow: 0 0 0 1px oklch(0 0 0 / 0.1);
+    }
+    .env-d .thread-hint { padding-left: 0; padding-right: 0; }
+
+    /* ========== E 叠信线程 ========== */
+    .env-e-stack {
+      position: relative;
+      padding-bottom: 6px;
+    }
+    .env-e-stack::before,
+    .env-e-stack::after {
+      content: "";
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      height: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--envelope-deep);
+      z-index: 0;
+    }
+    .env-e-stack::before { top: 4px; opacity: 0.55; }
+    .env-e-stack::after { top: 8px; left: 14px; right: 14px; opacity: 0.35; }
+    .env-e-stack.solo::before,
+    .env-e-stack.solo::after { display: none; }
+    .env-e {
+      position: relative;
+      z-index: 1;
+      background: var(--envelope);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .env-e:hover { transform: translateY(-2px); }
+    .env-e-top {
+      display: flex;
+      align-items: stretch;
+      min-height: 72px;
+    }
+    .env-e-flap-edge {
+      width: 14px;
+      flex-shrink: 0;
+      background:
+        linear-gradient(135deg, var(--envelope-deep) 50%, transparent 50%),
+        linear-gradient(225deg, var(--envelope-deep) 50%, transparent 50%);
+      background-size: 100% 50%;
+      background-position: top, bottom;
+      background-repeat: no-repeat;
+      border-right: 1px solid var(--fold);
+    }
+    .env-e-body {
+      flex: 1;
+      display: grid;
+      gap: 4px;
+      padding: 12px 14px;
+    }
+    .env-e.has-cover .env-e-body {
+      grid-template-columns: 1fr 52px;
+    }
+    .env-e .title {
+      margin: 0;
+      font-family: var(--font-heading);
+      font-size: 1.0625rem;
+      font-weight: 400;
+    }
+    .env-e .stamp {
+      width: 52px;
+      height: 52px;
+      object-fit: cover;
+      border-radius: 2px;
+      grid-row: 1 / span 3;
+      grid-column: 2;
+    }
+    .env-e .chip {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+    }
+    .env-e-replies {
+      border-top: 1px solid var(--border-light);
+      background: var(--paper);
+      padding: 10px 14px 12px 28px;
+      display: grid;
+      gap: 8px;
+    }
+    .env-e-reply {
+      display: grid;
+      gap: 2px;
+      padding: 8px 10px;
+      border-left: 2px solid var(--border);
+      background: var(--surface);
+      border-radius: 0 4px 4px 0;
+    }
+    .env-e-reply .r-title {
+      font-size: 0.8125rem;
+      font-weight: 500;
+    }
+    .env-e-reply .r-meta {
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+    }
+
+    .note {
+      margin-top: 28px;
+      padding: 12px 14px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+    .note code {
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="top">
+      <div>
+        <h1>信箱 · 信封样式对比</h1>
+        <p>静态原型 · 同数据多形态 · 选一档再落地代码</p>
+      </div>
+      <div class="top-actions">
+        <button class="btn" type="button" id="theme-toggle">切到暗色</button>
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="信封样式">
+      <button class="tab" role="tab" aria-selected="true" data-tab="base">0 现状</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="a">A V 形封口</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="b">B 邮寄面</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="c">C 平口编辑</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="d">D 信纸探出</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="e">E 叠信线程</button>
+    </div>
+
+    <!-- 0 现状 -->
+    <section class="panel active" id="panel-base" role="tabpanel">
+      <p class="variant-desc"><strong>0 现状</strong> — 当前线上：通用卡片 + pill 回信数 + 方缩略图。对照基线。</p>
+      <div class="list">
+        <div class="base-thread">
+          <article class="base-card has-cover">
+            <h2 class="title">写给你，关于这个夏天</h2>
+            <p class="snippet">我想把六月里那些来不及说的话，慢慢写在纸上。不是抱怨，是想让你看见我的另一面……</p>
+            <div class="meta">
+              <span class="author">小园子</span>
+              <span>2026-06-15</span>
+              <span class="base-badge">2 封回信</span>
+            </div>
+            <img class="cover" src="https://picsum.photos/seed/orbit-l1/160/160" alt="" />
+          </article>
+          <p class="thread-hint"><strong>小麒子 · 小园子</strong> · 最近回信 2026-06-18 · 点击展开回信</p>
+        </div>
+        <article class="base-card">
+          <h2 class="title">一封迟到的生日信</h2>
+          <p class="snippet">礼物已经在路上了，但我想先把话写给你。生日快乐，愿下一年依然有彼此。</p>
+          <div class="meta">
+            <span class="author">小麒子</span>
+            <span>2026-03-02</span>
+            <span class="base-badge">1 封回信</span>
+          </div>
+        </article>
+        <article class="base-card">
+          <h2 class="title">不必回复的一封</h2>
+          <p class="snippet">有些话写下来就够了。你忙的时候看见就好，不用特意回。</p>
+          <div class="meta">
+            <span class="author">小园子</span>
+            <span>2025-11-08</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- A -->
+    <section class="panel" id="panel-a" role="tabpanel">
+      <p class="variant-desc"><strong>A V 形封口</strong> — 经典信封三角盖 + 圆形邮戳回信数 + 封面作邮票位微倾。物件感最强，偏「实物」。</p>
+      <div class="list">
+        <article class="env-a has-cover">
+          <div class="env-a-flap" aria-hidden="true"></div>
+          <div class="env-a-body">
+            <h2 class="title">写给你，关于这个夏天</h2>
+            <p class="snippet">我想把六月里那些来不及说的话，慢慢写在纸上。不是抱怨，是想让你看见我的另一面……</p>
+            <div class="meta">
+              <span class="author">小园子</span>
+              <span>2026-06-15</span>
+              <span class="postmark">回信<br />2</span>
+            </div>
+            <img class="stamp" src="https://picsum.photos/seed/orbit-l1/160/160" alt="" />
+          </div>
+          <p class="thread-hint"><strong>小麒子 · 小园子</strong> · 最近回信 2026-06-18 · 点击展开回信</p>
+        </article>
+        <article class="env-a">
+          <div class="env-a-flap" aria-hidden="true"></div>
+          <div class="env-a-body">
+            <h2 class="title">一封迟到的生日信</h2>
+            <p class="snippet">礼物已经在路上了，但我想先把话写给你。生日快乐，愿下一年依然有彼此。</p>
+            <div class="meta">
+              <span class="author">小麒子</span>
+              <span>2026-03-02</span>
+              <span class="postmark">回信<br />1</span>
+            </div>
+          </div>
+        </article>
+        <article class="env-a">
+          <div class="env-a-flap" aria-hidden="true"></div>
+          <div class="env-a-body">
+            <h2 class="title">不必回复的一封</h2>
+            <p class="snippet">有些话写下来就够了。你忙的时候看见就好，不用特意回。</p>
+            <div class="meta">
+              <span class="author">小园子</span>
+              <span>2025-11-08</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- B -->
+    <section class="panel" id="panel-b" role="tabpanel">
+      <p class="variant-desc"><strong>B 邮寄面</strong> — 对角折痕 + From/Date 地址栏 + 邮票贴图。信息结构最清晰，偏 Slowly 邮寄隐喻。</p>
+      <div class="list">
+        <article class="env-b has-cover">
+          <div class="env-b-address">
+            <dl>
+              <dt>From</dt>
+              <dd>小园子</dd>
+            </dl>
+            <dl>
+              <dt>Date</dt>
+              <dd>2026-06-15</dd>
+            </dl>
+            <span class="postmark">回信<br />2</span>
+          </div>
+          <h2 class="title">写给你，关于这个夏天</h2>
+          <p class="snippet">我想把六月里那些来不及说的话，慢慢写在纸上。不是抱怨，是想让你看见我的另一面……</p>
+          <img class="stamp" src="https://picsum.photos/seed/orbit-l1/160/160" alt="" />
+          <p class="thread-hint"><strong>小麒子 · 小园子</strong> · 最近回信 2026-06-18 · 点击展开回信</p>
+        </article>
+        <article class="env-b">
+          <div class="env-b-address">
+            <dl>
+              <dt>From</dt>
+              <dd>小麒子</dd>
+            </dl>
+            <dl>
+              <dt>Date</dt>
+              <dd>2026-03-02</dd>
+            </dl>
+            <span class="postmark">回信<br />1</span>
+          </div>
+          <h2 class="title">一封迟到的生日信</h2>
+          <p class="snippet">礼物已经在路上了，但我想先把话写给你。生日快乐，愿下一年依然有彼此。</p>
+        </article>
+        <article class="env-b">
+          <div class="env-b-address">
+            <dl>
+              <dt>From</dt>
+              <dd>小园子</dd>
+            </dl>
+            <dl>
+              <dt>Date</dt>
+              <dd>2025-11-08</dd>
+            </dl>
+          </div>
+          <h2 class="title">不必回复的一封</h2>
+          <p class="snippet">有些话写下来就够了。你忙的时候看见就好，不用特意回。</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- C -->
+    <section class="panel" id="panel-c" role="tabpanel">
+      <p class="variant-desc"><strong>C 平口编辑</strong> — 细封口条 + 菱形锁扣暗示 + 封面圆形「火漆」位。最克制，最贴 Orbit 暖石气质；仪式感弱一档。</p>
+      <div class="list">
+        <article class="env-c has-cover">
+          <div class="env-c-flap" aria-hidden="true"></div>
+          <div class="env-c-body">
+            <h2 class="title">写给你，关于这个夏天</h2>
+            <p class="snippet">我想把六月里那些来不及说的话，慢慢写在纸上。不是抱怨，是想让你看见我的另一面……</p>
+            <div class="meta-row">
+              <div class="meta">
+                <span class="author">小园子</span>
+                <span>2026-06-15</span>
+              </div>
+              <span class="count">2 封回信</span>
+            </div>
+            <img class="seal" src="https://picsum.photos/seed/orbit-l1/160/160" alt="" />
+          </div>
+          <p class="thread-hint"><strong>小麒子 · 小园子</strong> · 最近回信 2026-06-18 · 点击展开回信</p>
+        </article>
+        <article class="env-c">
+          <div class="env-c-flap" aria-hidden="true"></div>
+          <div class="env-c-body">
+            <h2 class="title">一封迟到的生日信</h2>
+            <p class="snippet">礼物已经在路上了，但我想先把话写给你。生日快乐，愿下一年依然有彼此。</p>
+            <div class="meta-row">
+              <div class="meta">
+                <span class="author">小麒子</span>
+                <span>2026-03-02</span>
+              </div>
+              <span class="count">1 封回信</span>
+            </div>
+          </div>
+        </article>
+        <article class="env-c">
+          <div class="env-c-flap" aria-hidden="true"></div>
+          <div class="env-c-body">
+            <h2 class="title">不必回复的一封</h2>
+            <p class="snippet">有些话写下来就够了。你忙的时候看见就好，不用特意回。</p>
+            <div class="meta">
+              <span class="author">小园子</span>
+              <span>2025-11-08</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- D -->
+    <section class="panel" id="panel-d" role="tabpanel">
+      <p class="variant-desc"><strong>D 信纸探出</strong> — 上半信纸横线 + 下半信封口袋。同时暗示「信封」与「信纸」，和阅读页信纸可统一；列表略高。</p>
+      <div class="list">
+        <article class="env-d has-cover">
+          <div class="env-d-paper">
+            <h2 class="title">写给你，关于这个夏天</h2>
+            <p class="snippet">我想把六月里那些来不及说的话，慢慢写在纸上。不是抱怨，是想让你看见我的另一面……</p>
+          </div>
+          <div class="env-d-pocket">
+            <div class="env-d-pocket-inner">
+              <div>
+                <div class="meta">
+                  <span class="author">小园子</span>
+                  <span>2026-06-15</span>
+                  <span class="postmark">回信<br />2</span>
+                </div>
+                <p class="thread-hint"><strong>小麒子 · 小园子</strong> · 最近回信 2026-06-18 · 点击展开回信</p>
+              </div>
+              <img class="stamp" src="https://picsum.photos/seed/orbit-l1/160/160" alt="" />
+            </div>
+          </div>
+        </article>
+        <article class="env-d">
+          <div class="env-d-paper">
+            <h2 class="title">一封迟到的生日信</h2>
+            <p class="snippet">礼物已经在路上了，但我想先把话写给你。生日快乐，愿下一年依然有彼此。</p>
+          </div>
+          <div class="env-d-pocket">
+            <div class="meta">
+              <span class="author">小麒子</span>
+              <span>2026-03-02</span>
+              <span class="postmark">回信<br />1</span>
+            </div>
+          </div>
+        </article>
+        <article class="env-d">
+          <div class="env-d-paper">
+            <h2 class="title">不必回复的一封</h2>
+            <p class="snippet">有些话写下来就够了。你忙的时候看见就好，不用特意回。</p>
+          </div>
+          <div class="env-d-pocket">
+            <div class="meta">
+              <span class="author">小园子</span>
+              <span>2025-11-08</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- E -->
+    <section class="panel" id="panel-e" role="tabpanel">
+      <p class="variant-desc"><strong>E 叠信线程</strong> — 有回信时背后叠两层信封；展开后回信嵌在信纸底上。强调「一束往来」，侧边折口暗示可拆。</p>
+      <div class="list">
+        <div class="env-e-stack">
+          <article class="env-e has-cover">
+            <div class="env-e-top">
+              <div class="env-e-flap-edge" aria-hidden="true"></div>
+              <div class="env-e-body">
+                <h2 class="title">写给你，关于这个夏天</h2>
+                <p class="snippet">我想把六月里那些来不及说的话，慢慢写在纸上。不是抱怨，是想让你看见我的另一面……</p>
+                <div class="meta">
+                  <span class="author">小园子</span>
+                  <span>2026-06-15</span>
+                  <span class="chip">2 封回信 · 已展开</span>
+                </div>
+                <img class="stamp" src="https://picsum.photos/seed/orbit-l1/160/160" alt="" />
+              </div>
+            </div>
+            <div class="env-e-replies">
+              <div class="env-e-reply">
+                <div class="r-title">回信：我也看见了</div>
+                <div class="r-meta">小麒子 · 2026-06-17</div>
+              </div>
+              <div class="env-e-reply">
+                <div class="r-title">再补一句</div>
+                <div class="r-meta">小园子 · 2026-06-18</div>
+              </div>
+            </div>
+          </article>
+        </div>
+        <div class="env-e-stack">
+          <article class="env-e">
+            <div class="env-e-top">
+              <div class="env-e-flap-edge" aria-hidden="true"></div>
+              <div class="env-e-body">
+                <h2 class="title">一封迟到的生日信</h2>
+                <p class="snippet">礼物已经在路上了，但我想先把话写给你。生日快乐，愿下一年依然有彼此。</p>
+                <div class="meta">
+                  <span class="author">小麒子</span>
+                  <span>2026-03-02</span>
+                  <span class="chip">1 封回信</span>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+        <div class="env-e-stack solo">
+          <article class="env-e">
+            <div class="env-e-top">
+              <div class="env-e-flap-edge" aria-hidden="true"></div>
+              <div class="env-e-body">
+                <h2 class="title">不必回复的一封</h2>
+                <p class="snippet">有些话写下来就够了。你忙的时候看见就好，不用特意回。</p>
+                <div class="meta">
+                  <span class="author">小园子</span>
+                  <span>2025-11-08</span>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <p class="note">
+      打开方式：浏览器打开 <code>prototype-letter-envelopes.html</code>。可亮/暗切换。
+      选型时可混搭（例：A 封口 + B 地址栏 + E 叠层）。选定后告诉我字母或混搭组合再落地。
+    </p>
+  </div>
+
+  <script>
+    const tabs = document.querySelectorAll(".tab");
+    const panels = document.querySelectorAll(".panel");
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const id = tab.dataset.tab;
+        tabs.forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
+        panels.forEach((p) => p.classList.toggle("active", p.id === "panel-" + id));
+      });
+    });
+
+    const root = document.documentElement;
+    const themeBtn = document.getElementById("theme-toggle");
+    themeBtn.addEventListener("click", () => {
+      const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      themeBtn.textContent = next === "dark" ? "切到亮色" : "切到暗色";
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Orbit 列表卡片原型</title>
+  <style>
+    :root {
+      --font-heading: "New York Small", "New York", "Iowan Old Style", Charter, Georgia, "Songti SC", STSong, serif;
+      --font-body: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      --bg: oklch(0.14 0.008 80);
+      --surface: oklch(0.17 0.01 80);
+      --surface-raised: oklch(0.21 0.012 80);
+      --border: oklch(0.32 0.012 80);
+      --border-light: oklch(0.26 0.01 80);
+      --text: oklch(0.93 0.006 80);
+      --text-secondary: oklch(0.72 0.012 80);
+      --text-muted: oklch(0.56 0.01 80);
+      --accent: oklch(0.82 0.012 80);
+      --on-accent: oklch(0.14 0.008 80);
+      --radius: 8px;
+      --content: 680px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    .shell {
+      max-width: calc(var(--content) + 48px);
+      margin: 0 auto;
+      padding: 28px 24px 64px;
+    }
+
+    .top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .top h1 {
+      margin: 0;
+      font-family: var(--font-heading);
+      font-size: 1.5rem;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+    }
+    .top p {
+      margin: 6px 0 0;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+    }
+    .btn {
+      flex-shrink: 0;
+      height: 36px;
+      padding: 0 14px;
+      border: 0;
+      border-radius: 6px;
+      background: var(--accent);
+      color: var(--on-accent);
+      font: 500 0.875rem/1 var(--font-body);
+      cursor: pointer;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .tab {
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text-secondary);
+      font: 500 0.8125rem/1 var(--font-body);
+      cursor: pointer;
+    }
+    .tab:hover { background: var(--surface-raised); color: var(--text); }
+    .tab[aria-selected="true"] {
+      background: var(--surface-raised);
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .list { display: flex; flex-direction: column; gap: 10px; }
+
+    /* —— shared —— */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius);
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+    }
+    .card:hover { border-color: var(--border); }
+    .meta {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .author { color: var(--text-secondary); }
+    .snippet {
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      line-height: 1.55;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .cover {
+      display: block;
+      object-fit: cover;
+      background: var(--surface-raised);
+    }
+
+    /* —— message: sticky notes —— */
+    .msg-board {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .msg {
+      position: relative;
+      padding: 18px 16px 14px;
+      border: 0;
+      border-radius: 2px 2px 8px 8px;
+      background: oklch(0.23 0.018 85);
+      box-shadow:
+        0 1px 0 oklch(1 0 0 / 0.04) inset,
+        0 6px 16px oklch(0 0 0 / 0.28);
+      display: grid;
+      gap: 10px;
+      transform-origin: top center;
+    }
+    .msg::before {
+      content: "";
+      position: absolute;
+      top: -5px;
+      left: 50%;
+      width: 42px;
+      height: 12px;
+      margin-left: -21px;
+      border-radius: 2px;
+      background: oklch(0.55 0.04 85 / 0.45);
+      box-shadow: 0 1px 2px oklch(0 0 0 / 0.25);
+    }
+    .msg.from-b {
+      background: oklch(0.22 0.02 55);
+    }
+    .msg.from-b::before {
+      background: oklch(0.52 0.05 45 / 0.4);
+    }
+    .msg.tilt-a { transform: rotate(-0.6deg); }
+    .msg.tilt-b { transform: rotate(0.7deg); }
+    .msg:hover {
+      border-color: transparent;
+      filter: brightness(1.06);
+    }
+    .msg.has-cover {
+      grid-template-columns: 1fr 68px;
+      align-items: start;
+    }
+    .msg .body {
+      margin: 0;
+      font-size: 0.9375rem;
+      color: var(--text);
+      line-height: 1.65;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .msg .cover {
+      width: 68px;
+      height: 68px;
+      border-radius: 4px;
+      grid-row: 1 / span 2;
+      grid-column: 2;
+      box-shadow: 0 0 0 1px oklch(0 0 0 / 0.2);
+    }
+    .msg .meta {
+      grid-column: 1;
+      justify-content: space-between;
+      width: 100%;
+    }
+    .msg .author {
+      font-family: var(--font-heading);
+      font-size: 0.8125rem;
+      color: oklch(0.82 0.02 85);
+    }
+
+    /* —— diary: journal page —— */
+    .diary-list { display: flex; flex-direction: column; gap: 16px; }
+    .diary {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 0;
+      border-radius: 10px;
+      overflow: hidden;
+      background:
+        linear-gradient(90deg, oklch(0.19 0.012 80) 0 72px, var(--surface) 72px);
+      border: 1px solid var(--border-light);
+    }
+    .diary.has-cover {
+      grid-template-rows: auto auto;
+      grid-template-columns: 72px 1fr;
+    }
+    .diary .date-col {
+      grid-row: 1 / span 2;
+      padding: 16px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      border-right: 1px solid var(--border-light);
+      background: oklch(0.19 0.012 80);
+    }
+    .diary .day {
+      font-family: var(--font-heading);
+      font-size: 1.75rem;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      color: var(--text);
+    }
+    .diary .month {
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .diary .year {
+      margin-top: 6px;
+      font-size: 0.625rem;
+      color: var(--text-muted);
+    }
+    .diary .cover-wrap {
+      grid-column: 2;
+      grid-row: 1;
+    }
+    .diary .cover-wrap .cover {
+      width: 100%;
+      height: 140px;
+    }
+    .diary .body {
+      grid-column: 2;
+      padding: 14px 16px 16px;
+      display: grid;
+      gap: 8px;
+      background-image: repeating-linear-gradient(
+        transparent,
+        transparent 27px,
+        oklch(0.28 0.01 80 / 0.35) 27px,
+        oklch(0.28 0.01 80 / 0.35) 28px
+      );
+      background-position: 0 2.6em;
+    }
+    .diary.has-cover .body { grid-row: 2; }
+    .diary:not(.has-cover) .body { grid-row: 1; }
+    .diary .title {
+      margin: 0;
+      font-family: var(--font-heading);
+      font-size: 1.125rem;
+      font-weight: 400;
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+    }
+    .diary .snippet {
+      -webkit-line-clamp: 3;
+      line-height: 1.75;
+      color: var(--text-secondary);
+    }
+    .diary .meta { margin-top: 2px; }
+
+    /* —— timeline: rail —— */
+    .tl-wrap {
+      position: relative;
+      padding-left: 20px;
+    }
+    .tl-wrap::before {
+      content: "";
+      position: absolute;
+      left: 5px;
+      top: 8px;
+      bottom: 8px;
+      width: 1px;
+      background: var(--border);
+    }
+    .tl {
+      position: relative;
+      margin-bottom: 12px;
+    }
+    .tl:last-child { margin-bottom: 0; }
+    .tl::before {
+      content: "";
+      position: absolute;
+      left: -17px;
+      top: 18px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-secondary);
+      border: 2px solid var(--bg);
+      box-sizing: content-box;
+    }
+    .tl .card {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    .tl .card.has-cover {
+      grid-template-columns: 1fr 88px;
+    }
+    .tl .body { padding: 12px 14px; display: grid; gap: 4px; }
+    .tl .date {
+      font-family: var(--font-heading);
+      font-size: 0.9375rem;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+    .tl .title {
+      margin: 0;
+      font-size: 0.9375rem;
+      font-weight: 500;
+    }
+    .tl .cover {
+      width: 88px;
+      height: 100%;
+      min-height: 80px;
+    }
+
+    /* —— letter: thread —— */
+    .letter-root { display: grid; gap: 8px; }
+    .letter {
+      padding: 14px 16px;
+      display: grid;
+      gap: 6px;
+    }
+    .letter.has-cover {
+      grid-template-columns: 1fr 80px;
+    }
+    .letter .title {
+      margin: 0;
+      font-family: var(--font-heading);
+      font-size: 1.0625rem;
+      font-weight: 400;
+    }
+    .letter .cover {
+      width: 80px;
+      height: 80px;
+      border-radius: 6px;
+      grid-row: 1 / span 3;
+      grid-column: 2;
+    }
+    .letter-thread {
+      margin-left: 12px;
+      padding: 10px 12px;
+      border-left: 2px solid var(--border);
+      background: var(--surface-raised);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+    .letter-thread strong { color: var(--text); font-weight: 500; }
+    .badge {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: var(--surface-raised);
+      border: 1px solid var(--border-light);
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+      vertical-align: middle;
+    }
+
+    /* —— memo: index —— */
+    .memo {
+      padding: 14px 16px;
+      display: grid;
+      gap: 6px;
+    }
+    .memo .key {
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      text-transform: none;
+    }
+    .memo .title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 500;
+    }
+    .memo .foot {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+    }
+    .memo .updated { font-size: 0.75rem; color: var(--text-muted); }
+
+    .note {
+      margin-top: 28px;
+      padding: 12px 14px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="top">
+      <div>
+        <h1 id="page-title">留言板</h1>
+        <p>单文件原型 · 有图 / 无图混排 · 切换类型看形态差异</p>
+      </div>
+      <button class="btn" type="button">新建</button>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="message">留言板</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="diary">日记</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="timeline">时间线</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="letter">信箱</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="memo">备忘录</button>
+    </div>
+
+    <!-- 留言板 -->
+    <section class="panel active" id="panel-message" role="tabpanel">
+      <div class="msg-board">
+        <article class="card msg has-cover from-a tilt-a">
+          <p class="body">今天路过那家咖啡馆，橱窗还是那盏黄灯。忽然很想你也在——下次一起去坐一下午吧。</p>
+          <img class="cover" src="https://picsum.photos/seed/orbit-msg1/144/144" alt="" width="68" height="68" />
+          <div class="meta"><span class="author">小园子</span><span>2026-07-03</span></div>
+        </article>
+        <article class="card msg from-b tilt-b">
+          <p class="body">收到。周末我来挑地方，你负责准时出门就行 :)</p>
+          <div class="meta"><span class="author">小麒子</span><span>2026-07-02</span></div>
+        </article>
+        <article class="card msg from-a tilt-a">
+          <p class="body">冰箱里剩的那盒草莓给你留着了，别忘了吃。另外钥匙放抽屉第二格。</p>
+          <div class="meta"><span class="author">小园子</span><span>2026-06-28</span></div>
+        </article>
+        <article class="card msg has-cover from-b tilt-b">
+          <p class="body">夕阳把阳台染成橘红，拍了一张。回来的路上风有点大，但心情很好。</p>
+          <img class="cover" src="https://picsum.photos/seed/orbit-msg2/144/144" alt="" width="68" height="68" />
+          <div class="meta"><span class="author">小麒子</span><span>2026-06-20</span></div>
+        </article>
+        <article class="card msg from-a">
+          <p class="body">晚安。明天见。</p>
+          <div class="meta"><span class="author">小园子</span><span>2026-06-18</span></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 日记 -->
+    <section class="panel" id="panel-diary" role="tabpanel">
+      <div class="diary-list">
+        <article class="card diary has-cover">
+          <div class="date-col">
+            <span class="day">10</span>
+            <span class="month">Jul</span>
+            <span class="year">2026</span>
+          </div>
+          <div class="cover-wrap">
+            <img class="cover" src="https://picsum.photos/seed/orbit-d1/640/280" alt="" />
+          </div>
+          <div class="body">
+            <h2 class="title">下雨的周五</h2>
+            <p class="snippet">下班时雨已经很大，地铁口挤满了人。我想起去年同一天我们也在躲雨，你把外套盖在我们头上……</p>
+            <div class="meta"><span class="author">小园子</span></div>
+          </div>
+        </article>
+        <article class="card diary">
+          <div class="date-col">
+            <span class="day">05</span>
+            <span class="month">Jul</span>
+            <span class="year">2026</span>
+          </div>
+          <div class="body">
+            <h2 class="title">关于一件小事</h2>
+            <p class="snippet">今天没有什么大事发生。只是早上你泡的咖啡刚好，窗外的树叶也刚好在动。于是想记下来。</p>
+            <div class="meta"><span class="author">小麒子</span></div>
+          </div>
+        </article>
+        <article class="card diary has-cover">
+          <div class="date-col">
+            <span class="day">22</span>
+            <span class="month">Jun</span>
+            <span class="year">2026</span>
+          </div>
+          <div class="cover-wrap">
+            <img class="cover" src="https://picsum.photos/seed/orbit-d2/640/280" alt="" />
+          </div>
+          <div class="body">
+            <h2 class="title">海边一天</h2>
+            <p class="snippet">沙子烫脚，浪有点凶。我们把拖鞋埋在岸边当标记，回来时差点找不到……</p>
+            <div class="meta"><span class="author">小园子</span></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 时间线 -->
+    <section class="panel" id="panel-timeline" role="tabpanel">
+      <div class="tl-wrap">
+        <div class="tl">
+          <article class="card has-cover">
+            <div class="body">
+              <div class="date">2026-05-20</div>
+              <h2 class="title">第一次一起旅行</h2>
+              <p class="snippet">从车站到海边，地图几乎没用上。我们靠问路和直觉走到了日落最好的地方。</p>
+            </div>
+            <img class="cover" src="https://picsum.photos/seed/orbit-t1/176/160" alt="" />
+          </article>
+        </div>
+        <div class="tl">
+          <article class="card">
+            <div class="body">
+              <div class="date">2024-05-20</div>
+              <h2 class="title">两周年</h2>
+              <p class="snippet">家里做了简单的晚饭，点了那支一直舍不得用的蜡烛。</p>
+            </div>
+          </article>
+        </div>
+        <div class="tl">
+          <article class="card has-cover">
+            <div class="body">
+              <div class="date">2023-05-11</div>
+              <h2 class="title">在一起</h2>
+              <p class="snippet">那天晚上空气很安静。我们都没有说很长的话，但都记得。</p>
+            </div>
+            <img class="cover" src="https://picsum.photos/seed/orbit-t2/176/160" alt="" />
+          </article>
+        </div>
+        <div class="tl">
+          <article class="card">
+            <div class="body">
+              <div class="date">2022-05-19</div>
+              <h2 class="title">恋爱</h2>
+              <p class="snippet">起点。后来所有故事都从这里长出来。</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 信箱 -->
+    <section class="panel" id="panel-letter" role="tabpanel">
+      <div class="list">
+        <div class="letter-root">
+          <article class="card letter has-cover">
+            <h2 class="title">写给你，关于这个夏天</h2>
+            <p class="snippet">我想把六月里那些来不及说的话，慢慢写在纸上。不是抱怨，是想让你看见我的另一面……</p>
+            <div class="meta">
+              <span class="author">小园子</span>
+              <span>2026-06-15</span>
+              <span class="badge">2 封回信</span>
+            </div>
+            <img class="cover" src="https://picsum.photos/seed/orbit-l1/160/160" alt="" />
+          </article>
+          <div class="letter-thread">
+            <strong>小麒子 · 小园子</strong> · 最近回信 2026-06-18 · 点击展开回信
+          </div>
+        </div>
+        <div class="letter-root">
+          <article class="card letter">
+            <h2 class="title">一封迟到的生日信</h2>
+            <p class="snippet">礼物已经在路上了，但我想先把话写给你。生日快乐，愿下一年依然有彼此。</p>
+            <div class="meta">
+              <span class="author">小麒子</span>
+              <span>2026-03-02</span>
+              <span class="badge">1 封回信</span>
+            </div>
+          </article>
+          <div class="letter-thread">
+            <strong>小麒子 · 小园子</strong> · 最近回信 2026-03-03 · 点击展开回信
+          </div>
+        </div>
+        <div class="letter-root">
+          <article class="card letter">
+            <h2 class="title">不必回复的一封</h2>
+            <p class="snippet">有些话写下来就够了。你忙的时候看见就好，不用特意回。</p>
+            <div class="meta">
+              <span class="author">小园子</span>
+              <span>2025-11-08</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 备忘录 -->
+    <section class="panel" id="panel-memo" role="tabpanel">
+      <div class="list">
+        <article class="card memo">
+          <div class="key">恋爱原则</div>
+          <h2 class="title">恋爱原则</h2>
+          <p class="snippet">吵架不过夜；重大决定一起做；对方家人的事先听完再表态……</p>
+          <div class="foot">
+            <span class="author" style="font-size:0.75rem">小园子</span>
+            <span class="updated">更新于 2026-07-01</span>
+          </div>
+        </article>
+        <article class="card memo">
+          <div class="key">旅行清单</div>
+          <h2 class="title">旅行清单</h2>
+          <p class="snippet">护照、充电器、备用药、那条总忘记的充电线、共用相册文件夹链接。</p>
+          <div class="foot">
+            <span class="author" style="font-size:0.75rem">小麒子</span>
+            <span class="updated">更新于 2026-05-12</span>
+          </div>
+        </article>
+        <article class="card memo">
+          <div class="key">常去的店</div>
+          <h2 class="title">常去的店</h2>
+          <p class="snippet">周末咖啡：街角第二家；火锅：地铁口左转那家，要中辣。</p>
+          <div class="foot">
+            <span class="author" style="font-size:0.75rem">小园子</span>
+            <span class="updated">更新于 2026-04-03</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <p class="note">
+      留言：便签（胶带条、轻微倾斜、双方微差色）。日记：左栏大日期 + 横线纸感，有图顶栏封面。
+      刷新浏览器看最新版。外网图来自 picsum.photos。
+    </p>
+  </div>
+
+  <script>
+    const titles = {
+      message: "留言板",
+      diary: "日记",
+      timeline: "时间线",
+      letter: "信箱",
+      memo: "备忘录",
+    };
+    const tabs = document.querySelectorAll(".tab");
+    const panels = document.querySelectorAll(".panel");
+    const pageTitle = document.getElementById("page-title");
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const id = tab.dataset.tab;
+        tabs.forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
+        panels.forEach((p) => p.classList.toggle("active", p.id === "panel-" + id));
+        pageTitle.textContent = titles[id];
+      });
+    });
+  </script>
+</body>
+</html>

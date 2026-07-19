@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Orbit 信箱 · 接收仪式（Open When 借鉴）</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;1,8..60,400&display=swap" rel="stylesheet" />
+  <style>
+    :root, [data-theme="light"] {
+      --bg: oklch(0.99 0.002 80);
+      --surface: #fff;
+      --raised: oklch(0.975 0.004 80);
+      --border: oklch(0.88 0.005 80);
+      --text: oklch(0.18 0.01 80);
+      --secondary: oklch(0.52 0.015 80);
+      --muted: oklch(0.68 0.01 80);
+      --serif: "Instrument Serif", "Source Serif 4", "Songti SC", Georgia, serif;
+      --ui: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif;
+    }
+    [data-theme="dark"] {
+      --bg: oklch(0.14 0.008 80);
+      --surface: oklch(0.17 0.01 80);
+      --raised: oklch(0.21 0.012 80);
+      --border: oklch(0.32 0.012 80);
+      --text: oklch(0.93 0.006 80);
+      --secondary: oklch(0.72 0.012 80);
+      --muted: oklch(0.56 0.01 80);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      font-family: var(--ui); background: var(--bg); color: var(--text); line-height: 1.5;
+    }
+    .shell { max-width: 560px; margin: 0 auto; padding: 28px 20px 96px; }
+    .top { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .top h1 { margin: 0; font-size: 1.15rem; font-weight: 500; letter-spacing: -0.02em; }
+    .top p { margin: 4px 0 0; font-size: 0.78rem; color: var(--muted); line-height: 1.45; }
+    .btn {
+      height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); color: var(--text); font: 500 0.78rem/1 var(--ui); cursor: pointer;
+    }
+
+    .borrow {
+      margin: 0 0 16px;
+      font-size: 0.72rem; color: var(--muted); line-height: 1.45;
+    }
+
+    .list { display: flex; flex-direction: column; gap: 10px; }
+    .card {
+      display: block; width: 100%; text-align: left; font: inherit; color: inherit;
+      padding: 0; border: 0; background: transparent; cursor: pointer;
+    }
+    .card:focus-visible { outline: 2px solid oklch(0.45 0.12 250); outline-offset: 3px; }
+
+    /* 列表：克制手迹，不堆信封 */
+    .row {
+      position: relative;
+      display: grid; gap: 4px;
+      padding: 14px 16px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      transition: border-color 120ms ease;
+    }
+    .row.has-photo { grid-template-columns: 1fr 56px; align-items: start; gap: 12px; }
+    .card:hover .row { border-color: oklch(0.78 0.01 80); }
+    .row::before { display: none; }
+    .dear { margin: 0; font-size: 0.75rem; color: var(--muted); }
+    .title {
+      margin: 0; font-family: var(--serif); font-size: 1.12rem; font-weight: 400;
+      letter-spacing: -0.02em; line-height: 1.3;
+    }
+    .snip {
+      margin: 0; font-size: 0.82rem; color: var(--secondary); line-height: 1.45;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .foot {
+      margin-top: 6px; display: flex; justify-content: space-between; gap: 10px;
+      font-size: 0.7rem; color: var(--muted);
+    }
+    .sign { font-family: var(--serif); font-style: italic; font-size: 0.85rem; color: var(--secondary); }
+    .thumb {
+      width: 56px; height: 70px; object-fit: cover; border-radius: 2px;
+      box-shadow: 0 1px 4px oklch(0.4 0.02 60 / 0.12);
+      transform: rotate(2deg);
+    }
+    [data-theme="dark"] .thumb { box-shadow: 0 1px 4px oklch(0 0 0 / 0.35); }
+    .hint { margin-top: 20px; font-size: 0.72rem; color: var(--muted); line-height: 1.55; }
+    .hint code { font-family: ui-monospace, Menlo, monospace; font-size: 0.68rem; }
+
+    /* —— 接收仪式 —— */
+    .stage {
+      position: fixed; inset: 0; z-index: 40;
+      display: none; align-items: center; justify-content: center;
+      padding: 20px 16px;
+      opacity: 0;
+    }
+    .stage.open {
+      display: flex;
+      animation: worldDim 320ms ease forwards;
+    }
+    @keyframes worldDim {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .stage-veil {
+      position: absolute; inset: 0;
+      background: oklch(0.14 0.015 70 / 0.5);
+      backdrop-filter: blur(8px);
+    }
+
+    .mood {
+      position: absolute; inset: 0; z-index: 0; pointer-events: none;
+      opacity: 0.45;
+    }
+    .mood[data-mood="sea"] {
+      background: radial-gradient(ellipse 70% 55% at 30% 40%, oklch(0.55 0.04 230 / 0.25), transparent 65%);
+    }
+    .mood[data-mood="home"] {
+      background: radial-gradient(ellipse 65% 50% at 70% 30%, oklch(0.55 0.04 55 / 0.22), transparent 60%);
+    }
+    .mood[data-mood="night"] {
+      background: radial-gradient(ellipse 55% 45% at 50% 45%, oklch(0.35 0.03 280 / 0.3), transparent 65%);
+    }
+
+    .stage-inner {
+      position: relative; z-index: 1;
+      width: min(420px, 100%);
+      max-height: min(90vh, 720px);
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      overflow: auto;
+      padding: 4px 0 12px;
+    }
+
+    .photocard {
+      width: 96px; height: 120px;
+      border-radius: 2px;
+      object-fit: cover;
+      border: 3px solid #fff;
+      box-shadow: 0 6px 20px oklch(0 0 0 / 0.22);
+      transform: rotate(2.5deg);
+      align-self: flex-end;
+      margin-right: 10%;
+      z-index: 2;
+    }
+    [data-theme="dark"] .photocard { border-color: oklch(0.94 0.01 85); }
+    .photocard.none { display: none; }
+
+    .paper {
+      width: 100%;
+      background: oklch(0.995 0.004 85);
+      color: #2a2620;
+      border-radius: 2px;
+      padding: 26px 26px 22px;
+      box-shadow: 0 12px 40px oklch(0 0 0 / 0.22);
+      animation: paperIn 360ms ease both;
+    }
+    [data-theme="dark"] .paper { background: oklch(0.95 0.008 85); }
+    @keyframes paperIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: none; }
+    }
+    .paper-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 14px;
+      font-size: 0.65rem; letter-spacing: 0.06em; text-transform: uppercase; color: #a39c92;
+    }
+    .paper .salute {
+      margin: 0 0 8px;
+      font-family: var(--serif); font-style: italic; font-size: 1.05rem; color: #6a635a;
+    }
+    .paper h3 {
+      margin: 0 0 6px;
+      font-family: var(--serif); font-weight: 400; font-size: 1.55rem;
+      letter-spacing: -0.02em; line-height: 1.2;
+    }
+    .paper .rm { margin: 0 0 16px; font-size: 0.72rem; color: #a39c92; }
+    .paper .body { font-size: 1rem; line-height: 1.8; }
+    .paper .body p { margin: 0 0 0.95em; }
+    .paper .sign-off {
+      margin: 24px 0 0; text-align: right;
+      font-family: var(--serif); font-style: italic; font-size: 1.05rem;
+    }
+    .paper .sign-off small {
+      display: block; margin-top: 4px; font-style: normal; font-size: 0.65rem;
+      font-family: var(--ui); color: #a39c92;
+    }
+
+    .stage-bar {
+      display: flex; justify-content: flex-end; gap: 8px; width: 100%;
+    }
+    .stage-bar .btn {
+      background: oklch(1 0 0 / 0.1); color: #f0ebe3; border-color: oklch(1 0 0 / 0.18);
+    }
+    .stage-bar .btn-fill {
+      background: #f0ebe3; color: #2a2620; border-color: transparent;
+    }
+
+    @media (max-width: 480px) {
+      .paper { padding: 20px 18px 18px; }
+      .paper h3 { font-size: 1.35rem; }
+      .photocard { width: 80px; height: 100px; margin-right: 4%; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .stage.open, .paper { animation: none !important; opacity: 1 !important; transform: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="top">
+      <div>
+        <h1>信箱 · 接收仪式</h1>
+        <p>借鉴 Open When：人味在接收瞬间，不在列表假信封。</p>
+      </div>
+      <button class="btn" type="button" id="theme-toggle">暗色</button>
+    </div>
+
+    <div class="borrow">点开看接收态 · 压暗 + 信纸 + 夹照</div>
+
+    <div class="list" id="list"></div>
+    <p class="hint">文件 <code>prototype-letter-receive.html</code>。点卡片看接收态。不做开封态、不做画布贴纸。</p>
+  </div>
+
+  <div class="stage" id="stage" role="dialog" aria-modal="true" aria-label="阅读信件">
+    <div class="stage-veil" id="veil"></div>
+    <div class="mood" id="mood" data-mood="sea"></div>
+    <div class="stage-inner">
+      <img class="photocard none" id="photocard" alt="" />
+      <article class="paper" id="paper">
+        <div class="paper-head"><span>Letter</span><span id="paper-when"></span></div>
+        <p class="salute" id="paper-salute"></p>
+        <h3 id="paper-title"></h3>
+        <p class="rm" id="paper-meta"></p>
+        <div class="body" id="paper-body"></div>
+        <p class="sign-off" id="paper-sign"></p>
+      </article>
+      <div class="stage-bar">
+        <button type="button" class="btn" id="stage-close">关闭</button>
+        <button type="button" class="btn btn-fill" id="stage-done">收好</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const LETTERS = [
+      {
+        title: "写给你，关于这个夏天",
+        snippet: "我想把六月里那些来不及说的话，慢慢写在纸上。不是抱怨，是想让你看见我的另一面。",
+        body: "我想把六月里那些来不及说的话，慢慢写在纸上。不是抱怨，是想让你看见我的另一面。\n\n太阳落得很晚，风里有一点海水的味道。若你也还醒着，就把这封信当作我坐在你对面。\n\n不必急着回。看见就好。",
+        salute: "亲爱的小麒子，",
+        author: "小园子",
+        when: "周二傍晚",
+        date: "2026-06-15",
+        mood: "sea",
+        cover: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=500&fit=crop",
+      },
+      {
+        title: "一封没有主题的信",
+        snippet: "今天路过那家面馆，忽然想起你说想再去一次。门还开着，灯还亮着。",
+        body: "今天路过那家面馆，忽然想起你说想再去一次。门还开着，灯还亮着。\n\n我站了一会儿，没有进去。想把「下次一起」留给真的下次。",
+        salute: "亲爱的小园子，",
+        author: "小麒子",
+        when: "周五深夜",
+        date: "2026-06-20",
+        mood: "night",
+        cover: "",
+      },
+      {
+        title: "关于搬家的那些纸箱",
+        snippet: "纸箱堆在走廊，像一截还没写完的句子。我想把厨房那只杯子单独包好。",
+        body: "纸箱堆在走廊，像一截还没写完的句子。我想把厨房那只杯子单独包好——你总用它喝水。\n\n其余的可以乱，这一件我想整齐。",
+        salute: "亲爱的小麒子，",
+        author: "小园子",
+        when: "周日上午",
+        date: "2026-06-22",
+        mood: "home",
+        cover: "https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=400&h=500&fit=crop",
+      },
+    ];
+
+    function rowHTML(letter) {
+      const dear = letter.salute.replace(/，$/, "");
+      const thumb = letter.cover
+        ? `<img class="thumb" src="${letter.cover}" alt="" />`
+        : "";
+      return `<div class="row${letter.cover ? " has-photo" : ""}">
+        <div>
+          <p class="dear">${dear}</p>
+          <h3 class="title">${letter.title}</h3>
+          <p class="snip">${letter.snippet}</p>
+          <div class="foot"><span>${letter.when}</span><span class="sign">— ${letter.author}</span></div>
+        </div>
+        ${thumb}
+      </div>`;
+    }
+
+    function render() {
+      const list = document.getElementById("list");
+      list.innerHTML = "";
+      LETTERS.forEach((letter) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "card";
+        btn.innerHTML = rowHTML(letter);
+        btn.addEventListener("click", () => openStage(letter));
+        list.appendChild(btn);
+      });
+    }
+
+    function openStage(letter) {
+      const stage = document.getElementById("stage");
+      const photo = document.getElementById("photocard");
+      document.getElementById("mood").setAttribute("data-mood", letter.mood || "sea");
+      document.getElementById("paper-when").textContent = letter.when;
+      document.getElementById("paper-salute").textContent = letter.salute;
+      document.getElementById("paper-title").textContent = letter.title;
+      document.getElementById("paper-meta").textContent = `${letter.author} · ${letter.date}`;
+      document.getElementById("paper-body").innerHTML = letter.body
+        .split(/\n\n+/).map((p) => `<p>${p}</p>`).join("");
+      document.getElementById("paper-sign").innerHTML =
+        `${letter.author}<small>${letter.when}</small>`;
+
+      if (letter.cover) {
+        photo.src = letter.cover;
+        photo.classList.remove("none");
+      } else {
+        photo.removeAttribute("src");
+        photo.classList.add("none");
+      }
+
+      // restart enter
+      stage.classList.remove("open");
+      void stage.offsetWidth;
+      stage.classList.add("open");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeStage() {
+      document.getElementById("stage").classList.remove("open");
+      document.body.style.overflow = "";
+    }
+
+    document.getElementById("stage-close").addEventListener("click", closeStage);
+    document.getElementById("stage-done").addEventListener("click", closeStage);
+    document.getElementById("veil").addEventListener("click", closeStage);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeStage();
+    });
+
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+      const root = document.documentElement;
+      const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      document.getElementById("theme-toggle").textContent = next === "dark" ? "亮色" : "暗色";
+    });
+
+    render();
+  </script>
+</body>
+</html>
