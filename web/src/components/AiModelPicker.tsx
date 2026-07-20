@@ -5,6 +5,8 @@ import {
   fetchDeepseekModels,
   fetchWorkersAiModels,
   getApiErrorMessage,
+  peekDeepseekModels,
+  peekWorkersAiModels,
   shouldToastApiError,
   updateAppSettings,
 } from "../lib/api";
@@ -75,8 +77,12 @@ export function AiModelPicker({
   const navigate = useNavigate();
   const { settings, setSettings } = useAppSettings();
   const [open, setOpen] = useState(false);
-  const [workersModels, setWorkersModels] = useState<Awaited<ReturnType<typeof fetchWorkersAiModels>>["models"]>([]);
-  const [deepseekModels, setDeepseekModels] = useState<Awaited<ReturnType<typeof fetchDeepseekModels>>["models"]>([]);
+  const [workersModels, setWorkersModels] = useState(
+    () => peekWorkersAiModels()?.models ?? []
+  );
+  const [deepseekModels, setDeepseekModels] = useState(
+    () => peekDeepseekModels()?.models ?? []
+  );
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
@@ -123,7 +129,9 @@ export function AiModelPicker({
     if (!open) return;
 
     let cancelled = false;
-    setLoading(true);
+    const hasCache =
+      peekWorkersAiModels() !== null && peekDeepseekModels() !== null;
+    if (!hasCache) setLoading(true);
 
     void Promise.all([fetchWorkersAiModels(), fetchDeepseekModels()])
       .then(([workers, deepseek]) => {

@@ -631,7 +631,20 @@ export async function updateAppSettings(data: {
     body: JSON.stringify(data),
   });
   await assertOk(res, "保存设置失败");
-  return res.json();
+  const next = (await res.json()) as AppSettings;
+
+  // Provider catalog depends on keys/connections; enabled lists also change picker surface.
+  if (
+    data.deepseekKey !== undefined ||
+    data.aiConnections !== undefined ||
+    data.connectionKey !== undefined ||
+    data.aiEnabledModels !== undefined ||
+    data.aiEnabledProviders !== undefined
+  ) {
+    invalidateAiModelsCache();
+  }
+
+  return next;
 }
 
 export interface FeishuConfigPublic {
@@ -836,12 +849,67 @@ export interface WorkersAiModelsResponse {
   source: "catalog" | "fallback";
 }
 
-export async function fetchWorkersAiModels(): Promise<WorkersAiModelsResponse> {
-  const res = await fetch(`${BASE}/api/ai/workers-models`, {
-    credentials: "include",
-  });
-  await assertOk(res, "加载 Workers AI 模型列表失败");
-  return res.json();
+const AI_MODELS_CACHE_TTL_MS = 10 * 60 * 1000;
+
+type AiModelsCacheEntry<T> = {
+  value: T;
+  at: number;
+};
+
+let workersAiModelsCache: AiModelsCacheEntry<WorkersAiModelsResponse> | null = null;
+let workersAiModelsInflight: Promise<WorkersAiModelsResponse> | null = null;
+let deepseekModelsCache: AiModelsCacheEntry<DeepseekModelsResponse> | null = null;
+let deepseekModelsInflight: Promise<DeepseekModelsResponse> | null = null;
+
+function isFreshAiModelsCache<T>(
+  entry: AiModelsCacheEntry<T> | null
+): entry is AiModelsCacheEntry<T> {
+  return entry !== null && Date.now() - entry.at < AI_MODELS_CACHE_TTL_MS;
+}
+
+export function peekWorkersAiModels(): WorkersAiModelsResponse | null {
+  return isFreshAiModelsCache(workersAiModelsCache) ? workersAiModelsCache.value : null;
+}
+
+export function peekDeepseekModels(): DeepseekModelsResponse | null {
+  return isFreshAiModelsCache(deepseekModelsCache) ? deepseekModelsCache.value : null;
+}
+
+export function invalidateAiModelsCache(): void {
+  workersAiModelsCache = null;
+  deepseekModelsCache = null;
+  workersAiModelsInflight = null;
+  deepseekModelsInflight = null;
+}
+
+export async function fetchWorkersAiModels(options?: {
+  force?: boolean;
+}): Promise<WorkersAiModelsResponse> {
+  if (!options?.force && isFreshAiModelsCache(workersAiModelsCache)) {
+    return workersAiModelsCache.value;
+  }
+  if (!options?.force && workersAiModelsInflight) {
+    return workersAiModelsInflight;
+  }
+
+  const request = (async () => {
+    const res = await fetch(`${BASE}/api/ai/workers-models`, {
+      credentials: "include",
+    });
+    await assertOk(res, "加载 Workers AI 模型列表失败");
+    const data = (await res.json()) as WorkersAiModelsResponse;
+    workersAiModelsCache = { value: data, at: Date.now() };
+    return data;
+  })();
+
+  workersAiModelsInflight = request;
+  try {
+    return await request;
+  } finally {
+    if (workersAiModelsInflight === request) {
+      workersAiModelsInflight = null;
+    }
+  }
 }
 
 export interface DeepseekModelsResponse {
@@ -849,12 +917,34 @@ export interface DeepseekModelsResponse {
   source: "api" | "fallback";
 }
 
-export async function fetchDeepseekModels(): Promise<DeepseekModelsResponse> {
-  const res = await fetch(`${BASE}/api/ai/deepseek-models`, {
-    credentials: "include",
-  });
-  await assertOk(res, "加载 DeepSeek 模型列表失败");
-  return res.json();
+export async function fetchDeepseekModels(options?: {
+  force?: boolean;
+}): Promise<DeepseekModelsResponse> {
+  if (!options?.force && isFreshAiModelsCache(deepseekModelsCache)) {
+    return deepseekModelsCache.value;
+  }
+  if (!options?.force && deepseekModelsInflight) {
+    return deepseekModelsInflight;
+  }
+
+  const request = (async () => {
+    const res = await fetch(`${BASE}/api/ai/deepseek-models`, {
+      credentials: "include",
+    });
+    await assertOk(res, "加载 DeepSeek 模型列表失败");
+    const data = (await res.json()) as DeepseekModelsResponse;
+    deepseekModelsCache = { value: data, at: Date.now() };
+    return data;
+  })();
+
+  deepseekModelsInflight = request;
+  try {
+    return await request;
+  } finally {
+    if (deepseekModelsInflight === request) {
+      deepseekModelsInflight = null;
+    }
+  }
 }
 
 export async function testDeepseekConnection(deepseekKey?: string): Promise<void> {
