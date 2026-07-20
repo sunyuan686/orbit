@@ -29,6 +29,7 @@ import {
   CloseIcon,
   PlusIcon,
   SearchIcon,
+  ThinkingIcon,
   NAV_CONTENT_ICONS,
   type NavContentType,
 } from "./OrbitIcons";
@@ -778,8 +779,16 @@ export function AiChatPanel({
                       <span className="orbit-ai-message-author">{author}</span>
                     ) : null}
                     {showReasoning ? (
-                      <details className="orbit-ai-reasoning">
-                        <summary>推理过程</summary>
+                      <details
+                        key={`${message.id}-${isStreamingMessage ? "streaming" : "done"}`}
+                        className="orbit-ai-reasoning"
+                        open={isStreamingMessage || undefined}
+                      >
+                        <summary className="orbit-ai-reasoning-summary">
+                          <ThinkingIcon size="sm" className="orbit-ai-reasoning-icon" />
+                          <span>{isStreamingMessage ? "思考中…" : "已思考"}</span>
+                          <ChevronDownIcon size="sm" className="orbit-ai-reasoning-chevron" />
+                        </summary>
                         <div className="orbit-ai-reasoning-body">{reasoning}</div>
                       </details>
                     ) : null}
