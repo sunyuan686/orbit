@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -87,8 +88,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setItems((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const value = useMemo(() => ({ success, error }), [success, error]);
+
   return (
-    <ToastContext.Provider value={{ success, error }}>
+    <ToastContext.Provider value={value}>
       {children}
       <ToastStack items={items} onDismiss={onDismiss} />
     </ToastContext.Provider>

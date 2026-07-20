@@ -131,12 +131,11 @@ export function AiProvidersSettingsPanel() {
   }, [settings?.aiConnections.length]);
 
   useEffect(() => {
-    if (!settings) return;
-    setDeepseekKey("");
-    if (settings.hasDeepseekKey) {
+    if (settings?.hasDeepseekKey) {
+      setDeepseekKey("");
       setEditingDeepseekKey(false);
     }
-  }, [settings]);
+  }, [settings?.hasDeepseekKey]);
 
   const isKeyDirty = Boolean(deepseekKey.trim());
   const showDeepseekKeyInput =

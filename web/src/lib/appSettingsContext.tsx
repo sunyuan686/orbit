@@ -27,7 +27,7 @@ interface AppSettingsContextValue {
 const AppSettingsContext = createContext<AppSettingsContextValue | null>(null);
 
 export function AppSettingsProvider({ children }: { children: ReactNode }) {
-  const toast = useToast();
+  const { error: toastError } = useToast();
   const [settings, setSettingsState] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -43,12 +43,12 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       applySettings(next);
     } catch (err) {
       if (shouldToastApiError(err)) {
-        toast.error(getApiErrorMessage(err, "加载设置失败"));
+        toastError(getApiErrorMessage(err, "加载设置失败"));
       }
     } finally {
       setLoading(false);
     }
-  }, [applySettings, toast]);
+  }, [applySettings, toastError]);
 
   useEffect(() => {
     void reload();
