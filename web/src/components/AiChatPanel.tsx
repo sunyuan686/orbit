@@ -311,19 +311,23 @@ export function AiChatPanel({
         root.style.setProperty("--ai-vv-height", "100dvh");
         return;
       }
-      root.style.setProperty("--ai-vv-top", `${vv.offsetTop}px`);
-      root.style.setProperty("--ai-vv-height", `${vv.height}px`);
+      // Prefer layout-stable inset: visualViewport tracks keyboard without page zoom.
+      // offsetTop + height map the panel to the visible area above the keyboard.
+      root.style.setProperty("--ai-vv-top", `${Math.max(0, vv.offsetTop)}px`);
+      root.style.setProperty("--ai-vv-height", `${Math.max(0, vv.height)}px`);
     }
 
     syncViewport();
     vv?.addEventListener("resize", syncViewport);
     vv?.addEventListener("scroll", syncViewport);
     window.addEventListener("resize", syncViewport);
+    window.addEventListener("orientationchange", syncViewport);
 
     return () => {
       vv?.removeEventListener("resize", syncViewport);
       vv?.removeEventListener("scroll", syncViewport);
       window.removeEventListener("resize", syncViewport);
+      window.removeEventListener("orientationchange", syncViewport);
       root.style.removeProperty("--ai-vv-top");
       root.style.removeProperty("--ai-vv-height");
     };

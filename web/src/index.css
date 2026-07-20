@@ -42,6 +42,8 @@
   --type-secondary: 0.875rem;
   --type-sm: 0.8125rem;
   --type-xs: 0.75rem;
+  /* Form controls: ≥16px computed so iOS WebKit does not auto-zoom on focus */
+  --type-control: max(16px, 1rem);
 
   /* Line heights */
   --leading-body: 1.75;
@@ -218,6 +220,18 @@ body {
   line-height: var(--leading-body);
   color: var(--color-text-primary);
   background: var(--color-bg);
+}
+
+/*
+ * iOS WebKit auto-zooms focused form controls when computed font-size < 16px,
+ * and does not restore scale on blur. Best practice (CSS-Tricks / WCAG 1.4.4):
+ * keep controls ≥ 16px via --type-control; do not disable pinch-zoom
+ * (maximum-scale / user-scalable=no).
+ */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]),
+select,
+textarea {
+  font-size: var(--type-control);
 }
 
 /* Heading font */
@@ -2052,7 +2066,7 @@ a.orbit-settings-mobile-row {
   min-height: 0;
   height: 2rem;
   padding: 0;
-  font-size: var(--type-caption, 0.75rem);
+  font-size: var(--type-control);
   border: none;
   border-radius: 0;
   background: transparent;
@@ -2518,7 +2532,7 @@ a.orbit-settings-mobile-row {
   min-height: 2rem;
   height: 2rem;
   padding: 0.25rem 0.625rem;
-  font-size: var(--type-caption, 0.75rem);
+  font-size: var(--type-control);
 }
 
 .orbit-settings-key-row {
@@ -2535,7 +2549,7 @@ a.orbit-settings-mobile-row {
   min-height: 0;
   height: 2rem;
   padding: 0.25rem 0.625rem;
-  font-size: var(--type-caption, 0.75rem);
+  font-size: var(--type-control);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   letter-spacing: 0.01em;
   border-radius: 6px;
@@ -2723,7 +2737,7 @@ a.orbit-settings-mobile-row {
 
 .orbit-settings-input-mono {
   font-family: var(--font-mono);
-  font-size: var(--type-caption, 0.75rem);
+  font-size: var(--type-control);
   letter-spacing: -0.01em;
 }
 
@@ -3398,7 +3412,7 @@ a.orbit-settings-mobile-row {
 .orbit-input {
   width: 100%;
   padding: 0.5rem 0.75rem;
-  font-size: var(--type-secondary);
+  font-size: var(--type-control);
   font-family: var(--font-body);
   color: var(--color-text-primary);
   background: var(--color-surface);
@@ -4343,7 +4357,7 @@ a.orbit-settings-mobile-row {
   background: transparent;
   resize: none;
   font-family: var(--font-body);
-  font-size: var(--type-secondary);
+  font-size: var(--type-control);
   line-height: 1.45;
   color: var(--color-text-primary);
 }
@@ -4441,7 +4455,7 @@ a.orbit-settings-mobile-row {
   background: var(--color-surface);
   color: var(--color-text-primary);
   font: inherit;
-  font-size: var(--type-secondary);
+  font-size: var(--type-control);
   line-height: 1.55;
 }
 
@@ -6049,8 +6063,7 @@ html.orbit-ai-open body {
   background: transparent;
   resize: none;
   font-family: var(--font-body);
-  /* iOS Safari zooms focused inputs under 16px; keep ≥1rem to avoid sticky zoom */
-  font-size: 1rem;
+  font-size: var(--type-control);
   line-height: 1.55;
   color: var(--color-text-primary);
   outline: none;
