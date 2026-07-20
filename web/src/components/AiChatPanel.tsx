@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
+import { Streamdown } from "streamdown";
 import { Link } from "react-router-dom";
+import "streamdown/styles.css";
 import {
   deleteAiConversation,
   fetchAiConversation,
@@ -13,6 +15,7 @@ import {
   type AiConversationListItem,
 } from "../lib/api";
 import { parseAssistantContent } from "../lib/ai-message-content";
+import { useMaxWidthMd } from "../lib/useBreakpoint";
 import { useConfirm } from "../lib/useConfirm";
 import { useToast } from "../lib/useToast";
 import { AiConversationList } from "./AiConversationList";
@@ -147,6 +150,7 @@ export function AiChatPanel({
 }: AiChatPanelProps) {
   const toast = useToast();
   const confirm = useConfirm();
+  const isMobile = useMaxWidthMd();
   const [conversations, setConversations] = useState<AiConversationListItem[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -290,6 +294,42 @@ export function AiChatPanel({
   }, [panelMounted, open, onClose]);
 
   useEffect(() => {
+    if (!open) return;
+    document.documentElement.classList.add("orbit-ai-open");
+    return () => document.documentElement.classList.remove("orbit-ai-open");
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !isMobile) return;
+
+    const root = document.documentElement;
+    const vv = window.visualViewport;
+
+    function syncViewport() {
+      if (!vv) {
+        root.style.setProperty("--ai-vv-top", "0px");
+        root.style.setProperty("--ai-vv-height", "100dvh");
+        return;
+      }
+      root.style.setProperty("--ai-vv-top", `${vv.offsetTop}px`);
+      root.style.setProperty("--ai-vv-height", `${vv.height}px`);
+    }
+
+    syncViewport();
+    vv?.addEventListener("resize", syncViewport);
+    vv?.addEventListener("scroll", syncViewport);
+    window.addEventListener("resize", syncViewport);
+
+    return () => {
+      vv?.removeEventListener("resize", syncViewport);
+      vv?.removeEventListener("scroll", syncViewport);
+      window.removeEventListener("resize", syncViewport);
+      root.style.removeProperty("--ai-vv-top");
+      root.style.removeProperty("--ai-vv-height");
+    };
+  }, [open, isMobile]);
+
+  useEffect(() => {
     localStorage.setItem(AI_PANEL_LAYOUT_KEY, panelLayout);
   }, [panelLayout]);
 
@@ -342,7 +382,7 @@ export function AiChatPanel({
 
   const handleFloatingDragStart = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
-      if (panelLayout !== "floating") return;
+      if (isMobile || panelLayout !== "floating") return;
       if ((event.target as HTMLElement).closest(".orbit-ai-panel-header-actions")) return;
       if ((event.target as HTMLElement).closest(".orbit-ai-panel-title-btn")) return;
       event.preventDefault();
@@ -354,7 +394,7 @@ export function AiChatPanel({
       };
       setFloatingDragging(true);
     },
-    [panelLayout]
+    [isMobile, panelLayout]
   );
 
   useEffect(() => {
@@ -547,18 +587,21 @@ export function AiChatPanel({
   const configError =
     error?.message?.includes("API Key") || error?.message?.includes("未配置");
   const isFloatingLayout = panelLayout === "floating";
-  const panelStyle = {
-    ["--ai-panel-width" as string]: `${panelWidth}px`,
-    ...(isFloatingLayout
-      ? { left: `${floatingPos.x}px`, top: `${floatingPos.y}px` }
-      : {}),
-  };
+  // Mobile: full-bleed sheet — do not apply desktop width / floating coords (inline beats media CSS).
+  const panelStyle = isMobile
+    ? undefined
+    : {
+        ["--ai-panel-width" as string]: `${panelWidth}px`,
+        ...(isFloatingLayout
+          ? { left: `${floatingPos.x}px`, top: `${floatingPos.y}px` }
+          : {}),
+      };
 
   return (
     <div
       className={`orbit-ai-overlay orbit-ai-overlay--${panelLayout}${panelVisible ? " orbit-ai-overlay--visible" : ""}`}
       role="presentation"
-      onMouseDown={onClose}
+      onPointerDown={onClose}
     >
       <aside
         ref={panelRef}
@@ -567,7 +610,7 @@ export function AiChatPanel({
         role="dialog"
         aria-label="Orbit AI"
         aria-modal="true"
-        onMouseDown={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
         onTransitionEnd={handlePanelTransitionEnd}
       >
         {isSidebarLayout ? (
@@ -580,7 +623,7 @@ export function AiChatPanel({
           />
         ) : null}
         <header
-          className={`orbit-ai-panel-header${isFloatingLayout ? " orbit-ai-panel-header--draggable" : ""}`}
+          className={`orbit-ai-panel-header${isFloatingLayout && !isMobile ? " orbit-ai-panel-header--draggable" : ""}`}
           onMouseDown={handleFloatingDragStart}
         >
           <button
@@ -709,7 +752,7 @@ export function AiChatPanel({
                   </div>
                 </div>
               ) : null}
-              {messages.map((message) => {
+              {messages.map((message, messageIndex) => {
                 const author = getMessageAuthor(message);
                 const content =
                   message.role === "assistant"
@@ -718,6 +761,10 @@ export function AiChatPanel({
                 const { reasoning, text: bubbleText } = content;
                 const showReasoning = Boolean(reasoning);
                 if (!bubbleText && !showReasoning) return null;
+                const isStreamingMessage =
+                  status === "streaming" &&
+                  message.role === "assistant" &&
+                  messageIndex === messages.length - 1;
                 return (
                   <div
                     key={message.id}
@@ -733,7 +780,20 @@ export function AiChatPanel({
                       </details>
                     ) : null}
                     {bubbleText ? (
-                      <div className="orbit-ai-message-bubble">{bubbleText}</div>
+                      <div className="orbit-ai-message-bubble">
+                        {message.role === "assistant" ? (
+                          <Streamdown
+                            className="orbit-ai-md"
+                            controls={false}
+                            isAnimating={isStreamingMessage}
+                            mode={isStreamingMessage ? "streaming" : "static"}
+                          >
+                            {bubbleText}
+                          </Streamdown>
+                        ) : (
+                          bubbleText
+                        )}
+                      </div>
                     ) : null}
                   </div>
                 );

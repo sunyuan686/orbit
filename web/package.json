@@ -32,6 +32,7 @@
     "react-day-picker": "^10.0.1",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.0",
+    "streamdown": "^2.5.0",
     "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
