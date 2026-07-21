@@ -255,6 +255,29 @@ export function CloseIcon(props: OrbitIconProps) {
   );
 }
 
+export function TrashIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </OrbitIcon>
+  );
+}
+
+export function ShareIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <circle cx="6" cy="12" r="2.25" />
+      <circle cx="18" cy="6" r="2.25" />
+      <circle cx="18" cy="18" r="2.25" />
+      <path d="M8.1 10.8l7.8-3.6M8.1 13.2l7.8 3.6" />
+    </OrbitIcon>
+  );
+}
+
 export function SidebarExpandIcon(props: OrbitIconProps) {
   return (
     <OrbitIcon {...props}>

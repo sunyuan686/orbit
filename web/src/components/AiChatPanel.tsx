@@ -27,8 +27,10 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   CloseIcon,
+  MenuIcon,
   PlusIcon,
   SearchIcon,
+  ShareIcon,
   ThinkingIcon,
   NAV_CONTENT_ICONS,
   type NavContentType,
@@ -158,7 +160,6 @@ export function AiChatPanel({
   const [isOwner, setIsOwner] = useState(true);
   const [shared, setShared] = useState(false);
   const [input, setInput] = useState("");
-  const [showListMobile, setShowListMobile] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [panelMounted, setPanelMounted] = useState(open);
   const [panelVisible, setPanelVisible] = useState(false);
@@ -263,7 +264,6 @@ export function AiChatPanel({
     setChatSession(nextSession);
     setIsOwner(true);
     setShared(false);
-    setShowListMobile(true);
     setShowHistory(false);
     clearError();
   }, [open, effectiveContext.articleId, effectiveContext.mode, clearError]);
@@ -288,11 +288,16 @@ export function AiChatPanel({
   useEffect(() => {
     if (!panelMounted || !open) return;
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      if (showHistory) {
+        setShowHistory(false);
+        return;
+      }
+      onClose();
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [panelMounted, open, onClose]);
+  }, [panelMounted, open, onClose, showHistory]);
 
   useEffect(() => {
     if (!open) return;
@@ -388,8 +393,7 @@ export function AiChatPanel({
   const handleFloatingDragStart = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
       if (isMobile || panelLayout !== "floating") return;
-      if ((event.target as HTMLElement).closest(".orbit-ai-panel-header-actions")) return;
-      if ((event.target as HTMLElement).closest(".orbit-ai-panel-title-btn")) return;
+      if ((event.target as HTMLElement).closest("button, a, input, label")) return;
       event.preventDefault();
       floatingDragRef.current = {
         startX: event.clientX,
@@ -468,7 +472,6 @@ export function AiChatPanel({
   const isSidebarLayout = panelLayout === "sidebar";
 
   async function loadConversation(id: string) {
-    setShowListMobile(false);
     setShowHistory(false);
     setDetailLoading(true);
     clearError();
@@ -482,7 +485,6 @@ export function AiChatPanel({
       setChatSession(nextSession);
       setIsOwner(detail.isOwner);
       setShared(detail.shared);
-      setShowListMobile(false);
     } catch (err) {
       if (shouldToastApiError(err)) {
         toast.error(getApiErrorMessage(err, "加载对话失败"));
@@ -498,14 +500,12 @@ export function AiChatPanel({
     setChatSession(nextSession);
     setIsOwner(true);
     setShared(false);
-    setShowListMobile(false);
     setShowHistory(false);
     clearError();
   }
 
   function handleSuggestion(text: string) {
     setInput(text);
-    setShowListMobile(false);
     setShowHistory(false);
     inputRef.current?.focus();
   }
@@ -560,7 +560,6 @@ export function AiChatPanel({
     const text = input.trim();
     if (!text || status === "streaming" || status === "submitted") return;
     setInput("");
-    setShowListMobile(false);
     await sendMessage({ text });
     void reloadList();
   }
@@ -569,7 +568,7 @@ export function AiChatPanel({
 
   const conversationId = chatSession.conversationId;
   const activeConversation = conversations.find((item) => item.id === conversationId);
-  const headerTitle = activeConversation?.title ?? "新对话";
+  const headerTitle = activeConversation?.title ?? "新聊天";
   const showArticleContextPill =
     context.mode === "article" && !contextDismissed;
   const contextLabel = articleTitle?.trim() || "当前文档";
@@ -631,33 +630,45 @@ export function AiChatPanel({
           className={`orbit-ai-panel-header${isFloatingLayout && !isMobile ? " orbit-ai-panel-header--draggable" : ""}`}
           onMouseDown={handleFloatingDragStart}
         >
-          <button
-            type="button"
-            className="orbit-ai-panel-title-btn orbit-ai-panel-header-mobile-only"
-            onClick={() => setShowListMobile((value) => !value)}
-          >
-            <span className="orbit-ai-panel-title-btn-label">
-              {showListMobile ? "对话列表" : headerTitle}
-            </span>
-          </button>
-          <button
-            type="button"
-            className="orbit-ai-panel-title-btn"
-            aria-expanded={showHistory}
-            onClick={() => setShowHistory((value) => !value)}
-          >
-            <span className="orbit-ai-panel-title-btn-label">{headerTitle}</span>
-            <ChevronDownIcon
-              size="sm"
-              className={`orbit-ai-panel-title-btn-chevron${showHistory ? " orbit-ai-panel-title-btn-chevron--open" : ""}`}
-            />
-          </button>
+          <div className="orbit-ai-panel-header-leading">
+            <button
+              type="button"
+              className={`orbit-icon-btn inline-flex${showHistory ? " orbit-icon-btn--active" : ""}`}
+              aria-label={showHistory ? "关闭历史" : "打开历史"}
+              aria-expanded={showHistory}
+              title={showHistory ? "关闭历史" : "历史"}
+              onClick={() => setShowHistory((value) => !value)}
+            >
+              {showHistory ? <CloseIcon size="sm" /> : <MenuIcon size="sm" />}
+            </button>
+            <div className="orbit-ai-panel-title-wrap">
+              <h1 className="orbit-ai-panel-title">{headerTitle}</h1>
+              {!isOwner && conversationId ? (
+                <p className="orbit-ai-panel-title-sub">
+                  {activeConversation?.ownerAuthor ?? "对方"} 共享
+                </p>
+              ) : null}
+            </div>
+          </div>
           <div className="orbit-ai-panel-header-actions">
+            {isOwner && conversationId ? (
+              <button
+                type="button"
+                className={`orbit-icon-btn inline-flex${shared ? " orbit-icon-btn--accent" : ""}`}
+                disabled={isBusy}
+                aria-pressed={shared}
+                aria-label={shared ? "关闭共享" : "与 TA 共享"}
+                title={shared ? "已共享，点击关闭" : "与 TA 共享"}
+                onClick={() => void handleToggleShared(!shared)}
+              >
+                <ShareIcon size="sm" />
+              </button>
+            ) : null}
             <button
               type="button"
               className="orbit-icon-btn inline-flex"
-              aria-label="新对话"
-              title="新对话"
+              aria-label="新聊天"
+              title="新聊天"
               onClick={startNewConversation}
             >
               <PlusIcon size="sm" />
@@ -688,48 +699,12 @@ export function AiChatPanel({
                 loading={listLoading}
                 activeId={conversationId}
                 onSelect={(id) => void loadConversation(id)}
-                onNew={startNewConversation}
                 onDelete={(id) => void handleDeleteConversation(id)}
               />
             </div>
           ) : null}
 
-          <div
-            className={`orbit-ai-list-rail${showListMobile ? "" : " orbit-ai-list-rail--hidden-mobile"}`}
-          >
-            <AiConversationList
-              items={conversations}
-              loading={listLoading}
-              activeId={conversationId}
-              onSelect={(id) => void loadConversation(id)}
-              onNew={startNewConversation}
-              onDelete={(id) => void handleDeleteConversation(id)}
-            />
-          </div>
-
-          <div
-            className={`orbit-ai-chat-main${showListMobile ? " orbit-ai-chat-main--hidden-mobile" : ""}`}
-          >
-            {isOwner && conversationId ? (
-              <label className="orbit-ai-shared-row">
-                <span>与 TA 共享此对话</span>
-                <input
-                  type="checkbox"
-                  checked={shared}
-                  disabled={isBusy}
-                  onChange={(event) => void handleToggleShared(event.target.checked)}
-                />
-              </label>
-            ) : null}
-
-            {!isOwner && conversationId ? (
-              <p className="orbit-muted orbit-ai-shared-note">
-                {conversations.find((item) => item.id === conversationId)?.ownerAuthor ?? "对方"}
-                {" "}
-                共享的对话
-              </p>
-            ) : null}
-
+          <div className="orbit-ai-chat-main">
             <div className="orbit-ai-messages" aria-live="polite">
               {messages.length === 0 && !detailLoading ? (
                 <div className="orbit-ai-welcome">
@@ -855,6 +830,7 @@ export function AiChatPanel({
                   disabled={isBusy}
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={(event) => {
+                    if (isMobile) return;
                     if (event.key === "Enter" && !event.shiftKey) {
                       event.preventDefault();
                       void handleSubmit(event);
