@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { lazy, Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { TYPE_LABEL, formatSpaceTagline } from "../lib/api";
 import { setPageTitle } from "../lib/pageTitle";
@@ -10,8 +10,12 @@ import { UserAccount } from "./UserAccount";
 import { SettingsIcon, SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, GalleryIcon, ActivityIcon, MemoriesIcon, HomeIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
 import { NotificationBell } from "./NotificationBell";
 import { AiChatFab } from "./AiChatFab";
-import { AiChatPanel, type AiChatContext } from "./AiChatPanel";
+import type { AiChatContext } from "./AiChatPanel";
 import { RouteErrorBoundary } from "./RouteErrorBoundary";
+
+const AiChatPanel = lazy(() =>
+  import("./AiChatPanel").then((m) => ({ default: m.AiChatPanel }))
+);
 
 const navItems: { to: string; label: string; type: NavContentType }[] = [
   { to: "/diary", label: TYPE_LABEL.diary, type: "diary" },
@@ -53,6 +57,7 @@ function LayoutShell() {
   });
   const [dragging, setDragging] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [aiMounted, setAiMounted] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -127,7 +132,10 @@ function LayoutShell() {
         return;
       }
       event.preventDefault();
-      setAiOpen((current) => !current);
+      setAiOpen((current) => {
+        if (!current) setAiMounted(true);
+        return !current;
+      });
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -398,14 +406,24 @@ function LayoutShell() {
           </RouteErrorBoundary>
         </main>
       </div>
-      <AiChatFab open={aiOpen} onClick={() => setAiOpen(true)} />
-      <AiChatPanel
+      <AiChatFab
         open={aiOpen}
-        onClose={() => setAiOpen(false)}
-        context={aiContext}
-        articleTitle={aiArticleTitle}
-        articleType={aiArticleType}
+        onClick={() => {
+          setAiMounted(true);
+          setAiOpen(true);
+        }}
       />
+      {aiMounted ? (
+        <Suspense fallback={null}>
+          <AiChatPanel
+            open={aiOpen}
+            onClose={() => setAiOpen(false)}
+            context={aiContext}
+            articleTitle={aiArticleTitle}
+            articleType={aiArticleType}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

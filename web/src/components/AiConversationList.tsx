@@ -140,14 +140,10 @@ export function AiConversationList({
                   if (item.isOwner) event.preventDefault();
                 }}
               >
-                <span className="orbit-ai-conversation-item-title-row">
-                  <span className="orbit-ai-conversation-item-title">{item.title}</span>
+                <span className="orbit-ai-conversation-item-title">
+                  <span className="orbit-ai-conversation-item-title-text">{item.title}</span>
                   {item.isOwner && item.shared ? (
-                    <ShareIcon
-                      size="sm"
-                      className="orbit-ai-conversation-item-shared"
-                      title="已共享"
-                    />
+                    <ShareIcon size="sm" className="orbit-ai-conversation-item-shared" />
                   ) : null}
                 </span>
                 {!item.isOwner ? (

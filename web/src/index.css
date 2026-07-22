@@ -5721,13 +5721,18 @@ html.orbit-ai-open body {
   white-space: nowrap;
 }
 
+.orbit-ai-panel-title-sub--shared {
+  color: var(--color-accent);
+}
+
 .orbit-icon-btn--accent {
   color: var(--color-accent);
+  background: color-mix(in oklch, var(--color-accent) 14%, var(--color-surface-raised));
 }
 
 .orbit-icon-btn--accent:hover:not(:disabled) {
   color: var(--color-accent);
-  background: color-mix(in oklch, var(--color-accent) 12%, var(--color-surface-raised));
+  background: color-mix(in oklch, var(--color-accent) 22%, var(--color-surface-raised));
 }
 
 .orbit-ai-panel-header-actions > .orbit-icon-btn:disabled {
@@ -6487,30 +6492,29 @@ html.orbit-ai-open body {
   color: var(--color-text-primary);
 }
 
-.orbit-ai-conversation-item-title-row {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-width: 0;
-  width: 100%;
-}
-
 .orbit-ai-conversation-item-title {
-  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: 100%;
   min-width: 0;
   font-size: var(--type-secondary);
   font-weight: 500;
   color: inherit;
+}
+
+.orbit-ai-conversation-item-title-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .orbit-ai-conversation-item-shared {
   flex-shrink: 0;
   width: 12px;
   height: 12px;
-  color: var(--color-text-muted);
+  color: var(--color-accent);
 }
 
 .orbit-ai-conversation-item-badge {

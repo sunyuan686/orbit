@@ -321,8 +321,10 @@ export async function uploadImage(
   file: File,
   entryId?: string
 ): Promise<string> {
+  const { compressImage } = await import("./compressImage");
+  const payload = await compressImage(file);
   const form = new FormData();
-  form.append("file", file);
+  form.append("file", payload);
   if (entryId) form.append("entryId", entryId);
   const res = await fetch(`${BASE}/api/assets/upload`, {
     method: "POST",

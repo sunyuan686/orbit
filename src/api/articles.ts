@@ -478,6 +478,8 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
 
     // 边注位置重映射：校验归属后批量更新
     if (commentMappings && commentMappings.length > 0) {
+      const mappingUpdates = [];
+      const updatedAt = now();
       for (const mapping of commentMappings) {
         if (
           typeof mapping.id !== "string" ||
@@ -490,22 +492,34 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
           continue; // 跳过无效条目
         }
         // 仅更新属于本篇文章的 inline 边注
-        await db
-          .update(comment)
-          .set({
-            anchorFrom: mapping.anchorFrom,
-            anchorTo: mapping.anchorTo,
-            updatedAt: now(),
-          })
-          .where(
-            and(
-              eq(comment.id, mapping.id),
-              eq(comment.targetType, "entry"),
-              eq(comment.targetId, id),
-              eq(comment.kind, "inline"),
-              isNull(comment.deletedAt)
+        mappingUpdates.push(
+          db
+            .update(comment)
+            .set({
+              anchorFrom: mapping.anchorFrom,
+              anchorTo: mapping.anchorTo,
+              updatedAt,
+            })
+            .where(
+              and(
+                eq(comment.id, mapping.id),
+                eq(comment.targetType, "entry"),
+                eq(comment.targetId, id),
+                eq(comment.kind, "inline"),
+                isNull(comment.deletedAt)
+              )
             )
-          );
+        );
+      }
+
+      if (mappingUpdates.length > 0) {
+        if (typeof db.batch === "function") {
+          await db.batch(mappingUpdates);
+        } else {
+          for (const update of mappingUpdates) {
+            await update;
+          }
+        }
       }
     }
 

@@ -378,19 +378,24 @@ export async function listMemoryNodes(
 }
 
 export async function getMemorySummary(db: any): Promise<MemorySummary> {
-  const typeRows = await db
-    .select({
-      type: entry.type,
-      value: count(),
-    })
-    .from(entry)
-    .where(
-      and(
-        isNull(entry.deletedAt),
-        inArray(entry.type, [...MEMORY_ENTRY_TYPES])
+  const [typeRows, recentResult, { milestones }, settingsMap] = await Promise.all([
+    db
+      .select({
+        type: entry.type,
+        value: count(),
+      })
+      .from(entry)
+      .where(
+        and(
+          isNull(entry.deletedAt),
+          inArray(entry.type, [...MEMORY_ENTRY_TYPES])
+        )
       )
-    )
-    .groupBy(entry.type);
+      .groupBy(entry.type),
+    listMemoryNodes(db, { limit: 1, offset: 0 }),
+    syncMilestoneUnlocks(db),
+    readSettingsMap(db),
+  ]);
 
   const byType: Record<string, number> = {
     diary: 0,
@@ -404,13 +409,10 @@ export async function getMemorySummary(db: any): Promise<MemorySummary> {
     totalNodes += Number(row.value);
   }
 
-  const recentResult = await listMemoryNodes(db, { limit: 1, offset: 0 });
-  const { milestones } = await syncMilestoneUnlocks(db);
   const constellationCount = milestones.filter(
     (item) => item.category === "constellation"
   ).length;
 
-  const settingsMap = await readSettingsMap(db);
   const anniversaryDate = parseAnniversaryToIso(
     settingsMap[SPACE_SETTING_KEYS.anniversaryDate]
   );
@@ -464,7 +466,28 @@ async function countGalleryImages(db: any): Promise<number> {
 
 async function evaluateReachedKeys(db: any): Promise<Set<string>> {
   const reached = new Set<string>();
-  const settingsMap = await readSettingsMap(db);
+
+  const [
+    settingsMap,
+    letterCount,
+    replyCount,
+    diaryCount,
+    activity,
+    galleryCount,
+    letterAuthors,
+  ] = await Promise.all([
+    readSettingsMap(db),
+    countEntriesByType(db, "letter"),
+    countLetterReplies(db),
+    countEntriesByType(db, "diary"),
+    getActivityStats(db, { days: 365 }),
+    countGalleryImages(db),
+    db
+      .selectDistinct({ author: entry.author })
+      .from(entry)
+      .where(and(isNull(entry.deletedAt), eq(entry.type, "letter"))),
+  ]);
+
   const anniversaryDate = parseAnniversaryToIso(
     settingsMap[SPACE_SETTING_KEYS.anniversaryDate]
   );
@@ -478,24 +501,18 @@ async function evaluateReachedKeys(db: any): Promise<Set<string>> {
     }
   }
 
-  const letterCount = await countEntriesByType(db, "letter");
   if (letterCount >= 1) reached.add("first_letter");
-
-  const replyCount = await countLetterReplies(db);
   if (replyCount >= 1) reached.add("first_letter_reply");
 
-  const diaryCount = await countEntriesByType(db, "diary");
   for (const n of [10, 50, 100]) {
     if (diaryCount >= n) reached.add(`diary_${n}`);
   }
 
-  const activity = await getActivityStats(db, { days: 365 });
   const streakBest = Math.max(activity.streak.current, activity.streak.longest);
   for (const n of [7, 30]) {
     if (streakBest >= n) reached.add(`streak_${n}`);
   }
 
-  const galleryCount = await countGalleryImages(db);
   for (const n of [50, 100]) {
     if (galleryCount >= n) reached.add(`gallery_${n}`);
   }
@@ -511,12 +528,6 @@ async function evaluateReachedKeys(db: any): Promise<Set<string>> {
   if (reached.has("days_1000")) reached.add("constellation_thousand");
   if (reached.has("gallery_100")) reached.add("constellation_album");
 
-  const letterAuthors = await db
-    .selectDistinct({ author: entry.author })
-    .from(entry)
-    .where(
-      and(isNull(entry.deletedAt), eq(entry.type, "letter"))
-    );
   const authorCount = letterAuthors.filter(
     (row: { author: string }) => row.author?.trim()
   ).length;
@@ -543,9 +554,16 @@ export async function syncMilestoneUnlocks(
 
   const timestamp = now();
   const newlyUnlocked: MilestoneUnlockView[] = [];
+  const insertRows: Array<{
+    id: string;
+    milestoneKey: string;
+    unlockedAt: number;
+    celebratedAt: null;
+  }> = [];
+
   for (const key of reached) {
     if (existingKeys.has(key) || !MILESTONE_BY_KEY.has(key)) continue;
-    await db.insert(milestoneUnlock).values({
+    insertRows.push({
       id: generateId("ms"),
       milestoneKey: key,
       unlockedAt: timestamp,
@@ -560,13 +578,37 @@ export async function syncMilestoneUnlocks(
     });
   }
 
+  if (insertRows.length > 0) {
+    if (typeof db.batch === "function") {
+      await db.batch(
+        insertRows.map((row) => db.insert(milestoneUnlock).values(row))
+      );
+    } else {
+      for (const row of insertRows) {
+        await db.insert(milestoneUnlock).values(row);
+      }
+    }
+  }
+
   // 历史回填：一次解锁过多视为存量，直接标已庆祝，避免飞书轰炸与弹窗刷屏
   if (newlyUnlocked.length > 3) {
-    for (const item of newlyUnlocked) {
-      await db
-        .update(milestoneUnlock)
-        .set({ celebratedAt: timestamp })
-        .where(eq(milestoneUnlock.milestoneKey, item.key));
+    const celebrateKeys = newlyUnlocked.map((item) => item.key);
+    if (typeof db.batch === "function") {
+      await db.batch(
+        celebrateKeys.map((key) =>
+          db
+            .update(milestoneUnlock)
+            .set({ celebratedAt: timestamp })
+            .where(eq(milestoneUnlock.milestoneKey, key))
+        )
+      );
+    } else {
+      for (const key of celebrateKeys) {
+        await db
+          .update(milestoneUnlock)
+          .set({ celebratedAt: timestamp })
+          .where(eq(milestoneUnlock.milestoneKey, key));
+      }
     }
     const milestones = await listUnlockedMilestones(db);
     return {
@@ -613,16 +655,32 @@ export async function celebrateMilestones(
   }
 
   const timestamp = now();
-  for (const key of unique) {
-    await db
-      .update(milestoneUnlock)
-      .set({ celebratedAt: timestamp })
-      .where(
-        and(
-          eq(milestoneUnlock.milestoneKey, key),
-          isNull(milestoneUnlock.celebratedAt)
-        )
-      );
+  if (typeof db.batch === "function") {
+    await db.batch(
+      unique.map((key) =>
+        db
+          .update(milestoneUnlock)
+          .set({ celebratedAt: timestamp })
+          .where(
+            and(
+              eq(milestoneUnlock.milestoneKey, key),
+              isNull(milestoneUnlock.celebratedAt)
+            )
+          )
+      )
+    );
+  } else {
+    for (const key of unique) {
+      await db
+        .update(milestoneUnlock)
+        .set({ celebratedAt: timestamp })
+        .where(
+          and(
+            eq(milestoneUnlock.milestoneKey, key),
+            isNull(milestoneUnlock.celebratedAt)
+          )
+        );
+    }
   }
 
   return (await syncMilestoneUnlocks(db)).milestones;

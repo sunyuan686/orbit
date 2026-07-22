@@ -647,6 +647,10 @@ export function AiChatPanel({
                 <p className="orbit-ai-panel-title-sub">
                   {activeConversation?.ownerAuthor ?? "对方"} 共享
                 </p>
+              ) : isOwner && conversationId && shared ? (
+                <p className="orbit-ai-panel-title-sub orbit-ai-panel-title-sub--shared">
+                  已与 TA 共享
+                </p>
               ) : null}
             </div>
           </div>
