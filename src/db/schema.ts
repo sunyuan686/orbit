@@ -19,6 +19,13 @@ export const user = sqliteTable("user", {
     .notNull()
     .default(false),
   image: text("image"),
+  /** solar | lunar；空表示未设置生日 */
+  birthdayCalendar: text("birthday_calendar"),
+  birthdayMonth: integer("birthday_month"),
+  birthdayDay: integer("birthday_day"),
+  birthdayLeapMonth: integer("birthday_leap_month", { mode: "boolean" }).default(
+    false
+  ),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });

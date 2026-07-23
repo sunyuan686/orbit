@@ -22,10 +22,19 @@ import { AiProvidersSettingsPanel } from "../components/AiProvidersSettingsPanel
 import { FeishuIntegrationPanel } from "../components/FeishuIntegrationPanel";
 import { NotificationsSettingsPanel } from "../components/NotificationsSettingsPanel";
 import { AiIcon, BellIcon, ChevronLeftIcon, ChevronRightIcon, KeyIcon, MessageIcon, PaletteIcon, TimelineIcon, UserIcon } from "../components/OrbitIcons";
+import { BirthdaySettingsField } from "../components/BirthdaySettingsField";
 import { SpaceSettingsPanel } from "../components/SpaceSettingsPanel";
 import { useMaxWidthMd } from "../lib/useBreakpoint";
 
-type SettingsTab = "appearance" | "account" | "ai" | "space" | "integrations" | "notifications" | "api-tokens";
+type SettingsTab =
+  | "appearance"
+  | "profile"
+  | "security"
+  | "ai"
+  | "space"
+  | "integrations"
+  | "notifications"
+  | "api-tokens";
 
 type SettingsTabConfig = {
   id: SettingsTab;
@@ -44,10 +53,16 @@ const SETTINGS_NAV_GROUPS: {
     label: "账户",
     tabs: [
       {
-        id: "account",
-        label: "登录与安全",
-        description: "身份、邮箱与密码",
+        id: "profile",
+        label: "个人资料",
+        description: "爱称与生日",
         icon: (props) => <UserIcon {...props} />,
+      },
+      {
+        id: "security",
+        label: "登录与安全",
+        description: "邮箱与密码",
+        icon: (props) => <KeyIcon {...props} />,
       },
     ],
   },
@@ -134,13 +149,20 @@ function SettingsSection({
 function isSettingsTab(value: string | null): value is SettingsTab {
   return (
     value === "appearance" ||
-    value === "account" ||
+    value === "profile" ||
+    value === "security" ||
     value === "ai" ||
     value === "space" ||
     value === "integrations" ||
     value === "notifications" ||
     value === "api-tokens"
   );
+}
+
+/** Legacy `tab=account` → 个人资料 */
+function resolveSettingsTab(value: string | null): SettingsTab | null {
+  if (value === "account") return "profile";
+  return isSettingsTab(value) ? value : null;
 }
 
 function SettingsField({
@@ -207,9 +229,10 @@ export function SettingsPage() {
 
   const isMobile = useMaxWidthMd();
   const tabParam = searchParams.get("tab");
-  const activeTab: SettingsTab = isSettingsTab(tabParam) ? tabParam : "appearance";
-  const showMobileMenu = isMobile && !isSettingsTab(tabParam);
-  const showMobileDetail = isMobile && isSettingsTab(tabParam);
+  const resolvedTab = resolveSettingsTab(tabParam);
+  const activeTab: SettingsTab = resolvedTab ?? "appearance";
+  const showMobileMenu = isMobile && !resolvedTab;
+  const showMobileDetail = isMobile && Boolean(resolvedTab);
 
   const [accentPreset, setAccentPreset] = useState<AccentPreset>("stone");
   const [accentDirty, setAccentDirty] = useState(false);
@@ -255,7 +278,7 @@ export function SettingsPage() {
   }, [session?.user?.name]);
 
   useEffect(() => {
-    if (activeTab !== "account") return;
+    if (activeTab !== "profile") return;
     let cancelled = false;
     void (async () => {
       try {
@@ -323,7 +346,7 @@ export function SettingsPage() {
     try {
       const { error } = await authClient.changeEmail({
         newEmail: nextEmail,
-        callbackURL: "/settings?tab=account",
+        callbackURL: "/settings?tab=security",
       });
       if (error) {
         toast.error(error.message || "邮箱更新失败");
@@ -566,58 +589,61 @@ export function SettingsPage() {
             </>
           ) : null}
 
-          {activeTab === "account" ? (
+          {activeTab === "profile" ? (
             <>
               <header className="orbit-settings-panel-header">
-                <h2 className="orbit-settings-panel-title">登录与安全</h2>
+                <h2 className="orbit-settings-panel-title">个人资料</h2>
                 <p className="orbit-settings-panel-desc">
                   {isMobile
-                    ? "管理爱称、登录邮箱与密码。"
-                    : "管理爱称、登录邮箱与密码。爱称用于内容署名展示。"}
+                    ? "管理爱称与生日。"
+                    : "管理爱称与生日。爱称用于内容署名展示。"}
                 </p>
               </header>
 
-              <SettingsSection title="个人资料">
-                <div className="orbit-settings-fields">
-                  <div className="orbit-settings-field orbit-settings-field--editable orbit-settings-field--stacked">
-                    <form
-                      className="orbit-settings-stacked-form"
-                      onSubmit={(e) => void handleSaveDisplayName(e)}
-                    >
-                      <div className="orbit-settings-field-copy">
-                        <label htmlFor="settings-display-name" className="orbit-settings-field-label">
-                          爱称
-                        </label>
-                        <p className="orbit-settings-field-hint">用于内容署名，修改后历史内容展示会同步更新。</p>
+              <div className="orbit-settings-fields">
+                <div className="orbit-settings-field orbit-settings-field--editable orbit-settings-field--stacked">
+                  <form
+                    className="orbit-settings-stacked-form"
+                    onSubmit={(e) => void handleSaveDisplayName(e)}
+                  >
+                    <div className="orbit-settings-field-copy">
+                      <label htmlFor="settings-display-name" className="orbit-settings-field-label">
+                        爱称
+                      </label>
+                      <p className="orbit-settings-field-hint">
+                        用于内容署名，修改后历史内容展示会同步更新。
+                      </p>
+                    </div>
+                    <div className="orbit-settings-field-control">
+                      <div className="orbit-settings-inline-form">
+                        <input
+                          id="settings-display-name"
+                          type="text"
+                          value={displayName}
+                          maxLength={16}
+                          className="orbit-input orbit-settings-input-name"
+                          onChange={(event) => {
+                            setDisplayName(event.target.value);
+                            setDisplayNameDirty(
+                              event.target.value.trim() !== (session?.user?.name ?? "")
+                            );
+                          }}
+                        />
+                        <button
+                          type="submit"
+                          className="orbit-btn orbit-btn-sm orbit-settings-form-submit"
+                          disabled={savingDisplayName || !displayNameDirty || !displayName.trim()}
+                        >
+                          {savingDisplayName ? "保存中…" : "保存"}
+                        </button>
                       </div>
-                      <div className="orbit-settings-field-control orbit-settings-field-control--block">
-                        <div className="orbit-settings-inline-form">
-                          <input
-                            id="settings-display-name"
-                            type="text"
-                            value={displayName}
-                            maxLength={16}
-                            className="orbit-input"
-                            onChange={(event) => {
-                              setDisplayName(event.target.value);
-                              setDisplayNameDirty(
-                                event.target.value.trim() !== (session?.user?.name ?? "")
-                              );
-                            }}
-                          />
-                          <button
-                            type="submit"
-                            className="orbit-btn orbit-btn-sm orbit-settings-form-submit"
-                            disabled={savingDisplayName || !displayNameDirty || !displayName.trim()}
-                          >
-                            {savingDisplayName ? "保存中…" : "保存"}
-                          </button>
-                        </div>
-                      </div>
-                    </form>
-                  </div>
+                    </div>
+                  </form>
                 </div>
-              </SettingsSection>
+                <div className="orbit-settings-field orbit-settings-field--editable orbit-settings-field--stacked">
+                  <BirthdaySettingsField />
+                </div>
+              </div>
 
               {spaceStatus?.userCount === 1 ? (
                 <SettingsSection title="邀请另一半">
@@ -662,98 +688,101 @@ export function SettingsPage() {
                   </div>
                 </SettingsSection>
               ) : null}
+            </>
+          ) : null}
 
-              <SettingsSection title="登录方式">
-                <div className="orbit-settings-fields">
-                  <div className="orbit-settings-field orbit-settings-field--editable orbit-settings-field--stacked">
-                    <form
-                      className="orbit-settings-stacked-form"
-                      onSubmit={(e) => void handleUpdateEmail(e)}
-                    >
-                      <div className="orbit-settings-field-copy">
-                        <label htmlFor="settings-email" className="orbit-settings-field-label">
-                          邮箱
-                        </label>
-                        <p className="orbit-settings-field-hint">用于登录与账户通知。</p>
-                      </div>
-                      <div className="orbit-settings-field-control orbit-settings-field-control--block">
-                        <div className="orbit-settings-inline-form">
-                          <input
-                            id="settings-email"
-                            type="email"
-                            value={email}
-                            autoComplete="email"
-                            className="orbit-input orbit-settings-input-block"
-                            onChange={(event) => {
-                              setEmail(event.target.value);
-                              setEmailDirty(
-                                event.target.value.trim() !== (session?.user?.email ?? "")
-                              );
-                            }}
-                          />
-                          <button
-                            type="submit"
-                            className="orbit-btn orbit-btn-sm"
-                            disabled={savingEmail || !emailDirty}
-                          >
-                            {savingEmail ? "更新中…" : "更新邮箱"}
-                          </button>
-                        </div>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              </SettingsSection>
+          {activeTab === "security" ? (
+            <>
+              <header className="orbit-settings-panel-header">
+                <h2 className="orbit-settings-panel-title">登录与安全</h2>
+                <p className="orbit-settings-panel-desc">管理登录邮箱与密码。</p>
+              </header>
 
-              <SettingsSection title="密码">
-                <div className="orbit-settings-fields">
-                  <div className="orbit-settings-field orbit-settings-field--editable orbit-settings-field--stacked">
-                    <form
-                      className="orbit-settings-stacked-form"
-                      onSubmit={(e) => void handleUpdatePassword(e)}
-                    >
-                      <div className="orbit-settings-field-copy">
-                        <label htmlFor="settings-current-password" className="orbit-settings-field-label">
-                          密码
-                        </label>
-                        <p className="orbit-settings-field-hint">新密码至少 8 位。</p>
+              <div className="orbit-settings-fields">
+                <div className="orbit-settings-field orbit-settings-field--editable orbit-settings-field--stacked">
+                  <form
+                    className="orbit-settings-stacked-form"
+                    onSubmit={(e) => void handleUpdateEmail(e)}
+                  >
+                    <div className="orbit-settings-field-copy">
+                      <label htmlFor="settings-email" className="orbit-settings-field-label">
+                        邮箱
+                      </label>
+                      <p className="orbit-settings-field-hint">用于登录与账户通知。</p>
+                    </div>
+                    <div className="orbit-settings-field-control">
+                      <div className="orbit-settings-inline-form">
+                        <input
+                          id="settings-email"
+                          type="email"
+                          value={email}
+                          autoComplete="email"
+                          className="orbit-input orbit-settings-input-block"
+                          onChange={(event) => {
+                            setEmail(event.target.value);
+                            setEmailDirty(
+                              event.target.value.trim() !== (session?.user?.email ?? "")
+                            );
+                          }}
+                        />
+                        <button
+                          type="submit"
+                          className="orbit-btn orbit-btn-sm"
+                          disabled={savingEmail || !emailDirty}
+                        >
+                          {savingEmail ? "更新中…" : "更新邮箱"}
+                        </button>
                       </div>
-                      <div className="orbit-settings-field-control orbit-settings-field-control--block">
-                        <div className="orbit-settings-password-fields">
-                          <input
-                            id="settings-current-password"
-                            type="password"
-                            value={currentPassword}
-                            autoComplete="current-password"
-                            placeholder="当前密码"
-                            className="orbit-input orbit-settings-input-block"
-                            onChange={(event) => setCurrentPassword(event.target.value)}
-                          />
-                          <input
-                            id="settings-new-password"
-                            type="password"
-                            value={newPassword}
-                            autoComplete="new-password"
-                            placeholder="新密码"
-                            className="orbit-input orbit-settings-input-block"
-                            minLength={8}
-                            onChange={(event) => setNewPassword(event.target.value)}
-                          />
-                          <button
-                            type="submit"
-                            className="orbit-btn orbit-btn-sm orbit-settings-form-submit"
-                            disabled={
-                              savingPassword || !currentPassword || newPassword.length < 8
-                            }
-                          >
-                            {savingPassword ? "更新中…" : "更新密码"}
-                          </button>
-                        </div>
-                      </div>
-                    </form>
-                  </div>
+                    </div>
+                  </form>
                 </div>
-              </SettingsSection>
+
+                <div className="orbit-settings-field orbit-settings-field--editable orbit-settings-field--stacked">
+                  <form
+                    className="orbit-settings-stacked-form"
+                    onSubmit={(e) => void handleUpdatePassword(e)}
+                  >
+                    <div className="orbit-settings-field-copy">
+                      <label htmlFor="settings-current-password" className="orbit-settings-field-label">
+                        密码
+                      </label>
+                      <p className="orbit-settings-field-hint">新密码至少 8 位。</p>
+                    </div>
+                    <div className="orbit-settings-field-control">
+                      <div className="orbit-settings-password-fields">
+                        <input
+                          id="settings-current-password"
+                          type="password"
+                          value={currentPassword}
+                          autoComplete="current-password"
+                          placeholder="当前密码"
+                          className="orbit-input orbit-settings-input-block"
+                          onChange={(event) => setCurrentPassword(event.target.value)}
+                        />
+                        <input
+                          id="settings-new-password"
+                          type="password"
+                          value={newPassword}
+                          autoComplete="new-password"
+                          placeholder="新密码"
+                          className="orbit-input orbit-settings-input-block"
+                          minLength={8}
+                          onChange={(event) => setNewPassword(event.target.value)}
+                        />
+                        <button
+                          type="submit"
+                          className="orbit-btn orbit-btn-sm orbit-settings-form-submit"
+                          disabled={
+                            savingPassword || !currentPassword || newPassword.length < 8
+                          }
+                        >
+                          {savingPassword ? "更新中…" : "更新密码"}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
             </>
           ) : null}
 

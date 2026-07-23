@@ -95,7 +95,7 @@ export const TYPE_LABEL: Record<string, string> = {
 
 const BEIJING_OFFSET_SECONDS = 8 * 3600;
 
-function beijingDateParts(ts: number): { y: number; m: number; day: number } {
+export function beijingDateParts(ts: number): { y: number; m: number; day: number } {
   const d = new Date((ts + BEIJING_OFFSET_SECONDS) * 1000);
   return {
     y: d.getUTCFullYear(),
@@ -487,6 +487,40 @@ export async function updateProfile(name: string): Promise<{ name: string }> {
     body: JSON.stringify({ name }),
   });
   await assertOk(res, "更新爱称失败");
+  return res.json();
+}
+
+export interface AccountBirthday {
+  calendar: "solar" | "lunar";
+  month: number;
+  day: number;
+  leapMonth: boolean;
+  label: string;
+}
+
+export interface AccountProfile {
+  name: string;
+  birthday: AccountBirthday | null;
+}
+
+export async function fetchAccountProfile(): Promise<AccountProfile> {
+  const res = await fetch(`${BASE}/api/account/profile`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载个人资料失败");
+  return res.json();
+}
+
+export async function updateAccountBirthday(
+  birthday: Omit<AccountBirthday, "label"> | null
+): Promise<AccountProfile> {
+  const res = await fetch(`${BASE}/api/account/profile`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ birthday }),
+  });
+  await assertOk(res, "更新生日失败");
   return res.json();
 }
 
