@@ -118,6 +118,7 @@
 | -------- | --- | --------------------------------------------------------------------- |
 | 飞书 Bot   | ✅   | 入站写日记/图片、指令查询、出站通知；见 [feishu.md](docs/specs/feishu.md)                |
 | 飞书第二期    | 📋  | `留言：` / `信：` 前缀、AI `/summary` 月报等；见 [feishu.md](docs/specs/feishu.md) |
+| 飞书陪伴与对话 | 📋  | 主动陪伴推送（卡片）+ 飞书内 AI 多轮聊天；见 [feishu-companion.md](docs/specs/feishu-companion.md) |
 | Telegram | 📋  | 优先级低；与飞书同类连接器                                                         |
 | 更多平台     | 📋  | 微信、Discord 等                                                          |
 
@@ -135,9 +136,10 @@
 | --------- | --- | ------------------------------------- |
 | 站内通知      | ✅   | 顶栏铃铛、未读角标、跳转详情                        |
 | 飞书出站通知    | ✅   | 关键事件推送（纯文本），复用飞书凭证                    |
-| 飞书通知卡片    | 🚧  | 恋爱记忆里程碑已用 interactive card；通用出站事件仍待改卡片 |
+| 飞书通知卡片    | 🚧  | 恋爱记忆里程碑已用 interactive card；通用出站事件仍待改卡片；统一方案见 [feishu-companion.md](docs/specs/feishu-companion.md) |
 | 通知偏好      | ✅   | 按事件类型开关，`/settings?tab=notifications` |
-| 定时推送飞书卡片  | 📋  | Cron 定时投递卡片（日报/周报摘要、节日提醒等）             |
+| 定时推送飞书卡片  | 📋  | Cron 陪伴/回顾类卡片；见 [feishu-companion.md](docs/specs/feishu-companion.md) |
+| 飞书 AI 对话   | 📋  | Bot 内多轮聊天，基于空间记录；见 [feishu-companion.md](docs/specs/feishu-companion.md) |
 | AI 摘要就绪通知 | 📋  | 智能总结完成后触达；可复用飞书卡片通道                   |
 | 节日提醒      | 📋  | 生日、纪念日、周年纪念、自定义特殊日；临近提醒，可并入定时卡片推送   |
 

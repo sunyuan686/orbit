@@ -110,7 +110,7 @@
 | **B-2** | `/month`、FTS 搜索、补记/类型前缀、群 @ 门控                                       |
 | **C-1** | 站内通知（铃铛），可与 B 并行                                                     |
 | **C-2** | 飞书出站通知 + 偏好 + 节流                                                     |
-| **可选**  | AI 问答、`/summary`、纪念日定时推送                                          |
+| **可选**  | `/summary` 等单次指令已部分落地；主动陪伴推送与飞书 AI 多轮对话见 [feishu-companion.md](./feishu-companion.md) |
 | **已落地** | 恋爱记忆里程碑解锁 → interactive card（见 [love-memories.md](./love-memories.md)） |
 
 
