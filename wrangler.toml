@@ -40,3 +40,11 @@ BETTER_AUTH_URL = "https://orbit.xixihaha.tech"
 [ai]
 binding = "AI"
 # 无需额外配置
+
+# Workers Logs：落盘到仪表盘排障；Trace 关闭以节省 Free 额度
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false

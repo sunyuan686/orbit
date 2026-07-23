@@ -7,7 +7,7 @@ import { SpaceProvider, useSpace } from "../lib/spaceContext";
 import { AppSettingsProvider } from "../lib/appSettingsContext";
 import { AiArticleProvider, useAiArticleMeta } from "../lib/aiArticleContext";
 import { UserAccount } from "./UserAccount";
-import { SettingsIcon, SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, GalleryIcon, ActivityIcon, MemoriesIcon, HomeIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
+import { SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, GalleryIcon, MemoriesIcon, HomeIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
 import { NotificationBell } from "./NotificationBell";
 import { AiChatFab } from "./AiChatFab";
 import type { AiChatContext } from "./AiChatPanel";
@@ -27,7 +27,6 @@ const navItems: { to: string; label: string; type: NavContentType }[] = [
 
 const galleryNav = { to: "/gallery", label: "相册" };
 const memoriesNav = { to: "/memories", label: "记忆" };
-const activityNav = { to: "/activity", label: "记录活动" };
 
 const COLLAPSED_KEY = "orbit-sidebar-collapsed";
 const WIDTH_KEY = "orbit-sidebar-width";
@@ -319,18 +318,6 @@ function LayoutShell() {
             <MemoriesIcon size="nav" className="orbit-nav-icon" />
             {!collapsed && <span className="orbit-nav-label">{memoriesNav.label}</span>}
           </NavLink>
-          <NavLink
-            to={activityNav.to}
-            className={({ isActive }) =>
-              `flex items-center rounded-md transition-colors whitespace-nowrap ${
-                collapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2"
-              } ${isActive ? "orbit-nav-item active" : "orbit-nav-item"}`
-            }
-            title={collapsed ? activityNav.label : undefined}
-          >
-            <ActivityIcon size="nav" className="orbit-nav-icon" />
-            {!collapsed && <span className="orbit-nav-label">{activityNav.label}</span>}
-          </NavLink>
         </nav>
 
         {/* 账号 */}
@@ -378,14 +365,6 @@ function LayoutShell() {
 
           <div className="flex items-center gap-1 shrink-0">
             <NotificationBell />
-            <Link
-              to="/settings"
-              className="orbit-icon-btn inline-flex p-1.5 cursor-pointer"
-              title="设置"
-              aria-label="设置"
-            >
-              <SettingsIcon />
-            </Link>
             <button
             onClick={() => {
               const order: Theme[] = ["light", "dark", "system"];

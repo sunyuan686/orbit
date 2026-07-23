@@ -63,6 +63,14 @@ export function entryDisplayLabel(entry: EntrySummary): string | null {
   return entry.title;
 }
 
+/** 火漆封印上的字：去掉昵称常见前缀后取首字（小麟子 → 麟，小圆子 → 圆） */
+export function authorSealChar(author?: string | null): string {
+  const trimmed = author?.trim();
+  if (!trimmed) return "信";
+  const core = trimmed.length > 1 ? trimmed.replace(/^[小阿老]/, "") : trimmed;
+  return [...core][0] ?? "信";
+}
+
 export function formatReplyCount(count: number): string {
   return count === 1 ? "1 封回信" : `${count} 封回信`;
 }
@@ -73,16 +81,4 @@ export function formatReplySummary(replies: EntrySummary[]): string {
   const author = last.author ?? "对方";
   const date = last.entryDate ? formatDate(last.entryDate) : "";
   return `${formatReplyCount(replies.length)} · 最近 ${author}${date ? ` ${date}` : ""}`;
-}
-
-export function threadParticipants(
-  root: EntrySummary,
-  replies: EntrySummary[]
-): string[] {
-  const names = new Set<string>();
-  if (root.author) names.add(root.author);
-  for (const reply of replies) {
-    if (reply.author) names.add(reply.author);
-  }
-  return [...names];
 }

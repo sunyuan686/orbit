@@ -1,16 +1,16 @@
-import { useNavigate } from "react-router-dom";
+import { useEffect, useId, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { authClient } from "../lib/api";
 import { useToast } from "../lib/useToast";
-import { useState } from "react";
-import { LogoutIcon } from "./OrbitIcons";
+import { LogoutIcon, SettingsIcon } from "./OrbitIcons";
 
 interface UserAccountProps {
   collapsed?: boolean;
 }
 
-function UserAvatar({ name, title }: { name: string; title: string }) {
+function UserAvatar({ name, title }: { name: string; title?: string }) {
   return (
-    <div className="orbit-avatar orbit-sidebar-account-avatar shrink-0" title={title}>
+    <div className="orbit-avatar orbit-sidebar-account-avatar shrink-0" title={title} aria-hidden={!title}>
       {name.slice(0, 1)}
     </div>
   );
@@ -21,11 +21,36 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
   const toast = useToast();
   const { data: session, isPending } = authClient.useSession();
   const [signingOut, setSigningOut] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
 
   const user = session?.user;
   const profileTitle = user ? `${user.name}\n${user.email}` : "";
 
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen]);
+
   const handleSignOut = async () => {
+    setMenuOpen(false);
     setSigningOut(true);
     try {
       await authClient.signOut({ fetchOptions: { credentials: "include" } });
@@ -50,28 +75,10 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
 
   if (!user) return null;
 
-  if (collapsed) {
-    return (
-      <div className="orbit-sidebar-footer orbit-sidebar-footer--collapsed">
-        <UserAvatar name={user.name} title={profileTitle} />
-        <button
-          type="button"
-          onClick={handleSignOut}
-          disabled={signingOut}
-          className="orbit-icon-btn p-2 cursor-pointer w-full flex justify-center"
-          title="退出登录"
-          aria-label="退出登录"
-        >
-          <LogoutIcon />
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="orbit-sidebar-footer px-3 py-3">
-      <div className="orbit-sidebar-account-identity">
-        <UserAvatar name={user.name} title={profileTitle} />
+  const menu = menuOpen ? (
+    <div id={menuId} className="orbit-sidebar-account-menu" role="menu" aria-label="账号菜单">
+      <div className="orbit-sidebar-account-menu-header">
+        <UserAvatar name={user.name} />
         <div className="orbit-sidebar-account-meta min-w-0">
           <p className="orbit-sidebar-account-name truncate">{user.name}</p>
           <p className="orbit-sidebar-tagline truncate" title={user.email}>
@@ -79,15 +86,72 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
           </p>
         </div>
       </div>
-
+      <div className="orbit-sidebar-account-menu-divider" />
+      <Link
+        to="/settings"
+        role="menuitem"
+        className="orbit-sidebar-account-menu-item"
+        onClick={() => setMenuOpen(false)}
+      >
+        <span className="orbit-sidebar-account-menu-item-icon" aria-hidden="true">
+          <SettingsIcon size="sm" />
+        </span>
+        <span>设置</span>
+      </Link>
+      <div className="orbit-sidebar-account-menu-divider" />
       <button
         type="button"
+        role="menuitem"
+        className="orbit-sidebar-account-menu-item"
         onClick={handleSignOut}
         disabled={signingOut}
-        className="orbit-btn orbit-sidebar-logout-btn w-full mt-2.5"
       >
-        {signingOut ? "退出中…" : "退出登录"}
+        <span className="orbit-sidebar-account-menu-item-icon" aria-hidden="true">
+          <LogoutIcon size="sm" />
+        </span>
+        <span>{signingOut ? "退出中…" : "退出登录"}</span>
       </button>
+    </div>
+  ) : null;
+
+  if (collapsed) {
+    return (
+      <div className="orbit-sidebar-footer orbit-sidebar-footer--collapsed" ref={rootRef}>
+        <button
+          type="button"
+          className={`orbit-sidebar-account-trigger orbit-sidebar-account-trigger--collapsed${menuOpen ? " is-open" : ""}`}
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
+          aria-controls={menuOpen ? menuId : undefined}
+          title={profileTitle}
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <UserAvatar name={user.name} />
+        </button>
+        {menu}
+      </div>
+    );
+  }
+
+  return (
+    <div className="orbit-sidebar-footer px-2 py-2" ref={rootRef}>
+      <button
+        type="button"
+        className={`orbit-sidebar-account-trigger${menuOpen ? " is-open" : ""}`}
+        aria-expanded={menuOpen}
+        aria-haspopup="menu"
+        aria-controls={menuOpen ? menuId : undefined}
+        onClick={() => setMenuOpen((open) => !open)}
+      >
+        <UserAvatar name={user.name} />
+        <div className="orbit-sidebar-account-meta min-w-0 text-left">
+          <p className="orbit-sidebar-account-name truncate">{user.name}</p>
+          <p className="orbit-sidebar-tagline truncate" title={user.email}>
+            {user.email}
+          </p>
+        </div>
+      </button>
+      {menu}
     </div>
   );
 }

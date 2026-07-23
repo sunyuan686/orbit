@@ -55,6 +55,8 @@ export default defineConfig({
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//, USER_MEDIA_ASSET],
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webmanifest}"],
+        // mermaid 仅 AI 聊天渲染图表时用到，653KB 不进预缓存
+        globIgnores: ["**/mermaid-*.js"],
         runtimeCaching: [
           {
             urlPattern: USER_MEDIA_ASSET,

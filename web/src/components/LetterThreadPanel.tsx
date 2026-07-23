@@ -8,12 +8,21 @@ import {
   type EntrySummary,
 } from "../lib/api";
 import {
+  authorSealChar,
   buildThreadTimeline,
   entryDisplayLabel,
   entryToSummary,
-  formatReplyCount,
   getThreadRootId,
 } from "../lib/letterThread";
+
+function authorTone(timeline: EntrySummary[]): Map<string, "a" | "b"> {
+  const tones = new Map<string, "a" | "b">();
+  for (const item of timeline) {
+    const key = item.author ?? item.id;
+    if (!tones.has(key)) tones.set(key, tones.size % 2 === 0 ? "a" : "b");
+  }
+  return tones;
+}
 
 export function LetterThreadPanel({
   entry,
@@ -55,7 +64,7 @@ export function LetterThreadPanel({
 
   if (loading) {
     return (
-      <section className="orbit-letter-thread-panel" aria-label="本轮通信">
+      <section className="orbit-letter-thread-panel" aria-label="往来信件">
         <p className="orbit-muted orbit-letter-thread-panel-loading">加载往来信件…</p>
       </section>
     );
@@ -65,20 +74,22 @@ export function LetterThreadPanel({
     return null;
   }
 
+  const tones = authorTone(timeline);
+
   return (
-    <section className="orbit-letter-thread-panel" aria-label="本轮通信">
+    <section className="orbit-letter-thread-panel" aria-label="往来信件">
       <div className="orbit-letter-thread-panel-head">
-        <h3 className="orbit-letter-thread-panel-title">本轮通信</h3>
+        <h3 className="orbit-letter-thread-panel-title">往来信件</h3>
         <span className="orbit-letter-thread-panel-count">
-          {formatReplyCount(timeline.length - 1)}
+          共 {timeline.length} 封
         </span>
       </div>
 
       <ol className="orbit-letter-timeline">
-        {timeline.map((item, index) => {
-          const isReply = index > 0;
+        {timeline.map((item) => {
           const isCurrent = item.id === entry.id;
           const label = entryDisplayLabel(item);
+          const tone = tones.get(item.author ?? item.id) ?? "a";
 
           return (
             <li
@@ -89,20 +100,25 @@ export function LetterThreadPanel({
                   : "orbit-letter-timeline-item"
               }
             >
+              <span
+                className={`orbit-letter-timeline-seal orbit-seal--${tone}`}
+                aria-hidden="true"
+              >
+                {authorSealChar(item.author)}
+              </span>
               {isCurrent ? (
                 <div className="orbit-letter-timeline-card">
-                  <LetterTimelineMeta item={item} isReply={isReply} />
+                  <LetterTimelineMeta item={item} current />
                   {label && (
                     <p className="orbit-letter-timeline-preview">{label}</p>
                   )}
-                  <span className="orbit-letter-timeline-current">当前信件</span>
                 </div>
               ) : (
                 <Link
                   to={`/letter/${item.id}`}
                   className="orbit-letter-timeline-card orbit-letter-timeline-card--link"
                 >
-                  <LetterTimelineMeta item={item} isReply={isReply} />
+                  <LetterTimelineMeta item={item} />
                   {label && (
                     <p className="orbit-letter-timeline-preview">{label}</p>
                   )}
@@ -118,16 +134,13 @@ export function LetterThreadPanel({
 
 function LetterTimelineMeta({
   item,
-  isReply,
+  current = false,
 }: {
   item: EntrySummary;
-  isReply: boolean;
+  current?: boolean;
 }) {
   return (
     <div className="orbit-letter-timeline-meta">
-      <span className="orbit-letter-timeline-role">
-        {isReply ? "回信" : "主信"}
-      </span>
       {item.author && (
         <span className="orbit-letter-timeline-author">{item.author}</span>
       )}
@@ -139,6 +152,7 @@ function LetterTimelineMeta({
           {formatDate(item.entryDate)}
         </time>
       )}
+      {current && <span className="orbit-letter-timeline-current">正在读</span>}
     </div>
   );
 }
