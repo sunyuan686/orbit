@@ -9,28 +9,97 @@ import {
 import {
   birthdayEquals,
   defaultBirthdayDraft,
+  defaultLunarDraft,
+  defaultSolarDraft,
   lunarDayLabel,
   lunarMonthLabel,
   maxDayForBirthday,
+  resolveRemindCalendar,
   type BirthdayCalendar,
-  type BirthdayValue,
+  type BirthdayProfile,
+  type LunarBirthday,
+  type SolarBirthday,
 } from "../lib/birthday";
 import { useToast } from "../lib/useToast";
 
-function toDraft(birthday: AccountBirthday | null): BirthdayValue | null {
+function toDraft(birthday: AccountBirthday | null): BirthdayProfile | null {
   if (!birthday) return null;
   return {
-    calendar: birthday.calendar,
-    month: birthday.month,
-    day: birthday.day,
-    leapMonth: birthday.leapMonth,
+    solar: birthday.solar
+      ? { month: birthday.solar.month, day: birthday.solar.day }
+      : null,
+    lunar: birthday.lunar
+      ? {
+          month: birthday.lunar.month,
+          day: birthday.lunar.day,
+          leapMonth: birthday.lunar.leapMonth,
+        }
+      : null,
+    remindCalendar: birthday.remindCalendar,
   };
+}
+
+function DaySelect({
+  calendar,
+  month,
+  day,
+  onChange,
+}: {
+  calendar: BirthdayCalendar;
+  month: number;
+  day: number;
+  onChange: (day: number) => void;
+}) {
+  const dayMax = maxDayForBirthday(calendar, month);
+  const dayOptions = useMemo(
+    () => Array.from({ length: dayMax }, (_, i) => i + 1),
+    [dayMax]
+  );
+  return (
+    <select
+      className="orbit-input orbit-birthday-select"
+      aria-label="日"
+      value={day}
+      onChange={(event) => onChange(Number(event.target.value))}
+    >
+      {dayOptions.map((value) => (
+        <option key={value} value={value}>
+          {calendar === "lunar" ? lunarDayLabel(value) : `${value} 日`}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function MonthSelect({
+  calendar,
+  month,
+  onChange,
+}: {
+  calendar: BirthdayCalendar;
+  month: number;
+  onChange: (month: number) => void;
+}) {
+  return (
+    <select
+      className="orbit-input orbit-birthday-select"
+      aria-label="月"
+      value={month}
+      onChange={(event) => onChange(Number(event.target.value))}
+    >
+      {Array.from({ length: 12 }, (_, i) => i + 1).map((value) => (
+        <option key={value} value={value}>
+          {calendar === "lunar" ? lunarMonthLabel(value) : `${value} 月`}
+        </option>
+      ))}
+    </select>
+  );
 }
 
 export function BirthdaySettingsField() {
   const toast = useToast();
-  const [saved, setSaved] = useState<BirthdayValue | null>(null);
-  const [draft, setDraft] = useState<BirthdayValue | null>(null);
+  const [saved, setSaved] = useState<BirthdayProfile | null>(null);
+  const [draft, setDraft] = useState<BirthdayProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -57,57 +126,93 @@ export function BirthdaySettingsField() {
   }, [toast]);
 
   const dirty = !birthdayEquals(draft, saved);
-  const dayMax = draft ? maxDayForBirthday(draft.calendar, draft.month) : 31;
+  const hasAny = Boolean(draft?.solar || draft?.lunar);
+  const bothSet = Boolean(draft?.solar && draft?.lunar);
 
-  const dayOptions = useMemo(
-    () => Array.from({ length: dayMax }, (_, i) => i + 1),
-    [dayMax]
-  );
-
-  function setCalendar(calendar: BirthdayCalendar) {
+  function patchDraft(
+    updater: (current: BirthdayProfile) => BirthdayProfile
+  ) {
     setDraft((current) => {
-      const base = current ?? defaultBirthdayDraft(calendar);
-      const month = base.month;
-      const maxDay = maxDayForBirthday(calendar, month);
+      const base = current ?? defaultBirthdayDraft();
+      const next = updater(base);
       return {
-        calendar,
-        month,
-        day: Math.min(base.day, maxDay),
-        leapMonth: calendar === "lunar" ? base.leapMonth : false,
+        ...next,
+        remindCalendar: resolveRemindCalendar(
+          next.solar,
+          next.lunar,
+          next.remindCalendar
+        ),
       };
     });
   }
 
-  function setMonth(month: number) {
-    setDraft((current) => {
-      if (!current) return current;
-      const maxDay = maxDayForBirthday(current.calendar, month);
+  function enableBirthday() {
+    setDraft(defaultBirthdayDraft());
+  }
+
+  function clearAll() {
+    setDraft(null);
+  }
+
+  function setSolar(solar: SolarBirthday | null) {
+    patchDraft((current) => ({ ...current, solar }));
+  }
+
+  function setLunar(lunar: LunarBirthday | null) {
+    patchDraft((current) => ({ ...current, lunar }));
+  }
+
+  function setSolarMonth(month: number) {
+    patchDraft((current) => {
+      if (!current.solar) return current;
+      const maxDay = maxDayForBirthday("solar", month);
       return {
         ...current,
-        month,
-        day: Math.min(current.day, maxDay),
+        solar: {
+          month,
+          day: Math.min(current.solar.day, maxDay),
+        },
       };
     });
   }
 
-  function setDay(day: number) {
-    setDraft((current) => (current ? { ...current, day } : current));
+  function setSolarDay(day: number) {
+    patchDraft((current) =>
+      current.solar ? { ...current, solar: { ...current.solar, day } } : current
+    );
+  }
+
+  function setLunarMonth(month: number) {
+    patchDraft((current) => {
+      if (!current.lunar) return current;
+      const maxDay = maxDayForBirthday("lunar", month);
+      return {
+        ...current,
+        lunar: {
+          ...current.lunar,
+          month,
+          day: Math.min(current.lunar.day, maxDay),
+        },
+      };
+    });
+  }
+
+  function setLunarDay(day: number) {
+    patchDraft((current) =>
+      current.lunar ? { ...current, lunar: { ...current.lunar, day } } : current
+    );
   }
 
   function setLeapMonth(leapMonth: boolean) {
-    setDraft((current) =>
-      current && current.calendar === "lunar"
-        ? { ...current, leapMonth }
+    patchDraft((current) =>
+      current.lunar
+        ? { ...current, lunar: { ...current.lunar, leapMonth } }
         : current
     );
   }
 
-  function enableBirthday() {
-    setDraft(defaultBirthdayDraft("lunar"));
-  }
-
-  function clearBirthday() {
-    setDraft(null);
+  function setRemindCalendar(remindCalendar: BirthdayCalendar) {
+    patchDraft((current) => ({ ...current, remindCalendar }));
   }
 
   async function handleSave(event: React.FormEvent) {
@@ -115,7 +220,19 @@ export function BirthdaySettingsField() {
     if (saving || !dirty) return;
     setSaving(true);
     try {
-      const profile = await updateAccountBirthday(draft);
+      const payload =
+        draft && (draft.solar || draft.lunar)
+          ? {
+              solar: draft.solar,
+              lunar: draft.lunar,
+              remindCalendar: resolveRemindCalendar(
+                draft.solar,
+                draft.lunar,
+                draft.remindCalendar
+              ),
+            }
+          : null;
+      const profile = await updateAccountBirthday(payload);
       const next = toDraft(profile.birthday);
       setSaved(next);
       setDraft(next);
@@ -134,11 +251,14 @@ export function BirthdaySettingsField() {
   }
 
   return (
-    <form className="orbit-settings-stacked-form" onSubmit={(e) => void handleSave(e)}>
+    <form
+      className="orbit-settings-stacked-form"
+      onSubmit={(e) => void handleSave(e)}
+    >
       <div className="orbit-settings-field-copy">
         <span className="orbit-settings-field-label">生日</span>
         <p className="orbit-settings-field-hint">
-          支持公历或农历，供后续节日关心推送。仅自己可改。
+          公历、农历可分别填写；提醒只按其中一种历法触发。仅自己可改。
         </p>
       </div>
       <div className="orbit-settings-field-control">
@@ -175,69 +295,119 @@ export function BirthdaySettingsField() {
           )
         ) : (
           <div className="orbit-birthday-editor">
-            <div
-              className="orbit-birthday-calendar-switch"
-              role="group"
-              aria-label="历法"
-            >
-              <button
-                type="button"
-                className={`orbit-birthday-calendar-option${draft.calendar === "lunar" ? " is-active" : ""}`}
-                aria-pressed={draft.calendar === "lunar"}
-                onClick={() => setCalendar("lunar")}
-              >
-                农历
-              </button>
-              <button
-                type="button"
-                className={`orbit-birthday-calendar-option${draft.calendar === "solar" ? " is-active" : ""}`}
-                aria-pressed={draft.calendar === "solar"}
-                onClick={() => setCalendar("solar")}
-              >
-                公历
-              </button>
+            <div className="orbit-birthday-side">
+              <span className="orbit-birthday-side-label">公历</span>
+              {draft.solar ? (
+                <div className="orbit-birthday-date-row">
+                  <MonthSelect
+                    calendar="solar"
+                    month={draft.solar.month}
+                    onChange={setSolarMonth}
+                  />
+                  <DaySelect
+                    calendar="solar"
+                    month={draft.solar.month}
+                    day={draft.solar.day}
+                    onChange={setSolarDay}
+                  />
+                  <button
+                    type="button"
+                    className="orbit-btn orbit-btn-sm orbit-btn-ghost"
+                    disabled={saving}
+                    onClick={() => setSolar(null)}
+                  >
+                    清除
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="orbit-btn orbit-btn-sm orbit-btn-ghost"
+                  disabled={saving}
+                  onClick={() => setSolar(defaultSolarDraft())}
+                >
+                  添加
+                </button>
+              )}
             </div>
 
-            <div className="orbit-birthday-date-row">
-              <select
-                className="orbit-input orbit-birthday-select"
-                aria-label="月"
-                value={draft.month}
-                onChange={(event) => setMonth(Number(event.target.value))}
-              >
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                  <option key={month} value={month}>
-                    {draft.calendar === "lunar"
-                      ? lunarMonthLabel(month)
-                      : `${month} 月`}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="orbit-input orbit-birthday-select"
-                aria-label="日"
-                value={draft.day}
-                onChange={(event) => setDay(Number(event.target.value))}
-              >
-                {dayOptions.map((day) => (
-                  <option key={day} value={day}>
-                    {draft.calendar === "lunar"
-                      ? lunarDayLabel(day)
-                      : `${day} 日`}
-                  </option>
-                ))}
-              </select>
-              {draft.calendar === "lunar" ? (
-                <label className="orbit-birthday-leap">
-                  <input
-                    type="checkbox"
-                    checked={draft.leapMonth}
-                    onChange={(event) => setLeapMonth(event.target.checked)}
+            <div className="orbit-birthday-side">
+              <span className="orbit-birthday-side-label">农历</span>
+              {draft.lunar ? (
+                <div className="orbit-birthday-date-row">
+                  <MonthSelect
+                    calendar="lunar"
+                    month={draft.lunar.month}
+                    onChange={setLunarMonth}
                   />
-                  <span>闰月</span>
-                </label>
-              ) : null}
+                  <DaySelect
+                    calendar="lunar"
+                    month={draft.lunar.month}
+                    day={draft.lunar.day}
+                    onChange={setLunarDay}
+                  />
+                  <label className="orbit-birthday-leap">
+                    <input
+                      type="checkbox"
+                      checked={draft.lunar.leapMonth}
+                      onChange={(event) => setLeapMonth(event.target.checked)}
+                    />
+                    <span>闰月</span>
+                  </label>
+                  <button
+                    type="button"
+                    className="orbit-btn orbit-btn-sm orbit-btn-ghost"
+                    disabled={saving}
+                    onClick={() => setLunar(null)}
+                  >
+                    清除
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="orbit-btn orbit-btn-sm orbit-btn-ghost"
+                  disabled={saving}
+                  onClick={() => setLunar(defaultLunarDraft())}
+                >
+                  添加
+                </button>
+              )}
             </div>
+
+            {hasAny ? (
+              <div className="orbit-birthday-side">
+                <span className="orbit-birthday-side-label">提醒按</span>
+                {bothSet ? (
+                  <div
+                    className="orbit-birthday-calendar-switch"
+                    role="group"
+                    aria-label="提醒历法"
+                  >
+                    <button
+                      type="button"
+                      className={`orbit-birthday-calendar-option${draft.remindCalendar === "lunar" ? " is-active" : ""}`}
+                      aria-pressed={draft.remindCalendar === "lunar"}
+                      onClick={() => setRemindCalendar("lunar")}
+                    >
+                      农历
+                    </button>
+                    <button
+                      type="button"
+                      className={`orbit-birthday-calendar-option${draft.remindCalendar === "solar" ? " is-active" : ""}`}
+                      aria-pressed={draft.remindCalendar === "solar"}
+                      onClick={() => setRemindCalendar("solar")}
+                    >
+                      公历
+                    </button>
+                  </div>
+                ) : (
+                  <span className="orbit-muted">
+                    {draft.solar ? "公历" : "农历"}
+                  </span>
+                )}
+              </div>
+            ) : null}
 
             <div className="orbit-settings-inline-form">
               <button
@@ -251,9 +421,9 @@ export function BirthdaySettingsField() {
                 type="button"
                 className="orbit-btn orbit-btn-sm orbit-btn-ghost"
                 disabled={saving}
-                onClick={clearBirthday}
+                onClick={clearAll}
               >
-                清除
+                全部清除
               </button>
             </div>
           </div>

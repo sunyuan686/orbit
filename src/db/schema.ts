@@ -19,13 +19,15 @@ export const user = sqliteTable("user", {
     .notNull()
     .default(false),
   image: text("image"),
-  /** solar | lunar；空表示未设置生日 */
-  birthdayCalendar: text("birthday_calendar"),
-  birthdayMonth: integer("birthday_month"),
-  birthdayDay: integer("birthday_day"),
-  birthdayLeapMonth: integer("birthday_leap_month", { mode: "boolean" }).default(
-    false
-  ),
+  birthdaySolarMonth: integer("birthday_solar_month"),
+  birthdaySolarDay: integer("birthday_solar_day"),
+  birthdayLunarMonth: integer("birthday_lunar_month"),
+  birthdayLunarDay: integer("birthday_lunar_day"),
+  birthdayLunarLeapMonth: integer("birthday_lunar_leap_month", {
+    mode: "boolean",
+  }).default(false),
+  /** solar | lunar；提醒按哪套历法；两侧都空时为 null */
+  birthdayRemindCalendar: text("birthday_remind_calendar"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });

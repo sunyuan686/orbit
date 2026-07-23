@@ -4,9 +4,12 @@ import { eq } from "drizzle-orm";
 import { user } from "../db/schema.js";
 import {
   birthdayFromRow,
-  formatBirthdayCn,
+  formatLunarBirthdayCn,
+  formatSolarBirthdayCn,
   parseBirthdayInput,
-  type BirthdayValue,
+  type BirthdayProfile,
+  type LunarBirthday,
+  type SolarBirthday,
 } from "../lib/birthday.js";
 import { AuditResourceType, recordAudit } from "../services/audit.js";
 import { updateUserDisplayName } from "../services/user-signup.js";
@@ -20,9 +23,15 @@ export interface AccountRouteOptions {
   getSessionAuthor?: (c: Context) => Promise<SessionAuthor | null>;
 }
 
+export interface AccountBirthday {
+  solar: (SolarBirthday & { label: string }) | null;
+  lunar: (LunarBirthday & { label: string }) | null;
+  remindCalendar: BirthdayProfile["remindCalendar"];
+}
+
 export interface AccountProfile {
   name: string;
-  birthday: (BirthdayValue & { label: string }) | null;
+  birthday: AccountBirthday | null;
 }
 
 async function requireSessionAuthor(
@@ -35,9 +44,17 @@ async function requireSessionAuthor(
   return sessionAuthor;
 }
 
-function presentBirthday(value: BirthdayValue | null): AccountProfile["birthday"] {
+function presentBirthday(value: BirthdayProfile | null): AccountProfile["birthday"] {
   if (!value) return null;
-  return { ...value, label: formatBirthdayCn(value) };
+  return {
+    solar: value.solar
+      ? { ...value.solar, label: formatSolarBirthdayCn(value.solar) }
+      : null,
+    lunar: value.lunar
+      ? { ...value.lunar, label: formatLunarBirthdayCn(value.lunar) }
+      : null,
+    remindCalendar: value.remindCalendar,
+  };
 }
 
 async function loadAccountProfile(
@@ -47,10 +64,12 @@ async function loadAccountProfile(
   const row = await db
     .select({
       name: user.name,
-      birthdayCalendar: user.birthdayCalendar,
-      birthdayMonth: user.birthdayMonth,
-      birthdayDay: user.birthdayDay,
-      birthdayLeapMonth: user.birthdayLeapMonth,
+      birthdaySolarMonth: user.birthdaySolarMonth,
+      birthdaySolarDay: user.birthdaySolarDay,
+      birthdayLunarMonth: user.birthdayLunarMonth,
+      birthdayLunarDay: user.birthdayLunarDay,
+      birthdayLunarLeapMonth: user.birthdayLunarLeapMonth,
+      birthdayRemindCalendar: user.birthdayRemindCalendar,
     })
     .from(user)
     .where(eq(user.id, userId))
@@ -114,10 +133,12 @@ export function createAccountRoutes(
         await db
           .update(user)
           .set({
-            birthdayCalendar: next?.calendar ?? null,
-            birthdayMonth: next?.month ?? null,
-            birthdayDay: next?.day ?? null,
-            birthdayLeapMonth: next?.leapMonth ?? false,
+            birthdaySolarMonth: next?.solar?.month ?? null,
+            birthdaySolarDay: next?.solar?.day ?? null,
+            birthdayLunarMonth: next?.lunar?.month ?? null,
+            birthdayLunarDay: next?.lunar?.day ?? null,
+            birthdayLunarLeapMonth: next?.lunar?.leapMonth ?? false,
+            birthdayRemindCalendar: next?.remindCalendar ?? null,
             updatedAt: new Date(),
           })
           .where(eq(user.id, session.userId));

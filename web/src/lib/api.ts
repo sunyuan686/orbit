@@ -491,11 +491,14 @@ export async function updateProfile(name: string): Promise<{ name: string }> {
 }
 
 export interface AccountBirthday {
-  calendar: "solar" | "lunar";
-  month: number;
-  day: number;
-  leapMonth: boolean;
-  label: string;
+  solar: { month: number; day: number; label: string } | null;
+  lunar: {
+    month: number;
+    day: number;
+    leapMonth: boolean;
+    label: string;
+  } | null;
+  remindCalendar: "solar" | "lunar";
 }
 
 export interface AccountProfile {
@@ -512,7 +515,11 @@ export async function fetchAccountProfile(): Promise<AccountProfile> {
 }
 
 export async function updateAccountBirthday(
-  birthday: Omit<AccountBirthday, "label"> | null
+  birthday: {
+    solar: { month: number; day: number } | null;
+    lunar: { month: number; day: number; leapMonth: boolean } | null;
+    remindCalendar: "solar" | "lunar";
+  } | null
 ): Promise<AccountProfile> {
   const res = await fetch(`${BASE}/api/account/profile`, {
     method: "PUT",

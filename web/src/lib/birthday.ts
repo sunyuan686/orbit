@@ -1,13 +1,21 @@
 export type BirthdayCalendar = "solar" | "lunar";
 
-export interface BirthdayValue {
-  calendar: BirthdayCalendar;
+export interface SolarBirthday {
+  month: number;
+  day: number;
+}
+
+export interface LunarBirthday {
   month: number;
   day: number;
   leapMonth: boolean;
 }
 
-export type BirthdayView = BirthdayValue & { label: string };
+export interface BirthdayProfile {
+  solar: SolarBirthday | null;
+  lunar: LunarBirthday | null;
+  remindCalendar: BirthdayCalendar;
+}
 
 const SOLAR_DAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
 
@@ -77,21 +85,54 @@ export function lunarDayLabel(day: number): string {
 }
 
 export function birthdayEquals(
-  a: BirthdayValue | null,
-  b: BirthdayValue | null
+  a: BirthdayProfile | null,
+  b: BirthdayProfile | null
 ): boolean {
   if (a == null && b == null) return true;
   if (a == null || b == null) return false;
+
+  const solarEqual =
+    (a.solar == null && b.solar == null) ||
+    (a.solar != null &&
+      b.solar != null &&
+      a.solar.month === b.solar.month &&
+      a.solar.day === b.solar.day);
+
+  const lunarEqual =
+    (a.lunar == null && b.lunar == null) ||
+    (a.lunar != null &&
+      b.lunar != null &&
+      a.lunar.month === b.lunar.month &&
+      a.lunar.day === b.lunar.day &&
+      Boolean(a.lunar.leapMonth) === Boolean(b.lunar.leapMonth));
+
   return (
-    a.calendar === b.calendar &&
-    a.month === b.month &&
-    a.day === b.day &&
-    Boolean(a.leapMonth) === Boolean(b.leapMonth)
+    solarEqual && lunarEqual && a.remindCalendar === b.remindCalendar
   );
 }
 
-export function defaultBirthdayDraft(
-  calendar: BirthdayCalendar = "lunar"
-): BirthdayValue {
-  return { calendar, month: 1, day: 1, leapMonth: false };
+export function defaultBirthdayDraft(): BirthdayProfile {
+  return {
+    solar: null,
+    lunar: { month: 1, day: 1, leapMonth: false },
+    remindCalendar: "lunar",
+  };
+}
+
+export function defaultSolarDraft(): SolarBirthday {
+  return { month: 1, day: 1 };
+}
+
+export function defaultLunarDraft(): LunarBirthday {
+  return { month: 1, day: 1, leapMonth: false };
+}
+
+export function resolveRemindCalendar(
+  solar: SolarBirthday | null,
+  lunar: LunarBirthday | null,
+  preferred: BirthdayCalendar
+): BirthdayCalendar {
+  if (solar && lunar) return preferred;
+  if (solar) return "solar";
+  return "lunar";
 }

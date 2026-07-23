@@ -113,6 +113,13 @@
       "when": 1783000000000,
       "tag": "0015_user_birthday",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1783100000000,
+      "tag": "0016_birthday_dual_calendar",
+      "breakpoints": true
     }
   ]
 }
