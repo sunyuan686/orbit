@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { authClient, fetchEntry, saveEntry, createEntry, fetchComments, TYPE_LABEL, formatDate, getApiErrorMessage, shouldToastApiError, type CommentItem, type CommentPositionMapping, type EntryDetail } from "../lib/api";
 import { getThreadRootId } from "../lib/letterThread";
 import { resolveCommentPosition } from "../lib/anchor";
@@ -14,12 +15,14 @@ import { DatePicker } from "../components/DatePicker";
 import { CloseIcon } from "../components/OrbitIcons";
 import { fromDateInput, toDateInput } from "../lib/dateInput";
 import { anchorLogger } from "../lib/logger";
+import { queryKeys } from "../lib/queryKeys";
 
 export function ArticleEdit() {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const toast = useToast();
+  const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
   // id 缺失、为 "new"、或非法（如 "undefined"）时都视为新建
   const isNew = !id || id === "new" || id === "undefined";
@@ -156,6 +159,13 @@ export function ArticleEdit() {
           toast.error("创建失败：服务器未返回有效内容 ID");
           return;
         }
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["entries"] }),
+          queryClient.invalidateQueries({ queryKey: ["gallery"] }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.memorySummary }),
+          queryClient.invalidateQueries({ queryKey: ["memory-nodes"] }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.activityStats(365) }),
+        ]);
         toast.success("已创建");
         navigate(`/${type}/${result.id}`, { replace: true });
       } else {
@@ -213,6 +223,19 @@ export function ArticleEdit() {
             count: commentMappings.length,
           });
         }
+
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["entries"] }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.entry(id!) }),
+          // 保存可能重映射边注锚点，评论缓存必须一并失效
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.comments(isMemo ? "memo" : "entry", id!),
+          }),
+          queryClient.invalidateQueries({ queryKey: ["gallery"] }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.memorySummary }),
+          queryClient.invalidateQueries({ queryKey: ["memory-nodes"] }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.activityStats(365) }),
+        ]);
 
         toast.success("已保存");
         navigate(`/${type}/${id}`);

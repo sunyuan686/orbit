@@ -1,5 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   deleteGalleryImage,
   fetchGallery,
@@ -11,6 +16,7 @@ import {
   type GalleryFilter,
   type GalleryItem,
 } from "../lib/api";
+import { queryKeys } from "../lib/queryKeys";
 import { setPageTitle } from "../lib/pageTitle";
 import { useConfirm } from "../lib/useConfirm";
 import { useToast } from "../lib/useToast";
@@ -27,62 +33,58 @@ const FILTER_OPTIONS: { value: GalleryFilter; label: string }[] = [
 export function GalleryPage() {
   const toast = useToast();
   const confirm = useConfirm();
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useState<GalleryFilter>("all");
-  const [items, setItems] = useState<GalleryItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [activeItem, setActiveItem] = useState<GalleryItem | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const toastedError = useRef<unknown>(null);
 
   useEffect(() => {
     setPageTitle("相册");
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
     setActiveItem(null);
+  }, [filter]);
 
-    void fetchGallery({ filter, limit: PAGE_SIZE, offset: 0 })
-      .then((data) => {
-        if (cancelled) return;
-        setItems(data.items);
-        setTotal(data.total);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        if (shouldToastApiError(err)) {
-          toast.error(getApiErrorMessage(err, "相册加载失败"));
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+  const galleryQuery = useInfiniteQuery({
+    queryKey: queryKeys.gallery(filter, { pageSize: PAGE_SIZE }),
+    queryFn: ({ pageParam }) =>
+      fetchGallery({ filter, limit: PAGE_SIZE, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) => {
+      const loaded = pages.reduce((n, page) => n + page.items.length, 0);
+      return loaded < lastPage.total ? loaded : undefined;
+    },
+  });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [filter, toast]);
-
-  const loadMore = useCallback(async () => {
-    setLoadingMore(true);
-    try {
-      const data = await fetchGallery({
-        filter,
-        limit: PAGE_SIZE,
-        offset: items.length,
-      });
-      setItems((current) => [...current, ...data.items]);
-      setTotal(data.total);
-    } catch (err) {
-      if (shouldToastApiError(err)) {
-        toast.error(getApiErrorMessage(err, "相册加载失败"));
-      }
-    } finally {
-      setLoadingMore(false);
+  useEffect(() => {
+    if (!galleryQuery.error || toastedError.current === galleryQuery.error) return;
+    toastedError.current = galleryQuery.error;
+    if (shouldToastApiError(galleryQuery.error)) {
+      toast.error(getApiErrorMessage(galleryQuery.error, "相册加载失败"));
     }
-  }, [filter, items.length, toast]);
+  }, [galleryQuery.error, toast]);
+
+  const items = useMemo(
+    () => galleryQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    [galleryQuery.data]
+  );
+  const total = galleryQuery.data?.pages[0]?.total ?? 0;
+  const loading = galleryQuery.isPending;
+  const loadingMore = galleryQuery.isFetchingNextPage;
+  const hasMore = galleryQuery.hasNextPage;
+
+  const deleteMutation = useMutation({
+    mutationFn: (storageKey: string) => deleteGalleryImage(storageKey),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["gallery"] });
+      setActiveItem(null);
+      toast.success("图片已删除");
+    },
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err, "删除失败"));
+    },
+  });
 
   const handleFilterChange = (next: GalleryFilter) => {
     if (next === filter) return;
@@ -97,22 +99,8 @@ export function GalleryPage() {
       danger: true,
     });
     if (!confirmed) return;
-
-    setDeleting(true);
-    try {
-      await deleteGalleryImage(activeItem.storageKey);
-      setItems((current) => current.filter((item) => item.storageKey !== activeItem.storageKey));
-      setTotal((count) => Math.max(0, count - 1));
-      setActiveItem(null);
-      toast.success("图片已删除");
-    } catch (err) {
-      toast.error(getApiErrorMessage(err, "删除失败"));
-    } finally {
-      setDeleting(false);
-    }
+    deleteMutation.mutate(activeItem.storageKey);
   };
-
-  const hasMore = items.length < total;
 
   return (
     <div className="orbit-gallery-page max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">
@@ -169,7 +157,7 @@ export function GalleryPage() {
             type="button"
             className="orbit-btn-ghost"
             disabled={loadingMore}
-            onClick={() => void loadMore()}
+            onClick={() => void galleryQuery.fetchNextPage()}
           >
             {loadingMore ? "加载中…" : "加载更多"}
           </button>
@@ -222,11 +210,11 @@ export function GalleryPage() {
               {!activeItem.linked && (
                 <button
                   type="button"
-                  className="orbit-btn-danger orbit-btn-sm mt-4"
-                  disabled={deleting}
+                  className="orbit-btn orbit-btn-danger mt-3"
+                  disabled={deleteMutation.isPending}
                   onClick={() => void handleDelete()}
                 >
-                  {deleting ? "删除中…" : "删除图片"}
+                  {deleteMutation.isPending ? "删除中…" : "删除图片"}
                 </button>
               )}
             </div>

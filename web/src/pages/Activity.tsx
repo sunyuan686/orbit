@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   TYPE_LABEL,
   fetchActivityDayEntries,
@@ -8,9 +9,9 @@ import {
   getApiErrorMessage,
   shouldToastApiError,
   type ActivityDayEntry,
-  type ActivityStats,
 } from "../lib/api";
 import { formatActivityDateLabel } from "../lib/activityHeatmap";
+import { queryKeys } from "../lib/queryKeys";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../lib/useToast";
 import { ActivityHeatmap } from "../components/ActivityHeatmap";
@@ -24,63 +25,46 @@ function entryLabel(entry: ActivityDayEntry): string {
 
 export function ActivityPage() {
   const toast = useToast();
-  const [stats, setStats] = useState<ActivityStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const toastedError = useRef<unknown>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [dayEntries, setDayEntries] = useState<ActivityDayEntry[]>([]);
-  const [dayLoading, setDayLoading] = useState(false);
 
   useEffect(() => {
     setPageTitle("记录活动");
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    void fetchActivityStats(365)
-      .then((data) => {
-        if (!cancelled) setStats(data);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        if (shouldToastApiError(err)) {
-          toast.error(getApiErrorMessage(err, "加载活动统计失败"));
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [toast]);
+  const statsQuery = useQuery({
+    queryKey: queryKeys.activityStats(365),
+    queryFn: () => fetchActivityStats(365),
+  });
+
+  const dayQuery = useQuery({
+    queryKey: ["activity-day", selectedDate] as const,
+    queryFn: () => fetchActivityDayEntries(selectedDate!),
+    enabled: Boolean(selectedDate),
+  });
 
   useEffect(() => {
-    if (!selectedDate) {
-      setDayEntries([]);
-      return;
+    if (statsQuery.error && toastedError.current !== statsQuery.error) {
+      toastedError.current = statsQuery.error;
+      if (shouldToastApiError(statsQuery.error)) {
+        toast.error(getApiErrorMessage(statsQuery.error, "加载活动统计失败"));
+      }
     }
+  }, [statsQuery.error, toast]);
 
-    let cancelled = false;
-    setDayLoading(true);
-    void fetchActivityDayEntries(selectedDate)
-      .then((data) => {
-        if (!cancelled) setDayEntries(data.entries);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        if (shouldToastApiError(err)) {
-          toast.error(getApiErrorMessage(err, "加载当日记录失败"));
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setDayLoading(false);
-      });
+  useEffect(() => {
+    if (dayQuery.error && toastedError.current !== dayQuery.error) {
+      toastedError.current = dayQuery.error;
+      if (shouldToastApiError(dayQuery.error)) {
+        toast.error(getApiErrorMessage(dayQuery.error, "加载当日记录失败"));
+      }
+    }
+  }, [dayQuery.error, toast]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedDate, toast]);
+  const stats = statsQuery.data ?? null;
+  const loading = statsQuery.isPending;
+  const dayEntries = dayQuery.data?.entries ?? [];
+  const dayLoading = dayQuery.isPending && Boolean(selectedDate);
 
   return (
     <div className="orbit-content orbit-activity" data-page="activity">

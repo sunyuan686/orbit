@@ -4,15 +4,17 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
+  useRef,
   type ReactNode,
 } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchSpace,
   getApiErrorMessage,
   shouldToastApiError,
   type SpaceProfile,
 } from "./api";
+import { queryKeys } from "./queryKeys";
 import { useToast } from "./useToast";
 
 interface SpaceContextValue {
@@ -26,30 +28,47 @@ const SpaceContext = createContext<SpaceContextValue | null>(null);
 
 export function SpaceProvider({ children }: { children: ReactNode }) {
   const toast = useToast();
-  const [profile, setProfile] = useState<SpaceProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const toastedError = useRef<unknown>(null);
+
+  const { data: profile = null, isPending: loading, error } = useQuery({
+    queryKey: queryKeys.space,
+    queryFn: fetchSpace,
+    staleTime: 5 * 60_000,
+  });
+
+  useEffect(() => {
+    if (!error || toastedError.current === error) return;
+    toastedError.current = error;
+    if (shouldToastApiError(error)) {
+      toast.error(getApiErrorMessage(error, "加载空间档案失败"));
+    }
+  }, [error, toast]);
 
   const reload = useCallback(async () => {
-    setLoading(true);
     try {
-      const next = await fetchSpace();
-      setProfile(next);
+      await queryClient.fetchQuery({
+        queryKey: queryKeys.space,
+        queryFn: fetchSpace,
+        staleTime: 0,
+      });
     } catch (err) {
       if (shouldToastApiError(err)) {
         toast.error(getApiErrorMessage(err, "加载空间档案失败"));
       }
-    } finally {
-      setLoading(false);
     }
-  }, [toast]);
+  }, [queryClient, toast]);
 
-  useEffect(() => {
-    void reload();
-  }, [reload]);
+  const setProfile = useCallback(
+    (next: SpaceProfile) => {
+      queryClient.setQueryData(queryKeys.space, next);
+    },
+    [queryClient]
+  );
 
   const value = useMemo(
     () => ({ profile, loading, reload, setProfile }),
-    [profile, loading, reload]
+    [profile, loading, reload, setProfile]
   );
 
   return <SpaceContext.Provider value={value}>{children}</SpaceContext.Provider>;

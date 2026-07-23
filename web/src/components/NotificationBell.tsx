@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchNotifications,
   fetchNotificationUnreadCount,
@@ -19,42 +20,25 @@ function formatRelativeTime(timestamp: number): string {
 
 export function NotificationBell() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [unread, setUnread] = useState(0);
-  const [items, setItems] = useState<NotificationItem[]>([]);
-  const [loading, setLoading] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  async function refreshUnread() {
-    try {
-      const data = await fetchNotificationUnreadCount();
-      setUnread(data.count);
-    } catch {
-      // ignore polling errors
-    }
-  }
+  const unreadQuery = useQuery({
+    queryKey: ["notifications-unread"] as const,
+    queryFn: fetchNotificationUnreadCount,
+    refetchInterval: 60_000,
+  });
 
-  async function loadList() {
-    setLoading(true);
-    try {
-      const data = await fetchNotifications();
-      setItems(data);
-      await refreshUnread();
-    } finally {
-      setLoading(false);
-    }
-  }
+  const listQuery = useQuery({
+    queryKey: ["notifications"] as const,
+    queryFn: fetchNotifications,
+    enabled: open,
+  });
 
-  useEffect(() => {
-    void refreshUnread();
-    const timer = window.setInterval(() => void refreshUnread(), 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    void loadList();
-  }, [open]);
+  const unread = unreadQuery.data?.count ?? 0;
+  const items = listQuery.data ?? [];
+  const loading = listQuery.isPending;
 
   useEffect(() => {
     if (!open) return;
@@ -67,10 +51,17 @@ export function NotificationBell() {
     return () => window.removeEventListener("mousedown", handleClick);
   }, [open]);
 
+  async function refreshNotifications() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+      queryClient.invalidateQueries({ queryKey: ["notifications-unread"] }),
+    ]);
+  }
+
   async function handleOpenItem(item: NotificationItem) {
     if (!item.readAt) {
       await markNotificationRead(item.id);
-      setUnread((count) => Math.max(0, count - 1));
+      await refreshNotifications();
     }
     setOpen(false);
     const path = item.link.startsWith("http")
@@ -105,7 +96,9 @@ export function NotificationBell() {
               <button
                 type="button"
                 className="orbit-btn orbit-btn-sm"
-                onClick={() => void markAllNotificationsRead().then(() => loadList())}
+                onClick={() =>
+                  void markAllNotificationsRead().then(() => refreshNotifications())
+                }
               >
                 全部已读
               </button>

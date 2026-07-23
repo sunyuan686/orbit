@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   authClient,
   createComment,
@@ -12,8 +13,8 @@ import {
   TYPE_LABEL,
   updateComment,
   type CommentGroups,
-  type EntryDetail,
 } from "../lib/api";
+import { queryKeys } from "../lib/queryKeys";
 import { setPageTitle } from "../lib/pageTitle";
 import { useConfirm } from "../lib/useConfirm";
 import { useToast } from "../lib/useToast";
@@ -30,15 +31,16 @@ import { LetterThreadPanel } from "../components/LetterThreadPanel";
 import { useAiArticleMeta } from "../lib/aiArticleContext";
 import { formatAiArticleContextLabel } from "../lib/aiArticleLabel";
 
+const EMPTY_COMMENTS: CommentGroups = { bottom: [], inline: [] };
+
 export function ArticleView() {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
   const toast = useToast();
   const confirm = useConfirm();
+  const queryClient = useQueryClient();
   const { setMeta: setAiArticleMeta } = useAiArticleMeta();
   const { data: session } = authClient.useSession();
-  const [entry, setEntry] = useState<EntryDetail | null>(null);
-  const [comments, setComments] = useState<CommentGroups>({ bottom: [], inline: [] });
   const [inlineDraft, setInlineDraft] = useState<{
     quote: string;
     anchorFrom: number;
@@ -48,10 +50,24 @@ export function ArticleView() {
   } | null>(null);
   const [activeInlineCommentId, setActiveInlineCommentId] = useState<string | null>(null);
   const [marginaliaOpen, setMarginaliaOpen] = useState(false);
-  const [error, setError] = useState(false);
 
+  const targetType = type === "memo" ? "memo" : "entry";
+
+  const entryQuery = useQuery({
+    queryKey: queryKeys.entry(id!),
+    queryFn: () => fetchEntry(id!),
+    enabled: Boolean(id),
+  });
+
+  const commentsQuery = useQuery({
+    queryKey: queryKeys.comments(targetType, id!),
+    queryFn: () => fetchComments(targetType, id!),
+    enabled: Boolean(id),
+  });
+
+  const entry = entryQuery.data ?? null;
+  const comments = commentsQuery.data ?? EMPTY_COMMENTS;
   const capabilities = getCommentCapabilities(entry?.type ?? type);
-  const targetType = entry?.type === "memo" ? "memo" : "entry";
   const sessionUserId = session?.user?.id ?? null;
   const currentAuthor = session?.user?.name ?? null;
   const canEditEntry = canEditContent(
@@ -61,78 +77,48 @@ export function ArticleView() {
   );
   const canDeleteEntry = canDeleteContent(entry?.userId, sessionUserId);
 
-  const loadComments = useCallback(
-    async (targetId: string, nextTargetType: "entry" | "memo") => {
-      const groups = await fetchComments(nextTargetType, targetId);
-      setComments(groups);
-    },
-    []
-  );
-
   useEffect(() => {
-    if (!id) return;
-    let cancelled = false;
-
-    setEntry(null);
-    setError(false);
     setActiveInlineCommentId(null);
     setInlineDraft(null);
     setMarginaliaOpen(false);
+  }, [id]);
 
-    async function loadEntry() {
-      try {
-        const nextEntry = await fetchEntry(id!);
-        if (cancelled) return;
-
-        setError(false);
-        setEntry(nextEntry);
-        setComments({ bottom: [], inline: [] });
-        setPageTitle(nextEntry.title || TYPE_LABEL[type || ""] || "详情");
-
-        try {
-          await loadComments(nextEntry.id, nextEntry.type === "memo" ? "memo" : "entry");
-        } catch (err) {
-          if (!cancelled && shouldToastApiError(err)) {
-            toast.error("评论加载失败");
-          }
-        }
-      } catch (err) {
-        if (cancelled) return;
-        setError(true);
-        if (shouldToastApiError(err)) {
-          toast.error(getApiErrorMessage(err, "加载失败"));
-        }
-      }
+  useEffect(() => {
+    if (entryQuery.isError && shouldToastApiError(entryQuery.error)) {
+      toast.error(getApiErrorMessage(entryQuery.error, "加载失败"));
     }
+  }, [entryQuery.isError, entryQuery.error, toast]);
 
-    void loadEntry();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [id, loadComments, type, toast]);
+  useEffect(() => {
+    if (commentsQuery.isError && shouldToastApiError(commentsQuery.error)) {
+      toast.error("评论加载失败");
+    }
+  }, [commentsQuery.isError, commentsQuery.error, toast]);
 
   useEffect(() => {
     if (!entry) return;
+    setPageTitle(entry.title || TYPE_LABEL[type || ""] || "详情");
     setAiArticleMeta({
       articleId: entry.id,
       title: formatAiArticleContextLabel(entry),
     });
     return () => setAiArticleMeta(null);
-  }, [entry, setAiArticleMeta]);
+  }, [entry, setAiArticleMeta, type]);
 
   const toc = useMemo(
     () => (entry ? extractToc(entry.body) : []),
     [entry]
   );
 
-  if (error) return <p className="orbit-danger-text">文章不存在</p>;
-  if (!entry) return <p className="orbit-muted">加载中…</p>;
-
   async function refreshComments() {
-    if (!entry) return;
-    await loadComments(entry.id, targetType);
+    if (!id) return;
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.comments(targetType, id),
+    });
   }
+
+  if (entryQuery.isError) return <p className="orbit-danger-text">文章不存在</p>;
+  if (!entry) return <p className="orbit-muted">加载中…</p>;
 
   async function handleCreateBottom(body: string, parentId?: string | null) {
     if (!entry) return;
@@ -202,6 +188,9 @@ export function ArticleView() {
     if (!confirmed) return;
     try {
       await deleteEntry(entry.id);
+      await queryClient.invalidateQueries({ queryKey: ["entries"] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.entry(entry.id) });
+      await queryClient.invalidateQueries({ queryKey: ["gallery"] });
       toast.success("已删除");
       navigate(type ? `/${type}` : "/", { replace: true });
     } catch (err) {
@@ -290,7 +279,9 @@ export function ArticleView() {
 
           <div className="flex flex-1 min-w-0 flex-col">
             <div className="orbit-prose-row flex min-w-0 w-full">
-              <div className="flex-1 min-w-0">
+              <div
+                className={`flex-1 min-w-0${entry.type === "letter" ? " orbit-letter-sheet" : ""}`}
+              >
                 <TiptapEditor
                   key={entry.id}
                   defaultValue={entry.body}

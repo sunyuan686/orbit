@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
+  beijingDateParts,
   fetchEntries,
   TYPE_LABEL,
   formatDate,
@@ -8,17 +10,18 @@ import {
   formatDiaryDateParts,
   getApiErrorMessage,
   shouldToastApiError,
+  type EntryListPage,
   type EntrySummary,
 } from "../lib/api";
 import {
+  authorSealChar,
   buildLetterTree,
   entryDisplayLabel,
   formatReplySummary,
-  threadParticipants,
   type LetterThread,
 } from "../lib/letterThread";
+import { queryKeys } from "../lib/queryKeys";
 import { useToast } from "../lib/useToast";
-import { ChevronRightIcon } from "../components/OrbitIcons";
 
 /** letter 仍全量拉取以拼线程树；其余类型分页 */
 const PAGE_SIZE = 30;
@@ -64,32 +67,13 @@ function CoverImg({
   );
 }
 
-/** 回信等仍用紧凑行 */
-function EntryRow({
-  entry,
-  type,
-  variant = "root",
-}: {
-  entry: EntrySummary;
-  type: string;
-  variant?: "root" | "reply";
-}) {
+function EntryRow({ entry, type }: { entry: EntrySummary; type: string }) {
   const showAuthor = Boolean(entry.author);
   const displayText = entryDisplayLabel(entry);
 
   return (
-    <Link
-      to={`/${type}/${entry.id}`}
-      className={
-        variant === "reply"
-          ? "orbit-entry-card orbit-entry-card--reply"
-          : "orbit-entry-card"
-      }
-    >
+    <Link to={`/${type}/${entry.id}`} className="orbit-entry-card">
       <span className="orbit-entry-card-main">
-        {variant === "reply" && (
-          <span className="orbit-letter-reply-badge">回信</span>
-        )}
         {displayText && (
           <span className="orbit-entry-title orbit-entry-title-truncate">
             {displayText}
@@ -227,93 +211,151 @@ function MemoCard({ entry }: { entry: EntrySummary }) {
   );
 }
 
-function LetterRootCard({
+function formatPostmark(ts: number): { day: string; year: string } {
+  const { y, m, day } = beijingDateParts(ts);
+  return { day: `${m}·${day}`, year: String(y) };
+}
+
+function LetterEnvelope({
   entry,
-  replyCount,
+  tone,
 }: {
   entry: EntrySummary;
-  replyCount: number;
+  tone: "a" | "b";
 }) {
-  const hasCover = Boolean(entry.coverUrl);
   const title = entryDisplayLabel(entry);
+  const postmark = entry.entryDate != null ? formatPostmark(entry.entryDate) : null;
 
   return (
-    <Link to={`/letter/${entry.id}`} className="orbit-letter-peek">
-      <span className="orbit-letter-peek-flap" aria-hidden="true" />
-      <div
-        className={`orbit-letter-peek-paper${hasCover ? " orbit-letter-peek-paper--has-cover" : ""}`}
-      >
-        {title ? <h3 className="orbit-letter-peek-title">{title}</h3> : null}
-        <Snippet text={entry.snippet} className="orbit-letter-peek-snip" />
-        <CoverImg src={entry.coverUrl} className="orbit-letter-peek-cover" />
-      </div>
-      <div className="orbit-letter-peek-pocket">
-        <div className="orbit-letter-peek-foot">
-          <span className="orbit-letter-peek-meta">
-            {entry.entryDate != null && (
-              <span className="orbit-entry-date">{formatDateCn(entry.entryDate)}</span>
-            )}
-            {replyCount > 0 && (
-              <span className="orbit-letter-peek-badge">{replyCount} 封回信</span>
-            )}
-          </span>
-          {entry.author ? (
-            <span className="orbit-letter-peek-sign">— {entry.author}</span>
-          ) : null}
-        </div>
-      </div>
+    <Link to={`/letter/${entry.id}`} className="orbit-env">
+      <span className="orbit-env-flap" aria-hidden="true" />
+      <span className={`orbit-env-seal orbit-seal--${tone}`} aria-hidden="true">
+        {authorSealChar(entry.author)}
+      </span>
+      {postmark && (
+        <span className="orbit-env-postmark" aria-hidden="true">
+          <span className="orbit-env-postmark-day">{postmark.day}</span>
+          <span className="orbit-env-postmark-year">{postmark.year}</span>
+        </span>
+      )}
+      {entry.coverUrl && (
+        <span className="orbit-env-stamp" aria-hidden="true">
+          <img src={entry.coverUrl} alt="" loading="lazy" decoding="async" />
+        </span>
+      )}
+      {entry.entryDate != null && (
+        <span className="sr-only">{formatDateCn(entry.entryDate)}</span>
+      )}
+      {title ? <h3 className="orbit-env-to">{title}</h3> : null}
+      <Snippet text={entry.snippet} className="orbit-env-snip" />
+      {entry.author && <span className="orbit-env-sign">— {entry.author}</span>}
     </Link>
   );
 }
 
-function LetterThreadItem({ thread }: { thread: LetterThread }) {
+function LetterReplyMini({
+  reply,
+  tone,
+  tilt,
+}: {
+  reply: EntrySummary;
+  tone: "a" | "b";
+  tilt: "a" | "b";
+}) {
+  const text = entryDisplayLabel(reply) || reply.snippet || "回信";
+
+  return (
+    <Link
+      to={`/letter/${reply.id}`}
+      className={`orbit-reply-mini orbit-reply-mini--tilt-${tilt}`}
+    >
+      <span className="orbit-reply-mini-flap" aria-hidden="true" />
+      <span
+        className={`orbit-reply-mini-seal orbit-seal--${tone}`}
+        aria-hidden="true"
+      >
+        {authorSealChar(reply.author)}
+      </span>
+      {reply.author && (
+        <span className="orbit-reply-mini-author">{reply.author}</span>
+      )}
+      <p className="orbit-reply-mini-snip">{text}</p>
+      {reply.entryDate != null && (
+        <span className="orbit-reply-mini-date">{formatDate(reply.entryDate)}</span>
+      )}
+    </Link>
+  );
+}
+
+function LetterThreadItem({
+  thread,
+  tones,
+}: {
+  thread: LetterThread;
+  tones: Map<string, "a" | "b">;
+}) {
   const { root, replies } = thread;
   const [expanded, setExpanded] = useState(false);
-  const participants = threadParticipants(root, replies);
   const hasReplies = replies.length > 0;
+  const peekReplies = replies.slice(0, 3);
 
   return (
     <article className="orbit-letter-thread">
-      <LetterRootCard entry={root} replyCount={replies.length} />
+      <div
+        className={`orbit-letter-stack${hasReplies && !expanded ? " orbit-letter-stack--has-peeks" : ""}`}
+      >
+        <LetterEnvelope
+          entry={root}
+          tone={tones.get(authorToneKey(root)) ?? "a"}
+        />
 
-      {hasReplies && (
-        <>
+        {hasReplies && !expanded && (
           <button
             type="button"
-            className="orbit-letter-thread-toggle"
-            aria-expanded={expanded}
-            onClick={() => setExpanded((value) => !value)}
+            className="orbit-reply-peeks"
+            aria-expanded={false}
+            aria-label={formatReplySummary(replies)}
+            onClick={() => setExpanded(true)}
           >
-            <ChevronRightIcon
-              className={`orbit-letter-thread-chevron${expanded ? " orbit-letter-thread-chevron--open" : ""}`}
-            />
-            <span className="orbit-letter-thread-toggle-text">
-              {expanded ? "收起回信" : formatReplySummary(replies)}
+            {peekReplies.map((reply, index) => (
+              <span
+                key={reply.id}
+                className="orbit-reply-peek"
+                style={{ ["--peek-i" as string]: index }}
+                aria-hidden="true"
+              >
+                <span
+                  className={`orbit-reply-peek-seal orbit-seal--${tones.get(authorToneKey(reply)) ?? "b"}`}
+                >
+                  {authorSealChar(reply.author)}
+                </span>
+              </span>
+            ))}
+            <span className="orbit-reply-peeks-label">
+              {replies.length === 1 ? "1 封回信" : `${replies.length} 封回信`}
             </span>
           </button>
+        )}
+      </div>
 
-          {expanded && (
-            <ul className="orbit-list-plain orbit-letter-replies">
-              {replies.map((reply) => (
-                <li key={reply.id}>
-                  <EntryRow entry={reply} type="letter" variant="reply" />
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
-      )}
-
-      {hasReplies && participants.length > 0 && (
-        <p className="orbit-letter-thread-participants">
-          {participants.join(" · ")}
-          {!expanded && (
-            <span className="orbit-letter-thread-participants-hint">
-              {" "}
-              · 点击展开回信
-            </span>
-          )}
-        </p>
+      {hasReplies && expanded && (
+        <div className="orbit-reply-nest">
+          {replies.map((reply, index) => (
+            <LetterReplyMini
+              key={reply.id}
+              reply={reply}
+              tone={tones.get(authorToneKey(reply)) ?? "b"}
+              tilt={index % 2 === 0 ? "a" : "b"}
+            />
+          ))}
+          <button
+            type="button"
+            className="orbit-reply-nest-collapse"
+            onClick={() => setExpanded(false)}
+          >
+            收起回信
+          </button>
+        </div>
       )}
     </article>
   );
@@ -392,90 +434,64 @@ function TypedEntryList({
 export function ArticleList() {
   const { type } = useParams<{ type: string }>();
   const toast = useToast();
-  const [entries, setEntries] = useState<EntrySummary[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [prevType, setPrevType] = useState(type);
+  const toastedError = useRef<unknown>(null);
 
   const isLetter = type === "letter";
   const paginated = Boolean(type) && !isLetter;
+  const letterParams = { roots: false } as const;
+  const pageParams = { pageSize: PAGE_SIZE } as const;
 
-  if (type !== prevType) {
-    setPrevType(type);
-    setLoading(true);
-    setEntries([]);
-    setTotal(0);
-  }
+  const letterQuery = useQuery({
+    queryKey: queryKeys.entries("letter", letterParams),
+    queryFn: () => fetchEntries("letter", letterParams),
+    enabled: isLetter,
+  });
 
+  const pagedQuery = useInfiniteQuery({
+    queryKey: queryKeys.entries(type || "diary", pageParams),
+    queryFn: ({ pageParam }): Promise<EntryListPage> =>
+      fetchEntries(type!, { limit: PAGE_SIZE, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) => {
+      const loaded = pages.reduce((n, page) => n + page.items.length, 0);
+      return loaded < lastPage.total ? loaded : undefined;
+    },
+    enabled: paginated && Boolean(type),
+  });
+
+  const error = isLetter ? letterQuery.error : pagedQuery.error;
   useEffect(() => {
-    if (!type) return;
-    let cancelled = false;
-
-    const request = isLetter
-      ? fetchEntries(type, { roots: false })
-      : fetchEntries(type, { limit: PAGE_SIZE, offset: 0 });
-
-    void request
-      .then((data) => {
-        if (cancelled) return;
-        if (Array.isArray(data)) {
-          setEntries(data);
-          setTotal(data.length);
-        } else {
-          setEntries(data.items);
-          setTotal(data.total);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          if (shouldToastApiError(err)) {
-            toast.error(getApiErrorMessage(err, "加载失败，请稍后重试"));
-          }
-          setEntries([]);
-          setTotal(0);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [type, isLetter, toast]);
-
-  const loadMore = useCallback(async () => {
-    if (!type || !paginated) return;
-    setLoadingMore(true);
-    try {
-      const data = await fetchEntries(type, {
-        limit: PAGE_SIZE,
-        offset: entries.length,
-      });
-      setEntries((current) => [...current, ...data.items]);
-      setTotal(data.total);
-    } catch (err) {
-      if (shouldToastApiError(err)) {
-        toast.error(getApiErrorMessage(err, "加载失败，请稍后重试"));
-      }
-    } finally {
-      setLoadingMore(false);
+    if (!error || toastedError.current === error) return;
+    toastedError.current = error;
+    if (shouldToastApiError(error)) {
+      toast.error(getApiErrorMessage(error, "加载失败，请稍后重试"));
     }
-  }, [type, paginated, entries.length, toast]);
+  }, [error, toast]);
 
+  const entries: EntrySummary[] = useMemo(() => {
+    if (isLetter) {
+      const data = letterQuery.data;
+      return Array.isArray(data) ? data : [];
+    }
+    return pagedQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  }, [isLetter, letterQuery.data, pagedQuery.data]);
+
+  const tones = useAuthorTones(entries);
+  const loading = isLetter ? letterQuery.isPending : pagedQuery.isPending;
+  const loadingMore = pagedQuery.isFetchingNextPage;
   const label = TYPE_LABEL[type || ""] || type;
   const letterTree = useMemo(
     () => (isLetter ? buildLetterTree(entries) : []),
     [isLetter, entries]
   );
-  const hasMore = paginated && entries.length < total;
+  const hasMore = paginated && pagedQuery.hasNextPage;
 
   return (
-    <div className="orbit-content">
-      <div className="flex items-center justify-between mb-6">
+    <div className={`orbit-content${isLetter ? " orbit-content--desk" : ""}`}>
+      <div className={isLetter ? "orbit-desk-toolbar" : "flex items-center justify-between mb-6"}>
         <h2 className="orbit-page-title">{label}</h2>
         <Link to={`/${type}/new`} className="orbit-btn orbit-btn-primary">
-          新建
+          {isLetter ? "写信" : "新建"}
         </Link>
       </div>
 
@@ -483,19 +499,19 @@ export function ArticleList() {
         <p className="orbit-muted">加载中…</p>
       ) : entries.length === 0 ? (
         <div className="orbit-muted">
-          <p>还没有内容。</p>
+          <p>{isLetter ? "信箱还空着。" : "还没有内容。"}</p>
           <p>
             <Link to={`/${type}/new`} className="orbit-text-link">
-              写下第一篇
+              {isLetter ? "写下第一封信" : "写下第一篇"}
             </Link>
-            ，记录这一刻。
+            {isLetter ? "，寄给最想念的人。" : "，记录这一刻。"}
           </p>
         </div>
       ) : isLetter ? (
-        <ul className="orbit-list-plain orbit-letter-thread-list">
+        <ul className="orbit-list-plain orbit-desk">
           {letterTree.map((thread) => (
-            <li key={thread.root.id}>
-              <LetterThreadItem thread={thread} />
+            <li key={thread.root.id} className="orbit-desk-item">
+              <LetterThreadItem thread={thread} tones={tones} />
             </li>
           ))}
         </ul>
@@ -508,7 +524,7 @@ export function ArticleList() {
                 type="button"
                 className="orbit-btn-ghost"
                 disabled={loadingMore}
-                onClick={() => void loadMore()}
+                onClick={() => void pagedQuery.fetchNextPage()}
               >
                 {loadingMore ? "加载中…" : "加载更多"}
               </button>
