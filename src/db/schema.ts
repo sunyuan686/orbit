@@ -4,6 +4,7 @@ import {
   integer,
   index,
   check,
+  primaryKey,
 } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
@@ -126,20 +127,45 @@ export const entry = sqliteTable(
  * 图片/文件资产表
  * 不存完整 URL，运行时由 storageKey + ASSETS_BASE_URL 拼接
  */
-export const asset = sqliteTable("asset", {
-  id: text("id").primaryKey(),
-  entryId: text("entry_id").references(() => entry.id),
-  storageKey: text("storage_key").notNull(),
-  mimeType: text("mime_type").notNull().default("image/jpeg"),
-  width: integer("width"),
-  height: integer("height"),
-  size: integer("size"),
-  position: text("position").notNull().default("a0"),
-  createdAt: integer("created_at")
-    .notNull()
-    .default(sql`(unixepoch())`),
-  deletedAt: integer("deleted_at"),
-});
+export const asset = sqliteTable(
+  "asset",
+  {
+    id: text("id").primaryKey(),
+    entryId: text("entry_id").references(() => entry.id),
+    storageKey: text("storage_key").notNull(),
+    mimeType: text("mime_type").notNull().default("image/jpeg"),
+    width: integer("width"),
+    height: integer("height"),
+    size: integer("size"),
+    position: text("position").notNull().default("a0"),
+    createdAt: integer("created_at")
+      .notNull()
+      .default(sql`(unixepoch())`),
+    deletedAt: integer("deleted_at"),
+  },
+  (t) => [
+    index("idx_asset_storage_key").on(t.storageKey),
+    index("idx_asset_entry_id").on(t.entryId),
+    index("idx_asset_created").on(t.createdAt),
+  ]
+);
+
+/**
+ * 内容正文对图片的引用关系（相册 linked/orphan 与删除保护的事实源）
+ * sourceType: entry.type（diary/timeline/...）或 memo
+ */
+export const assetReference = sqliteTable(
+  "asset_reference",
+  {
+    storageKey: text("storage_key").notNull(),
+    sourceType: text("source_type").notNull(),
+    sourceId: text("source_id").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.storageKey, t.sourceType, t.sourceId] }),
+    index("idx_asset_reference_source").on(t.sourceType, t.sourceId),
+  ]
+);
 
 /**
  * 备忘录表（长期维护的活文档，如关于辛芝芝、恋爱原则等）

@@ -1,11 +1,14 @@
-import { eq, isNull } from "drizzle-orm";
-import { asset, entry, memo } from "../db/schema.js";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { asset, assetReference, entry, memo } from "../db/schema.js";
 import {
-  extractStorageKeysFromBody,
   isImageStorageKey,
   mimeTypeFromKey,
   normalizeStorageKey,
 } from "../lib/gallery-keys.js";
+import {
+  clearAssetReferencesForKey,
+  ensureAssetReferencesBackfilled,
+} from "./asset-references.js";
 
 export type GalleryFilter = "all" | "linked" | "orphan";
 
@@ -34,274 +37,276 @@ export interface GalleryObjectMeta {
   uploadedAt: number;
 }
 
-interface SourceBucket {
-  sources: GallerySource[];
-  maxEntryDate: number | null;
+const imageKeyCondition = sql`(
+  lower(asset.storage_key) like '%.jpg'
+  or lower(asset.storage_key) like '%.jpeg'
+  or lower(asset.storage_key) like '%.png'
+  or lower(asset.storage_key) like '%.gif'
+  or lower(asset.storage_key) like '%.webp'
+  or lower(asset.storage_key) like '%.heic'
+)`;
+
+const linkedExists = sql`exists (
+  select 1 from asset_reference
+  where asset_reference.storage_key = asset.storage_key
+)`;
+
+function filterCondition(filter: GalleryFilter) {
+  if (filter === "linked") return sql`${linkedExists}`;
+  if (filter === "orphan") return sql`not ${linkedExists}`;
+  return null;
 }
 
-function sourceKey(source: GallerySource): string {
-  return `${source.type}:${source.id}`;
-}
+/** D1 单语句绑定参数上限 100，IN 列表分块查询 */
+const IN_CHUNK = 80;
 
-function addSource(bucket: SourceBucket, source: GallerySource) {
-  const key = sourceKey(source);
-  if (bucket.sources.some((s) => sourceKey(s) === key)) return;
-  bucket.sources.push(source);
-  if (source.entryDate != null) {
-    bucket.maxEntryDate =
-      bucket.maxEntryDate == null
-        ? source.entryDate
-        : Math.max(bucket.maxEntryDate, source.entryDate);
+async function selectInChunks<T>(
+  ids: string[],
+  run: (chunk: string[]) => Promise<T[]>
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < ids.length; i += IN_CHUNK) {
+    out.push(...(await run(ids.slice(i, i + IN_CHUNK))));
   }
+  return out;
 }
 
-function buildReferenceIndex(
-  entries: Array<{
+async function loadSourcesForKeys(
+  db: any,
+  storageKeys: string[]
+): Promise<Map<string, GallerySource[]>> {
+  const result = new Map<string, GallerySource[]>();
+  if (storageKeys.length === 0) return result;
+
+  const refs = await selectInChunks(storageKeys, (chunk) =>
+    db
+      .select({
+        storageKey: assetReference.storageKey,
+        sourceType: assetReference.sourceType,
+        sourceId: assetReference.sourceId,
+      })
+      .from(assetReference)
+      .where(inArray(assetReference.storageKey, chunk))
+  ) as Array<{
+    storageKey: string;
+    sourceType: string;
+    sourceId: string;
+  }>;
+
+  if (refs.length === 0) return result;
+
+  const entryIds = [
+    ...new Set(
+      refs.filter((r) => r.sourceType !== "memo").map((r) => r.sourceId)
+    ),
+  ];
+  const memoIds = [
+    ...new Set(
+      refs.filter((r) => r.sourceType === "memo").map((r) => r.sourceId)
+    ),
+  ];
+
+  const entryRows = (await selectInChunks(entryIds, (chunk) =>
+    db
+      .select({
+        id: entry.id,
+        type: entry.type,
+        title: entry.title,
+        entryDate: entry.entryDate,
+        deletedAt: entry.deletedAt,
+      })
+      .from(entry)
+      .where(inArray(entry.id, chunk))
+  )) as Array<{
     id: string;
     type: string;
     title: string | null;
     entryDate: number | null;
-    body: string | null;
     deletedAt: number | null;
-  }>,
-  memos: Array<{
+  }>;
+
+  const memoRows = (await selectInChunks(memoIds, (chunk) =>
+    db
+      .select({
+        id: memo.id,
+        title: memo.title,
+        deletedAt: memo.deletedAt,
+      })
+      .from(memo)
+      .where(inArray(memo.id, chunk))
+  )) as Array<{
     id: string;
     title: string;
-    body: string | null;
     deletedAt: number | null;
-  }>,
-  assets: Array<{
-    entryId: string | null;
-    storageKey: string;
-    createdAt: number;
-  }>,
-  entryById: Map<string, (typeof entries)[number]>
-): Map<string, SourceBucket> {
-  const index = new Map<string, SourceBucket>();
+  }>;
 
-  const ensure = (storageKey: string): SourceBucket => {
-    const normalized = normalizeStorageKey(storageKey);
-    let bucket = index.get(normalized);
-    if (!bucket) {
-      bucket = { sources: [], maxEntryDate: null };
-      index.set(normalized, bucket);
+  const entryById = new Map(entryRows.map((row) => [row.id, row]));
+  const memoById = new Map(memoRows.map((row) => [row.id, row]));
+
+  for (const ref of refs) {
+    const key = normalizeStorageKey(ref.storageKey);
+    let sources = result.get(key);
+    if (!sources) {
+      sources = [];
+      result.set(key, sources);
     }
-    return bucket;
-  };
 
-  for (const row of entries) {
-    const source: GallerySource = {
+    if (ref.sourceType === "memo") {
+      const row = memoById.get(ref.sourceId);
+      if (!row) continue;
+      sources.push({
+        type: "memo",
+        id: row.id,
+        title: row.title,
+        entryDate: null,
+        deleted: row.deletedAt != null,
+      });
+      continue;
+    }
+
+    const row = entryById.get(ref.sourceId);
+    if (!row) continue;
+    sources.push({
       type: row.type,
       id: row.id,
       title: row.title,
       entryDate: row.entryDate,
       deleted: row.deletedAt != null,
-    };
-    for (const key of extractStorageKeysFromBody(row.body)) {
-      addSource(ensure(key), source);
-    }
-  }
-
-  for (const row of memos) {
-    const source: GallerySource = {
-      type: "memo",
-      id: row.id,
-      title: row.title,
-      entryDate: null,
-      deleted: row.deletedAt != null,
-    };
-    for (const key of extractStorageKeysFromBody(row.body)) {
-      addSource(ensure(key), source);
-    }
-  }
-
-  for (const row of assets) {
-    if (!row.entryId) continue;
-    const linkedEntry = entryById.get(row.entryId);
-    if (!linkedEntry) continue;
-    addSource(ensure(row.storageKey), {
-      type: linkedEntry.type,
-      id: linkedEntry.id,
-      title: linkedEntry.title,
-      entryDate: linkedEntry.entryDate,
-      deleted: linkedEntry.deletedAt != null,
     });
   }
 
-  return index;
+  return result;
 }
 
-type AssetRow = {
-  id: string;
-  entryId: string | null;
-  storageKey: string;
-  mimeType: string;
-  size: number | null;
-  createdAt: number;
-};
+export async function getGalleryItem(
+  db: any,
+  storageKey: string
+): Promise<GalleryItem | null> {
+  await ensureAssetReferencesBackfilled(db);
+  const normalized = normalizeStorageKey(storageKey);
+  if (!isImageStorageKey(normalized)) return null;
 
-type EntryRow = {
-  id: string;
-  type: string;
-  title: string | null;
-  entryDate: number | null;
-  body: string | null;
-  deletedAt: number | null;
-};
-
-type MemoRow = {
-  id: string;
-  title: string;
-  body: string | null;
-  deletedAt: number | null;
-};
-
-async function loadGalleryContext(db: any) {
-  const entries: EntryRow[] = await db
+  const row = (await db
     .select({
-      id: entry.id,
-      type: entry.type,
-      title: entry.title,
-      entryDate: entry.entryDate,
-      body: entry.body,
-      deletedAt: entry.deletedAt,
-    })
-    .from(entry);
-
-  const memos: MemoRow[] = await db
-    .select({
-      id: memo.id,
-      title: memo.title,
-      body: memo.body,
-      deletedAt: memo.deletedAt,
-    })
-    .from(memo);
-
-  const assets: AssetRow[] = await db
-    .select({
-      id: asset.id,
-      entryId: asset.entryId,
       storageKey: asset.storageKey,
       mimeType: asset.mimeType,
       size: asset.size,
       createdAt: asset.createdAt,
     })
     .from(asset)
-    .where(isNull(asset.deletedAt));
+    .where(and(eq(asset.storageKey, normalized), isNull(asset.deletedAt)))
+    .get()) as
+    | {
+        storageKey: string;
+        mimeType: string;
+        size: number | null;
+        createdAt: number;
+      }
+    | undefined;
 
-  const entryById = new Map(entries.map((row) => [row.id, row]));
-  const assetByKey = new Map(assets.map((row) => [normalizeStorageKey(row.storageKey), row]));
-  const referenceIndex = buildReferenceIndex(entries, memos, assets, entryById);
+  if (!row) return null;
 
-  return { assetByKey, referenceIndex };
-}
-
-function objectToGalleryItem(
-  obj: GalleryObjectMeta,
-  assetByKey: Map<string, AssetRow>,
-  referenceIndex: Map<string, SourceBucket>
-): GalleryItem {
-  const storageKey = normalizeStorageKey(obj.key);
-  const bucket = referenceIndex.get(storageKey);
-  const sources = bucket?.sources ?? [];
-  const assetRow = assetByKey.get(storageKey);
-  const sortAt = bucket?.maxEntryDate ?? assetRow?.createdAt ?? obj.uploadedAt;
+  const sourcesByKey = await loadSourcesForKeys(db, [normalized]);
+  const sources = sourcesByKey.get(normalized) ?? [];
 
   return {
-    storageKey,
-    url: `/assets/${storageKey}`,
-    mimeType: assetRow?.mimeType ?? mimeTypeFromKey(storageKey),
-    size: assetRow?.size ?? obj.size,
-    uploadedAt: obj.uploadedAt,
-    sortAt,
+    storageKey: normalized,
+    url: `/assets/${normalized}`,
+    mimeType: row.mimeType || mimeTypeFromKey(normalized),
+    size: row.size ?? 0,
+    uploadedAt: row.createdAt,
+    sortAt: row.createdAt,
     linked: sources.length > 0,
     sources,
   };
 }
 
-export async function getGalleryItem(
-  db: any,
-  objects: GalleryObjectMeta[],
-  storageKey: string
-): Promise<GalleryItem | null> {
-  const normalized = normalizeStorageKey(storageKey);
-  const obj = objects.find((row) => normalizeStorageKey(row.key) === normalized);
-  if (!obj) return null;
-  const { assetByKey, referenceIndex } = await loadGalleryContext(db);
-  return objectToGalleryItem(obj, assetByKey, referenceIndex);
-}
-
 export async function listGalleryItems(
   db: any,
-  objects: GalleryObjectMeta[],
   options: { filter?: GalleryFilter; limit?: number; offset?: number } = {}
 ): Promise<{ items: GalleryItem[]; total: number }> {
+  await ensureAssetReferencesBackfilled(db);
+
   const filter = options.filter ?? "all";
   const limit = Math.min(Math.max(options.limit ?? 48, 1), 100);
   const offset = Math.max(options.offset ?? 0, 0);
 
-  const { assetByKey, referenceIndex } = await loadGalleryContext(db);
+  const conditions = [isNull(asset.deletedAt), imageKeyCondition];
+  const filterCond = filterCondition(filter);
+  if (filterCond) conditions.push(filterCond);
+  const where = and(...conditions);
 
-  const items: GalleryItem[] = objects
-    .filter((obj) => isImageStorageKey(obj.key))
-    .map((obj) => objectToGalleryItem(obj, assetByKey, referenceIndex))
-    .filter((item) => {
-      if (filter === "linked") return item.linked;
-      if (filter === "orphan") return !item.linked;
-      return true;
+  const countRow = (await db
+    .select({ total: sql<number>`count(*)` })
+    .from(asset)
+    .where(where)
+    .get()) as { total: number } | undefined;
+  const total = Number(countRow?.total ?? 0);
+
+  const rows = (await db
+    .select({
+      storageKey: asset.storageKey,
+      mimeType: asset.mimeType,
+      size: asset.size,
+      createdAt: asset.createdAt,
+      linked: sql<number>`case when ${linkedExists} then 1 else 0 end`,
     })
-    .sort((a, b) => b.sortAt - a.sortAt);
+    .from(asset)
+    .where(where)
+    .orderBy(desc(asset.createdAt))
+    .limit(limit)
+    .offset(offset)) as Array<{
+    storageKey: string;
+    mimeType: string;
+    size: number | null;
+    createdAt: number;
+    linked: number;
+  }>;
 
-  const total = items.length;
-  const page = items.slice(offset, offset + limit);
-  return { items: page, total };
+  const keys = rows.map((row) => normalizeStorageKey(row.storageKey));
+  const sourcesByKey = await loadSourcesForKeys(db, keys);
+
+  const items: GalleryItem[] = rows.map((row) => {
+    const storageKey = normalizeStorageKey(row.storageKey);
+    const sources = sourcesByKey.get(storageKey) ?? [];
+    return {
+      storageKey,
+      url: `/assets/${storageKey}`,
+      mimeType: row.mimeType || mimeTypeFromKey(storageKey),
+      size: row.size ?? 0,
+      uploadedAt: row.createdAt,
+      sortAt: row.createdAt,
+      linked: sources.length > 0 || row.linked === 1,
+      sources,
+    };
+  });
+
+  return { items, total };
 }
 
 export async function deleteGalleryObject(
   db: any,
-  objects: GalleryObjectMeta[],
   storageKey: string
 ): Promise<{ ok: true } | { error: string; sources: GallerySource[] }> {
-  const normalized = normalizeStorageKey(storageKey);
-  const exists = objects.some((obj) => normalizeStorageKey(obj.key) === normalized);
-  if (!exists) {
+  const item = await getGalleryItem(db, storageKey);
+  if (!item) {
     return { error: "图片不存在", sources: [] };
   }
-
-  const item = await getGalleryItem(db, objects, normalized);
-  if (item?.linked && item.sources.length > 0) {
+  if (item.linked && item.sources.length > 0) {
     return {
       error: `该图片仍被 ${item.sources.length} 处内容引用，无法删除`,
       sources: item.sources,
     };
   }
-
   return { ok: true };
 }
 
 export async function markAssetDeleted(db: any, storageKey: string): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
+  const normalized = normalizeStorageKey(storageKey);
   await db
     .update(asset)
     .set({ deletedAt: now })
-    .where(eq(asset.storageKey, storageKey));
-}
-
-export async function listAllR2Objects(bucket: R2Bucket): Promise<GalleryObjectMeta[]> {
-  const objects: GalleryObjectMeta[] = [];
-  let cursor: string | undefined;
-
-  do {
-    const listed = await bucket.list({ limit: 1000, cursor });
-    for (const obj of listed.objects) {
-      objects.push({
-        key: obj.key,
-        size: obj.size,
-        uploadedAt: Math.floor(obj.uploaded.getTime() / 1000),
-      });
-    }
-    cursor = listed.truncated ? listed.cursor : undefined;
-  } while (cursor);
-
-  return objects;
+    .where(eq(asset.storageKey, normalized));
+  await clearAssetReferencesForKey(db, normalized);
 }

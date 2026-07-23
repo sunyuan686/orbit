@@ -26,6 +26,7 @@ import {
   type NotifyRuntime,
 } from "./notify.js";
 import type { AiRuntimeEnv } from "./ai-model.js";
+import { syncAssetReferences } from "./asset-references.js";
 
 function now(): number {
   return Math.floor(Date.now() / 1000);
@@ -351,6 +352,7 @@ async function writeEntryText(
         updatedAt: timestamp,
       })
       .where(eq(entry.id, mergeTarget.id));
+    await syncAssetReferences(ctx.db, parsed.entryType, mergeTarget.id, nextBody);
     return mergeTarget.id;
   }
 
@@ -368,6 +370,7 @@ async function writeEntryText(
     createdAt: timestamp,
     updatedAt: timestamp,
   });
+  await syncAssetReferences(ctx.db, parsed.entryType, id, html);
 
   void notifyEntryCreated(ctx.db, ctx.notifyRuntime, {
     actorUserId: actor.userId,
@@ -398,7 +401,7 @@ async function attachImageToEntry(
   const imgHtml = `<img src="${url}" alt="飞书图片" class="orbit-prose-img" />`;
 
   const row = await ctx.db
-    .select({ body: entry.body })
+    .select({ body: entry.body, type: entry.type })
     .from(entry)
     .where(eq(entry.id, entryId))
     .get();
@@ -411,6 +414,9 @@ async function attachImageToEntry(
       updatedAt: now(),
     })
     .where(eq(entry.id, entryId));
+  if (row?.type) {
+    await syncAssetReferences(ctx.db, row.type, entryId, nextBody);
+  }
 
   const existingAsset = await ctx.db
     .select({ id: asset.id })

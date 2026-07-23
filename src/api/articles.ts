@@ -30,6 +30,7 @@ import {
   notifyEntryCreated,
   type NotifyRuntime,
 } from "../services/notify.js";
+import { syncAssetReferences } from "../services/asset-references.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 
@@ -343,18 +344,20 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       if (isEmptyBody(body)) return bodyRequiredResponse(c);
       const key = title?.trim() || `memo-${Date.now()}`;
       const id = generateId("mem");
+      const bodyValue = body ?? "";
       await db.insert(memo).values({
         id,
         key,
         title: title ?? key,
-        body: body ?? "",
+        body: bodyValue,
         ...authorWriteFields(sessionAuthor),
         updatedAt: now(),
       });
+      await syncAssetReferences(db, "memo", id, bodyValue);
       await auditArticleWrite(c, db, sessionAuthor, AuditAction.ARTICLE_CREATE, AuditResourceType.MEMO, id, {
         contentType: type,
         titleLength: title?.length ?? 0,
-        bodyLength: body?.length ?? 0,
+        bodyLength: bodyValue.length,
       });
       return c.json({ id });
     }
@@ -375,6 +378,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       updatedAt: now(),
       ...authorWriteFields(sessionAuthor),
     });
+    await syncAssetReferences(db, type, id, bodyValue);
     await auditArticleWrite(c, db, sessionAuthor, AuditAction.ARTICLE_CREATE, AuditResourceType.ENTRY, id, {
       contentType: type,
       titleLength: title?.length ?? 0,
@@ -442,6 +446,9 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
           updatedAt: now(),
         })
         .where(eq(memo.id, id));
+      if (body !== undefined) {
+        await syncAssetReferences(db, "memo", id, body);
+      }
       await auditArticleWrite(c, db, sessionAuthor, AuditAction.ARTICLE_UPDATE, AuditResourceType.MEMO, id, {
         titleLength: title?.length ?? null,
         bodyLength: body?.length ?? null,
@@ -475,6 +482,9 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     }
 
     await db.update(entry).set(entryUpdates).where(eq(entry.id, id));
+    if (body !== undefined) {
+      await syncAssetReferences(db, existing.type, id, body);
+    }
 
     // 边注位置重映射：校验归属后批量更新
     if (commentMappings && commentMappings.length > 0) {

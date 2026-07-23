@@ -6,13 +6,11 @@ import {
   listGalleryItems,
   markAssetDeleted,
   type GalleryFilter,
-  type GalleryObjectMeta,
 } from "../services/gallery.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 
 export interface GalleryStorageProvider {
-  listObjects(c: Context): Promise<GalleryObjectMeta[]>;
   deleteObject(c: Context, storageKey: string): Promise<boolean>;
 }
 
@@ -38,8 +36,7 @@ export function createGalleryRoutes(
     const offset = offsetParam ? parseInt(offsetParam, 10) : 0;
 
     try {
-      const objects = await storage.listObjects(c);
-      const { items, total } = await listGalleryItems(db, objects, {
+      const { items, total } = await listGalleryItems(db, {
         filter,
         limit,
         offset,
@@ -56,8 +53,7 @@ export function createGalleryRoutes(
     const storageKey = decodeURIComponent(c.req.param("storageKey"));
 
     try {
-      const objects = await storage.listObjects(c);
-      const check = await deleteGalleryObject(db, objects, storageKey);
+      const check = await deleteGalleryObject(db, storageKey);
       if (!("ok" in check)) {
         return c.json({ error: check.error, sources: check.sources }, 400);
       }

@@ -31,7 +31,6 @@ import { createGalleryRoutes } from "./api/gallery.js";
 import { createApiTokenRoutes } from "./api/api-tokens.js";
 import { createActivityRoutes } from "./api/activity.js";
 import { createMemoriesRoutes } from "./api/memories.js";
-import { listAllR2Objects } from "./services/gallery.js";
 import { getSessionAuthor } from "./api/session-author.js";
 import { requestContext } from "./lib/request-context.js";
 import { createRequireAuth } from "./lib/request-auth.js";
@@ -278,8 +277,9 @@ app.route(
 app.route(
   "/api/gallery",
   createGalleryRoutes(getDb, {
-    listObjects: async (c) => listAllR2Objects(c.env.R2),
     deleteObject: async (c, storageKey) => {
+      const existing = await c.env.R2.head(storageKey);
+      if (!existing) return false;
       await c.env.R2.delete(storageKey);
       return true;
     },
