@@ -3102,9 +3102,23 @@ a.orbit-settings-mobile-row {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  gap: 0.625rem;
+  width: 100%;
+  max-width: 22rem;
+}
+
+.orbit-birthday-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
   width: 100%;
-  max-width: 16rem;
+}
+
+.orbit-birthday-side-label {
+  flex: 0 0 2.75rem;
+  font-size: var(--type-sm);
+  color: var(--color-text-secondary);
 }
 
 .orbit-birthday-calendar-switch {
