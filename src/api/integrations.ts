@@ -222,6 +222,7 @@ async function handleLarkEvent(
   const senderOpenId = payload.event.sender?.sender_id?.open_id?.trim() ?? "";
   const messageId = message.message_id?.trim() ?? "";
   const chatId = message.chat_id?.trim() ?? "";
+  const threadId = (message as { thread_id?: string }).thread_id?.trim() ?? "";
   if (!messageId || !chatId || !senderOpenId) return;
 
   if (!runtime.secrets.appSecret || !runtime.config.appId) return;
@@ -254,6 +255,7 @@ async function handleLarkEvent(
     {
       messageId,
       chatId,
+      threadId,
       chatType: message.chat_type ?? "p2p",
       messageType: message.message_type ?? "text",
       content: message.content ?? "",

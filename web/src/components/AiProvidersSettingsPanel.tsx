@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  DEFAULT_AI_BOT_NAME,
+  DEFAULT_AI_BOT_PERSONA,
   DEFAULT_DEEPSEEK_MODEL,
   DEFAULT_ENABLED_AI_MODELS,
   DEFAULT_ENABLED_AI_PROVIDERS,
@@ -97,6 +99,34 @@ function emptyConnectionDraft(): ConnectionDraft {
 export function AiProvidersSettingsPanel() {
   const toast = useToast();
   const { settings, setSettings } = useAppSettings();
+
+  const [botName, setBotName] = useState("");
+  const [botPersona, setBotPersona] = useState("");
+  const [savingBotInfo, setSavingBotInfo] = useState(false);
+
+  useEffect(() => {
+    if (!settings) return;
+    setBotName(settings.aiBotName || DEFAULT_AI_BOT_NAME);
+    setBotPersona(settings.aiBotPersona || DEFAULT_AI_BOT_PERSONA);
+  }, [settings?.aiBotName, settings?.aiBotPersona]);
+
+  const handleSaveBotInfo = async () => {
+    setSavingBotInfo(true);
+    try {
+      const updated = await updateAppSettings({
+        aiBotName: botName.trim(),
+        aiBotPersona: botPersona.trim(),
+      });
+      setSettings(updated);
+      toast.success("助手人设设置已更新");
+    } catch (err: any) {
+      if (shouldToastApiError(err)) {
+        toast.error(getApiErrorMessage(err, "更新助手设置失败"));
+      }
+    } finally {
+      setSavingBotInfo(false);
+    }
+  };
 
   const [showCustomSuppliers, setShowCustomSuppliers] = useState(false);
   const [modelSearch, setModelSearch] = useState("");
@@ -598,9 +628,77 @@ export function AiProvidersSettingsPanel() {
       <header className="orbit-settings-panel-header">
         <h2 className="orbit-settings-panel-title">Orbit AI</h2>
         <p className="orbit-settings-panel-desc">
-          配置供应商凭证，并选择聊天中可用的模型。聊天页只显示模型名称。
+          配置 AI 助手昵称、语气人设与供应商凭证。
         </p>
       </header>
+
+      <SettingsSection title="助手人设与名称">
+        <div className="orbit-settings-fields">
+          <div className="orbit-settings-field orbit-settings-field--stacked orbit-settings-field--editable">
+            <div className="orbit-settings-field-copy">
+              <label htmlFor="settings-ai-bot-name" className="orbit-settings-field-label">
+                AI 助手名字
+              </label>
+              <p className="orbit-settings-field-hint">
+                设置 AI 在对话与提示词中的专属称呼（例如：“小辛星”、“星宝”、“月老”）。
+              </p>
+            </div>
+            <div className="orbit-settings-field-control orbit-settings-field-control--block">
+              <input
+                id="settings-ai-bot-name"
+                type="text"
+                className="orbit-input orbit-settings-bot-name-input"
+                value={botName}
+                onChange={(e) => setBotName(e.target.value)}
+                placeholder="小辛星"
+              />
+            </div>
+          </div>
+
+          <div className="orbit-settings-field orbit-settings-field--stacked orbit-settings-field--editable">
+            <div className="orbit-settings-field-copy">
+              <label htmlFor="settings-ai-bot-persona" className="orbit-settings-field-label">
+                AI 语气与人设
+              </label>
+              <p className="orbit-settings-field-hint">
+                自定义 AI 助手的说话风格、语气与定位（留空或重置将使用默认温暖细腻人设）。
+              </p>
+            </div>
+            <div className="orbit-settings-field-control orbit-settings-field-control--block">
+              <textarea
+                id="settings-ai-bot-persona"
+                className="orbit-input orbit-settings-bot-persona-textarea"
+                rows={4}
+                value={botPersona}
+                onChange={(e) => setBotPersona(e.target.value)}
+                placeholder="你的性格温暖、真诚、细腻且富有亲和力。你的任务是陪空间内的成员聊天、帮他们回忆温馨时刻、解答日常疑问或提供生活建议。"
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: "0.5rem", paddingTop: "0.5rem" }}>
+            <button
+              type="button"
+              className="orbit-btn orbit-btn--primary orbit-btn--sm"
+              disabled={savingBotInfo}
+              onClick={handleSaveBotInfo}
+            >
+              {savingBotInfo ? "保存中…" : "保存人设修改"}
+            </button>
+            <button
+              type="button"
+              className="orbit-btn orbit-btn--ghost orbit-btn--sm"
+              disabled={savingBotInfo}
+              onClick={() => {
+                setBotName(DEFAULT_AI_BOT_NAME);
+                setBotPersona(DEFAULT_AI_BOT_PERSONA);
+              }}
+            >
+              重置为默认
+            </button>
+          </div>
+        </div>
+      </SettingsSection>
 
       <SettingsSection title="供应商">
         <div className="orbit-settings-fields orbit-settings-connection-stack">

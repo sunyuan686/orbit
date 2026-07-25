@@ -9,8 +9,11 @@ import type { AiContextMode } from "../services/ai-chat-store.js";
 import {
   createAiChatStore,
   extractTextFromParts,
+  generateAiId,
   trimMessagesForModel,
+  compressMessagesForModel,
 } from "../services/ai-chat-store.js";
+import { generateHandoffSummary } from "../services/ai-compaction.js";
 import { AiModelConfigError, resolveModel, type AiRuntimeEnv } from "../services/ai-model.js";
 import { buildSystemPrompt } from "../services/ai-prompt.js";
 import { createAiTools } from "../services/ai-tools.js";
@@ -431,14 +434,34 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
         });
         conversationId = created.conversation.id;
         uiMessages = [latestUser];
-      }
+     }
 
       const { model, provider, modelId } = await resolveModel(db, env);
+      const settingsMap = await readSettingsMap(db);
       const system = await buildSystemPrompt(db, context);
-      const tools = createAiTools(db);
-      const modelMessages = await convertToModelMessages(
-        trimMessagesForModel(uiMessages)
-      );
+      const tools = createAiTools(db, settingsMap, env as Record<string, string>);
+
+      const { finalMessages, droppedTurns } = compressMessagesForModel(uiMessages);
+      let effectiveMessages = finalMessages;
+
+      if (droppedTurns.length > 0) {
+        const summaryText = await generateHandoffSummary({ model, droppedTurns });
+        if (summaryText) {
+          const bridgeMessage: UIMessage = {
+            id: generateAiId("aimsg_bridge"),
+            role: "user",
+            parts: [
+              {
+                type: "text",
+                text: `[系统上下文交接摘要 / Handoff Summary]\n因为对话较长，早期被截断的历史对话已被自动整理为以下 4 维摘要，请参考这些背景信息回答后续问题：\n\n${summaryText}`,
+              },
+            ],
+          };
+          effectiveMessages = [bridgeMessage, ...finalMessages];
+        }
+      }
+
+      const modelMessages = await convertToModelMessages(effectiveMessages);
 
       const startedAt = Date.now();
       const result = streamText({

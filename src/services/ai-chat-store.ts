@@ -106,7 +106,218 @@ export function trimMessagesForModel(
   max = AI_CHAT_MAX_MODEL_MESSAGES
 ): UIMessage[] {
   if (messages.length <= max) return messages;
-  return messages.slice(-max);
+  const tail = messages.slice(-max);
+  // Ensure the window never starts with an orphaned assistant message.
+  // A tool-call / tool-result that lost its preceding user turn will
+  // cause schema validation errors on OpenAI / Anthropic APIs.
+  const safeStart = tail.findIndex((m) => m.role === "user");
+  return safeStart > 0 ? tail.slice(safeStart) : tail;
+}
+
+// ---------------------------------------------------------------------------
+// Stage-2: deterministic placeholder compression + token-budget windowing
+// ---------------------------------------------------------------------------
+
+/**
+ * Rough chars-per-token estimate for mixed CJK / Latin content.
+ * Avoids a hard tiktoken dependency; accurate enough for budget gating.
+ */
+const CHARS_PER_TOKEN = 3;
+
+/**
+ * Token budget for the messages array sent to the LLM.
+ * Leaves ~4 k tokens for model output on a conservative 60 k context window.
+ */
+export const AI_CHAT_MESSAGE_TOKEN_BUDGET = 56_000;
+
+/**
+ * Number of most-recent user turns to keep verbatim (no elision).
+ * Everything older is a candidate for placeholder compression.
+ */
+export const AI_CHAT_KEEP_RECENT_TURNS = 3;
+
+/**
+ * Serialised-result byte threshold.  Tool results smaller than this are kept
+ * verbatim even in old turns (elision overhead would exceed the saving).
+ */
+const TOOL_RESULT_ELIDE_THRESHOLD = 500;
+
+/** Narrow structural type for a tool-invocation part (avoids importing internals). */
+interface ToolInvocationPart {
+  type: "tool-invocation";
+  toolInvocation: {
+    toolCallId: string;
+    toolName: string;
+    args: unknown;
+    state: "call" | "partial-call" | "result";
+    result?: unknown;
+  };
+}
+
+function isToolInvocationPart(part: unknown): part is ToolInvocationPart {
+  if (typeof part !== "object" || part === null) return false;
+  const p = part as Record<string, unknown>;
+  return (
+    p["type"] === "tool-invocation" &&
+    typeof p["toolInvocation"] === "object" &&
+    p["toolInvocation"] !== null
+  );
+}
+
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / CHARS_PER_TOKEN);
+}
+
+function estimateMessageTokens(msg: UIMessage): number {
+  // role tag + serialised parts content
+  return (
+    estimateTokens(msg.role) + estimateTokens(serializeParts(msg.parts))
+  );
+}
+
+/**
+ * Replace large tool-invocation results in a single assistant UIMessage with
+ * a deterministic metadata placeholder.  Returns the original message
+ * unchanged if no elision is needed (no allocation).
+ */
+function elideToolResultsInMessage(msg: UIMessage): UIMessage {
+  if (msg.role !== "assistant") return msg;
+
+  let modified = false;
+  const newParts = (msg.parts as unknown[]).map((part) => {
+    if (!isToolInvocationPart(part)) return part;
+    if (part.toolInvocation.state !== "result") return part;
+
+    const resultJson = JSON.stringify(part.toolInvocation.result ?? "");
+    if (resultJson.length <= TOOL_RESULT_ELIDE_THRESHOLD) return part;
+
+    modified = true;
+    return {
+      ...part,
+      toolInvocation: {
+        ...part.toolInvocation,
+        result: `[已压缩: ${part.toolInvocation.toolName}, 原始 ${resultJson.length} 字节。如需完整内容请重新调用该工具。]`,
+      },
+    };
+  });
+
+  if (!modified) return msg;
+  return { ...msg, parts: newParts as UIMessage["parts"] };
+}
+
+/**
+ * Split a flat UIMessage array into turns.
+ * A turn begins with a user message and includes all subsequent non-user
+ * messages up to (but not including) the next user message.
+ */
+function splitIntoTurns(messages: UIMessage[]): UIMessage[][] {
+  const turns: UIMessage[][] = [];
+  let current: UIMessage[] = [];
+
+  for (const msg of messages) {
+    if (msg.role === "user" && current.length > 0) {
+      turns.push(current);
+      current = [];
+    }
+    current.push(msg);
+  }
+  if (current.length > 0) turns.push(current);
+  return turns;
+}
+
+/**
+ * Stage-2 context compression.
+ *
+ * Processing order (Prune-before-Compact):
+ * 1. Split history into turns anchored at each user message.
+ * 2. Keep the most-recent AI_CHAT_KEEP_RECENT_TURNS turns verbatim.
+ * 3. Elide large tool results in older turns (deterministic, zero LLM cost).
+ * 4. Greedily fill the remaining token budget with compressed older turns,
+ *    newest-first, dropping turns that no longer fit.
+ *
+ * This supersedes the simple trimMessagesForModel slice for normal use;
+ * trimMessagesForModel is kept as a lightweight fallback.
+ */
+export interface CompressionResult {
+  finalMessages: UIMessage[];
+  droppedTurns: UIMessage[][];
+}
+
+/**
+ * Stage-2 & Stage-3 context compression.
+ *
+ * Processing order (Prune-before-Compact):
+ * 1. Split history into turns anchored at each user message.
+ * 2. Keep the most-recent AI_CHAT_KEEP_RECENT_TURNS turns verbatim.
+ * 3. Elide large tool results in older turns (deterministic, zero LLM cost).
+ * 4. Greedily fill the remaining token budget with compressed older turns,
+ *    newest-first, dropping turns that no longer fit.
+ * 5. Returns dropped turns to allow Stage-3 LLM Handoff Compaction.
+ */
+export function compressMessagesForModel(
+  messages: UIMessage[],
+  budget = AI_CHAT_MESSAGE_TOKEN_BUDGET
+): CompressionResult {
+  if (messages.length === 0) {
+    return { finalMessages: messages, droppedTurns: [] };
+  }
+
+  const turns = splitIntoTurns(messages);
+
+  // If we have few turns, skip compression entirely.
+  if (turns.length <= AI_CHAT_KEEP_RECENT_TURNS) {
+    return { finalMessages: messages, droppedTurns: [] };
+  }
+
+  const recentTurns = turns.slice(-AI_CHAT_KEEP_RECENT_TURNS);
+  const oldTurns = turns.slice(0, turns.length - AI_CHAT_KEEP_RECENT_TURNS);
+
+  // Token cost of the verbatim recent tail.
+  const recentTokens = recentTurns
+    .flat()
+    .reduce((sum, msg) => sum + estimateMessageTokens(msg), 0);
+
+  let remainingBudget = budget - recentTokens;
+
+  if (remainingBudget <= 0) {
+    // Recent turns alone exceed the budget — return them with safety guard.
+    const flat = recentTurns.flat();
+    const safeStart = flat.findIndex((m) => m.role === "user");
+    return {
+      finalMessages: safeStart > 0 ? flat.slice(safeStart) : flat,
+      droppedTurns: oldTurns,
+    };
+  }
+
+  // Compress old turns: replace large tool results with metadata placeholders.
+  const compressedOldTurns = oldTurns.map((turn) =>
+    turn.map(elideToolResultsInMessage)
+  );
+
+  // Greedily include compressed old turns from newest to oldest.
+  const selectedOldTurns: UIMessage[][] = [];
+  const droppedOldTurns: UIMessage[][] = [];
+
+  for (let i = compressedOldTurns.length - 1; i >= 0; i--) {
+    const turn = compressedOldTurns[i]!;
+    const cost = turn.reduce((s, m) => s + estimateMessageTokens(m), 0);
+    if (cost <= remainingBudget) {
+      selectedOldTurns.unshift(turn);
+      remainingBudget -= cost;
+    } else {
+      // Preserve the original uncompressed old turn for the LLM summarizer
+      droppedOldTurns.unshift(oldTurns[i]!);
+    }
+  }
+
+  const flat = [...selectedOldTurns.flat(), ...recentTurns.flat()];
+  // Final safety: ensure we never start with an orphaned assistant message.
+  const safeStart = flat.findIndex((m) => m.role === "user");
+
+  return {
+    finalMessages: safeStart > 0 ? flat.slice(safeStart) : flat,
+    droppedTurns: droppedOldTurns,
+  };
 }
 
 async function writeMessageAndTouchConversation(

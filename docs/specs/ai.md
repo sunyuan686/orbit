@@ -393,13 +393,18 @@ ORDER BY updated_at DESC
 
 ## 7. System Prompt
 
-`buildSystemPrompt(context)` 职责：
+`buildSystemPrompt(context)` 职责与结构（遵循 OpenAI / Anthropic / Google 最佳实践）：
 
-1. **身份**：Orbit 情侣空间助手，语气温暖、简洁，用中文
-2. **作者规范**：小圆子 / 小麟子（与 [ARCHITECTURE.md#作者规范](../ARCHITECTURE.md#作者规范) 一致）
-3. **能力说明**：可搜索日记、时间线、留言、信件、备忘录；不确定时先 `search_entries`
-4. **隐私**：不编造未检索到的内容；引用时说明来源标题与日期
-5. **context=article**：注入当前文标题、`entryDate`、作者、`bodyText` 摘要（全文过长则截断 + 提示可用 `get_entry`）
+1. **结构化标记 (`<identity>`, `<context>`, `<operational_rules>`)**：使用标准 XML 标签分隔模块，避免提示词边界模糊。
+2. **身份与语气 (`<identity>`)**：支持系统设置中动态配置 AI 助手名字（默认“小辛星”）与语气人设（默认温暖、真诚、细腻且富有亲和力），一律使用中文回答。
+3. **空间上下文与时间 (`<context>`)**：动态注入空间成员名称与当前系统时间（北京时间）。
+4. **原生 Function Calling 机制**：工具的名称、描述与 Zod Schema 由 AI SDK 的 `tools` 原生 API 对象结构化传递，不再在 System Prompt 文本中重复硬编码列举，避免数据冗余与描述不同步。
+5. **行为准则 (`<operational_rules>`)**：
+   - **防幻觉与 Grounding**：严格基于检索结果，未找到记录时如实且温馨说明。
+   - **出处引用**：明确标注来源标题与日期《XXX》（YYYY-MM-DD）。
+   - **渐进式检索 (Progressive Retrieval)**：先查摘要片段，若细节不足再根据 ID 拉取正文。
+   - **时间推算**：相对时间转换绝对时间精准搜索；网页搜索带年份。
+6. **文章模式 (`<current_article_context>`)**：包含当前文章 ID、标题、类型、作者、日期及摘要。
 
 不在 system 里塞全库数据；靠 tools 按需拉取。
 

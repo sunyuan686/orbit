@@ -602,6 +602,10 @@ export type AiProvider = (typeof AI_PROVIDERS)[number];
 export const DEFAULT_WORKERS_AI_MODEL = "@cf/zai-org/glm-4.7-flash";
 export const DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash";
 
+export const DEFAULT_AI_BOT_NAME = "小辛星";
+export const DEFAULT_AI_BOT_PERSONA =
+  "你的性格温暖、真诚、细腻且富有亲和力。你的任务是陪空间内的成员聊天、帮他们回忆温馨时刻、解答日常疑问或提供生活建议。";
+
 export const DEFAULT_ENABLED_AI_MODELS: readonly string[] = [
   `workers-ai:@cf/zai-org/glm-4.7-flash`,
   `workers-ai:@cf/meta/llama-3.3-70b-instruct-fp8-fast`,
@@ -649,6 +653,8 @@ export interface AppSettings {
   aiEnabledProviders: AiProvider[];
   aiConnections: AiCustomConnectionPublic[];
   hasDeepseekKey: boolean;
+  aiBotName: string;
+  aiBotPersona: string;
 }
 
 export async function fetchAppSettings(): Promise<AppSettings> {
@@ -666,6 +672,8 @@ export async function updateAppSettings(data: {
   aiConnections?: AiCustomConnection[];
   connectionKey?: { id: string; key: string | null };
   deepseekKey?: string | null;
+  aiBotName?: string;
+  aiBotPersona?: string;
 }): Promise<AppSettings> {
   const res = await fetch(`${BASE}/api/settings`, {
     method: "PUT",

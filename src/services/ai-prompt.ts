@@ -4,6 +4,13 @@ import { loadUserNameMap, resolveUserName } from "../lib/author-present.js";
 import { entry } from "../db/schema.js";
 import { toPlainText } from "../lib/plain-text.js";
 import type { AiContextMode } from "./ai-chat-store.js";
+import { beijingTodayKey } from "../lib/beijing-date.js";
+import {
+  DEFAULT_AI_BOT_NAME,
+  DEFAULT_AI_BOT_PERSONA,
+  APP_SETTING_KEYS,
+} from "../app-settings.js";
+import { readSettingsMap } from "../db/settings-store.js";
 
 export interface AiPromptContext {
   mode: AiContextMode;
@@ -12,19 +19,51 @@ export interface AiPromptContext {
 
 export async function buildSystemPrompt(
   db: any,
-  context: AiPromptContext
+  context: AiPromptContext,
+  settingsMap?: Record<string, string>
 ): Promise<string> {
+  const map = settingsMap || (await readSettingsMap(db));
+  const botName =
+    map[APP_SETTING_KEYS.aiBotName]?.trim() || DEFAULT_AI_BOT_NAME;
+  const botPersona =
+    map[APP_SETTING_KEYS.aiBotPersona]?.trim() || DEFAULT_AI_BOT_PERSONA;
+
   const authors = await getSpaceAuthors(db);
   const authorLabel =
     authors.length > 0
       ? authors.map((a) => a.name).join("与")
       : "两位成员";
 
-  const lines = [
-    "你是 Orbit 情侣空间助手，语气温暖、简洁，使用中文回复。",
-    `空间内有两位作者：${authorLabel}。引用内容时请说明来源标题与日期，不要编造未检索到的信息。`,
-    "你可以通过工具搜索日记、时间线、留言、信件与备忘录；不确定时请先调用 search_entries。",
-    "不要一次塞入大量原文；按需检索、归纳回答。",
+  const today = beijingTodayKey();
+
+  const blocks: string[] = [
+    `<identity>
+你是“${botName}”，Orbit 情侣空间的 AI 专属小助手。
+${botPersona}
+请保持回复简洁得体、富有温度，使用中文回答。
+</identity>`,
+
+    `<context>
+- 空间成员：${authorLabel}
+- 当前系统日期：${today}
+</context>`,
+
+    `<operational_rules>
+1. 事实依据与防幻觉 (Grounding)：
+   - 关于空间成员的历史经历、生活记录、回忆或特定事件，严格以工具检索到的结果为依据。
+   - 切勿凭空编造未检索到的空间回忆。若经过检索仍未查到相关记录，请如实且温馨地告知用户。
+2. 引用规范：
+   - 引用空间内的具体文章或回忆时，须明确注明来源标题与日期，例如《XXX》（YYYY-MM-DD）。
+3. 渐进式检索策略 (Progressive Retrieval)：
+   - 当用户询问特定的历史记忆时，优先调用搜索工具检索匹配片段。
+   - 若摘要信息不足以完整解答，可根据条目 ID 调用正文读取工具获取无截断全文。
+   - 避免直接将大段原始文章堆砌给用户，应归纳提炼要点后再温馨回复。
+4. 时间与时效性规范：
+   - 当用户提及相对时间词汇（如“上个月”、“去年”、“前几天”）时，结合当前系统日期（${today}）推算具体的年份与日期范围进行精准检索。
+   - 查找外部实时信息（如新闻、天气）时，请在搜索关键词中显式加入年份或具体时间范围，确保获取最新结果。
+5. 交互与格式规范：
+   - 结合 Markdown 规范排版（列表、引用、加粗等），让回复层次分明、易于阅读。
+</operational_rules>`,
   ];
 
   if (context.mode === "article" && context.articleId) {
@@ -48,18 +87,22 @@ export async function buildSystemPrompt(
       const authorName = resolveUserName(nameMap, article.userId, article.author);
       const raw = article.bodyText || toPlainText(article.body ?? "");
       const summary = raw.length > 2000 ? `${raw.slice(0, 2000)}…` : raw;
-      lines.push(
-        "",
-        "当前用户正在阅读的文章：",
-        `- 标题：${article.title ?? "（无标题）"}`,
-        `- 类型：${article.type}`,
-        `- 作者：${authorName}`,
-        `- 日期：${article.entryDate ?? "未知"}`,
-        `- 摘要：${summary || "（空）"}`,
-        "如需全文可调用 get_entry。"
+      blocks.push(
+        `<current_article_context>
+用户当前正在浏览以下空间文章：
+- ID: ${article.id}
+- 标题: ${article.title ?? "（无标题）"}
+- 类型: ${article.type}
+- 作者: ${authorName}
+- 日期: ${article.entryDate ?? "未知"}
+- 正文摘要:
+${summary || "（无内容）"}
+
+提示：若解答时需要阅读该文章的无截断完整全文，可调用 get_entry(id: "${article.id}")。
+</current_article_context>`
       );
     }
   }
 
-  return lines.join("\n");
+  return blocks.join("\n\n");
 }

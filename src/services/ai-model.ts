@@ -25,6 +25,8 @@ export interface AiRuntimeEnv {
   DEEPSEEK_API_KEY?: string;
   CF_ACCOUNT_ID?: string;
   CF_API_TOKEN?: string;
+  TAVILY_API_KEY?: string;
+  BRAVE_SEARCH_API_KEY?: string;
   AI?: Ai;
 }
 

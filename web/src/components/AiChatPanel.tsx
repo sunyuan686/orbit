@@ -1,4 +1,5 @@
 import {
+  Component,
   useCallback,
   useEffect,
   useMemo,
@@ -166,14 +167,11 @@ function getMessageAuthor(message: UIMessage): string | undefined {
 function ToolCallBody({
   toolName,
   part,
-  isLoading,
 }: {
   toolName: string;
   part: ToolPartShape;
-  isLoading: boolean;
 }) {
   if (toolName === "search_entries") {
-    const input = (part.input ?? {}) as { query?: string; type?: string };
     const results = (part.output ?? []) as Array<{
       id: string;
       type?: string;
@@ -248,6 +246,65 @@ function ToolCallBody({
       </ul>
     );
   }
+
+  if (toolName === "web_search") {
+    const output = (part.output ?? {}) as {
+      query?: string;
+      provider?: string;
+      error?: string;
+      results?: Array<{
+        title: string;
+        url: string;
+        snippet?: string;
+        source?: string;
+      }>;
+    };
+    if (output.error) {
+      return (
+        <p className="orbit-ai-tool-snippet" style={{ color: "var(--color-red-600, #dc2626)" }}>
+          {output.error}
+        </p>
+      );
+    }
+    const results = output.results || [];
+    if (results.length > 0) {
+      return (
+        <ul className="orbit-ai-tool-list">
+          {results.slice(0, 5).map((r, i) => {
+            let host = "";
+            try {
+              host = new URL(r.url).hostname;
+            } catch {
+              host = r.url;
+            }
+            return (
+              <li key={i} className="orbit-ai-tool-item">
+                <details>
+                  <summary className="orbit-ai-tool-item-summary">
+                    <a
+                      href={r.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="orbit-ai-tool-item-title hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {r.title || "网页链接"}
+                    </a>
+                    {host ? (
+                      <span className="orbit-ai-tool-item-meta">{host}</span>
+                    ) : null}
+                  </summary>
+                  {r.snippet ? (
+                    <span className="orbit-ai-tool-item-snippet">{r.snippet}</span>
+                  ) : null}
+                </details>
+              </li>
+            );
+          })}
+        </ul>
+      );
+    }
+  }
   return null;
 }
 
@@ -260,8 +317,8 @@ function renderToolArgs(toolName: string, input: unknown): ReactNode {
     if (!query && !type) return null;
     return (
       <span className="orbit-ai-tool-arg">
-        {q ? `"${q}"` : ""}
-        {q && type ? " · " : ""}
+        {query ? `"${query}"` : ""}
+        {query && type ? " · " : ""}
         {type || ""}
       </span>
     );
@@ -276,36 +333,88 @@ function renderToolArgs(toolName: string, input: unknown): ReactNode {
     if (limit == null) return null;
     return <span className="orbit-ai-tool-arg">limit={limit}</span>;
   }
+
+  if (toolName === "web_search") {
+    const query = typeof a.query === "string" ? a.query : "";
+    if (!query) return null;
+    return <span className="orbit-ai-tool-arg">"{query}"</span>;
+  }
   return null;
+}
+
+class ToolCallErrorBoundary extends Component<
+  { children: ReactNode; toolName: string },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error("Error in ToolCallCard:", error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="orbit-ai-tool orbit-ai-tool--error">
+          <div className="orbit-ai-tool-header">
+            <span className="orbit-ai-tool-name">{this.props.toolName}</span>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function getToolDisplayName(toolName: string): string {
+  switch (toolName) {
+    case "search_entries":
+      return "检索记录";
+    case "get_entry":
+      return "查看内容";
+    case "list_memos":
+      return "查找备忘";
+    case "web_search":
+      return "网络搜索";
+    default:
+      return toolName;
+  }
 }
 
 function ToolCallCard({ part }: { part: ToolPartShape }) {
   const toolName = part.type.replace(/^tool-/, "");
+  const displayName = getToolDisplayName(toolName);
   const isDone = part.state === "output-available";
   const isError = part.state === "output-error";
   const isLoading = !isDone && !isError;
   return (
-    <div
+    <details
       className={
         "orbit-ai-tool" +
         (isLoading ? " orbit-ai-tool--loading" : "") +
         (isError ? " orbit-ai-tool--error" : "")
       }
+      open={isLoading || undefined}
     >
-      <div className="orbit-ai-tool-header">
+      <summary className="orbit-ai-tool-header">
         <span
           className={`orbit-ai-tool-status-dot orbit-ai-tool-status-dot--${
             isLoading ? "loading" : isDone ? "done" : "error"
           }`}
           aria-hidden="true"
         />
-        <span className="orbit-ai-tool-name">{toolName}</span>
+        <span className="orbit-ai-tool-name">{displayName}</span>
         {renderToolArgs(toolName, part.input)}
-      </div>
+        <ChevronDownIcon size="sm" className="orbit-ai-tool-chevron" />
+      </summary>
       <div className="orbit-ai-tool-body">
-        <ToolCallBody toolName={toolName} part={part} isLoading={isLoading} />
+        <ToolCallBody toolName={toolName} part={part} />
       </div>
-    </div>
+    </details>
   );
 }
 
@@ -352,7 +461,12 @@ function MessageBody({
     }
     if (isToolPart(part)) {
       flush(`tb-${i}`);
-      nodes.push(<ToolCallCard key={`tc-${i}`} part={part} />);
+      const toolName = part.type.replace(/^tool-/, "");
+      nodes.push(
+        <ToolCallErrorBoundary key={`tc-${i}`} toolName={toolName}>
+          <ToolCallCard part={part} />
+        </ToolCallErrorBoundary>
+      );
     }
   });
   flush("tb-end");
@@ -803,6 +917,17 @@ export function AiChatPanel({
         ];
 
   const isBusy = status === "streaming" || status === "submitted" || detailLoading;
+  const lastMessage = messages[messages.length - 1];
+  const hasActiveAssistantContent =
+    isBusy &&
+    lastMessage?.role === "assistant" &&
+    (() => {
+      const { reasoning } = parseAssistantContent(lastMessage);
+      const parts = lastMessage.parts ?? [];
+      const hasText = parts.some((p) => p.type === "text" && Boolean(p.text));
+      const hasTool = parts.some((p) => isToolPart(p));
+      return Boolean(reasoning) || hasText || hasTool;
+    })();
   const configError =
     error?.message?.includes("API Key") || error?.message?.includes("未配置");
   const isFloatingLayout = panelLayout === "floating";
@@ -998,7 +1123,7 @@ export function AiChatPanel({
                   </div>
                 );
               })}
-              {isBusy ? <p className="orbit-muted text-sm">思考中…</p> : null}
+              {isBusy && !hasActiveAssistantContent ? <p className="orbit-muted text-sm">思考中…</p> : null}
             </div>
 
             {error ? (

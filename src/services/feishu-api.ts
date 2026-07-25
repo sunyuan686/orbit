@@ -215,3 +215,101 @@ function toFriendlyFeishuError(err: FeishuApiError): FeishuApiError {
   }
   return err;
 }
+
+// ─── CardKit 流式 API ────────────────────────────────────────────────────────
+
+const CARDKIT_ELEMENT_ID = "ai_content";
+
+/**
+ * 创建飞书 CardKit 流式卡片，返回 cardId 和 elementId。
+ * 需要应用具备 cardkit:card 权限范围。
+ */
+export async function createFeishuStreamingCard(
+  accessToken: string
+): Promise<{ cardId: string; elementId: string }> {
+  const result = await feishuJson<{ card_id: string }>(
+    `${FEISHU_API}/cardkit/v1/cards`,
+    {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({
+        type: "card",
+        data: {
+          config: { streaming: true, streaming_mode: "delay" },
+          elements: [
+            {
+              tag: "markdown",
+              element_id: CARDKIT_ELEMENT_ID,
+              content: "⏳",
+            },
+          ],
+        },
+      }),
+    }
+  );
+  return { cardId: result.card_id, elementId: CARDKIT_ELEMENT_ID };
+}
+
+/**
+ * 以 interactive 消息发送已创建的 CardKit 卡片，返回 message_id。
+ */
+export async function sendFeishuCardMessage(
+  accessToken: string,
+  receiveId: string,
+  receiveIdType: "open_id" | "chat_id",
+  cardId: string
+): Promise<string> {
+  const params = new URLSearchParams({ receive_id_type: receiveIdType });
+  const result = await feishuJson<{ message_id: string }>(
+    `${FEISHU_API}/im/v1/messages?${params.toString()}`,
+    {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({
+        receive_id: receiveId,
+        msg_type: "interactive",
+        content: JSON.stringify({
+          type: "card",
+          data: { card_id: cardId },
+        }),
+      }),
+    }
+  );
+  return result.message_id;
+}
+
+/**
+ * 向 CardKit 卡片的指定元素追加内容（流式 append 模式）。
+ */
+export async function appendFeishuCardContent(
+  accessToken: string,
+  cardId: string,
+  elementId: string,
+  content: string
+): Promise<void> {
+  await feishuJson<void>(
+    `${FEISHU_API}/cardkit/v1/cards/${encodeURIComponent(cardId)}/elements/${encodeURIComponent(elementId)}/content`,
+    {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({ content, mode: "append" }),
+    }
+  );
+}
+
+/**
+ * 关闭 CardKit 卡片的流式状态，卡片定型。
+ */
+export async function finalizeFeishuStreamingCard(
+  accessToken: string,
+  cardId: string
+): Promise<void> {
+  await feishuJson<void>(
+    `${FEISHU_API}/cardkit/v1/cards/${encodeURIComponent(cardId)}/settings`,
+    {
+      method: "PATCH",
+      accessToken,
+      body: JSON.stringify({ streaming: false }),
+    }
+  );
+}

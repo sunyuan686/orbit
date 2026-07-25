@@ -44,6 +44,8 @@ export interface Env {
   BETTER_AUTH_URL: string;
   CF_ACCOUNT_ID?: string;
   CF_API_TOKEN?: string;
+  TAVILY_API_KEY?: string;
+  BRAVE_SEARCH_API_KEY?: string;
 }
 
 type HonoEnv = { Bindings: Env };
@@ -230,6 +232,8 @@ app.route("/api/ai", createAiRoutes(getDb, {
     BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET,
     CF_ACCOUNT_ID: c.env.CF_ACCOUNT_ID,
     CF_API_TOKEN: c.env.CF_API_TOKEN,
+    TAVILY_API_KEY: c.env.TAVILY_API_KEY,
+    BRAVE_SEARCH_API_KEY: c.env.BRAVE_SEARCH_API_KEY,
   }),
 }));
 app.route(

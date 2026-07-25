@@ -71,6 +71,8 @@ interface SettingsPutBody {
   }>;
   connectionKey?: { id: string; key: string | null };
   deepseekKey?: string | null;
+  aiBotName?: string;
+  aiBotPersona?: string;
 }
 
 async function persistSettings(
@@ -129,7 +131,9 @@ export function createSettingsRoutes(
       body.aiEnabledProviders !== undefined ||
       body.aiConnections !== undefined ||
       body.connectionKey !== undefined ||
-      body.deepseekKey !== undefined;
+      body.deepseekKey !== undefined ||
+      body.aiBotName !== undefined ||
+      body.aiBotPersona !== undefined;
 
     if (!hasUpdates) {
       try {
@@ -322,6 +326,18 @@ export function createSettingsRoutes(
           await deleteSetting(db, APP_SETTING_KEYS.aiDeepseekKey);
           auditMetadata.deepseekKey = "cleared";
         }
+      }
+
+      if (body.aiBotName !== undefined) {
+        const name = body.aiBotName.trim();
+        await upsertSetting(db, APP_SETTING_KEYS.aiBotName, name);
+        auditMetadata.aiBotName = name;
+      }
+
+      if (body.aiBotPersona !== undefined) {
+        const persona = body.aiBotPersona.trim();
+        await upsertSetting(db, APP_SETTING_KEYS.aiBotPersona, persona);
+        auditMetadata.aiBotPersona = persona;
       }
 
       const settings = await persistSettings(db, session, c, auditMetadata);

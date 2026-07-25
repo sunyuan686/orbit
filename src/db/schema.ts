@@ -292,6 +292,8 @@ export const aiConversation = sqliteTable(
       .references(() => user.id),
     author: text("author").notNull(),
     shared: integer("shared", { mode: "boolean" }).notNull().default(false),
+    /** 来源渠道：web | feishu */
+    source: text("source").notNull().default("web"),
     lastPreview: text("last_preview").notNull().default(""),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
@@ -301,6 +303,10 @@ export const aiConversation = sqliteTable(
     check(
       "ai_conversation_context_mode_check",
       sql`${t.contextMode} IN ('global', 'article')`
+    ),
+    check(
+      "ai_conversation_source_check",
+      sql`${t.source} IN ('web', 'feishu')`
     ),
     index("idx_ai_conversation_user_updated").on(t.userId, t.updatedAt),
     index("idx_ai_conversation_shared").on(t.shared, t.updatedAt),
@@ -319,6 +325,29 @@ export const feishuMessageDedup = sqliteTable(
     createdAt: integer("created_at").notNull(),
   },
   (t) => [index("idx_feishu_message_dedup_created").on(t.createdAt)]
+);
+
+/**
+ * 飞书 Thread → ai_conversation 映射（含 idle TTL）
+ * threadKey = thread_id（有话题时）or chat_id（p2p 单聊）
+ */
+export const feishuThreadSession = sqliteTable(
+  "feishu_thread_session",
+  {
+    threadKey: text("thread_key").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => aiConversation.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id),
+    lastActiveAt: integer("last_active_at").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    index("idx_feishu_thread_session_last_active").on(t.lastActiveAt),
+    index("idx_feishu_thread_session_user").on(t.userId),
+  ]
 );
 
 /**

@@ -6,13 +6,94 @@ import { toPlainText } from "../lib/plain-text.js";
 import { createSearchService } from "./search.js";
 
 const MAX_TOOL_CHARS = 8_000;
+/** Max chars for a single search snippet sent to the model. */
+const MAX_SNIPPET_CHARS = 500;
 
+/** Single-end truncation — use for short strings like error messages. */
 function truncate(value: string, max = MAX_TOOL_CHARS): string {
   if (value.length <= max) return value;
   return `${value.slice(0, max)}…（已截断）`;
 }
 
-export function createAiTools(db: any) {
+/**
+ * Head + Tail dual-end truncation (Codex CLI style).
+ * Preserves the beginning (context / setup) and the end (conclusions /
+ * error stack traces) while dropping the middle bulk.
+ */
+function headTailTruncate(value: string, max = MAX_TOOL_CHARS): string {
+  if (value.length <= max) return value;
+  const half = Math.floor(max / 2);
+  const head = value.slice(0, half);
+  const tail = value.slice(-half);
+  const removed = value.length - head.length - tail.length;
+  return `${head}\n\n…（省略 ${removed} 字符）…\n\n${tail}`;
+}
+
+async function executeTavilySearch(query: string, apiKey: string) {
+  const res = await fetch("https://api.tavily.com/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: apiKey,
+      query,
+      search_depth: "basic",
+      max_results: 5,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Tavily API 响应异常 (${res.status}): ${truncate(errorText, 200)}`);
+  }
+
+  const data = (await res.json()) as {
+    results?: Array<{ title: string; url: string; content: string }>;
+  };
+
+  return (data.results || []).map((item) => ({
+    title: item.title,
+    url: item.url,
+    snippet: truncate(item.content || "", 1500),
+    source: "tavily",
+  }));
+}
+
+async function executeBraveSearch(query: string, apiKey: string) {
+  const url = new URL("https://api.search.brave.com/res/v1/web/search");
+  url.searchParams.set("q", query);
+  url.searchParams.set("count", "5");
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+      "X-Subscription-Token": apiKey,
+    },
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Brave Search API 响应异常 (${res.status}): ${truncate(errorText, 200)}`);
+  }
+
+  const data = (await res.json()) as {
+    web?: {
+      results?: Array<{ title: string; url: string; description?: string }>;
+    };
+  };
+
+  return (data.web?.results || []).map((item) => ({
+    title: item.title,
+    url: item.url,
+    snippet: truncate(item.description || "", 1500),
+    source: "brave",
+  }));
+}
+
+export function createAiTools(
+  db: any,
+  settingsMap?: Record<string, string>,
+  env?: Record<string, string>
+) {
   const search = createSearchService(db);
 
   return {
@@ -36,7 +117,9 @@ export function createAiTools(db: any) {
           type: item.type,
           title: item.title,
           entryDate: item.entryDate,
-          snippet: item.snippet ?? "",
+          // Cap snippet length to keep search results token-efficient.
+          // Full text is available via get_entry() when needed.
+          snippet: truncate(item.snippet ?? "", MAX_SNIPPET_CHARS),
         }));
       },
     }),
@@ -66,7 +149,9 @@ export function createAiTools(db: any) {
           return { error: "不存在" };
         }
 
-        const bodyText = truncate(
+        // Use head+tail truncation so both the opening context and the
+        // closing emotional conclusion of a diary/letter are preserved.
+        const bodyText = headTailTruncate(
           row.bodyText || toPlainText(row.body ?? "")
         );
         return {
@@ -75,6 +160,7 @@ export function createAiTools(db: any) {
           author: row.author,
           entryDate: row.entryDate,
           bodyText,
+          truncated: (row.bodyText || toPlainText(row.body ?? "")).length > MAX_TOOL_CHARS,
         };
       },
     }),
@@ -101,6 +187,72 @@ export function createAiTools(db: any) {
           title: row.title,
           updatedAt: row.updatedAt,
         }));
+      },
+    }),
+
+    web_search: tool({
+      description:
+        "在互联网上搜索外部信息、最新新闻、景点旅游指南、公共知识等空间内部数据未涵盖的内容。",
+      inputSchema: z.object({
+        query: z.string().min(1).describe("搜索关键词或文本"),
+        provider: z
+          .enum(["auto", "tavily", "brave"])
+          .optional()
+          .describe("搜索引擎 Provider，默认 auto"),
+      }),
+      execute: async ({ query, provider = "auto" }) => {
+        const tavilyKey =
+          env?.TAVILY_API_KEY ||
+          process.env.TAVILY_API_KEY ||
+          settingsMap?.tavily_api_key;
+        const braveKey =
+          env?.BRAVE_SEARCH_API_KEY ||
+          process.env.BRAVE_SEARCH_API_KEY ||
+          settingsMap?.brave_search_api_key;
+
+        if (!tavilyKey && !braveKey) {
+          return {
+            error:
+              "尚未配置 Web 搜索 API Key。请在环境变量或系统设置中配置 TAVILY_API_KEY 或 BRAVE_SEARCH_API_KEY。",
+          };
+        }
+
+        let targetProvider = provider;
+        if (targetProvider === "auto") {
+          targetProvider = tavilyKey ? "tavily" : "brave";
+        }
+
+        try {
+          if (targetProvider === "tavily" && tavilyKey) {
+            const results = await executeTavilySearch(query, tavilyKey);
+            return { query, provider: "tavily", results };
+          }
+          if (targetProvider === "brave" && braveKey) {
+            const results = await executeBraveSearch(query, braveKey);
+            return { query, provider: "brave", results };
+          }
+          if (tavilyKey) {
+            const results = await executeTavilySearch(query, tavilyKey);
+            return { query, provider: "tavily", results };
+          }
+          if (braveKey) {
+            const results = await executeBraveSearch(query, braveKey);
+            return { query, provider: "brave", results };
+          }
+          return { error: "所选搜索引擎 API Key 未配置" };
+        } catch (err: any) {
+          if (targetProvider === "tavily" && braveKey) {
+            try {
+              const results = await executeBraveSearch(query, braveKey);
+              return { query, provider: "brave (fallback)", results };
+            } catch (fallbackErr: any) {
+              return {
+                error: `Tavily 搜索失败: ${err.message}; 自动降级 Brave 也失败: ${fallbackErr.message}`,
+              };
+            }
+          }
+          return { error: `Web 搜索失败: ${err.message}` };
+        }
       },
     }),
   };

@@ -68,9 +68,15 @@ function extensionForMime(mimeType: string): string {
   return ".jpg";
 }
 
+import {
+  clearFeishuAiSession,
+  handleFeishuAiChat,
+} from "./feishu-ai-chat.js";
+
 export interface FeishuInboundMessage {
   messageId: string;
   chatId: string;
+  threadId?: string;
   chatType: "p2p" | "group" | string;
   messageType: string;
   content: string;
@@ -144,19 +150,50 @@ function extractImageKey(messageType: string, content: string): string | null {
 
 function isQueryCommand(text: string): boolean {
   const trimmed = text.trim();
-  return (
-    trimmed.startsWith("/") ||
+  if (
+    trimmed.startsWith("/today") ||
+    trimmed.startsWith("/week") ||
+    trimmed.startsWith("/month") ||
+    trimmed.startsWith("/summary") ||
+    trimmed.startsWith("/clear") ||
+    trimmed.startsWith("/reset") ||
+    trimmed.startsWith("/搜") ||
     trimmed.startsWith("搜") ||
     trimmed.startsWith("查")
-  );
+  ) {
+    return true;
+  }
+  return false;
 }
 
-function parseWriteIntent(raw: string, defaultType: string): ParsedWrite | null {
+function parseWriteCommand(raw: string, defaultType: string): ParsedWrite | null {
   const text = raw.trim();
   if (!text) return null;
 
+  // 1. /日记 内容
+  if (text.startsWith("/日记")) {
+    const body = text.replace(/^\/日记\s*/, "").trim();
+    if (!body) return null;
+    return { entryType: "diary", entryDate: now(), text: body };
+  }
+
+  // 2. /留言 内容
+  if (text.startsWith("/留言")) {
+    const body = text.replace(/^\/留言\s*/, "").trim();
+    if (!body) return null;
+    return { entryType: "message", entryDate: now(), text: body };
+  }
+
+  // 3. /信 内容
+  if (text.startsWith("/信")) {
+    const body = text.replace(/^\/信\s*/, "").trim();
+    if (!body) return null;
+    return { entryType: "letter", entryDate: now(), text: body };
+  }
+
+  // 4. /补记 M/D 内容
   const backdate = text.match(
-    /^补记\s*(\d{1,2})[\/\-.](\d{1,2})[：:]\s*([\s\S]+)$/
+    /^\/补记\s*(\d{1,2})[\/\-.](\d{1,2})[：:\s]*([\s\S]+)$/
   );
   if (backdate) {
     const month = Number(backdate[1]);
@@ -168,19 +205,7 @@ function parseWriteIntent(raw: string, defaultType: string): ParsedWrite | null 
     return { entryType: "diary", entryDate, text: body };
   }
 
-  if (text.startsWith("留言：") || text.startsWith("留言:")) {
-    const body = text.replace(/^留言[：:]/, "").trim();
-    if (!body) return null;
-    return { entryType: "message", entryDate: now(), text: body };
-  }
-
-  if (text.startsWith("信：") || text.startsWith("信:")) {
-    const body = text.replace(/^信[：:]/, "").trim();
-    if (!body) return null;
-    return { entryType: "letter", entryDate: now(), text: body };
-  }
-
-  return { entryType: defaultType, entryDate: now(), text };
+  return null;
 }
 
 function beijingDateToUnix(month: number, day: number): number | null {
@@ -220,6 +245,13 @@ async function handleQueryCommand(
 ): Promise<void> {
   const trimmed = text.trim();
   const baseUrl = ctx.baseUrl;
+
+  if (trimmed.toLowerCase() === "/clear" || trimmed.toLowerCase() === "/reset") {
+    const threadKey = message.threadId || message.chatId;
+    await clearFeishuAiSession(ctx.db, threadKey);
+    await replyText(ctx, message, "已重置当前 AI 对话 🗑️");
+    return;
+  }
 
   if (trimmed.toLowerCase() === "/today") {
     const { start, end } = dayRange();
@@ -459,22 +491,24 @@ export async function processFeishuInboundMessage(
   const text = extractTextFromContent(message.messageType, message.content);
   const imageKey = extractImageKey(message.messageType, message.content);
 
+  // 1. 查询类指令（/today, /week, /month, /summary, /clear, /reset, /搜）
   if (text && isQueryCommand(text)) {
     await handleQueryCommand(ctx, message, text);
     return;
   }
 
+  // 2. 显式写入类指令（/日记, /留言, /信, /补记）
+  const parsedWrite = text ? parseWriteCommand(text, ctx.config.defaultEntryType) : null;
+
   let entryId: string | null = null;
-  if (text) {
-    const parsed = parseWriteIntent(text, ctx.config.defaultEntryType);
-    if (parsed) {
-      entryId = await writeEntryText(ctx, actor, parsed);
-    }
+  if (parsedWrite) {
+    entryId = await writeEntryText(ctx, actor, parsedWrite);
   } else if (imageKey) {
+    // 带有图片的消息直接录入为日志/图片附件
     entryId = await writeEntryText(ctx, actor, {
       entryType: ctx.config.defaultEntryType,
       entryDate: now(),
-      text: "（飞书图片）",
+      text: text || "（飞书图片）",
     });
   }
 
@@ -495,6 +529,26 @@ export async function processFeishuInboundMessage(
       .get();
     const label = labels[row?.type ?? "diary"] ?? "内容";
     await replyText(ctx, message, `已记入${label} ✅`);
+    return;
+  }
+
+  // 3. 无 / 前缀的自然语言文本 → 进入 AI 多轮对话！
+  if (text) {
+    await handleFeishuAiChat(
+      {
+        db: ctx.db,
+        appId: ctx.appId,
+        appSecret: ctx.appSecret,
+        baseUrl: ctx.baseUrl,
+        aiEnv: ctx.aiEnv,
+      },
+      {
+        chatId: message.chatId,
+        threadId: message.threadId ?? "",
+      },
+      text,
+      actor
+    );
   }
 }
 

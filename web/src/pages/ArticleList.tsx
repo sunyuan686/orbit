@@ -176,6 +176,112 @@ function PolaroidMessageCard({
   );
 }
 
+function DiaryGridCard({
+  entry,
+  tone,
+}: {
+  entry: EntrySummary;
+  tone: "a" | "b";
+}) {
+  const hasCover = Boolean(entry.coverUrl);
+  const initial = entry.author ? entry.author.charAt(0) : "日";
+  const body = entry.snippet || "（无内容）";
+  const className = [
+    "orbit-polaroid-card",
+    `orbit-polaroid-card--${tone}`,
+    hasCover ? "orbit-polaroid-card--has-cover" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <Link to={`/diary/${entry.id}`} className={className}>
+      <div className="orbit-polaroid-header">
+        <div className="orbit-polaroid-user">
+          <span className={`orbit-polaroid-avatar orbit-polaroid-avatar--${tone}`}>
+            {initial}
+          </span>
+          {entry.author && (
+            <span className="orbit-polaroid-author">{entry.author}</span>
+          )}
+        </div>
+        {entry.entryDate != null && (
+          <span className="orbit-polaroid-date">{formatDate(entry.entryDate)}</span>
+        )}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {entry.title && (
+          <h3 style={{ fontFamily: "var(--font-heading)", fontSize: "1rem", fontWeight: 500, marginBottom: "0.375rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {entry.title}
+          </h3>
+        )}
+        <p className="orbit-polaroid-body">{body}</p>
+      </div>
+
+      {hasCover && entry.coverUrl && (
+        <div className="orbit-polaroid-frame">
+          <img src={entry.coverUrl} alt="" className="orbit-polaroid-img" loading="lazy" />
+        </div>
+      )}
+    </Link>
+  );
+}
+
+function TimelineGridCard({
+  entry,
+  tone,
+}: {
+  entry: EntrySummary;
+  tone: "a" | "b";
+}) {
+  const hasCover = Boolean(entry.coverUrl);
+  const initial = entry.author ? entry.author.charAt(0) : "轨";
+  const body = entry.snippet || "（无内容）";
+  const className = [
+    "orbit-polaroid-card",
+    `orbit-polaroid-card--${tone}`,
+    hasCover ? "orbit-polaroid-card--has-cover" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <Link to={`/timeline/${entry.id}`} className={className}>
+      <div className="orbit-polaroid-header">
+        <div className="orbit-polaroid-user">
+          <span className={`orbit-polaroid-avatar orbit-polaroid-avatar--${tone}`}>
+            {initial}
+          </span>
+          {entry.author ? (
+            <span className="orbit-polaroid-author">{entry.author}</span>
+          ) : (
+            <span className="orbit-polaroid-author">时间线</span>
+          )}
+        </div>
+        {entry.entryDate != null && (
+          <span className="orbit-polaroid-date">{formatDate(entry.entryDate)}</span>
+        )}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {entry.title && (
+          <h3 style={{ fontFamily: "var(--font-heading)", fontSize: "1rem", fontWeight: 500, marginBottom: "0.375rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {entry.title}
+          </h3>
+        )}
+        <p className="orbit-polaroid-body">{body}</p>
+      </div>
+
+      {hasCover && entry.coverUrl && (
+        <div className="orbit-polaroid-frame">
+          <img src={entry.coverUrl} alt="" className="orbit-polaroid-img" loading="lazy" />
+        </div>
+      )}
+    </Link>
+  );
+}
+
 function DiaryCard({ entry }: { entry: EntrySummary }) {
   const hasCover = Boolean(entry.coverUrl);
   const parts =
@@ -453,6 +559,21 @@ function TypedEntryList({
   }
 
   if (type === "diary") {
+    if (viewMode === "polaroid") {
+      return (
+        <ul className="orbit-list-plain orbit-msg-board-polaroid">
+          {entries.map((entry) => (
+            <li key={entry.id}>
+              <DiaryGridCard
+                entry={entry}
+                tone={tones.get(authorToneKey(entry)) ?? "a"}
+              />
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
     return (
       <ul className="orbit-list-plain orbit-diary-list">
         {entries.map((entry) => (
@@ -465,6 +586,21 @@ function TypedEntryList({
   }
 
   if (type === "timeline") {
+    if (viewMode === "polaroid") {
+      return (
+        <ul className="orbit-list-plain orbit-msg-board-polaroid">
+          {entries.map((entry) => (
+            <li key={entry.id}>
+              <TimelineGridCard
+                entry={entry}
+                tone={tones.get(authorToneKey(entry)) ?? "a"}
+              />
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
     return (
       <div className="orbit-tl-wrap">
         {entries.map((entry) => (
@@ -501,13 +637,29 @@ export function ArticleList() {
   const { type } = useParams<{ type: string }>();
   const toast = useToast();
   const toastedError = useRef<unknown>(null);
+
+  const supportsViewSwitch = type === "message" || type === "diary" || type === "timeline";
+
   const [viewMode, setViewMode] = useState<"classic" | "polaroid">(() => {
-    return (localStorage.getItem("orbit_msg_view_mode") as "classic" | "polaroid") || "classic";
+    const key = type ? `orbit_view_mode_${type}` : "orbit_view_mode";
+    return (localStorage.getItem(key) as "classic" | "polaroid") || "classic";
   });
+
+  useEffect(() => {
+    if (!type) return;
+    const saved = localStorage.getItem(`orbit_view_mode_${type}`);
+    if (saved === "polaroid" || saved === "classic") {
+      setViewMode(saved);
+    } else {
+      setViewMode("classic");
+    }
+  }, [type]);
 
   const handleViewModeChange = (mode: "classic" | "polaroid") => {
     setViewMode(mode);
-    localStorage.setItem("orbit_msg_view_mode", mode);
+    if (type) {
+      localStorage.setItem(`orbit_view_mode_${type}`, mode);
+    }
   };
 
   const isLetter = type === "letter";
@@ -569,7 +721,7 @@ export function ArticleList() {
         </Link>
       </div>
 
-      {type === "message" && !loading && entries.length > 0 && (
+      {supportsViewSwitch && !loading && entries.length > 0 && (
         <div className="flex items-center justify-end mb-4">
           <div className="orbit-view-switcher" role="tablist" aria-label="视图切换">
             <button

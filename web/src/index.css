@@ -545,7 +545,7 @@ h1, h2, h3, h4, h5, h6 {
   flex-direction: column;
   justify-content: space-between;
   height: 100%;
-  min-height: 210px;
+  min-height: 220px;
   padding: 1.125rem;
   border-radius: 12px;
   text-decoration: none;
@@ -557,6 +557,10 @@ h1, h2, h3, h4, h5, h6 {
   transform-origin: center top;
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
   border: 1px solid oklch(0.92 0.01 80);
+}
+
+.orbit-polaroid-card--has-cover {
+  min-height: 260px;
 }
 
 .orbit-polaroid-card::before {
@@ -653,21 +657,25 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .orbit-polaroid-frame {
-  background: oklch(0.99 0.002 80);
+  background: oklch(0.955 0.005 80);
   padding: 4px;
-  border-radius: 6px;
-  border: 1px solid oklch(0.92 0.005 80);
-  box-shadow: 0 2px 6px oklch(0 0 0 / 0.04);
+  border-radius: 8px;
+  border: 1px solid oklch(0.91 0.005 80);
+  box-shadow: 0 2px 8px oklch(0 0 0 / 0.04);
   margin-top: 0.625rem;
-  height: 110px;
+  height: 200px;
   flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .orbit-polaroid-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  border-radius: 4px;
+  object-fit: contain;
+  border-radius: 5px;
   display: block;
 }
 
@@ -2692,6 +2700,59 @@ a.orbit-settings-mobile-row {
 .orbit-settings-model-search-clear:focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 1px;
+}
+
+/* AI Bot Name & Persona controls */
+.orbit-settings-bot-name-input {
+  width: 100%;
+  max-width: 20rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: var(--type-control);
+  color: var(--color-text-primary);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.orbit-settings-bot-name-input:hover {
+  border-color: var(--color-text-secondary);
+}
+
+.orbit-settings-bot-name-input:focus-visible {
+  border-color: var(--color-text-primary);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+  background: var(--color-bg);
+}
+
+.orbit-settings-bot-persona-textarea {
+  width: 100%;
+  max-width: 36rem;
+  min-height: 6.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.625rem 0.875rem;
+  font-size: var(--type-secondary);
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  resize: vertical;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.orbit-settings-bot-persona-textarea:hover {
+  border-color: var(--color-text-secondary);
+}
+
+.orbit-settings-bot-persona-textarea:focus-visible {
+  border-color: var(--color-text-primary);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+  background: var(--color-bg);
+}
+
+.orbit-settings-bot-persona-textarea::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.75;
 }
 
 .orbit-settings-model-groups {
@@ -6768,10 +6829,28 @@ html.orbit-ai-open body {
   border-color: var(--color-danger, #d9534f);
 }
 
+.orbit-ai-tool summary::-webkit-details-marker,
+.orbit-ai-tool summary::marker {
+  display: none;
+}
+
 .orbit-ai-tool-header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.orbit-ai-tool-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: transform var(--motion-fast, 0.15s ease);
+  color: var(--color-text-muted);
+}
+
+.orbit-ai-tool[open] .orbit-ai-tool-chevron {
+  transform: rotate(180deg);
 }
 
 .orbit-ai-tool-status-dot {

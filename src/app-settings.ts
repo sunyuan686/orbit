@@ -16,6 +16,8 @@ export const APP_SETTING_KEYS = {
   aiEnabledProviders: "ai_enabled_providers",
   aiConnections: "ai_connections",
   aiDeepseekKey: "ai_deepseek_key",
+  aiBotName: "ai_bot_name",
+  aiBotPersona: "ai_bot_persona",
 } as const;
 
 export const ACCENT_PRESETS = ["stone", "rose", "sage", "dusk"] as const;
@@ -26,6 +28,10 @@ export type AiProvider = (typeof AI_PROVIDERS)[number];
 
 export const DEFAULT_WORKERS_AI_MODEL = "@cf/zai-org/glm-4.7-flash";
 export const DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash";
+
+export const DEFAULT_AI_BOT_NAME = "小辛星";
+export const DEFAULT_AI_BOT_PERSONA =
+  "你的性格温暖、真诚、细腻且富有亲和力。你的任务是陪空间内的成员聊天、帮他们回忆温馨时刻、解答日常疑问或提供生活建议。";
 
 /** Default models visible in chat when none are configured. */
 export const DEFAULT_ENABLED_AI_MODELS: readonly string[] = [
@@ -50,6 +56,8 @@ export interface AppSettings {
   aiEnabledProviders: AiProvider[];
   aiConnections: AiCustomConnectionPublic[];
   hasDeepseekKey: boolean;
+  aiBotName: string;
+  aiBotPersona: string;
 }
 
 const DEFAULT_ACCENT_PRESET: AccentPreset = "stone";
@@ -187,6 +195,11 @@ export function buildAppSettings(
     ),
   }));
 
+  const aiBotName =
+    settingsMap[APP_SETTING_KEYS.aiBotName]?.trim() || DEFAULT_AI_BOT_NAME;
+  const aiBotPersona =
+    settingsMap[APP_SETTING_KEYS.aiBotPersona]?.trim() || DEFAULT_AI_BOT_PERSONA;
+
   return {
     accentPreset,
     aiProvider,
@@ -195,6 +208,8 @@ export function buildAppSettings(
     aiEnabledProviders,
     aiConnections: connections,
     hasDeepseekKey: Boolean(settingsMap[APP_SETTING_KEYS.aiDeepseekKey]?.trim()),
+    aiBotName,
+    aiBotPersona,
   };
 }
 

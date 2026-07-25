@@ -12,6 +12,8 @@ const ai = createAiRoutes(() => db, {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
+    TAVILY_API_KEY: process.env.TAVILY_API_KEY,
+    BRAVE_SEARCH_API_KEY: process.env.BRAVE_SEARCH_API_KEY,
   }),
 });
 

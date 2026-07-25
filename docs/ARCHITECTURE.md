@@ -60,6 +60,7 @@ audit_log  — 操作审计（创建 / 编辑 / 删除 / 评论 / 空间与设�
 api_token  — 外部访问 Bearer Token（仅存哈希）；`GET/POST/DELETE /api/api-tokens`（管理需会话）
 milestone_unlock — 恋爱记忆里程碑解锁（派生规则命中后物化；见 [love-memories.md](./specs/love-memories.md)）
 ai_conversation / ai_message  — AI 聊天会话与消息（见 [ai.md](./specs/ai.md)）
+feishuMessageDedup / feishuThreadSession — 飞书事件去重与 AI 会话映射（见 [feishu.md](./specs/feishu.md)）
 user / session / account / verification  — better-auth 标准表
 ```
 
