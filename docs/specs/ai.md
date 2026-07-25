@@ -379,9 +379,9 @@ ORDER BY updated_at DESC
 
 ### 6.3 限流（MVP）
 
-- 每登录用户：**20 次 / 分钟**（内存计数或 KV，MVP 可用进程内 Map + 滑动窗口）
-- 单次请求：**maxSteps 5**（tool 循环上限，防 agent 死循环）
-- 单次 tool 返回：**截断至 8k 字符**（防 context 爆炸）
+- 每登录用户：**20 次 / 分钟**（进程内 Map + 滑动窗口，MVP 取舍；二期可换 KV 以跨实例共享）
+- 单次请求：**无步数上限**（`stopWhen: () => false`）。agent 一直跑到模型返回最终回答（不再发起 tool call）才收尾，与 Codex 靠 `end_turn` 收尾一致；SDK 默认 `stepCountIs(1)` 会废掉工具循环，故显式用 `() => false` 而非删行。
+- 防死循环兜底（仍保留）：工具返回**截断至 8k 字符**、上下文 `trimMessagesForModel(40)`、限流 20 次/分；若观察到失控循环，可加回 `stepCountIs(N)` 作为硬刹车。
 
 ### 6.4 二期端点（预留，本期不实现）
 
@@ -553,36 +553,41 @@ async function setShared(conversationId: string, shared: boolean) {
 
 ### Phase 1 — 骨架（可 curl 验证）
 
-- [ ] 依赖安装、`wrangler.toml` `[ai]`、`Env.AI`
-- [ ] `ai_conversation` / `ai_message` 表 + migration
-- [ ] `src/services/ai-chat-store.ts`：CRUD + message 序列化
-- [ ] `src/services/ai-model.ts`：`resolveModel`
-- [ ] `src/api/ai.ts`：`POST /chat` 流式 + 自动建会话 + `onFinish` 落库
-- [ ] 挂载到 `worker.ts` + `server/index.ts`
+- [x] 依赖安装、`wrangler.toml` `[ai]`、`Env.AI`
+- [x] `ai_conversation` / `ai_message` 表 + migration（`0007_ai_chat.sql`、`0008_ai_conversation_last_preview.sql`）
+- [x] `src/services/ai-chat-store.ts`：CRUD + message 序列化（以 `parts` 为唯一源）
+- [x] `src/services/ai-model.ts`：`resolveModel`
+- [x] `src/api/ai.ts`：`POST /chat` 流式 + 自动建会话 + `onFinish` 落库
+- [x] 挂载到 `worker.ts` + `server/index.ts`（双模式）
 
 ### Phase 2 — 配置
 
-- [ ] `app-settings.ts` 扩展 + settings API + 加密存储
-- [ ] 设置页 AI 区块
+- [x] `app-settings.ts` 扩展 + settings API + 加密存储（Key 脱敏，明文不进日志）
+- [x] 设置页 AI 区块（`AiProvidersSettingsPanel` + `AiModelPicker`）
 
 ### Phase 3 — 能力
 
-- [ ] `ai-tools.ts` 三个 tool
-- [ ] `ai-prompt.ts` + article context 注入
-- [ ] 限流
-- [ ] `GET/PATCH/DELETE /api/ai/conversations`（含 `shared` 权限）
+- [x] `ai-tools.ts` 三个 tool（`search_entries` / `get_entry` / `list_memos`）
+- [x] `ai-prompt.ts` + article context 注入
+- [x] 限流（`ai-rate-limit.ts`，20 次/分/用户，进程内 Map）
+- [x] `GET/PATCH/DELETE /api/ai/conversations`（含 `shared` 权限）
 
 ### Phase 4 — UI
 
-- [ ] `AiConversationList` + `AiChatPanel` + **共享开关** + Layout / ArticleView 入口
-- [ ] 加载历史、新对话、删除会话
-- [ ] 错误态、加载态
+- [x] `AiConversationList` + `AiChatPanel` + **共享开关** + Layout / ArticleView 入口
+- [x] 加载历史、新对话、删除会话
+- [x] 错误态、加载态
 
 ### Phase 5 — 文档与 ROADMAP
 
-- [ ] ROADMAP AI 行状态更新
-- [ ] ARCHITECTURE 表结构补充
-- [ ] CHANGELOG（随 release 流程）
+- [x] ROADMAP AI 行状态更新（含"无步数上限"说明）
+- [x] ARCHITECTURE 表结构补充（`ai_conversation` / `ai_message`，见 docs/ARCHITECTURE.md:62）
+- [x] CHANGELOG（随 release-please 流程自动生成）
+
+> 实现偏差（相对原始设计稿，已落地为准）：
+> 1. **模型 Provider**：设计稿写 OpenAI / Anthropic BYOK；实际落地为 **Workers AI（默认 `@cf/zai-org/glm-4.7-flash`）/ DeepSeek / 自定义 OpenAI 兼容连接**，见 `src/services/ai-model.ts`、`app-settings.ts`（`AI_PROVIDERS`）。
+> 2. **步数上限**：设计稿 §6.3 原写 `maxSteps 5`；实际为 **无步数上限**（`stopWhen: () => false`，靠模型自身收尾），见 §6.3 与 `src/api/ai.ts`。
+> 3. **限流存储**：设计稿称"内存或 KV"；MVP 实际为进程内 Map + 滑动窗口，跨实例不共享，二期可换 KV。
 
 ---
 

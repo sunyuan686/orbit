@@ -3,7 +3,6 @@ import type { Context } from "hono";
 import {
   convertToModelMessages,
   streamText,
-  stepCountIs,
   type UIMessage,
 } from "ai";
 import type { AiContextMode } from "../services/ai-chat-store.js";
@@ -447,7 +446,12 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
         system,
         messages: modelMessages,
         tools,
-        stopWhen: stepCountIs(5),
+        // Intentionally uncapped: the agent runs until the model returns a
+        // final answer with no tool calls (its own "done" signal), like
+        // Codex's end_turn. The previous stepCountIs(5) clipped legitimate
+        // multi-hop retrieval. If a runaway loop is ever observed, add a
+        // finite brake here with stepCountIs(N).
+        stopWhen: () => false,
         onFinish: async () => {
           log.info("chat finished", {
             conversationId,

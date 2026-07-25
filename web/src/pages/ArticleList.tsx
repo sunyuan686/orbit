@@ -128,6 +128,54 @@ function MessageCard({
   );
 }
 
+function PolaroidMessageCard({
+  entry,
+  tone,
+  tilt,
+}: {
+  entry: EntrySummary;
+  tone: "a" | "b";
+  tilt: "a" | "b" | "none";
+}) {
+  const body = entry.snippet || entry.title || "（无内容）";
+  const hasCover = Boolean(entry.coverUrl);
+  const initial = entry.author ? entry.author.charAt(0) : "★";
+  const className = [
+    "orbit-polaroid-card",
+    `orbit-polaroid-card--${tone}`,
+    tilt !== "none" ? `orbit-polaroid-card--tilt-${tilt}` : "",
+    hasCover ? "orbit-polaroid-card--has-cover" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <Link to={`/message/${entry.id}`} className={className}>
+      <div className="orbit-polaroid-header">
+        <div className="orbit-polaroid-user">
+          <span className={`orbit-polaroid-avatar orbit-polaroid-avatar--${tone}`}>
+            {initial}
+          </span>
+          {entry.author && (
+            <span className="orbit-polaroid-author">{entry.author}</span>
+          )}
+        </div>
+        {entry.entryDate != null && (
+          <span className="orbit-polaroid-date">{formatDate(entry.entryDate)}</span>
+        )}
+      </div>
+
+      <p className="orbit-polaroid-body">{body}</p>
+
+      {hasCover && entry.coverUrl && (
+        <div className="orbit-polaroid-frame">
+          <img src={entry.coverUrl} alt="" className="orbit-polaroid-img" loading="lazy" />
+        </div>
+      )}
+    </Link>
+  );
+}
+
 function DiaryCard({ entry }: { entry: EntrySummary }) {
   const hasCover = Boolean(entry.coverUrl);
   const parts =
@@ -364,13 +412,31 @@ function LetterThreadItem({
 function TypedEntryList({
   type,
   entries,
+  viewMode = "classic",
 }: {
   type: string;
   entries: EntrySummary[];
+  viewMode?: "classic" | "polaroid";
 }) {
   const tones = useAuthorTones(entries);
 
   if (type === "message") {
+    if (viewMode === "polaroid") {
+      return (
+        <ul className="orbit-list-plain orbit-msg-board-polaroid">
+          {entries.map((entry, index) => (
+            <li key={entry.id}>
+              <PolaroidMessageCard
+                entry={entry}
+                tone={tones.get(authorToneKey(entry)) ?? "a"}
+                tilt={index % 2 === 0 ? "a" : "b"}
+              />
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
     return (
       <ul className="orbit-list-plain orbit-msg-board">
         {entries.map((entry, index) => (
@@ -435,6 +501,14 @@ export function ArticleList() {
   const { type } = useParams<{ type: string }>();
   const toast = useToast();
   const toastedError = useRef<unknown>(null);
+  const [viewMode, setViewMode] = useState<"classic" | "polaroid">(() => {
+    return (localStorage.getItem("orbit_msg_view_mode") as "classic" | "polaroid") || "classic";
+  });
+
+  const handleViewModeChange = (mode: "classic" | "polaroid") => {
+    setViewMode(mode);
+    localStorage.setItem("orbit_msg_view_mode", mode);
+  };
 
   const isLetter = type === "letter";
   const paginated = Boolean(type) && !isLetter;
@@ -488,12 +562,41 @@ export function ArticleList() {
 
   return (
     <div className={`orbit-content${isLetter ? " orbit-content--desk" : ""}`}>
-      <div className={isLetter ? "orbit-desk-toolbar" : "flex items-center justify-between mb-6"}>
+      <div className={isLetter ? "orbit-desk-toolbar" : "flex items-center justify-between mb-4"}>
         <h2 className="orbit-page-title">{label}</h2>
         <Link to={`/${type}/new`} className="orbit-btn orbit-btn-primary">
           {isLetter ? "写信" : "新建"}
         </Link>
       </div>
+
+      {type === "message" && !loading && entries.length > 0 && (
+        <div className="flex items-center justify-end mb-4">
+          <div className="orbit-view-switcher" role="tablist" aria-label="视图切换">
+            <button
+              type="button"
+              className={`orbit-view-switcher-btn${viewMode === "classic" ? " is-active" : ""}`}
+              onClick={() => handleViewModeChange("classic")}
+              title="切换为经典列表模式"
+            >
+              <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path d="M2.5 4a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5A.75.75 0 0 1 2.5 4zm0 4a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5A.75.75 0 0 1 2.5 8zm0 4a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5a.75.75 0 0 1-.75-.75z"/>
+              </svg>
+              <span>列表</span>
+            </button>
+            <button
+              type="button"
+              className={`orbit-view-switcher-btn${viewMode === "polaroid" ? " is-active" : ""}`}
+              onClick={() => handleViewModeChange("polaroid")}
+              title="切换为卡片模式"
+            >
+              <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path d="M1.5 3A1.5 1.5 0 0 1 3 1.5h10A1.5 1.5 0 0 1 14.5 3v10a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 13V3zm1.5 0v7h10V3H3zm0 8.5v1.5h10v-1.5H3z"/>
+              </svg>
+              <span>卡片</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <p className="orbit-muted">加载中…</p>
@@ -517,7 +620,7 @@ export function ArticleList() {
         </ul>
       ) : (
         <>
-          <TypedEntryList type={type || "diary"} entries={entries} />
+          <TypedEntryList type={type || "diary"} entries={entries} viewMode={viewMode} />
           {hasMore && (
             <div className="mt-6 flex justify-center">
               <button

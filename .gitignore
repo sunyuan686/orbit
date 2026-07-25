@@ -34,6 +34,7 @@ migration_failed.txt
 # ─── 编辑器 ─────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
+.workbuddy/
 *.swp
 *.swo
 

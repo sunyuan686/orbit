@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { Streamdown } from "streamdown";
@@ -128,20 +135,228 @@ function createChatSession(
   };
 }
 
-function getMessageText(message: UIMessage): string {
-  if (Array.isArray(message.parts)) {
-    return message.parts
-      .filter((part) => part.type === "text")
-      .map((part) => part.text)
-      .join("");
-  }
-  const legacy = (message as UIMessage & { content?: string }).content;
-  return typeof legacy === "string" ? legacy : "";
+interface ToolPartShape {
+  type: string;
+  state?:
+    | "input-streaming"
+    | "input-available"
+    | "approval-requested"
+    | "output-available"
+    | "output-error";
+  input?: unknown;
+  output?: unknown;
+  errorText?: string;
 }
+
+// AI SDK v7 does not expose `toolUIs` on useChat; the supported way to render
+// tool calls is to iterate `message.parts` and match `type: "tool-<name>"`.
+function isToolPart(part: unknown): part is ToolPartShape {
+  if (typeof part !== "object" || part === null || !("type" in part)) return false;
+  const type = (part as { type: unknown }).type;
+  return typeof type === "string" && type.startsWith("tool-");
+}
+
+// Tool cards render the raw tool name (e.g. search_entries) instead of a humanized label.
 
 function getMessageAuthor(message: UIMessage): string | undefined {
   const meta = (message as UIMessage & { metadata?: { author?: string } }).metadata;
   return meta?.author;
+}
+
+function ToolCallBody({
+  toolName,
+  part,
+  isLoading,
+}: {
+  toolName: string;
+  part: ToolPartShape;
+  isLoading: boolean;
+}) {
+  if (toolName === "search_entries") {
+    const input = (part.input ?? {}) as { query?: string; type?: string };
+    const results = (part.output ?? []) as Array<{
+      id: string;
+      type?: string;
+      title?: string;
+      entryDate?: string;
+      snippet?: string;
+    }>;
+    if (Array.isArray(results) && results.length > 0) {
+      return (
+        <ul className="orbit-ai-tool-list">
+          {results.slice(0, 6).map((r) => (
+            <li key={r.id} className="orbit-ai-tool-item">
+              <details>
+                <summary className="orbit-ai-tool-item-summary">
+                  <span className="orbit-ai-tool-item-title">{r.title ?? "无标题"}</span>
+                  {r.entryDate ? (
+                    <span className="orbit-ai-tool-item-meta">{r.entryDate}</span>
+                  ) : null}
+                </summary>
+                {r.snippet ? (
+                  <span className="orbit-ai-tool-item-snippet">{r.snippet}</span>
+                ) : null}
+              </details>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    return null;
+  }
+
+  if (toolName === "get_entry") {
+    const output = (part.output ?? {}) as {
+      title?: string;
+      type?: string;
+      author?: string;
+      entryDate?: string;
+      bodyText?: string;
+      error?: string;
+    };
+    return (
+      <>
+        {output.title ? (
+          <p className="orbit-ai-tool-query">{output.title}</p>
+        ) : null}
+        {output.bodyText ? (
+          <p className="orbit-ai-tool-snippet">
+            {output.bodyText.slice(0, 240)}
+            {output.bodyText.length > 240 ? "…" : ""}
+          </p>
+        ) : null}
+      </>
+    );
+  }
+
+  // list_memos
+  const output = (part.output ?? []) as Array<{
+    key?: string;
+    title?: string;
+    updatedAt?: number;
+  }>;
+  if (Array.isArray(output) && output.length > 0) {
+    return (
+      <ul className="orbit-ai-tool-list">
+        {output.slice(0, 8).map((m, i) => (
+          <li key={m.key ?? i} className="orbit-ai-tool-item">
+            <span className="orbit-ai-tool-item-title">
+              {m.title ?? m.key ?? "备忘录"}
+            </span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  return null;
+}
+
+function renderToolArgs(toolName: string, input: unknown): ReactNode {
+  if (!input || typeof input !== "object") return null;
+  const a = input as Record<string, unknown>;
+  if (toolName === "search_entries") {
+    const query = typeof a.query === "string" ? a.query : "";
+    const type = typeof a.type === "string" ? a.type : "";
+    if (!query && !type) return null;
+    return (
+      <span className="orbit-ai-tool-arg">
+        {q ? `"${q}"` : ""}
+        {q && type ? " · " : ""}
+        {type || ""}
+      </span>
+    );
+  }
+  if (toolName === "get_entry") {
+    const id = typeof a.id === "string" ? a.id : "";
+    if (!id) return null;
+    return <span className="orbit-ai-tool-arg">#{id}</span>;
+  }
+  if (toolName === "list_memos") {
+    const limit = typeof a.limit === "number" ? a.limit : null;
+    if (limit == null) return null;
+    return <span className="orbit-ai-tool-arg">limit={limit}</span>;
+  }
+  return null;
+}
+
+function ToolCallCard({ part }: { part: ToolPartShape }) {
+  const toolName = part.type.replace(/^tool-/, "");
+  const isDone = part.state === "output-available";
+  const isError = part.state === "output-error";
+  const isLoading = !isDone && !isError;
+  return (
+    <div
+      className={
+        "orbit-ai-tool" +
+        (isLoading ? " orbit-ai-tool--loading" : "") +
+        (isError ? " orbit-ai-tool--error" : "")
+      }
+    >
+      <div className="orbit-ai-tool-header">
+        <span
+          className={`orbit-ai-tool-status-dot orbit-ai-tool-status-dot--${
+            isLoading ? "loading" : isDone ? "done" : "error"
+          }`}
+          aria-hidden="true"
+        />
+        <span className="orbit-ai-tool-name">{toolName}</span>
+        {renderToolArgs(toolName, part.input)}
+      </div>
+      <div className="orbit-ai-tool-body">
+        <ToolCallBody toolName={toolName} part={part} isLoading={isLoading} />
+      </div>
+    </div>
+  );
+}
+
+// Renders a message's parts in order (AI SDK v7 best practice): consecutive
+// text parts are grouped into a markdown bubble, tool parts become cards.
+function MessageBody({
+  parts,
+  isAssistant,
+  isStreaming,
+}: {
+  parts: UIMessage["parts"];
+  isAssistant: boolean;
+  isStreaming: boolean;
+}) {
+  const nodes: ReactNode[] = [];
+  let textBuffer = "";
+  const flush = (key: string) => {
+    if (!textBuffer.trim()) {
+      textBuffer = "";
+      return;
+    }
+    nodes.push(
+      <div className="orbit-ai-message-bubble" key={key}>
+        {isAssistant ? (
+          <Streamdown
+            className="orbit-ai-md"
+            controls={false}
+            isAnimating={isStreaming}
+            mode={isStreaming ? "streaming" : "static"}
+          >
+            {textBuffer}
+          </Streamdown>
+        ) : (
+          textBuffer
+        )}
+      </div>
+    );
+    textBuffer = "";
+  };
+  (parts ?? []).forEach((part, i) => {
+    if (part.type === "text") {
+      textBuffer += part.text;
+      return;
+    }
+    if (isToolPart(part)) {
+      flush(`tb-${i}`);
+      nodes.push(<ToolCallCard key={`tc-${i}`} part={part} />);
+    }
+  });
+  flush("tb-end");
+  return <>{nodes}</>;
 }
 
 export function AiChatPanel({
@@ -738,13 +953,17 @@ export function AiChatPanel({
               ) : null}
               {messages.map((message, messageIndex) => {
                 const author = getMessageAuthor(message);
-                const content =
+                const { reasoning } =
                   message.role === "assistant"
                     ? parseAssistantContent(message)
-                    : { reasoning: "", text: getMessageText(message) };
-                const { reasoning, text: bubbleText } = content;
+                    : { reasoning: "" };
                 const showReasoning = Boolean(reasoning);
-                if (!bubbleText && !showReasoning) return null;
+                const parts = message.parts ?? [];
+                const hasText = parts.some(
+                  (p) => p.type === "text" && Boolean(p.text)
+                );
+                const hasTool = parts.some((p) => isToolPart(p));
+                if (!showReasoning && !hasText && !hasTool) return null;
                 const isStreamingMessage =
                   status === "streaming" &&
                   message.role === "assistant" &&
@@ -771,22 +990,11 @@ export function AiChatPanel({
                         <div className="orbit-ai-reasoning-body">{reasoning}</div>
                       </details>
                     ) : null}
-                    {bubbleText ? (
-                      <div className="orbit-ai-message-bubble">
-                        {message.role === "assistant" ? (
-                          <Streamdown
-                            className="orbit-ai-md"
-                            controls={false}
-                            isAnimating={isStreamingMessage}
-                            mode={isStreamingMessage ? "streaming" : "static"}
-                          >
-                            {bubbleText}
-                          </Streamdown>
-                        ) : (
-                          bubbleText
-                        )}
-                      </div>
-                    ) : null}
+                    <MessageBody
+                      parts={parts}
+                      isAssistant={message.role === "assistant"}
+                      isStreaming={isStreamingMessage}
+                    />
                   </div>
                 );
               })}
