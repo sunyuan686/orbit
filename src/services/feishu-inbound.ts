@@ -8,6 +8,7 @@ import {
 } from "./feishu-settings.js";
 import { getUserById } from "./space-authors.js";
 import {
+  addFeishuReaction,
   downloadFeishuMessageImage,
   getTenantAccessToken,
   sendFeishuTextMessage,
@@ -467,6 +468,8 @@ async function attachImageToEntry(
   }
 }
 
+
+
 export async function processFeishuInboundMessage(
   ctx: FeishuInboundContext,
   message: FeishuInboundMessage,
@@ -487,6 +490,11 @@ export async function processFeishuInboundMessage(
     if (!ctx.config.allowedGroupChatIds.includes(message.chatId)) return;
     if (!options.hasGroupMention) return;
   }
+
+  // ⚡️ 核心体验升级：一收到消息立即给该消息打上 👀 (EYES) 表情回应，表示系统已接收并正在处理！
+  void getTenantAccessToken(ctx.appId, ctx.appSecret).then((token) => {
+    return addFeishuReaction(token, message.messageId, "EYES");
+  }).catch(() => {});
 
   const text = extractTextFromContent(message.messageType, message.content);
   const imageKey = extractImageKey(message.messageType, message.content);
@@ -543,6 +551,7 @@ export async function processFeishuInboundMessage(
         aiEnv: ctx.aiEnv,
       },
       {
+        messageId: message.messageId,
         chatId: message.chatId,
         threadId: message.threadId ?? "",
       },

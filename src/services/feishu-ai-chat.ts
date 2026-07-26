@@ -5,10 +5,13 @@ import { generateId } from "../lib/id.js";
 import { resolveModel, type AiRuntimeEnv } from "./ai-model.js";
 import { searchEntriesForFeishu } from "./feishu-commands.js";
 import {
+  addFeishuReaction,
   appendFeishuCardContent,
   createFeishuStreamingCard,
   finalizeFeishuStreamingCard,
   getTenantAccessToken,
+  replyFeishuCardMessage,
+  replyFeishuTextMessage,
   sendFeishuCardMessage,
   sendFeishuTextMessage,
 } from "./feishu-api.js";
@@ -43,6 +46,7 @@ export interface FeishuAiChatActor {
 }
 
 export interface FeishuAiChatMessage {
+  messageId: string;
   chatId: string;
   /** Feishu thread_id；p2p 单聊无话题时为空字符串 */
   threadId: string;
@@ -204,13 +208,21 @@ async function buildSystemPrompt(
  */
 async function streamToCardKit(
   accessToken: string,
-  receiveId: string,
-  receiveIdType: "open_id" | "chat_id" | "thread_id",
+  messageId: string,
+  chatId: string,
+  threadId: string,
   textStream: AsyncIterable<string>
 ): Promise<string> {
-  // Phase 1: 创建并发送占位卡片
+  // Phase 1: 创建并发送/回复占位卡片
   const { cardId, elementId } = await createFeishuStreamingCard(accessToken);
-  await sendFeishuCardMessage(accessToken, receiveId, receiveIdType, cardId);
+  
+  if (threadId) {
+    // 如果消息来自 Thread 话题，使用回复 API，带上 reply_in_thread: true！
+    await replyFeishuCardMessage(accessToken, messageId, cardId, true);
+  } else {
+    // 普通单聊直接推送到 chat_id
+    await sendFeishuCardMessage(accessToken, chatId, "chat_id", cardId);
+  }
 
   // Phase 2: 流式 Append
   let fullText = "";
@@ -277,8 +289,6 @@ export async function handleFeishuAiChat(
   actor: FeishuAiChatActor
 ): Promise<void> {
   const threadKey = message.threadId || message.chatId;
-  const targetReceiveId = message.threadId || message.chatId;
-  const targetReceiveIdType = message.threadId ? "thread_id" : "chat_id";
 
   // 获取 access token
   let accessToken: string;
@@ -293,12 +303,11 @@ export async function handleFeishuAiChat(
   try {
     resolvedModel = await resolveModel(ctx.db, ctx.aiEnv);
   } catch (err) {
-    await sendFeishuTextMessage(
-      accessToken,
-      targetReceiveId,
-      targetReceiveIdType,
-      "AI 暂不可用，请检查模型配置 ⚙️"
-    ).catch(() => {});
+    if (message.threadId) {
+      await replyFeishuTextMessage(accessToken, message.messageId, "AI 暂不可用，请检查模型配置 ⚙️", true).catch(() => {});
+    } else {
+      await sendFeishuTextMessage(accessToken, message.chatId, "chat_id", "AI 暂不可用，请检查模型配置 ⚙️").catch(() => {});
+    }
     return;
   }
 
@@ -339,8 +348,9 @@ export async function handleFeishuAiChat(
   try {
     fullResponse = await streamToCardKit(
       accessToken,
-      targetReceiveId,
-      targetReceiveIdType,
+      message.messageId,
+      message.chatId,
+      message.threadId,
       streamResult.textStream
     );
     usedCardKit = true;
@@ -357,23 +367,24 @@ export async function handleFeishuAiChat(
   }
 
   if (!usedCardKit && fullResponse) {
-    await sendFeishuTextMessage(
-      accessToken,
-      targetReceiveId,
-      targetReceiveIdType,
-      fullResponse
-    ).catch(() => {});
+    if (message.threadId) {
+      await replyFeishuTextMessage(accessToken, message.messageId, fullResponse, true).catch(() => {});
+    } else {
+      await sendFeishuTextMessage(accessToken, message.chatId, "chat_id", fullResponse).catch(() => {});
+    }
   }
 
   if (!fullResponse) {
-    await sendFeishuTextMessage(
-      accessToken,
-      targetReceiveId,
-      targetReceiveIdType,
-      "AI 回复失败，请稍后再试 🔄"
-    ).catch(() => {});
+    if (message.threadId) {
+      await replyFeishuTextMessage(accessToken, message.messageId, "AI 回复失败，请稍后再试 🔄", true).catch(() => {});
+    } else {
+      await sendFeishuTextMessage(accessToken, message.chatId, "chat_id", "AI 回复失败，请稍后再试 🔄").catch(() => {});
+    }
     return;
   }
+
+  // ⚡️ 核心体验升级：处理完成，给用户的原消息贴上 CHECK_MARK (✔️) 表情表示回复完毕！
+  void addFeishuReaction(accessToken, message.messageId, "CHECK_MARK").catch(() => {});
 
   // 持久化 AI 回复 & 更新对话预览
   await saveMessage(ctx.db, conversationId, "assistant", fullResponse);
@@ -385,3 +396,5 @@ export async function handleFeishuAiChat(
     })
     .where(eq(aiConversation.id, conversationId));
 }
+
+

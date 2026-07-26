@@ -93,7 +93,7 @@ export function clearTenantAccessTokenCache(): void {
 export async function sendFeishuTextMessage(
   accessToken: string,
   receiveId: string,
-  receiveIdType: "open_id" | "chat_id" | "thread_id",
+  receiveIdType: "open_id" | "chat_id",
   text: string
 ): Promise<void> {
   const params = new URLSearchParams({ receive_id_type: receiveIdType });
@@ -115,7 +115,7 @@ export async function sendFeishuTextMessage(
 export async function sendFeishuInteractiveCard(
   accessToken: string,
   receiveId: string,
-  receiveIdType: "open_id" | "chat_id" | "thread_id",
+  receiveIdType: "open_id" | "chat_id",
   card: Record<string, unknown>
 ): Promise<void> {
   const params = new URLSearchParams({ receive_id_type: receiveIdType });
@@ -131,6 +131,51 @@ export async function sendFeishuInteractiveCard(
       }),
     }
   );
+}
+
+/**
+ * 给飞书特定消息添加 Reaction 表情回应（如 "EYES", "CHECK_MARK", "THUMBSUP"）
+ */
+export async function addFeishuReaction(
+  accessToken: string,
+  messageId: string,
+  emojiType: string
+): Promise<string> {
+  const result = await feishuJson<{ reaction_id: string }>(
+    `${FEISHU_API}/im/v1/messages/${encodeURIComponent(messageId)}/reactions`,
+    {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({
+        reaction_type: { emoji_type: emojiType },
+      }),
+    }
+  );
+  return result.reaction_id;
+}
+
+/**
+ * 回复某条特定的消息（如果 replyInThread 为 true，会在话题 Thread 中回复）
+ */
+export async function replyFeishuTextMessage(
+  accessToken: string,
+  messageId: string,
+  text: string,
+  replyInThread: boolean = false
+): Promise<string> {
+  const result = await feishuJson<{ message_id: string }>(
+    `${FEISHU_API}/im/v1/messages/${encodeURIComponent(messageId)}/reply`,
+    {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({
+        msg_type: "text",
+        content: JSON.stringify({ text }),
+        reply_in_thread: replyInThread,
+      }),
+    }
+  );
+  return result.message_id;
 }
 
 export async function downloadFeishuMessageImage(
@@ -256,7 +301,7 @@ export async function createFeishuStreamingCard(
 export async function sendFeishuCardMessage(
   accessToken: string,
   receiveId: string,
-  receiveIdType: "open_id" | "chat_id" | "thread_id",
+  receiveIdType: "open_id" | "chat_id",
   cardId: string
 ): Promise<string> {
   const params = new URLSearchParams({ receive_id_type: receiveIdType });
@@ -272,6 +317,33 @@ export async function sendFeishuCardMessage(
           type: "card",
           data: { card_id: cardId },
         }),
+      }),
+    }
+  );
+  return result.message_id;
+}
+
+/**
+ * 以 CardKit 卡片形式回复指定消息（如果在 Thread 中可保持在话题内部）
+ */
+export async function replyFeishuCardMessage(
+  accessToken: string,
+  messageId: string,
+  cardId: string,
+  replyInThread: boolean = false
+): Promise<string> {
+  const result = await feishuJson<{ message_id: string }>(
+    `${FEISHU_API}/im/v1/messages/${encodeURIComponent(messageId)}/reply`,
+    {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({
+        msg_type: "interactive",
+        content: JSON.stringify({
+          type: "card",
+          data: { card_id: cardId },
+        }),
+        reply_in_thread: replyInThread,
       }),
     }
   );
