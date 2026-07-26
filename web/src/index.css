@@ -3369,6 +3369,22 @@ a.orbit-settings-mobile-row {
   max-width: 16rem;
 }
 
+.orbit-settings-time-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.orbit-settings-time-pair label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 8rem;
+  font-size: var(--type-sm);
+  color: var(--color-text-muted);
+}
+
 .orbit-settings-stacked-form {
   display: flex;
   flex-direction: column;

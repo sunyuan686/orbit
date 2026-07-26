@@ -48,3 +48,12 @@ invocation_logs = true
 
 [observability.traces]
 enabled = false
+
+# 主动陪伴引擎调度器（DO Alarm，替代 Cron Trigger）
+[[durable_objects.bindings]]
+name = "COMPANION_SCHEDULER"
+class_name = "CompanionScheduler"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["CompanionScheduler"]

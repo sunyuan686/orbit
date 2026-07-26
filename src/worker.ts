@@ -35,6 +35,7 @@ import { getSessionAuthor } from "./api/session-author.js";
 import { requestContext } from "./lib/request-context.js";
 import { createRequireAuth } from "./lib/request-auth.js";
 import type { NotifyRuntime } from "./services/notify.js";
+import { CompanionScheduler } from "./services/companion-scheduler.js";
 
 export interface Env {
   DB: D1Database;
@@ -46,6 +47,7 @@ export interface Env {
   CF_API_TOKEN?: string;
   TAVILY_API_KEY?: string;
   BRAVE_SEARCH_API_KEY?: string;
+  COMPANION_SCHEDULER: DurableObjectNamespace<CompanionScheduler>;
 }
 
 type HonoEnv = { Bindings: Env };
@@ -307,5 +309,31 @@ app.get("/assets/:filename", requireAuth, async (c) => {
 
   return new Response(object.body, { headers });
 });
+
+// ─── Companion Scheduler API ─────────────────────────────────────────────────
+
+function getCompanionScheduler(c: Context<HonoEnv>) {
+  return c.env.COMPANION_SCHEDULER.getByName("companion");
+}
+
+// 首次部署后调用一次，启动 alarm 循环
+app.post("/api/companion/bootstrap", requireSession, async (c) => {
+  const result = await getCompanionScheduler(c).bootstrap();
+  return c.json(result);
+});
+
+// 用户改完配置（安静时段等）后调用，立即 reschedule
+app.post("/api/companion/reschedule", requireSession, async (c) => {
+  const result = await getCompanionScheduler(c).reschedule();
+  return c.json(result);
+});
+
+// 查询当前 alarm 状态，供设置页展示"下次推送时间"
+app.get("/api/companion/status", requireSession, async (c) => {
+  const result = await getCompanionScheduler(c).status();
+  return c.json(result);
+});
+
+export { CompanionScheduler };
 
 export default app;

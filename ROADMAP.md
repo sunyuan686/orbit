@@ -118,7 +118,7 @@
 | -------- | --- | --------------------------------------------------------------------- |
 | 飞书 Bot   | ✅   | 入站写日记/图片、指令查询、出站通知；见 [feishu.md](docs/specs/feishu.md)                |
 | 飞书第二期    | ✅   | `留言：` / `信：` 前缀、`/` 指令写入、AI `/summary` 月报等；见 [feishu.md](docs/specs/feishu.md) |
-| 飞书陪伴与对话 | 🚧  | 飞书内 AI 多轮聊天（CardKit 流式打字机 + Thread 会话）已落地；主动陪伴推送待做；见 [feishu-companion.md](docs/specs/feishu-companion.md) |
+| 飞书陪伴与对话 | 🚧  | 飞书内 AI 多轮聊天（CardKit 流式打字机 + Thread 会话）已落地；主动陪伴 MVP 已接入 DO Alarm、飞书卡片与设置页；见 [feishu-companion.md](docs/specs/feishu-companion.md)、[proactive-companion.md](docs/specs/proactive-companion.md) |
 | Telegram | 📋  | 优先级低；与飞书同类连接器                                                         |
 | 更多平台     | 📋  | 微信、Discord 等                                                          |
 
@@ -138,7 +138,7 @@
 | 飞书出站通知    | ✅   | 关键事件推送（纯文本），复用飞书凭证                    |
 | 飞书通知卡片    | 🚧  | 恋爱记忆里程碑已用 interactive card；通用出站事件仍待改卡片；统一方案见 [feishu-companion.md](docs/specs/feishu-companion.md) |
 | 通知偏好      | ✅   | 按事件类型开关，`/settings?tab=notifications` |
-| 定时推送飞书卡片  | 📋  | Cron 陪伴/回顾类卡片；见 [feishu-companion.md](docs/specs/feishu-companion.md) |
+| 主动触达飞书卡片  | 🚧  | DO Alarm 动态调度陪伴/回顾类卡片，支持设置页配置触达窗口与安静时段；见 [proactive-companion.md](docs/specs/proactive-companion.md) |
 | 飞书 AI 对话   | 🚧  | Bot 内多轮流式聊天，基于 CardKit 卡片与空间记录；见 [feishu-companion.md](docs/specs/feishu-companion.md) |
 | AI 摘要就绪通知 | 📋  | 智能总结完成后触达；可复用飞书卡片通道                   |
 | 节日提醒      | 📋  | 生日、纪念日、周年纪念、自定义特殊日；临近提醒，可并入定时卡片推送   |

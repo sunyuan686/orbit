@@ -450,3 +450,42 @@ export const milestoneUnlock = sqliteTable(
   },
   (t) => [index("idx_milestone_unlock_unlocked").on(t.unlockedAt)]
 );
+
+/**
+ * 主动陪伴推送记录与去重表
+ * type: memory_echo | milestone | digest | weekly_reflection
+ * status: sent | skipped | failed
+ */
+export const companionLog = sqliteTable(
+  "companion_log",
+  {
+    id: text("id").primaryKey(),
+    spaceId: text("space_id").notNull(),
+    recipientUserId: text("recipient_user_id")
+      .notNull()
+      .references(() => user.id),
+    type: text("type").notNull(),
+    /** 关联资源 ID，语义因 type 而异：
+     *  memory_echo:       entry_id
+     *  milestone:         milestone_key（无单一文章时为 null）
+     *  digest:            entry_id（触发推送的 letter/message）
+     *  weekly_reflection: null（周维度聚合）
+     */
+    targetId: text("target_id"),
+    payload: text("payload"),
+    status: text("status").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    check(
+      "companion_log_type_check",
+      sql`${t.type} IN ('memory_echo', 'milestone', 'digest', 'weekly_reflection')`
+    ),
+    check(
+      "companion_log_status_check",
+      sql`${t.status} IN ('sent', 'skipped', 'failed')`
+    ),
+    index("idx_companion_dedup").on(t.spaceId, t.recipientUserId, t.targetId, t.createdAt),
+    index("idx_companion_log_created").on(t.createdAt),
+  ]
+);

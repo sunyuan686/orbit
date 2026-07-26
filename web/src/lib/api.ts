@@ -822,6 +822,37 @@ export interface NotificationItem {
   updatedAt: number;
 }
 
+export interface CompanionSettings {
+  enabled: boolean;
+  quietStart: string;
+  quietEnd: string;
+  pushStart: string;
+  pushEnd: string;
+  preferredTime: string;
+  nextAlarmAt?: number | null;
+}
+
+export async function fetchCompanionSettings(): Promise<CompanionSettings> {
+  const res = await fetch(`${BASE}/api/settings/companion`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载陪伴设置失败");
+  return res.json();
+}
+
+export async function updateCompanionSettings(
+  data: Partial<CompanionSettings>
+): Promise<CompanionSettings> {
+  const res = await fetch(`${BASE}/api/settings/companion`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  await assertOk(res, "保存陪伴设置失败");
+  return res.json();
+}
+
 export async function fetchNotificationPreferences(): Promise<NotificationPreferences> {
   const res = await fetch(`${BASE}/api/notifications/preferences`, {
     credentials: "include",

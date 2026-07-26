@@ -21,9 +21,10 @@ import { ApiTokenSettingsPanel } from "../components/ApiTokenSettingsPanel";
 import { AiProvidersSettingsPanel } from "../components/AiProvidersSettingsPanel";
 import { FeishuIntegrationPanel } from "../components/FeishuIntegrationPanel";
 import { NotificationsSettingsPanel } from "../components/NotificationsSettingsPanel";
-import { AiIcon, BellIcon, ChevronLeftIcon, ChevronRightIcon, KeyIcon, MessageIcon, PaletteIcon, TimelineIcon, UserIcon } from "../components/OrbitIcons";
+import { AiIcon, BellIcon, ChevronLeftIcon, ChevronRightIcon, KeyIcon, MemoriesIcon, MessageIcon, PaletteIcon, TimelineIcon, UserIcon } from "../components/OrbitIcons";
 import { BirthdaySettingsField } from "../components/BirthdaySettingsField";
 import { SpaceSettingsPanel } from "../components/SpaceSettingsPanel";
+import { CompanionSettingsPanel } from "../components/CompanionSettingsPanel";
 import { useMaxWidthMd } from "../lib/useBreakpoint";
 
 type SettingsTab =
@@ -34,6 +35,7 @@ type SettingsTab =
   | "space"
   | "integrations"
   | "notifications"
+  | "companion"
   | "api-tokens";
 
 type SettingsTabConfig = {
@@ -124,6 +126,12 @@ const SETTINGS_NAV_GROUPS: {
         description: "供应商、模型与 API Key",
         icon: (props) => <AiIcon {...props} />,
       },
+      {
+        id: "companion",
+        label: "主动触达",
+        description: "陪伴时间、安静时段与调度",
+        icon: (props) => <MemoriesIcon {...props} />,
+      },
     ],
   },
 ];
@@ -155,6 +163,7 @@ function isSettingsTab(value: string | null): value is SettingsTab {
     value === "space" ||
     value === "integrations" ||
     value === "notifications" ||
+    value === "companion" ||
     value === "api-tokens"
   );
 }
@@ -450,7 +459,7 @@ export function SettingsPage() {
         <header className="orbit-settings-page-header">
           <h1 className="orbit-page-title">设置</h1>
           <p className="orbit-muted orbit-settings-page-desc">
-            管理账户、界面、空间档案、外部连接与 Orbit AI。
+            管理账户、界面、空间档案、外部连接、Orbit AI 与主动触达。
           </p>
         </header>
       ) : null}
@@ -787,6 +796,8 @@ export function SettingsPage() {
           ) : null}
 
           {activeTab === "ai" ? <AiProvidersSettingsPanel /> : null}
+
+          {activeTab === "companion" ? <CompanionSettingsPanel /> : null}
 
           {activeTab === "space" ? <SpaceSettingsPanel /> : null}
 

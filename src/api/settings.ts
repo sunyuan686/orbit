@@ -348,5 +348,127 @@ export function createSettingsRoutes(
     }
   });
 
+  // ─── Companion 陪伴设置 ──────────────────────────────────────────────────────
+
+  /** GET /api/settings/companion — 读取陪伴推送配置 */
+  settingsRoutes.get("/companion", async (c) => {
+    const session = await requireSessionAuthor(c, options.getSessionAuthor);
+    if (session instanceof Response) return session;
+    const db = getDb(c);
+    const map = await readSettingsMap(db);
+    let nextAlarmAt: number | null = null;
+    try {
+      const scheduler = (c.env as any).COMPANION_SCHEDULER?.getByName("companion");
+      if (scheduler) {
+        const result = await scheduler.status();
+        nextAlarmAt = result.nextAlarmAt;
+      }
+    } catch {
+      // 状态读取失败不影响配置展示
+    }
+    return c.json({
+      quietStart:    map["companion_quiet_start"]    ?? "22:30",
+      quietEnd:      map["companion_quiet_end"]      ?? "08:30",
+      pushStart:     map["companion_push_start"]     ?? "09:00",
+      pushEnd:       map["companion_push_end"]       ?? "21:30",
+      preferredTime: map["companion_preferred_time"] ?? "09:00",
+      enabled:       map["companion_enabled"]         !== "false",
+      nextAlarmAt,
+    });
+  });
+
+  /** PUT /api/settings/companion — 写入陪伴推送配置，自动触发 reschedule */
+  settingsRoutes.put("/companion", async (c) => {
+    const session = await requireSessionAuthor(c, options.getSessionAuthor);
+    if (session instanceof Response) return session;
+
+    const body = await c.req.json<{
+      quietStart?: string;
+      quietEnd?: string;
+      pushStart?: string;
+      pushEnd?: string;
+      preferredTime?: string;
+      enabled?: boolean;
+    }>();
+
+    // HH:MM 格式校验
+    const timeRe = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    if (body.quietStart !== undefined && !timeRe.test(body.quietStart)) {
+      return c.json({ error: "quietStart 格式应为 HH:MM" }, 400);
+    }
+    if (body.quietEnd !== undefined && !timeRe.test(body.quietEnd)) {
+      return c.json({ error: "quietEnd 格式应为 HH:MM" }, 400);
+    }
+    if (body.pushStart !== undefined && !timeRe.test(body.pushStart)) {
+      return c.json({ error: "pushStart 格式应为 HH:MM" }, 400);
+    }
+    if (body.pushEnd !== undefined && !timeRe.test(body.pushEnd)) {
+      return c.json({ error: "pushEnd 格式应为 HH:MM" }, 400);
+    }
+    if (body.preferredTime !== undefined && !timeRe.test(body.preferredTime)) {
+      return c.json({ error: "preferredTime 格式应为 HH:MM" }, 400);
+    }
+
+    const db = getDb(c);
+    if (body.quietStart !== undefined) {
+      await upsertSetting(db, "companion_quiet_start", body.quietStart);
+    }
+    if (body.quietEnd !== undefined) {
+      await upsertSetting(db, "companion_quiet_end", body.quietEnd);
+    }
+    if (body.pushStart !== undefined) {
+      await upsertSetting(db, "companion_push_start", body.pushStart);
+    }
+    if (body.pushEnd !== undefined) {
+      await upsertSetting(db, "companion_push_end", body.pushEnd);
+    }
+    if (body.preferredTime !== undefined) {
+      await upsertSetting(db, "companion_preferred_time", body.preferredTime);
+    }
+    if (body.enabled !== undefined) {
+      await upsertSetting(db, "companion_enabled", body.enabled ? "true" : "false");
+    }
+
+    // 配置变更后立即 reschedule DO Alarm
+    let nextAlarmAt: number | null = null;
+    try {
+      const scheduler = (c.env as any).COMPANION_SCHEDULER?.getByName("companion");
+      if (scheduler) {
+        const result = await scheduler.reschedule();
+        nextAlarmAt = result.nextAlarmAt;
+      }
+    } catch {
+      // reschedule 失败不影响配置保存
+    }
+
+    await recordAudit(db, {
+      userId: session.userId,
+      author: session.author,
+      action: AuditAction.SETTINGS_UPDATE,
+      resourceType: AuditResourceType.SETTINGS,
+      resourceId: "companion",
+      metadata: {
+        quietStart: body.quietStart,
+        quietEnd: body.quietEnd,
+        pushStart: body.pushStart,
+        pushEnd: body.pushEnd,
+        preferredTime: body.preferredTime,
+        enabled: body.enabled,
+      },
+      requestId: getRequestId(c),
+    });
+
+    const map = await readSettingsMap(db);
+    return c.json({
+      quietStart:    map["companion_quiet_start"]    ?? "22:30",
+      quietEnd:      map["companion_quiet_end"]      ?? "08:30",
+      pushStart:     map["companion_push_start"]     ?? "09:00",
+      pushEnd:       map["companion_push_end"]       ?? "21:30",
+      preferredTime: map["companion_preferred_time"] ?? "09:00",
+      enabled:       map["companion_enabled"]         !== "false",
+      nextAlarmAt,
+    });
+  });
+
   return settingsRoutes;
 }

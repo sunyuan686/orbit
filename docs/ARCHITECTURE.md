@@ -59,6 +59,7 @@ settings   — 全局配置（纪念日、主题色 accent 等）；空间档案
 audit_log  — 操作审计（创建 / 编辑 / 删除 / 评论 / 空间与设置变更 / API Token）；`GET /api/audit`
 api_token  — 外部访问 Bearer Token（仅存哈希）；`GET/POST/DELETE /api/api-tokens`（管理需会话）
 milestone_unlock — 恋爱记忆里程碑解锁（派生规则命中后物化；见 [love-memories.md](./specs/love-memories.md)）
+companion_log — 主动陪伴推送记录与去重（见 [proactive-companion.md](./specs/proactive-companion.md)）
 ai_conversation / ai_message  — AI 聊天会话与消息（见 [ai.md](./specs/ai.md)）
 feishuMessageDedup / feishuThreadSession — 飞书事件去重与 AI 会话映射（见 [feishu.md](./specs/feishu.md)）
 user / session / account / verification  — better-auth 标准表
@@ -146,6 +147,21 @@ user / session / account / verification  — better-auth 标准表
 | `celebratedAt` | 站内已庆祝时间；空表示待庆祝 |
 
 API：`/api/memories/*`（summary / nodes / milestones / themes 等），见 [love-memories.md](./specs/love-memories.md)。
+
+### companion_log
+
+主动陪伴推送记录与去重表，用于记录 Memory Echo、里程碑、温柔摘要与本周回顾的发送、跳过与失败状态。
+
+| 字段 | 说明 |
+|------|------|
+| `spaceId` | 空间标识 |
+| `recipientUserId` | 接收用户身份 |
+| `type` | `memory_echo` \| `milestone` \| `digest` \| `weekly_reflection` |
+| `targetId` | 去重目标，如 entry id、milestone key 或 week key |
+| `payload` | 候选上下文 JSON |
+| `status` | `sent` \| `skipped` \| `failed` |
+
+调度：生产环境使用 Cloudflare Durable Object Alarm（`CompanionScheduler`）动态排程，配置由 `settings` 表保存，设置页为 `/settings?tab=companion`。
 
 ### ai_message
 
