@@ -138,7 +138,7 @@ export async function sendFeishuInteractiveCard(
 }
 
 /**
- * 给飞书特定消息添加 Reaction 表情回应（如 "EYES", "CHECK_MARK", "THUMBSUP"）
+ * 给飞书特定消息添加 Reaction 表情回应（如 "Typing", "DONE", "THUMBSUP"）
  */
 export async function addFeishuReaction(
   accessToken: string,
@@ -156,6 +156,23 @@ export async function addFeishuReaction(
     }
   );
   return result.reaction_id;
+}
+
+/**
+ * 撤销/删除飞书特定消息上的 Reaction 表情回应
+ */
+export async function removeFeishuReaction(
+  accessToken: string,
+  messageId: string,
+  reactionId: string
+): Promise<void> {
+  await feishuJson<void>(
+    `${FEISHU_API}/im/v1/messages/${encodeURIComponent(messageId)}/reactions/${encodeURIComponent(reactionId)}`,
+    {
+      method: "DELETE",
+      accessToken,
+    }
+  );
 }
 
 /**
@@ -378,7 +395,7 @@ export async function appendFeishuCardContent(
 }
 
 /**
- * 关闭 CardKit 卡片的流式状态，卡片定型（需带递增 sequence 序号）。
+ * 关闭 CardKit 卡片的流式状态，卡片定型（需带递增 sequence 序号，彻底消除客户端 [生成中...] 标签）。
  */
 export async function finalizeFeishuStreamingCard(
   accessToken: string,
@@ -386,15 +403,12 @@ export async function finalizeFeishuStreamingCard(
   sequence: number
 ): Promise<void> {
   await feishuJson<void>(
-    `${FEISHU_API}/cardkit/v1/cards/${encodeURIComponent(cardId)}`,
+    `${FEISHU_API}/cardkit/v1/cards/${encodeURIComponent(cardId)}/settings`,
     {
-      method: "PUT",
+      method: "PATCH",
       accessToken,
       body: JSON.stringify({
-        card: {
-          type: "card_json",
-          data: JSON.stringify({ config: { streaming_mode: false } }),
-        },
+        settings: JSON.stringify({ config: { streaming_mode: false } }),
         sequence,
       }),
     }

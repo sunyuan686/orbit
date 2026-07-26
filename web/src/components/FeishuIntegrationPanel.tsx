@@ -166,6 +166,7 @@ export function FeishuIntegrationPanel() {
   const [homeChatId, setHomeChatId] = useState("");
   const [allowedGroups, setAllowedGroups] = useState("");
   const [mergeWindowMs, setMergeWindowMs] = useState(2000);
+  const [replyInThread, setReplyInThread] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -186,6 +187,7 @@ export function FeishuIntegrationPanel() {
         setHomeChatId(data.homeChatId);
         setAllowedGroups(data.allowedGroupChatIds.join("\n"));
         setMergeWindowMs(data.mergeWindowMs);
+        setReplyInThread(Boolean(data.replyInThread));
       } catch (err) {
         if (!cancelled && shouldToastApiError(err)) {
           toast.error(getApiErrorMessage(err, "加载飞书配置失败"));
@@ -214,6 +216,7 @@ export function FeishuIntegrationPanel() {
           .map((id) => id.trim())
           .filter(Boolean),
         mergeWindowMs,
+        replyInThread,
         ...(appSecret ? { appSecret } : {}),
         ...(encryptKey ? { encryptKey } : {}),
       });
@@ -417,6 +420,21 @@ export function FeishuIntegrationPanel() {
               autoComplete="off"
               placeholder="oc_..."
             />
+          </SettingsField>
+          <SettingsField
+            label="回复方式"
+            hint="开启后回复时自动创建独立话题 (Thread)；关闭则直接在聊天大框中引用回复。"
+            stacked
+          >
+            <label style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", cursor: "pointer", paddingTop: "0.4rem" }}>
+              <input
+                type="checkbox"
+                style={{ width: "1.1rem", height: "1.1rem", cursor: "pointer", accentColor: "var(--orbit-accent, #6366f1)" }}
+                checked={replyInThread}
+                onChange={(e) => setReplyInThread(e.target.checked)}
+              />
+              <span style={{ fontSize: "0.9rem", fontWeight: 500 }}>默认创建话题回复 (Reply in Thread)</span>
+            </label>
           </SettingsField>
         </div>
       </SettingsSection>

@@ -78,6 +78,7 @@ interface FeishuPutBody {
   allowedGroupChatIds?: string[];
   mergeWindowMs?: number;
   homeChatId?: string;
+  replyInThread?: boolean;
 }
 
 async function requireSessionAuthor(
@@ -331,6 +332,10 @@ export function createIntegrationsRoutes(
         body.homeChatId !== undefined
           ? body.homeChatId.trim()
           : current.homeChatId,
+      replyInThread:
+        body.replyInThread !== undefined
+          ? Boolean(body.replyInThread)
+          : current.replyInThread,
       lastError: null,
     };
 

@@ -20,6 +20,7 @@ export interface FeishuConfigStored {
   allowedGroupChatIds: string[];
   mergeWindowMs: number;
   homeChatId: string;
+  replyInThread: boolean;
   lastError: string | null;
   lastConnectedAt: number | null;
 }
@@ -35,6 +36,7 @@ export interface FeishuConfigPublic {
   allowedGroupChatIds: string[];
   mergeWindowMs: number;
   homeChatId: string;
+  replyInThread: boolean;
   connectionStatus: "connected" | "misconfigured" | "disabled" | "verified";
   lastError: string | null;
   lastConnectedAt: number | null;
@@ -56,6 +58,7 @@ const DEFAULT_CONFIG: FeishuConfigStored = {
   allowedGroupChatIds: [],
   mergeWindowMs: 2000,
   homeChatId: "",
+  replyInThread: false,
   lastError: null,
   lastConnectedAt: null,
 };
@@ -85,6 +88,7 @@ export function parseFeishuConfig(raw: string | undefined): FeishuConfigStored {
           : 2000,
       homeChatId:
         typeof parsed.homeChatId === "string" ? parsed.homeChatId.trim() : "",
+      replyInThread: Boolean(parsed.replyInThread),
       lastError:
         typeof parsed.lastError === "string" ? parsed.lastError : null,
       lastConnectedAt:
@@ -150,6 +154,7 @@ export function buildFeishuConfigPublic(
     allowedGroupChatIds: config.allowedGroupChatIds,
     mergeWindowMs: config.mergeWindowMs,
     homeChatId: config.homeChatId,
+    replyInThread: config.replyInThread,
     connectionStatus,
     lastError: config.lastError,
     lastConnectedAt: config.lastConnectedAt,

@@ -10,14 +10,12 @@ import {
   createFeishuStreamingCard,
   finalizeFeishuStreamingCard,
   getTenantAccessToken,
+  removeFeishuReaction,
   replyFeishuCardMessage,
   replyFeishuTextMessage,
   sendFeishuCardMessage,
   sendFeishuTextMessage,
 } from "./feishu-api.js";
-
-/** 30 分钟 idle 后自动开启新会话 */
-const IDLE_TIMEOUT_SECS = 30 * 60;
 
 /** CardKit 流推送：积攒 N 字或 N ms 后批量 flush，减少 API 调用次数 */
 const CARDKIT_MIN_CHUNK_LEN = 8;
@@ -50,13 +48,18 @@ export interface FeishuAiChatMessage {
   chatId: string;
   /** Feishu thread_id；p2p 单聊无话题时为空字符串 */
   threadId: string;
+  chatType?: string;
+  senderOpenId?: string;
+  replyInThread?: boolean;
+  isQueued?: boolean;
+  typingReactionPromise?: Promise<string | null>;
 }
 
 // ─── 会话管理 ─────────────────────────────────────────────────────────────────
 
 /**
- * 根据 threadKey 查找或创建 ai_conversation，并维护 idle TTL。
- * threadKey = thread_id（有话题时）或 chat_id（p2p 单聊）。
+ * 根据 threadKey 查找或创建 ai_conversation。
+ * 永久保持上下文连贯性，除非用户主动发送 /clear 或 /reset 重置。
  */
 async function resolveConversation(
   db: any,
@@ -64,19 +67,17 @@ async function resolveConversation(
   actor: FeishuAiChatActor
 ): Promise<string> {
   const now = nowSec();
-  const idleCutoff = now - IDLE_TIMEOUT_SECS;
 
   const existing = await db
     .select({
       conversationId: feishuThreadSession.conversationId,
-      lastActiveAt: feishuThreadSession.lastActiveAt,
     })
     .from(feishuThreadSession)
     .where(eq(feishuThreadSession.threadKey, threadKey))
     .get();
 
-  if (existing && existing.lastActiveAt >= idleCutoff) {
-    // 仍在活跃窗口内 → 续用，更新 lastActiveAt
+  if (existing) {
+    // 永久续用已有对话会话
     await db
       .update(feishuThreadSession)
       .set({ lastActiveAt: now })
@@ -84,7 +85,7 @@ async function resolveConversation(
     return existing.conversationId as string;
   }
 
-  // 超时或首次 → 新建 ai_conversation
+  // 首次发起对话 → 新建 ai_conversation
   const conversationId = generateId("conv");
   await db.insert(aiConversation).values({
     id: conversationId,
@@ -99,21 +100,13 @@ async function resolveConversation(
     updatedAt: now,
   });
 
-  if (existing) {
-    // 已有记录但超时 → 替换 conversationId
-    await db
-      .update(feishuThreadSession)
-      .set({ conversationId, lastActiveAt: now })
-      .where(eq(feishuThreadSession.threadKey, threadKey));
-  } else {
-    await db.insert(feishuThreadSession).values({
-      threadKey,
-      conversationId,
-      userId: actor.userId,
-      lastActiveAt: now,
-      createdAt: now,
-    });
-  }
+  await db.insert(feishuThreadSession).values({
+    threadKey,
+    conversationId,
+    userId: actor.userId,
+    lastActiveAt: now,
+    createdAt: now,
+  });
 
   return conversationId;
 }
@@ -211,20 +204,15 @@ async function streamToCardKit(
   messageId: string,
   chatId: string,
   threadId: string,
+  replyInThread: boolean,
   textStream: AsyncIterable<string>
 ): Promise<string> {
-  // Phase 1: 创建并发送/回复占位卡片
+  // Phase 1: 创建卡片并通过 Reply 接口引用回复卡片（根据 replyInThread 配置决定是否显式创建/保留话题）
   const { cardId, elementId } = await createFeishuStreamingCard(accessToken);
-  
-  if (threadId) {
-    // 如果消息来自 Thread 话题，使用回复 API，带上 reply_in_thread: true！
-    await replyFeishuCardMessage(accessToken, messageId, cardId, true);
-  } else {
-    // 普通单聊直接推送到 chat_id
-    await sendFeishuCardMessage(accessToken, chatId, "chat_id", cardId);
-  }
+  const shouldReplyInThread = Boolean(threadId) || replyInThread;
+  await replyFeishuCardMessage(accessToken, messageId, cardId, shouldReplyInThread);
 
-  // Phase 2: 流式 Append
+  // Phase 2: 流式 Append (CardKit 2.0 更新元素全量 content)
   let fullText = "";
   let buffer = "";
   let lastFlush = Date.now();
@@ -243,7 +231,7 @@ async function streamToCardKit(
         accessToken,
         cardId,
         elementId,
-        buffer,
+        fullText, // 传入全量累加文本，而不是单次切片！
         currentSeq
       ).catch(() => {});
       buffer = "";
@@ -257,13 +245,17 @@ async function streamToCardKit(
       accessToken,
       cardId,
       elementId,
-      buffer,
+      fullText, // 传入全量累加文本！
       currentSeq
     ).catch(() => {});
   }
 
-  // Phase 3: 定型
-  await finalizeFeishuStreamingCard(accessToken, cardId, sequence++).catch(() => {});
+  // Phase 3: 定型（PATCH /settings 把 streaming_mode 置为 false，彻底消除 [生成中...] 提示）
+  await finalizeFeishuStreamingCard(
+    accessToken,
+    cardId,
+    sequence++
+  ).catch(() => {});
 
   return fullText;
 }
@@ -282,9 +274,16 @@ export async function clearFeishuAiSession(
     .where(eq(feishuThreadSession.threadKey, threadKey));
 }
 
+/** 每个会话 (threadKey) 的消息处理排队 Map，保证同一会话并发消息按顺序串行执行 */
+const threadQueueMap = new Map<string, Promise<void>>();
+
+/** 查询当前会话是否有正在处理/排队中的任务 */
+export function isThreadBusy(threadKey: string): boolean {
+  return threadQueueMap.has(threadKey);
+}
+
 /**
- * 飞书 AI 多轮对话主入口。
- * 负责会话管理、上下文构建、流式推送和消息持久化。
+ * 飞书 AI 多轮对话主入口（带并发排队锁）。
  */
 export async function handleFeishuAiChat(
   ctx: FeishuAiChatContext,
@@ -292,8 +291,48 @@ export async function handleFeishuAiChat(
   text: string,
   actor: FeishuAiChatActor
 ): Promise<void> {
-  const threadKey = message.threadId || message.chatId;
+  // 精准 Session 隔离逻辑：
+  // 1. 在具体的 Thread 话题里 ➔ thread:${threadId} (话题独立 Session)
+  // 2. 在群聊中 ➔ group:${chatId} (群聊使用 chatId)
+  // 3. 用户单聊 ➔ p2p:${senderOpenId || actor.userId} (单聊使用各自的 open_id)
+  let threadKey = "";
+  if (message.threadId) {
+    threadKey = `thread:${message.threadId}`;
+  } else if (message.chatType === "group" || message.chatId.startsWith("oc_")) {
+    threadKey = `group:${message.chatId}`;
+  } else {
+    const p2pId = message.senderOpenId || actor.userId;
+    threadKey = `p2p:${p2pId}`;
+  }
 
+  const previousTask = threadQueueMap.get(threadKey) ?? Promise.resolve();
+
+  const currentTask = previousTask
+    .then(async () => {
+      await processSingleAiChat(ctx, message, text, actor, threadKey);
+    })
+    .catch((err) => {
+      console.error("[Feishu AI Chat] Concurrent task execution failed:", err);
+    });
+
+  threadQueueMap.set(threadKey, currentTask);
+
+  void currentTask.finally(() => {
+    if (threadQueueMap.get(threadKey) === currentTask) {
+      threadQueueMap.delete(threadKey);
+    }
+  });
+
+  await currentTask;
+}
+
+async function processSingleAiChat(
+  ctx: FeishuAiChatContext,
+  message: FeishuAiChatMessage,
+  text: string,
+  actor: FeishuAiChatActor,
+  threadKey: string
+): Promise<void> {
   // 获取 access token
   let accessToken: string;
   try {
@@ -302,16 +341,24 @@ export async function handleFeishuAiChat(
     return; // 无法获取 token，静默失败
   }
 
+  // ⚡️ 表情状态转换：若该消息之前在排队（贴了 THINKING 表情），轮到它开始生成时，撤销 THINKING 并换贴 Typing 表情！
+  let activeReactionPromise: Promise<string | null> | undefined = message.typingReactionPromise;
+  if (message.isQueued) {
+    activeReactionPromise = (async () => {
+      const queuedReactionId = await message.typingReactionPromise;
+      if (queuedReactionId) {
+        await removeFeishuReaction(accessToken, message.messageId, queuedReactionId).catch(() => {});
+      }
+      return addFeishuReaction(accessToken, message.messageId, "Typing").catch(() => null);
+    })();
+  }
+
   // 解析 AI 模型
   let resolvedModel: Awaited<ReturnType<typeof resolveModel>>;
   try {
     resolvedModel = await resolveModel(ctx.db, ctx.aiEnv);
   } catch (err) {
-    if (message.threadId) {
-      await replyFeishuTextMessage(accessToken, message.messageId, "AI 暂不可用，请检查模型配置 ⚙️", true).catch(() => {});
-    } else {
-      await sendFeishuTextMessage(accessToken, message.chatId, "chat_id", "AI 暂不可用，请检查模型配置 ⚙️").catch(() => {});
-    }
+    await replyFeishuTextMessage(accessToken, message.messageId, "AI 暂不可用，请检查模型配置 ⚙️", Boolean(message.replyInThread || message.threadId)).catch(() => {});
     return;
   }
 
@@ -355,6 +402,7 @@ export async function handleFeishuAiChat(
       message.messageId,
       message.chatId,
       message.threadId,
+      Boolean(message.replyInThread),
       streamResult.textStream
     );
     usedCardKit = true;
@@ -371,24 +419,25 @@ export async function handleFeishuAiChat(
   }
 
   if (!usedCardKit && fullResponse) {
-    if (message.threadId) {
-      await replyFeishuTextMessage(accessToken, message.messageId, fullResponse, true).catch(() => {});
-    } else {
-      await sendFeishuTextMessage(accessToken, message.chatId, "chat_id", fullResponse).catch(() => {});
-    }
+    await replyFeishuTextMessage(accessToken, message.messageId, fullResponse, true).catch(() => {});
   }
 
   if (!fullResponse) {
-    if (message.threadId) {
-      await replyFeishuTextMessage(accessToken, message.messageId, "AI 回复失败，请稍后再试 🔄", true).catch(() => {});
-    } else {
-      await sendFeishuTextMessage(accessToken, message.chatId, "chat_id", "AI 回复失败，请稍后再试 🔄").catch(() => {});
-    }
+    await replyFeishuTextMessage(accessToken, message.messageId, "AI 回复失败，请稍后再试 🔄", true).catch(() => {});
     return;
   }
 
-  // ⚡️ 核心体验升级：处理完成，给用户的原消息贴上 CHECK_MARK (✔️) 表情表示回复完毕！
-  void addFeishuReaction(accessToken, message.messageId, "CHECK_MARK").catch(() => {});
+  // ⚡️ 核心体验升级：处理完成，先撤销 Typing/THINKING 表情，再贴上绿色 DONE 表情！
+  if (activeReactionPromise) {
+    activeReactionPromise.then(async (reactionId) => {
+      if (reactionId) {
+        await removeFeishuReaction(accessToken, message.messageId, reactionId).catch(() => {});
+      }
+      await addFeishuReaction(accessToken, message.messageId, "DONE").catch(() => {});
+    }).catch(() => {});
+  } else {
+    void addFeishuReaction(accessToken, message.messageId, "DONE").catch(() => {});
+  }
 
   // 持久化 AI 回复 & 更新对话预览
   await saveMessage(ctx.db, conversationId, "assistant", fullResponse);

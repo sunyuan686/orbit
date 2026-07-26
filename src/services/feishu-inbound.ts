@@ -28,6 +28,7 @@ import {
 } from "./notify.js";
 import type { AiRuntimeEnv } from "./ai-model.js";
 import { syncAssetReferences } from "./asset-references.js";
+import { handleFeishuAiChat, isThreadBusy } from "./feishu-ai-chat.js";
 
 function now(): number {
   return Math.floor(Date.now() / 1000);
@@ -71,7 +72,6 @@ function extensionForMime(mimeType: string): string {
 
 import {
   clearFeishuAiSession,
-  handleFeishuAiChat,
 } from "./feishu-ai-chat.js";
 
 export interface FeishuInboundMessage {
@@ -486,15 +486,25 @@ export async function processFeishuInboundMessage(
   }
 
   if (message.chatType === "group") {
-    if (ctx.config.allowedGroupChatIds.length === 0) return;
-    if (!ctx.config.allowedGroupChatIds.includes(message.chatId)) return;
+    // 1. 群聊中必须 @Bot 机器人
     if (!options.hasGroupMention) return;
+    // 2. 如果配置了特定的白名单群 ID，且当前群不在白名单内，则拦截
+    if (
+      ctx.config.allowedGroupChatIds.length > 0 &&
+      !ctx.config.allowedGroupChatIds.includes(message.chatId)
+    ) {
+      return;
+    }
   }
 
-  // ⚡️ 核心体验升级：一收到消息立即给该消息打上 👀 (EYES) 表情回应，表示系统已接收并正在处理！
-  void getTenantAccessToken(ctx.appId, ctx.appSecret).then((token) => {
-    return addFeishuReaction(token, message.messageId, "EYES");
-  }).catch(() => {});
+  // ⚡️ 核心体验升级：根据该会话是否已有任务运行，选择贴 💬 (Typing) 正在打字 或 🤔 (THINKING) 排队思考中 表情！
+  const threadKey = message.threadId || message.chatId;
+  const isQueued = isThreadBusy(threadKey);
+  const initialEmoji = isQueued ? "THINKING" : "Typing";
+
+  const typingReactionPromise = getTenantAccessToken(ctx.appId, ctx.appSecret).then((token) => {
+    return addFeishuReaction(token, message.messageId, initialEmoji);
+  }).catch(() => null);
 
   const text = extractTextFromContent(message.messageType, message.content);
   const imageKey = extractImageKey(message.messageType, message.content);
@@ -554,6 +564,11 @@ export async function processFeishuInboundMessage(
         messageId: message.messageId,
         chatId: message.chatId,
         threadId: message.threadId ?? "",
+        chatType: message.chatType,
+        senderOpenId: message.senderOpenId,
+        replyInThread: ctx.config.replyInThread,
+        isQueued,
+        typingReactionPromise,
       },
       text,
       actor
