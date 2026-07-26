@@ -278,17 +278,20 @@ export async function createFeishuStreamingCard(
       method: "POST",
       accessToken,
       body: JSON.stringify({
-        type: "card",
-        data: {
-          config: { streaming: true, streaming_mode: "delay" },
-          elements: [
-            {
-              tag: "markdown",
-              element_id: CARDKIT_ELEMENT_ID,
-              content: "⏳",
-            },
-          ],
-        },
+        type: "card_json",
+        data: JSON.stringify({
+          schema: "2.0",
+          config: { streaming_mode: true },
+          body: {
+            elements: [
+              {
+                tag: "markdown",
+                element_id: CARDKIT_ELEMENT_ID,
+                content: "⏳",
+              },
+            ],
+          },
+        }),
       }),
     }
   );
