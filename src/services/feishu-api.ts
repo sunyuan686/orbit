@@ -27,15 +27,19 @@ async function feishuJson<T>(
     headers.set("Authorization", `Bearer ${init.accessToken}`);
   }
   const res = await fetch(url, { ...init, headers });
-  const data = (await res.json()) as {
-    code?: number;
-    msg?: string;
-    data?: T;
-  };
-  if (!res.ok || (data.code !== undefined && data.code !== 0)) {
+  const rawText = (await res.text()).trim();
+  let data: { code?: number; msg?: string; data?: T } = {};
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      // 无法解析 JSON（如空响应或纯文本），只要 res.ok 即可
+    }
+  }
+  if (!res.ok || (data.code !== undefined && data.code !== 0 && data.code !== 200610)) {
     throw new FeishuApiError(data.msg ?? `Feishu API error (${res.status})`, data.code);
   }
-  return data.data as T;
+  return (data.data ?? (data as unknown as T)) as T;
 }
 
 export async function getTenantAccessToken(
@@ -354,37 +358,45 @@ export async function replyFeishuCardMessage(
 }
 
 /**
- * 向 CardKit 卡片的指定元素追加内容（流式 append 模式）。
+ * 向 CardKit 卡片的指定元素追加内容（流式 append 模式，需带递增 sequence 序号）。
  */
 export async function appendFeishuCardContent(
   accessToken: string,
   cardId: string,
   elementId: string,
-  content: string
+  content: string,
+  sequence: number
 ): Promise<void> {
   await feishuJson<void>(
     `${FEISHU_API}/cardkit/v1/cards/${encodeURIComponent(cardId)}/elements/${encodeURIComponent(elementId)}/content`,
     {
-      method: "POST",
+      method: "PUT",
       accessToken,
-      body: JSON.stringify({ content, mode: "append" }),
+      body: JSON.stringify({ content, sequence }),
     }
   );
 }
 
 /**
- * 关闭 CardKit 卡片的流式状态，卡片定型。
+ * 关闭 CardKit 卡片的流式状态，卡片定型（需带递增 sequence 序号）。
  */
 export async function finalizeFeishuStreamingCard(
   accessToken: string,
-  cardId: string
+  cardId: string,
+  sequence: number
 ): Promise<void> {
   await feishuJson<void>(
-    `${FEISHU_API}/cardkit/v1/cards/${encodeURIComponent(cardId)}/settings`,
+    `${FEISHU_API}/cardkit/v1/cards/${encodeURIComponent(cardId)}`,
     {
-      method: "PATCH",
+      method: "PUT",
       accessToken,
-      body: JSON.stringify({ streaming: false }),
+      body: JSON.stringify({
+        card: {
+          type: "card_json",
+          data: JSON.stringify({ config: { streaming_mode: false } }),
+        },
+        sequence,
+      }),
     }
   );
 }

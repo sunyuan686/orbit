@@ -228,6 +228,7 @@ async function streamToCardKit(
   let fullText = "";
   let buffer = "";
   let lastFlush = Date.now();
+  let sequence = 1;
 
   for await (const chunk of textStream) {
     fullText += chunk;
@@ -237,12 +238,13 @@ async function streamToCardKit(
       buffer.length >= CARDKIT_MIN_CHUNK_LEN ||
       elapsed >= CARDKIT_FLUSH_INTERVAL_MS
     ) {
-      // Append 失败静默忽略，继续流
+      const currentSeq = sequence++;
       await appendFeishuCardContent(
         accessToken,
         cardId,
         elementId,
-        buffer
+        buffer,
+        currentSeq
       ).catch(() => {});
       buffer = "";
       lastFlush = Date.now();
@@ -250,16 +252,18 @@ async function streamToCardKit(
   }
 
   if (buffer) {
+    const currentSeq = sequence++;
     await appendFeishuCardContent(
       accessToken,
       cardId,
       elementId,
-      buffer
+      buffer,
+      currentSeq
     ).catch(() => {});
   }
 
   // Phase 3: 定型
-  await finalizeFeishuStreamingCard(accessToken, cardId).catch(() => {});
+  await finalizeFeishuStreamingCard(accessToken, cardId, sequence++).catch(() => {});
 
   return fullText;
 }
