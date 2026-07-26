@@ -284,6 +284,27 @@ function toFriendlyFeishuError(err: FeishuApiError): FeishuApiError {
 
 // ─── CardKit 流式 API ────────────────────────────────────────────────────────
 
+/**
+ * 创建通用飞书 CardKit 2.0 卡片实体，返回 cardId。
+ */
+export async function createFeishuCardJson(
+  accessToken: string,
+  cardJsonObj: Record<string, any>
+): Promise<string> {
+  const result = await feishuJson<{ card_id: string }>(
+    `${FEISHU_API}/cardkit/v1/cards`,
+    {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({
+        type: "card_json",
+        data: JSON.stringify(cardJsonObj),
+      }),
+    }
+  );
+  return result.card_id;
+}
+
 const CARDKIT_ELEMENT_ID = "ai_content";
 
 /**

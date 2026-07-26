@@ -9,8 +9,11 @@ import {
 import { getUserById } from "./space-authors.js";
 import {
   addFeishuReaction,
+  createFeishuCardJson,
   downloadFeishuMessageImage,
   getTenantAccessToken,
+  removeFeishuReaction,
+  replyFeishuCardMessage,
   sendFeishuTextMessage,
 } from "./feishu-api.js";
 import {
@@ -512,6 +515,13 @@ export async function processFeishuInboundMessage(
   // 1. 查询类指令（/today, /week, /month, /summary, /clear, /reset, /搜）
   if (text && isQueryCommand(text)) {
     await handleQueryCommand(ctx, message, text);
+    void typingReactionPromise.then(async (typingReactionId) => {
+      const token = await getTenantAccessToken(ctx.appId, ctx.appSecret);
+      if (typingReactionId) {
+        await removeFeishuReaction(token, message.messageId, typingReactionId).catch(() => {});
+      }
+      await addFeishuReaction(token, message.messageId, "DONE").catch(() => {});
+    }).catch(() => {});
     return;
   }
 
@@ -535,6 +545,17 @@ export async function processFeishuInboundMessage(
   }
 
   if (entryId) {
+    const token = await getTenantAccessToken(ctx.appId, ctx.appSecret);
+
+    // ⚡️ 核心体验升级 1：取消 Typing/THINKING 表情，贴上绿色 DONE 表情！
+    void typingReactionPromise.then(async (typingReactionId) => {
+      if (typingReactionId) {
+        await removeFeishuReaction(token, message.messageId, typingReactionId).catch(() => {});
+      }
+      await addFeishuReaction(token, message.messageId, "DONE").catch(() => {});
+    }).catch(() => {});
+
+    // ⚡️ 核心体验升级 2：发送带跳转链接的精美交互式卡片！
     const labels: Record<string, string> = {
       diary: "日记",
       message: "留言",
@@ -545,8 +566,39 @@ export async function processFeishuInboundMessage(
       .from(entry)
       .where(eq(entry.id, entryId))
       .get();
-    const label = labels[row?.type ?? "diary"] ?? "内容";
-    await replyText(ctx, message, `已记入${label} ✅`);
+    const entryType = row?.type ?? "diary";
+    const label = labels[entryType] ?? "内容";
+    const entryUrl = `${ctx.baseUrl.replace(/\/$/, "")}/${entryType}/${entryId}`;
+    const textPreview = (text || "（飞书附件/内容）").trim().slice(0, 100);
+
+    const cardJson = {
+      schema: "2.0",
+      header: {
+        title: { content: `已成功记入${label} ✨`, tag: "plain_text" },
+        template: "green"
+      },
+      body: {
+        elements: [
+          {
+            tag: "markdown",
+            content: `📝 **内容已记录至 Orbit 空间**\n\n> ${textPreview}\n\n🔗 [**点击在 Orbit 中查看记录 ➔**](${entryUrl})`
+          }
+        ]
+      }
+    };
+
+    try {
+      const cardId = await createFeishuCardJson(token, cardJson);
+      await replyFeishuCardMessage(
+        token,
+        message.messageId,
+        cardId,
+        Boolean(ctx.config.replyInThread)
+      );
+    } catch (err) {
+      console.error("[Feishu Inbound] Send entry card failed, falling back to text:", err);
+      await replyText(ctx, message, `已记入${label} ✅\n🔗 查看记录: ${entryUrl}`);
+    }
     return;
   }
 
