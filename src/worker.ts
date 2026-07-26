@@ -36,6 +36,7 @@ import { requestContext } from "./lib/request-context.js";
 import { createRequireAuth } from "./lib/request-auth.js";
 import type { NotifyRuntime } from "./services/notify.js";
 import { CompanionScheduler } from "./services/companion-scheduler.js";
+import { scanTestCandidate } from "./services/companion-engine.js";
 
 export interface Env {
   DB: D1Database;
@@ -332,6 +333,36 @@ app.post("/api/companion/reschedule", requireSession, async (c) => {
 app.get("/api/companion/status", requireSession, async (c) => {
   const result = await getCompanionScheduler(c).status();
   return c.json(result);
+});
+
+// 手动触发一条测试陪伴推送（发送至站内通知与飞书）
+app.post("/api/companion/test", requireSession, async (c) => {
+  const sessionAuthor = await getSessionAuthor(c, workerAuth(c as Context<HonoEnv>), getDb);
+  if (!sessionAuthor) return c.json({ error: "Unauthorized" }, 401);
+
+  const db = getDb(c);
+  const nowTs = Math.floor(Date.now() / 1000);
+  const aiEnv = {
+    AI: c.env.AI,
+    BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET,
+    CF_ACCOUNT_ID: c.env.CF_ACCOUNT_ID,
+    CF_API_TOKEN: c.env.CF_API_TOKEN,
+  };
+
+  const candidate = await scanTestCandidate(db, sessionAuthor.userId, nowTs);
+  const { deliverCompanionCard } = await import("./services/feishu-companion-card.js");
+  await deliverCompanionCard(
+    candidate,
+    {
+      db,
+      secret: c.env.BETTER_AUTH_SECRET,
+      baseUrl: c.env.BETTER_AUTH_URL,
+      aiEnv,
+    },
+    nowTs
+  );
+
+  return c.json({ success: true, candidate });
 });
 
 export { CompanionScheduler };

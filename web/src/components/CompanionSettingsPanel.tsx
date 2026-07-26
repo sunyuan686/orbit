@@ -5,6 +5,7 @@ import {
   getApiErrorMessage,
   shouldToastApiError,
   updateCompanionSettings,
+  triggerCompanionTestPush,
   type CompanionSettings,
 } from "../lib/api";
 import { useToast } from "../lib/useToast";
@@ -58,6 +59,7 @@ export function CompanionSettingsPanel() {
   const [draft, setDraft] = useState<CompanionSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -262,6 +264,26 @@ export function CompanionSettingsPanel() {
           {dirty ? (
             <p className="orbit-settings-actions-hint orbit-muted">有未保存的更改</p>
           ) : null}
+          <button
+            type="button"
+            className="orbit-btn orbit-btn-secondary"
+            disabled={testing}
+            onClick={async () => {
+              setTesting(true);
+              try {
+                await triggerCompanionTestPush();
+                toast.success("测试推送已发送！请检查飞书群聊或站内通知。");
+              } catch (err) {
+                if (shouldToastApiError(err)) {
+                  toast.error(getApiErrorMessage(err, "发送测试推送失败"));
+                }
+              } finally {
+                setTesting(false);
+              }
+            }}
+          >
+            {testing ? "推送中…" : "发送测试推送"}
+          </button>
           <button
             type="submit"
             className="orbit-btn orbit-btn-primary"

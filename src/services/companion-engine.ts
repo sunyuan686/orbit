@@ -581,3 +581,45 @@ export async function runCompanionEngine(
 
   return { dispatched, skipped };
 }
+
+
+/**
+ * 为指定用户生成一条测试陪伴候选（忽略安静时段与去重配额限制）。
+ */
+export async function scanTestCandidate(
+  db: any,
+  recipientUserId: string,
+  nowTs = Math.floor(Date.now() / 1000)
+): Promise<CompanionCandidate> {
+  const [milestones, memoryEchos, weeklyReflections, digests] = await Promise.all([
+    scanMilestones(db, recipientUserId, nowTs),
+    scanMemoryEcho(db, recipientUserId, nowTs),
+    scanWeeklyReflection(db, recipientUserId, nowTs),
+    scanGentleDigest(db, recipientUserId, nowTs),
+  ]);
+
+  const allCandidates = [
+    ...milestones,
+    ...memoryEchos,
+    ...weeklyReflections,
+    ...digests,
+  ].sort((a, b) => SCENE_PRIORITY[a.type] - SCENE_PRIORITY[b.type]);
+
+  if (allCandidates.length > 0) {
+    return { ...allCandidates[0], recipientUserId };
+  }
+
+  return {
+    type: "memory_echo",
+    recipientUserId,
+    targetId: "test-memory",
+    score: 100,
+    context: {
+      entryId: "test",
+      entryType: "diary",
+      title: "测试主动陪伴推送",
+      excerpt: "这是一条测试陪伴卡片。主动陪伴引擎会自动关联历史记忆与恋爱契机，在合适的时间通过飞书与站内为你送上温暖的提示与回忆。",
+      anchorKey: "测试推送",
+    },
+  };
+}

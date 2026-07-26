@@ -840,6 +840,15 @@ export async function fetchCompanionSettings(): Promise<CompanionSettings> {
   return res.json();
 }
 
+export async function triggerCompanionTestPush(): Promise<{ success: boolean; candidate: any }> {
+  const res = await fetch(`${BASE}/api/companion/test`, {
+    method: "POST",
+    credentials: "include",
+  });
+  await assertOk(res, "发送测试推送失败");
+  return res.json();
+}
+
 export async function updateCompanionSettings(
   data: Partial<CompanionSettings>
 ): Promise<CompanionSettings> {

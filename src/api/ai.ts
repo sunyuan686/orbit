@@ -33,6 +33,7 @@ import {
   listWorkersAiChatModels,
 } from "../services/workers-ai-models.js";
 import { readSettingsMap } from "../db/settings-store.js";
+import { createLangfuseTrace, formatToolsForLangfuse } from "../services/langfuse.js";
 import { createLogger } from "../lib/logger.js";
 import type { SessionAuthor } from "./session-author.js";
 
@@ -463,6 +464,24 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
 
       const modelMessages = await convertToModelMessages(effectiveMessages);
 
+      const trace = createLangfuseTrace({
+        name: "web-chat",
+        userId: session.userId,
+        sessionId: conversationId,
+        input: extractTextFromParts(latestUser.parts),
+        metadata: { provider, modelId, contextMode: context.mode, articleId: context.articleId },
+        tags: ["web", provider],
+      });
+      const generation = trace?.generation({
+        name: "streamText",
+        model: modelId,
+        input: {
+          system,
+          messages: modelMessages,
+          tools: formatToolsForLangfuse(tools),
+        },
+      });
+
       const startedAt = Date.now();
       const result = streamText({
         model,
@@ -484,6 +503,7 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
           });
         },
         onError: ({ error }) => {
+          generation?.end({ error });
           log.error("stream error", { conversationId, provider, error });
         },
       });
@@ -496,6 +516,8 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
         originalMessages: uiMessages,
         onFinish: async ({ responseMessage }) => {
           try {
+            const outputText = extractTextFromParts(responseMessage.parts);
+            generation?.end({ output: outputText });
             await store.insertMessage({
               conversationId: responseConversationId,
               role: "assistant",

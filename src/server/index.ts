@@ -27,6 +27,8 @@ import { createRequireAuth } from "../lib/request-auth.js";
 import { apiTokens } from "./routes/api-tokens.js";
 import { activity } from "./routes/activity.js";
 import { memories } from "./routes/memories.js";
+import { getSessionAuthor } from "../api/session-author.js";
+import { scanTestCandidate } from "../services/companion-engine.js";
 
 const bootLog = createLogger("server");
 
@@ -129,6 +131,25 @@ app.route("/api/notifications", notifications);
 app.route("/api/gallery", gallery);
 app.route("/api/stats/activity", activity);
 app.route("/api/memories", memories);
+
+app.post("/api/companion/test", requireSession, async (c) => {
+  const sessionAuthor = await getSessionAuthor(c, auth, () => db);
+  if (!sessionAuthor) return c.json({ error: "Unauthorized" }, 401);
+  const nowTs = Math.floor(Date.now() / 1000);
+  const candidate = await scanTestCandidate(db, sessionAuthor.userId, nowTs);
+  const { deliverCompanionCard } = await import("../services/feishu-companion-card.js");
+  await deliverCompanionCard(
+    candidate,
+    {
+      db,
+      secret: process.env.BETTER_AUTH_SECRET ?? "",
+      baseUrl: process.env.BETTER_AUTH_URL ?? "http://localhost:3001",
+      aiEnv: { _db: db },
+    },
+    nowTs
+  );
+  return c.json({ success: true, candidate });
+});
 
 // 静态文件：图片资源（需登录，见上方 /assets/* 中间件）
 app.use(
