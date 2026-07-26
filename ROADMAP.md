@@ -117,8 +117,8 @@
 | 功能       | 状态  | 说明                                                                    |
 | -------- | --- | --------------------------------------------------------------------- |
 | 飞书 Bot   | ✅   | 入站写日记/图片、指令查询、出站通知；见 [feishu.md](docs/specs/feishu.md)                |
-| 飞书第二期    | 📋  | `留言：` / `信：` 前缀、AI `/summary` 月报等；见 [feishu.md](docs/specs/feishu.md) |
-| 飞书陪伴与对话 | 🚧  | 主动陪伴推送（卡片）+ 飞书内 AI 多轮聊天；见 [feishu-companion.md](docs/specs/feishu-companion.md) |
+| 飞书第二期    | ✅   | `留言：` / `信：` 前缀、`/` 指令写入、AI `/summary` 月报等；见 [feishu.md](docs/specs/feishu.md) |
+| 飞书陪伴与对话 | 🚧  | 飞书内 AI 多轮聊天（CardKit 流式打字机 + Thread 会话）已落地；主动陪伴推送待做；见 [feishu-companion.md](docs/specs/feishu-companion.md) |
 | Telegram | 📋  | 优先级低；与飞书同类连接器                                                         |
 | 更多平台     | 📋  | 微信、Discord 等                                                          |
 

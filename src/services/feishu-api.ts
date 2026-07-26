@@ -93,7 +93,7 @@ export function clearTenantAccessTokenCache(): void {
 export async function sendFeishuTextMessage(
   accessToken: string,
   receiveId: string,
-  receiveIdType: "open_id" | "chat_id",
+  receiveIdType: "open_id" | "chat_id" | "thread_id",
   text: string
 ): Promise<void> {
   const params = new URLSearchParams({ receive_id_type: receiveIdType });
@@ -115,7 +115,7 @@ export async function sendFeishuTextMessage(
 export async function sendFeishuInteractiveCard(
   accessToken: string,
   receiveId: string,
-  receiveIdType: "open_id" | "chat_id",
+  receiveIdType: "open_id" | "chat_id" | "thread_id",
   card: Record<string, unknown>
 ): Promise<void> {
   const params = new URLSearchParams({ receive_id_type: receiveIdType });
@@ -256,7 +256,7 @@ export async function createFeishuStreamingCard(
 export async function sendFeishuCardMessage(
   accessToken: string,
   receiveId: string,
-  receiveIdType: "open_id" | "chat_id",
+  receiveIdType: "open_id" | "chat_id" | "thread_id",
   cardId: string
 ): Promise<string> {
   const params = new URLSearchParams({ receive_id_type: receiveIdType });

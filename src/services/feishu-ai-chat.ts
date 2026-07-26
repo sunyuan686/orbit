@@ -204,12 +204,13 @@ async function buildSystemPrompt(
  */
 async function streamToCardKit(
   accessToken: string,
-  chatId: string,
+  receiveId: string,
+  receiveIdType: "open_id" | "chat_id" | "thread_id",
   textStream: AsyncIterable<string>
 ): Promise<string> {
   // Phase 1: 创建并发送占位卡片
   const { cardId, elementId } = await createFeishuStreamingCard(accessToken);
-  await sendFeishuCardMessage(accessToken, chatId, "chat_id", cardId);
+  await sendFeishuCardMessage(accessToken, receiveId, receiveIdType, cardId);
 
   // Phase 2: 流式 Append
   let fullText = "";
@@ -276,6 +277,8 @@ export async function handleFeishuAiChat(
   actor: FeishuAiChatActor
 ): Promise<void> {
   const threadKey = message.threadId || message.chatId;
+  const targetReceiveId = message.threadId || message.chatId;
+  const targetReceiveIdType = message.threadId ? "thread_id" : "chat_id";
 
   // 获取 access token
   let accessToken: string;
@@ -289,11 +292,11 @@ export async function handleFeishuAiChat(
   let resolvedModel: Awaited<ReturnType<typeof resolveModel>>;
   try {
     resolvedModel = await resolveModel(ctx.db, ctx.aiEnv);
-  } catch {
+  } catch (err) {
     await sendFeishuTextMessage(
       accessToken,
-      message.chatId,
-      "chat_id",
+      targetReceiveId,
+      targetReceiveIdType,
       "AI 暂不可用，请检查模型配置 ⚙️"
     ).catch(() => {});
     return;
@@ -336,11 +339,13 @@ export async function handleFeishuAiChat(
   try {
     fullResponse = await streamToCardKit(
       accessToken,
-      message.chatId,
+      targetReceiveId,
+      targetReceiveIdType,
       streamResult.textStream
     );
     usedCardKit = true;
-  } catch {
+  } catch (err) {
+    console.error("[Feishu AI Chat] CardKit streaming failed, falling back to text:", err);
     // CardKit 初始化失败 → 收集全部文本后发纯文本消息
     try {
       for await (const chunk of streamResult.textStream) {
@@ -354,8 +359,8 @@ export async function handleFeishuAiChat(
   if (!usedCardKit && fullResponse) {
     await sendFeishuTextMessage(
       accessToken,
-      message.chatId,
-      "chat_id",
+      targetReceiveId,
+      targetReceiveIdType,
       fullResponse
     ).catch(() => {});
   }
@@ -363,8 +368,8 @@ export async function handleFeishuAiChat(
   if (!fullResponse) {
     await sendFeishuTextMessage(
       accessToken,
-      message.chatId,
-      "chat_id",
+      targetReceiveId,
+      targetReceiveIdType,
       "AI 回复失败，请稍后再试 🔄"
     ).catch(() => {});
     return;
