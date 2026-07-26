@@ -305,15 +305,15 @@ export async function createFeishuCardJson(
   return result.card_id;
 }
 
-const CARDKIT_ELEMENT_ID = "ai_content";
+export const CARDKIT_TOOL_ELEMENT_ID = "tool_status";
+export const CARDKIT_AI_ELEMENT_ID = "ai_content";
 
 /**
- * 创建飞书 CardKit 流式卡片，返回 cardId 和 elementId。
- * 需要应用具备 cardkit:card 权限范围。
+ * 创建飞书 CardKit 流式卡片，包含工具/来源展示区 (tool_status) 与 AI 正文区 (ai_content)。
  */
 export async function createFeishuStreamingCard(
   accessToken: string
-): Promise<{ cardId: string; elementId: string }> {
+): Promise<{ cardId: string; toolElementId: string; aiElementId: string }> {
   const result = await feishuJson<{ card_id: string }>(
     `${FEISHU_API}/cardkit/v1/cards`,
     {
@@ -328,7 +328,12 @@ export async function createFeishuStreamingCard(
             elements: [
               {
                 tag: "markdown",
-                element_id: CARDKIT_ELEMENT_ID,
+                element_id: CARDKIT_TOOL_ELEMENT_ID,
+                content: "",
+              },
+              {
+                tag: "markdown",
+                element_id: CARDKIT_AI_ELEMENT_ID,
                 content: "⏳",
               },
             ],
@@ -337,7 +342,11 @@ export async function createFeishuStreamingCard(
       }),
     }
   );
-  return { cardId: result.card_id, elementId: CARDKIT_ELEMENT_ID };
+  return {
+    cardId: result.card_id,
+    toolElementId: CARDKIT_TOOL_ELEMENT_ID,
+    aiElementId: CARDKIT_AI_ELEMENT_ID,
+  };
 }
 
 /**

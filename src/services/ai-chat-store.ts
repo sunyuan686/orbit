@@ -2,6 +2,9 @@ import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import type { UIMessage } from "ai";
 import { aiConversation, aiMessage } from "../db/schema.js";
 import { extractVisibleTextFromParts } from "../lib/ai-message-content.js";
+import { createLogger } from "../lib/logger.js";
+
+const log = createLogger("ai-chat-store");
 
 export type AiContextMode = "global" | "article";
 
@@ -467,6 +470,13 @@ export function createAiChatStore(db: any) {
       updatedAt: record.updatedAt,
       deletedAt: null,
     });
+    log.info("created AI conversation", {
+      conversationId: record.id,
+      userId: record.userId,
+      author: record.author,
+      title: record.title,
+      contextMode: record.contextMode,
+    });
     return record;
   }
 
@@ -510,6 +520,15 @@ export function createAiChatStore(db: any) {
     };
 
     await writeConversationWithMessage(db, conversation, message);
+    log.info("created AI conversation with initial message", {
+      conversationId,
+      messageId: message.id,
+      userId: conversation.userId,
+      author: conversation.author,
+      role: message.role,
+      title: conversation.title,
+      preview: preview.slice(0, 60),
+    });
 
     return { conversation, message };
   }
@@ -525,6 +544,7 @@ export function createAiChatStore(db: any) {
   }
 
   async function softDeleteConversation(id: string): Promise<void> {
+    log.info("soft deleted AI conversation", { conversationId: id });
     await db
       .update(aiConversation)
       .set({ deletedAt: now(), updatedAt: now() })
@@ -558,6 +578,13 @@ export function createAiChatStore(db: any) {
     const preview = partsToPreview(input.parts);
 
     await writeMessageAndTouchConversation(db, row, preview);
+    log.info("inserted message into AI conversation", {
+      conversationId: input.conversationId,
+      messageId: row.id,
+      role: input.role,
+      author: input.author,
+      preview: preview.slice(0, 60),
+    });
 
     return row;
   }

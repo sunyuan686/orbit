@@ -32,6 +32,9 @@ import {
 import type { AiRuntimeEnv } from "./ai-model.js";
 import { syncAssetReferences } from "./asset-references.js";
 import { handleFeishuAiChat, isThreadBusy } from "./feishu-ai-chat.js";
+import { createLogger } from "../lib/logger.js";
+
+const log = createLogger("feishu-inbound");
 
 function now(): number {
   return Math.floor(Date.now() / 1000);
@@ -389,6 +392,13 @@ async function writeEntryText(
       })
       .where(eq(entry.id, mergeTarget.id));
     await syncAssetReferences(ctx.db, parsed.entryType, mergeTarget.id, nextBody);
+    log.info("merged feishu entry text into existing entry", {
+      entryId: mergeTarget.id,
+      entryType: parsed.entryType,
+      userId: actor.userId,
+      author: actor.name,
+      textPreview: parsed.text.slice(0, 50),
+    });
     return mergeTarget.id;
   }
 
@@ -407,6 +417,13 @@ async function writeEntryText(
     updatedAt: timestamp,
   });
   await syncAssetReferences(ctx.db, parsed.entryType, id, html);
+  log.info("created new feishu entry from text", {
+    entryId: id,
+    entryType: parsed.entryType,
+    userId: actor.userId,
+    author: actor.name,
+    textPreview: parsed.text.slice(0, 50),
+  });
 
   void notifyEntryCreated(ctx.db, ctx.notifyRuntime, {
     actorUserId: actor.userId,
@@ -469,6 +486,14 @@ async function attachImageToEntry(
       createdAt: now(),
     });
   }
+
+  log.info("attached feishu image asset to entry", {
+    entryId,
+    storageKey: filename,
+    mimeType,
+    size: body.byteLength,
+    messageId: message.messageId,
+  });
 }
 
 
@@ -478,24 +503,53 @@ export async function processFeishuInboundMessage(
   message: FeishuInboundMessage,
   options: { hasGroupMention: boolean }
 ): Promise<void> {
+  log.info("processing feishu inbound message", {
+    messageId: message.messageId,
+    chatId: message.chatId,
+    senderOpenId: message.senderOpenId,
+    chatType: message.chatType,
+    messageType: message.messageType,
+  });
+
   const actor = await resolveActorFromMapping(
     ctx.db,
     message.senderOpenId,
     ctx.config.authorOpenIds
   );
   if (!actor) {
+    log.warn("feishu inbound message rejected: sender open_id not mapped to actor", {
+      senderOpenId: message.senderOpenId,
+      messageId: message.messageId,
+    });
     await replyText(ctx, message, "未授权：请先在 Orbit 设置页绑定你的飞书 open_id。");
     return;
   }
 
+  log.info("feishu sender resolved to actor", {
+    senderOpenId: message.senderOpenId,
+    userId: actor.userId,
+    userName: actor.name,
+  });
+
   if (message.chatType === "group") {
     // 1. 群聊中必须 @Bot 机器人
-    if (!options.hasGroupMention) return;
+    if (!options.hasGroupMention) {
+      log.info("ignoring feishu group message without bot mention", {
+        chatId: message.chatId,
+        messageId: message.messageId,
+      });
+      return;
+    }
     // 2. 如果配置了特定的白名单群 ID，且当前群不在白名单内，则拦截
     if (
       ctx.config.allowedGroupChatIds.length > 0 &&
       !ctx.config.allowedGroupChatIds.includes(message.chatId)
     ) {
+      log.info("ignoring feishu group message (group chatId not allowed)", {
+        chatId: message.chatId,
+        allowedGroupChatIds: ctx.config.allowedGroupChatIds,
+        messageId: message.messageId,
+      });
       return;
     }
   }
@@ -514,6 +568,11 @@ export async function processFeishuInboundMessage(
 
   // 1. 查询类指令（/today, /week, /month, /summary, /clear, /reset, /搜）
   if (text && isQueryCommand(text)) {
+    log.info("executing feishu query command", {
+      command: text,
+      messageId: message.messageId,
+      actorName: actor.name,
+    });
     await handleQueryCommand(ctx, message, text);
     void typingReactionPromise.then(async (typingReactionId) => {
       const token = await getTenantAccessToken(ctx.appId, ctx.appSecret);
@@ -545,6 +604,12 @@ export async function processFeishuInboundMessage(
   }
 
   if (entryId) {
+    log.info("feishu entry written successfully", {
+      entryId,
+      messageId: message.messageId,
+      actorName: actor.name,
+      hasImage: Boolean(imageKey),
+    });
     const token = await getTenantAccessToken(ctx.appId, ctx.appSecret);
 
     // ⚡️ 核心体验升级 1：取消 Typing/THINKING 表情，贴上绿色 DONE 表情！
@@ -596,7 +661,7 @@ export async function processFeishuInboundMessage(
         Boolean(ctx.config.replyInThread)
       );
     } catch (err) {
-      console.error("[Feishu Inbound] Send entry card failed, falling back to text:", err);
+      log.error("[Feishu Inbound] Send entry card failed, falling back to text", err);
       await replyText(ctx, message, `已记入${label} ✅\n🔗 查看记录: ${entryUrl}`);
     }
     return;
@@ -604,6 +669,14 @@ export async function processFeishuInboundMessage(
 
   // 3. 无 / 前缀的自然语言文本 → 进入 AI 多轮对话！
   if (text) {
+    log.info("dispatching feishu message to AI chat", {
+      messageId: message.messageId,
+      chatId: message.chatId,
+      threadId: message.threadId ?? "",
+      textPreview: text.slice(0, 60),
+      actorName: actor.name,
+      isQueued,
+    });
     await handleFeishuAiChat(
       {
         db: ctx.db,

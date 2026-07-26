@@ -4,6 +4,9 @@ import { aiConversation, aiMessage, feishuThreadSession } from "../db/schema.js"
 import { generateId } from "../lib/id.js";
 import { resolveModel, type AiRuntimeEnv } from "./ai-model.js";
 import { searchEntriesForFeishu } from "./feishu-commands.js";
+import { createLogger } from "../lib/logger.js";
+
+const log = createLogger("feishu-ai-chat");
 import {
   addFeishuReaction,
   appendFeishuCardContent,
@@ -82,6 +85,11 @@ async function resolveConversation(
       .update(feishuThreadSession)
       .set({ lastActiveAt: now })
       .where(eq(feishuThreadSession.threadKey, threadKey));
+    log.info("reusing existing feishu AI conversation", {
+      conversationId: existing.conversationId,
+      threadKey,
+      userId: actor.userId,
+    });
     return existing.conversationId as string;
   }
 
@@ -106,6 +114,13 @@ async function resolveConversation(
     userId: actor.userId,
     lastActiveAt: now,
     createdAt: now,
+  });
+
+  log.info("created new feishu AI conversation", {
+    conversationId,
+    threadKey,
+    userId: actor.userId,
+    author: actor.name,
   });
 
   return conversationId;
@@ -167,14 +182,56 @@ async function saveMessage(
   });
 }
 
-// ─── System Prompt ────────────────────────────────────────────────────────────
+export interface ToolCallLog {
+  toolName: string;
+  toolDisplayName: string;
+  args?: Record<string, any>;
+  status: "executing" | "completed" | "failed";
+  resultSummary?: string;
+}
+
+const TOOL_DISPLAY_NAMES: Record<string, string> = {
+  search_space_entries: "🔍 空间记录检索",
+  web_search: "🌐 互联网全网搜索",
+  query_weather: "🌤️ 实时天气查询",
+  calculate: "🧮 数值计算分析",
+  fetch_calendar: "📅 纪念日与日程查询",
+};
+
+export function formatToolCallLogs(logs: ToolCallLog[]): string {
+  if (logs.length === 0) return "";
+
+  const lines = logs.map((log) => {
+    const icon = log.status === "executing" ? "⚙️" : log.status === "completed" ? "✅" : "❌";
+    const statusText = log.status === "executing" ? "正在执行..." : log.status === "completed" ? "已完成" : "执行失败";
+    const name = TOOL_DISPLAY_NAMES[log.toolName] ?? `🛠️ ${log.toolName}`;
+    let text = `${icon} **${name}** (${statusText})`;
+    if (log.args && Object.keys(log.args).length > 0) {
+      text += `\n> 📥 **参数:** \`${JSON.stringify(log.args)}\``;
+    }
+    if (log.resultSummary) {
+      text += `\n> 📤 **结果:** ${log.resultSummary.slice(0, 200)}`;
+    }
+    return text;
+  });
+
+  return lines.join("\n\n") + "\n---";
+}
+
+interface SystemPromptResult {
+  systemPrompt: string;
+  toolStatusContent?: string;
+  toolLogs?: ToolCallLog[];
+}
 
 async function buildSystemPrompt(
   db: any,
   baseUrl: string,
   query: string
-): Promise<string> {
+): Promise<SystemPromptResult> {
   let contextSection = "";
+  const toolLogs: ToolCallLog[] = [];
+
   try {
     const result = await searchEntriesForFeishu(db, query, baseUrl);
     if (
@@ -183,14 +240,27 @@ async function buildSystemPrompt(
       result.trim()
     ) {
       contextSection = `\n\n以下是空间中与问题相关的记录（仅供参考，请勿编造）：\n${result}`;
+      toolLogs.push({
+        toolName: "search_space_entries",
+        toolDisplayName: "🔍 空间记录检索",
+        args: { query },
+        status: "completed",
+        resultSummary: result.slice(0, 200),
+      });
     }
   } catch {
     // 搜索失败不影响对话
   }
 
-  return `你是情侣空间 Orbit 的 AI 助手，通过飞书与用户对话。你能帮助他们查询和回顾记录、回答关于生活记录的问题。
+  const systemPrompt = `你是情侣空间 Orbit 的 AI 助手，通过飞书与用户对话。你能帮助他们查询和回顾记录、回答关于生活记录的问题。
 请用温暖、简洁的中文回复。不要编造未出现的事实。如果不确定请直说。
 如果回复中包含站内链接，请直接给出完整 URL。${contextSection}`;
+
+  return {
+    systemPrompt,
+    toolStatusContent: formatToolCallLogs(toolLogs),
+    toolLogs,
+  };
 }
 
 // ─── CardKit 流式推送 ─────────────────────────────────────────────────────────
@@ -205,18 +275,31 @@ async function streamToCardKit(
   chatId: string,
   threadId: string,
   replyInThread: boolean,
-  textStream: AsyncIterable<string>
+  textStream: AsyncIterable<string>,
+  toolStatusContent?: string
 ): Promise<string> {
-  // Phase 1: 创建卡片并通过 Reply 接口引用回复卡片（根据 replyInThread 配置决定是否显式创建/保留话题）
-  const { cardId, elementId } = await createFeishuStreamingCard(accessToken);
+  // Phase 1: 创建卡片（包含 tool_status 与 ai_content 两个动态节点）并通过 Reply 接口引用回复卡片
+  const { cardId, toolElementId, aiElementId } = await createFeishuStreamingCard(accessToken);
   const shouldReplyInThread = Boolean(threadId) || replyInThread;
   await replyFeishuCardMessage(accessToken, messageId, cardId, shouldReplyInThread);
 
-  // Phase 2: 流式 Append (CardKit 2.0 更新元素全量 content)
+  let sequence = 1;
+
+  // ⚡️ 核心体验升级：若触发了搜索/工具调用，先将工具调用状态与检索来源呈现在卡片顶部！
+  if (toolStatusContent) {
+    await appendFeishuCardContent(
+      accessToken,
+      cardId,
+      toolElementId,
+      toolStatusContent,
+      sequence++
+    ).catch(() => {});
+  }
+
+  // Phase 2: 流式 Append AI 正文
   let fullText = "";
   let buffer = "";
   let lastFlush = Date.now();
-  let sequence = 1;
 
   for await (const chunk of textStream) {
     fullText += chunk;
@@ -230,8 +313,8 @@ async function streamToCardKit(
       await appendFeishuCardContent(
         accessToken,
         cardId,
-        elementId,
-        fullText, // 传入全量累加文本，而不是单次切片！
+        aiElementId,
+        fullText, // 传入全量累加文本！
         currentSeq
       ).catch(() => {});
       buffer = "";
@@ -244,7 +327,7 @@ async function streamToCardKit(
     await appendFeishuCardContent(
       accessToken,
       cardId,
-      elementId,
+      aiElementId,
       fullText, // 传入全量累加文本！
       currentSeq
     ).catch(() => {});
@@ -272,6 +355,7 @@ export async function clearFeishuAiSession(
   await db
     .delete(feishuThreadSession)
     .where(eq(feishuThreadSession.threadKey, threadKey));
+  log.info("cleared feishu AI session", { threadKey });
 }
 
 /** 每个会话 (threadKey) 的消息处理排队 Map，保证同一会话并发消息按顺序串行执行 */
@@ -337,7 +421,8 @@ async function processSingleAiChat(
   let accessToken: string;
   try {
     accessToken = await getTenantAccessToken(ctx.appId, ctx.appSecret);
-  } catch {
+  } catch (err) {
+    log.error("failed to acquire feishu tenant access token", err, { messageId: message.messageId });
     return; // 无法获取 token，静默失败
   }
 
@@ -358,6 +443,7 @@ async function processSingleAiChat(
   try {
     resolvedModel = await resolveModel(ctx.db, ctx.aiEnv);
   } catch (err) {
+    log.error("failed to resolve AI model for feishu chat", err, { messageId: message.messageId });
     await replyFeishuTextMessage(accessToken, message.messageId, "AI 暂不可用，请检查模型配置 ⚙️", Boolean(message.replyInThread || message.threadId)).catch(() => {});
     return;
   }
@@ -366,7 +452,7 @@ async function processSingleAiChat(
   const conversationId = await resolveConversation(ctx.db, threadKey, actor);
 
   // 加载历史 & 构建 system prompt（并行）
-  const [history, systemPrompt] = await Promise.all([
+  const [history, promptRes] = await Promise.all([
     loadHistory(ctx.db, conversationId),
     buildSystemPrompt(ctx.db, ctx.baseUrl, text),
   ]);
@@ -382,10 +468,18 @@ async function processSingleAiChat(
       .where(eq(aiConversation.id, conversationId));
   }
 
+  log.info("invoking AI model stream for feishu chat", {
+    conversationId,
+    modelId: resolvedModel.modelId,
+    provider: resolvedModel.provider,
+    historyCount: history.length,
+    messageId: message.messageId,
+  });
+
   // 启动流式 AI 调用
   const streamResult = streamText({
     model: resolvedModel.model,
-    system: systemPrompt,
+    system: promptRes.systemPrompt,
     messages: [
       ...history,
       { role: "user" as const, content: text },
@@ -403,18 +497,22 @@ async function processSingleAiChat(
       message.chatId,
       message.threadId,
       Boolean(message.replyInThread),
-      streamResult.textStream
+      streamResult.textStream,
+      promptRes.toolStatusContent
     );
     usedCardKit = true;
   } catch (err) {
-    console.error("[Feishu AI Chat] CardKit streaming failed, falling back to text:", err);
+    log.error("CardKit streaming failed, falling back to text response", err, {
+      messageId: message.messageId,
+      conversationId,
+    });
     // CardKit 初始化失败 → 收集全部文本后发纯文本消息
     try {
       for await (const chunk of streamResult.textStream) {
         fullResponse += chunk;
       }
-    } catch {
-      // 流本身也失败
+    } catch (streamErr) {
+      log.error("AI text stream collection failed", streamErr, { conversationId });
     }
   }
 
@@ -423,9 +521,17 @@ async function processSingleAiChat(
   }
 
   if (!fullResponse) {
+    log.warn("feishu AI response empty or failed", { conversationId, messageId: message.messageId });
     await replyFeishuTextMessage(accessToken, message.messageId, "AI 回复失败，请稍后再试 🔄", true).catch(() => {});
     return;
   }
+
+  log.info("feishu AI chat response complete", {
+    conversationId,
+    usedCardKit,
+    fullResponseLength: fullResponse.length,
+    responsePreview: fullResponse.slice(0, 60),
+  });
 
   // ⚡️ 核心体验升级：处理完成，先撤销 Typing/THINKING 表情，再贴上绿色 DONE 表情！
   if (activeReactionPromise) {

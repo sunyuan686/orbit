@@ -153,14 +153,18 @@ async function handleLarkInboundWebhook(
   runtime: Awaited<ReturnType<typeof loadFeishuRuntime>>,
   onPayload: (payload: LarkInboundPayload) => Promise<Response | Record<string, unknown>>
 ): Promise<Response> {
+  log.info("feishu inbound webhook received", { bodyLength: rawBody.length });
+
   const handshake = await tryParseUrlVerification(
     rawBody,
     runtime.secrets.encryptKey
   );
   if (handshake?.challenge) {
     if (verificationTokenMismatch(runtime, handshake)) {
+      log.warn("feishu url_verification token mismatch");
       return c.json({ error: "invalid token" }, 401);
     }
+    log.info("feishu url_verification handshake successful");
     return c.json({ challenge: handshake.challenge });
   }
 
@@ -171,6 +175,7 @@ async function handleLarkInboundWebhook(
       rawBody
     );
     if (!valid) {
+      log.warn("feishu inbound signature verification failed");
       return c.json({ error: "invalid signature" }, 401);
     }
   }
@@ -181,18 +186,22 @@ async function handleLarkInboundWebhook(
       rawBody,
       runtime.secrets.encryptKey
     );
-  } catch {
+  } catch (err) {
+    log.error("feishu inbound payload parsing failed", err);
     return c.json({ error: "invalid payload" }, 400);
   }
 
   if (payload.type === "url_verification" && payload.challenge) {
     if (verificationTokenMismatch(runtime, payload)) {
+      log.warn("feishu url_verification payload token mismatch");
       return c.json({ error: "invalid token" }, 401);
     }
+    log.info("feishu url_verification payload handshake successful");
     return c.json({ challenge: payload.challenge });
   }
 
   if (verificationTokenMismatch(runtime, payload)) {
+    log.warn("feishu payload verification token mismatch", { type: payload.type });
     return c.json({ error: "invalid token" }, 401);
   }
 
@@ -208,28 +217,55 @@ async function handleLarkEvent(
   payload: LarkEventEnvelope
 ): Promise<void> {
   if (payload.type === "url_verification" && payload.challenge) {
+    log.info("ignoring url_verification in handleLarkEvent");
     return;
   }
 
   const eventType = payload.header?.event_type;
+  const eventId = payload.header?.event_id;
+  log.info("feishu event envelope received", { eventType, eventId });
+
   if (eventType !== "im.message.receive_v1" || !payload.event?.message) {
+    log.info("ignoring feishu event (not im.message.receive_v1)", { eventType, eventId });
     return;
   }
 
   const runtime = await loadFeishuRuntime(db, options.getSecret?.(c) ?? "");
-  if (!runtime.config.enabled) return;
+  if (!runtime.config.enabled) {
+    log.info("ignoring feishu event: feishu integration is disabled", { eventId });
+    return;
+  }
 
   const message = payload.event.message;
   const senderOpenId = payload.event.sender?.sender_id?.open_id?.trim() ?? "";
   const messageId = message.message_id?.trim() ?? "";
   const chatId = message.chat_id?.trim() ?? "";
   const threadId = (message as { thread_id?: string }).thread_id?.trim() ?? "";
-  if (!messageId || !chatId || !senderOpenId) return;
+  if (!messageId || !chatId || !senderOpenId) {
+    log.warn("ignoring feishu message event: missing required ids", { messageId, chatId, senderOpenId, eventId });
+    return;
+  }
 
-  if (!runtime.secrets.appSecret || !runtime.config.appId) return;
+  if (!runtime.secrets.appSecret || !runtime.config.appId) {
+    log.warn("ignoring feishu message event: missing appId or appSecret", { appId: runtime.config.appId, eventId });
+    return;
+  }
 
   const claimed = await tryClaimFeishuMessage(db, messageId);
-  if (!claimed) return;
+  if (!claimed) {
+    log.info("ignoring duplicate feishu message (deduplicated)", { messageId, chatId, eventId });
+    return;
+  }
+
+  log.info("processing feishu message event", {
+    messageId,
+    chatId,
+    threadId,
+    chatType: message.chat_type ?? "p2p",
+    messageType: message.message_type ?? "text",
+    senderOpenId,
+    eventId,
+  });
 
   await processFeishuInboundMessage(
     {

@@ -4,6 +4,9 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { entry, memo } from "../db/schema.js";
 import { toPlainText } from "../lib/plain-text.js";
 import { createSearchService } from "./search.js";
+import { createLogger } from "../lib/logger.js";
+
+const log = createLogger("ai-tools");
 
 const MAX_TOOL_CHARS = 8_000;
 /** Max chars for a single search snippet sent to the model. */
@@ -211,6 +214,14 @@ export function createAiTools(
           settingsMap?.brave_search_api_key;
 
         if (!tavilyKey && !braveKey) {
+          log.warn("web_search: no API key configured", {
+            hasEnvTavily: !!env?.TAVILY_API_KEY,
+            hasEnvBrave: !!env?.BRAVE_SEARCH_API_KEY,
+            hasProcessTavily: !!process.env.TAVILY_API_KEY,
+            hasProcessBrave: !!process.env.BRAVE_SEARCH_API_KEY,
+            hasSettingsTavily: !!settingsMap?.tavily_api_key,
+            hasSettingsBrave: !!settingsMap?.brave_search_api_key,
+          });
           return {
             error:
               "尚未配置 Web 搜索 API Key。请在环境变量或系统设置中配置 TAVILY_API_KEY 或 BRAVE_SEARCH_API_KEY。",
@@ -222,30 +233,38 @@ export function createAiTools(
           targetProvider = tavilyKey ? "tavily" : "brave";
         }
 
+        log.info("web_search: calling", { query, targetProvider });
         try {
           if (targetProvider === "tavily" && tavilyKey) {
             const results = await executeTavilySearch(query, tavilyKey);
+            log.info("web_search: tavily success", { count: results.length });
             return { query, provider: "tavily", results };
           }
           if (targetProvider === "brave" && braveKey) {
             const results = await executeBraveSearch(query, braveKey);
+            log.info("web_search: brave success", { count: results.length });
             return { query, provider: "brave", results };
           }
           if (tavilyKey) {
             const results = await executeTavilySearch(query, tavilyKey);
+            log.info("web_search: tavily fallback success", { count: results.length });
             return { query, provider: "tavily", results };
           }
           if (braveKey) {
             const results = await executeBraveSearch(query, braveKey);
+            log.info("web_search: brave fallback success", { count: results.length });
             return { query, provider: "brave", results };
           }
           return { error: "所选搜索引擎 API Key 未配置" };
         } catch (err: any) {
+          log.error("web_search: primary failed", err, { targetProvider, query });
           if (targetProvider === "tavily" && braveKey) {
             try {
               const results = await executeBraveSearch(query, braveKey);
+              log.info("web_search: brave fallback success", { count: results.length });
               return { query, provider: "brave (fallback)", results };
             } catch (fallbackErr: any) {
+              log.error("web_search: both providers failed", fallbackErr, { query });
               return {
                 error: `Tavily 搜索失败: ${err.message}; 自动降级 Brave 也失败: ${fallbackErr.message}`,
               };
