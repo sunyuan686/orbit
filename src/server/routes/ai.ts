@@ -14,6 +14,10 @@ const ai = createAiRoutes(() => db, {
     DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
     TAVILY_API_KEY: process.env.TAVILY_API_KEY,
     BRAVE_SEARCH_API_KEY: process.env.BRAVE_SEARCH_API_KEY,
+    LANGFUSE_PUBLIC_KEY: process.env.LANGFUSE_PUBLIC_KEY,
+    LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
+    LANGFUSE_BASE_URL: process.env.LANGFUSE_BASE_URL,
+    LANGFUSE_ENV: process.env.LANGFUSE_ENV,
   }),
 });
 

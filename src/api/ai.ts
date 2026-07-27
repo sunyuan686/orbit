@@ -471,7 +471,7 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
         input: extractTextFromParts(latestUser.parts),
         metadata: { provider, modelId, contextMode: context.mode, articleId: context.articleId },
         tags: ["web", provider],
-      });
+      }, env);
       const generation = trace?.generation({
         name: "streamText",
         model: modelId,

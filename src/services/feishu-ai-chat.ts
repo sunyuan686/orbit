@@ -437,7 +437,7 @@ async function processSingleAiChat(
       threadKey,
     },
     tags: ["feishu", resolvedModel.provider],
-  });
+  }, ctx.aiEnv ?? {});
 
   const generation = trace?.generation({
     name: "streamText",

@@ -269,12 +269,24 @@ export async function deliverCompanionCard(
         const token = await getTenantAccessToken(runtime.config.appId, runtime.secrets.appSecret);
         const receiveIdType = runtime.config.homeChatId.trim() ? "chat_id" : "open_id";
         await sendFeishuInteractiveCard(token, target, receiveIdType, card);
+      } else {
+        console.info(`[companion] feishu skipped: no target (homeChatId and openId both empty), userId=${candidate.recipientUserId}, type=${candidate.type}`);
       }
+    }
+    else {
+      const reason = !runtime.config.enabled
+        ? "feishu disabled"
+        : !runtime.config.appId
+          ? "appId empty"
+          : "appSecret empty";
+      console.info(`[companion] feishu skipped: ${reason}, type=${candidate.type}`);
     }
 
     status = "sent";
   } catch (err) {
-    console.error("[companion] deliver failed", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    const code = (err as any)?.code !== undefined ? ` (code=${(err as any).code})` : "";
+    console.error(`[companion] deliver failed: ${msg}${code}`, err instanceof Error ? err.stack : err);
     status = "failed";
   }
 

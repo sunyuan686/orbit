@@ -27,6 +27,10 @@ export interface AiRuntimeEnv {
   CF_API_TOKEN?: string;
   TAVILY_API_KEY?: string;
   BRAVE_SEARCH_API_KEY?: string;
+  LANGFUSE_PUBLIC_KEY?: string;
+  LANGFUSE_SECRET_KEY?: string;
+  LANGFUSE_BASE_URL?: string;
+  LANGFUSE_ENV?: string;
   AI?: Ai;
 }
 

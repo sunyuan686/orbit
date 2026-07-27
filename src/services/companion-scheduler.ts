@@ -146,11 +146,14 @@ export class CompanionScheduler extends DurableObject<CompanionSchedulerEnv> {
             },
             nowTs
           ).catch((err) => {
-            console.error("[CompanionScheduler] deliver error", err);
+            const msg = err instanceof Error ? err.message : String(err);
+            const code = (err as any)?.code !== undefined ? ` (code=${(err as any).code})` : "";
+            console.error(`[CompanionScheduler] deliver error: ${msg}${code}`, err instanceof Error ? err.stack : err);
           });
         }
       } catch (err) {
-        console.error("[CompanionScheduler] engine error", err);
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[CompanionScheduler] engine error: ${msg}`, err instanceof Error ? err.stack : err);
         // alarm 会自动重试，这里不 rethrow 避免无限快速重试
       }
     }

@@ -3,25 +3,25 @@ import { createLogger } from "../lib/logger.js";
 
 const log = createLogger("langfuse");
 
-let langfuseInstance: Langfuse | null = null;
-let initialized = false;
+export interface LangfuseEnv {
+  LANGFUSE_PUBLIC_KEY?: string;
+  LANGFUSE_SECRET_KEY?: string;
+  LANGFUSE_BASE_URL?: string;
+  LANGFUSE_ENV?: string;
+}
 
-export function getLangfuse(): Langfuse | null {
-  if (initialized) return langfuseInstance;
-  initialized = true;
-
-  const publicKey = process.env.LANGFUSE_PUBLIC_KEY?.trim();
-  const secretKey = process.env.LANGFUSE_SECRET_KEY?.trim();
-  const baseUrl = process.env.LANGFUSE_BASE_URL?.trim() || "https://cloud.langfuse.com";
+function buildLangfuse(env: LangfuseEnv): Langfuse | null {
+  const publicKey = env.LANGFUSE_PUBLIC_KEY?.trim();
+  const secretKey = env.LANGFUSE_SECRET_KEY?.trim();
+  const baseUrl = env.LANGFUSE_BASE_URL?.trim() || "https://cloud.langfuse.com";
 
   if (!publicKey || !secretKey) {
     log.info("Langfuse not configured, skipping tracing");
-    langfuseInstance = null;
     return null;
   }
 
   try {
-    langfuseInstance = new Langfuse({
+    const instance = new Langfuse({
       publicKey,
       secretKey,
       baseUrl,
@@ -29,12 +29,11 @@ export function getLangfuse(): Langfuse | null {
       flushInterval: 500,
     });
     log.info("Langfuse initialized successfully", { baseUrl });
+    return instance;
   } catch (err) {
     log.error("Failed to initialize Langfuse client", err);
-    langfuseInstance = null;
+    return null;
   }
-
-  return langfuseInstance;
 }
 
 export interface TraceContextOptions {
@@ -77,14 +76,13 @@ export interface ActiveTrace {
 /**
  * Creates a Langfuse Trace safely and guarantees fast asynchronous flushes.
  */
-export function createLangfuseTrace(options: TraceContextOptions): ActiveTrace | null {
-  const lf = getLangfuse();
+export function createLangfuseTrace(options: TraceContextOptions, env: LangfuseEnv = {}): ActiveTrace | null {
+  const lf = buildLangfuse(env);
   if (!lf) return null;
 
   try {
     const environment =
-      process.env.LANGFUSE_ENV?.trim() ||
-      (process.env.NODE_ENV === "production" ? "production" : "development");
+      env.LANGFUSE_ENV?.trim() || "production";
 
     const trace = lf.trace({
       name: options.name,
