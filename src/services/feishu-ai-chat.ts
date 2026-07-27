@@ -467,6 +467,7 @@ async function processSingleAiChat(
     name: "feishu-chat",
     userId: actor.userId,
     sessionId: conversationId,
+    input: text,
     metadata: {
       provider: resolvedModel.provider,
       modelId: resolvedModel.modelId,
@@ -478,10 +479,11 @@ async function processSingleAiChat(
   const generation = trace?.generation({
     name: "streamText",
     model: resolvedModel.modelId,
-    input: [
-      { role: "system", content: systemPrompt },
-      ...modelMessages,
-    ],
+    input: {
+      system: systemPrompt,
+      messages: modelMessages,
+      tools: formatToolsForLangfuse(tools),
+    },
   });
 
   log.info("invoking AI model stream for feishu chat", {
@@ -600,6 +602,7 @@ async function processSingleAiChat(
 
   if (fullResponse) {
     generation?.end({ output: fullResponse });
+    trace?.update({ output: fullResponse });
   }
 
   const usedCardKit = Boolean(cardSession);
