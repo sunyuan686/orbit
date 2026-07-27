@@ -178,101 +178,122 @@ async function buildSystemPrompt(
 
 // ─── CardKit 流式推送 ─────────────────────────────────────────────────────────
 
-interface StreamToCardKitOptions {
-  accessToken: string;
-  messageId: string;
-  chatId: string;
-  threadId: string;
-  replyInThread: boolean;
-  textStream: AsyncIterable<string>;
-  onCardCreated?: (cardId: string, toolElementId: string, aiElementId: string) => void;
-  toolStatusContent?: string;
+/**
+ * 按 Markdown 行与字符限制将长文本拆分为多个 CardKit markdown 节点，防止单节点 4000 字符超限
+ */
+export function splitTextForCardElements(fullText: string, maxChunkLen = 3500): string[] {
+  if (!fullText) return [""];
+  if (fullText.length <= maxChunkLen) {
+    return [fullText];
+  }
+
+  const chunks: string[] = [];
+  let remaining = fullText;
+
+  while (remaining.length > 0) {
+    if (remaining.length <= maxChunkLen) {
+      chunks.push(remaining);
+      break;
+    }
+
+    let cutIndex = remaining.lastIndexOf("\n", maxChunkLen);
+    if (cutIndex < maxChunkLen * 0.4) {
+      cutIndex = remaining.lastIndexOf(" ", maxChunkLen);
+      if (cutIndex < maxChunkLen * 0.4) {
+        cutIndex = maxChunkLen;
+      }
+    }
+
+    chunks.push(remaining.slice(0, cutIndex));
+    remaining = remaining.slice(cutIndex);
+  }
+
+  return chunks;
 }
 
 /**
- * 尝试通过 CardKit 流式推送 AI 回复。
- * 返回完整回复文本。如果 CardKit 初始化失败，抛出异常由调用方降级处理。
+ * 管理单个 CardKit 消息卡片更新会话。
+ * 保证所有追加与定型操作共享全局递增 sequence 序号，且按顺序串行发送。
  */
-async function streamToCardKit(
-  options: StreamToCardKitOptions
-): Promise<string> {
-  const {
-    accessToken,
-    messageId,
-    chatId,
-    threadId,
-    replyInThread,
-    textStream,
-    onCardCreated,
-    toolStatusContent,
-  } = options;
+class CardKitSession {
+  private sequence = 1;
+  private queue = Promise.resolve();
+  private lastSentMap = new Map<string, string>();
+  private overflowText = "";
 
-  // Phase 1: 创建卡片（包含 tool_status 与 ai_content 两个动态节点）并通过 Reply 接口引用回复卡片
-  const { cardId, toolElementId, aiElementId } = await createFeishuStreamingCard(accessToken);
-  if (onCardCreated) {
-    onCardCreated(cardId, toolElementId, aiElementId);
+  constructor(
+    private accessToken: string,
+    public cardId: string,
+    public toolElementId: string,
+    public aiElementIds: string[]
+  ) {}
+
+  private enqueue<T>(task: (seq: number) => Promise<T>): Promise<T> {
+    const currentSeq = this.sequence++;
+    const res = this.queue
+      .then(() => task(currentSeq))
+      .catch((err) => {
+        log.warn("feishu CardKit update failed", {
+          cardId: this.cardId,
+          seq: currentSeq,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    this.queue = res.then(() => {});
+    return res as Promise<T>;
   }
 
-  const shouldReplyInThread = Boolean(threadId) || replyInThread;
-  await replyFeishuCardMessage(accessToken, messageId, cardId, shouldReplyInThread);
+  async updateToolStatus(content: string): Promise<void> {
+    if (this.lastSentMap.get(this.toolElementId) === content) return;
+    this.lastSentMap.set(this.toolElementId, content);
 
-  let sequence = 1;
-
-  if (toolStatusContent) {
-    await appendFeishuCardContent(
-      accessToken,
-      cardId,
-      toolElementId,
-      toolStatusContent,
-      sequence++
-    ).catch(() => {});
+    await this.enqueue((seq) =>
+      appendFeishuCardContent(
+        this.accessToken,
+        this.cardId,
+        this.toolElementId,
+        content,
+        seq
+      )
+    );
   }
 
-  // Phase 2: 流式 Append AI 正文
-  let fullText = "";
-  let buffer = "";
-  let lastFlush = Date.now();
+  async updateAiContent(fullText: string): Promise<void> {
+    const chunks = splitTextForCardElements(fullText, 3500);
 
-  for await (const chunk of textStream) {
-    fullText += chunk;
-    buffer += chunk;
-    const elapsed = Date.now() - lastFlush;
-    if (
-      buffer.length >= CARDKIT_MIN_CHUNK_LEN ||
-      elapsed >= CARDKIT_FLUSH_INTERVAL_MS
-    ) {
-      const currentSeq = sequence++;
-      await appendFeishuCardContent(
-        accessToken,
-        cardId,
-        aiElementId,
-        fullText, // 传入全量累加文本！
-        currentSeq
-      ).catch(() => {});
-      buffer = "";
-      lastFlush = Date.now();
+    const maxElements = this.aiElementIds.length;
+    const cardChunks = chunks.slice(0, maxElements);
+    if (chunks.length > maxElements) {
+      this.overflowText = chunks.slice(maxElements).join("");
+    } else {
+      this.overflowText = "";
+    }
+
+    for (let i = 0; i < cardChunks.length; i++) {
+      const elementId = this.aiElementIds[i];
+      const chunkText = cardChunks[i];
+
+      if (this.lastSentMap.get(elementId) !== chunkText) {
+        this.lastSentMap.set(elementId, chunkText);
+        await this.enqueue((seq) =>
+          appendFeishuCardContent(
+            this.accessToken,
+            this.cardId,
+            elementId,
+            chunkText,
+            seq
+          )
+        );
+      }
     }
   }
 
-  if (buffer) {
-    const currentSeq = sequence++;
-    await appendFeishuCardContent(
-      accessToken,
-      cardId,
-      aiElementId,
-      fullText, // 传入全量累加文本！
-      currentSeq
-    ).catch(() => {});
+  async finalize(): Promise<{ overflowText: string }> {
+    await this.enqueue((seq) =>
+      finalizeFeishuStreamingCard(this.accessToken, this.cardId, seq)
+    );
+    return { overflowText: this.overflowText };
   }
-
-  // Phase 3: 定型（PATCH /settings 把 streaming_mode 置为 false，彻底消除 [生成中...] 提示）
-  await finalizeFeishuStreamingCard(
-    accessToken,
-    cardId,
-    sequence++
-  ).catch(() => {});
-
-  return fullText;
 }
 
 // ─── 公开入口 ─────────────────────────────────────────────────────────────────
@@ -458,23 +479,21 @@ async function processSingleAiChat(
 
   // 动态捕获 Tool 调用的日志并在卡片中展示
   const toolLogs: ToolCallLog[] = [];
-  let cardKitCardId = "";
-  let cardKitToolElementId = "";
-  let seqNumber = 100;
 
-  const updateToolStatusCard = async () => {
-    if (!cardKitCardId || !cardKitToolElementId) return;
-    const formatted = formatToolCallLogs(toolLogs);
-    if (formatted) {
-      await appendFeishuCardContent(
-        accessToken,
-        cardKitCardId,
-        cardKitToolElementId,
-        formatted,
-        seqNumber++
-      ).catch(() => {});
-    }
-  };
+  // 创建 CardKit 卡片会话
+  let cardSession: CardKitSession | null = null;
+  const shouldReplyInThread = Boolean(message.threadId || message.replyInThread);
+
+  try {
+    const { cardId, toolElementId, aiElementIds } = await createFeishuStreamingCard(accessToken);
+    await replyFeishuCardMessage(accessToken, message.messageId, cardId, shouldReplyInThread);
+    cardSession = new CardKitSession(accessToken, cardId, toolElementId, aiElementIds);
+  } catch (err) {
+    log.error("failed to create feishu CardKit streaming card, will fallback to text response", err, {
+      messageId: message.messageId,
+      conversationId,
+    });
+  }
 
   // 启动流式 AI Agent 调用
   const startedAt = Date.now();
@@ -496,7 +515,12 @@ async function processSingleAiChat(
             resultSummary: res ? JSON.stringify((res as any).result).slice(0, 200) : undefined,
           });
         }
-        await updateToolStatusCard();
+        if (cardSession) {
+          const formatted = formatToolCallLogs(toolLogs);
+          if (formatted) {
+            void cardSession.updateToolStatus(formatted);
+          }
+        }
       }
     },
     onFinish: async () => {
@@ -512,42 +536,62 @@ async function processSingleAiChat(
     },
   });
 
-  // 尝试 CardKit 流式推送；失败则降级为纯文本
+  // 读取 AI 流式输出并同步推送 CardKit
   let fullResponse = "";
-  let usedCardKit = false;
+  let buffer = "";
+  let lastFlush = Date.now();
 
   try {
-    fullResponse = await streamToCardKit({
-      accessToken,
-      messageId: message.messageId,
-      chatId: message.chatId,
-      threadId: message.threadId,
-      replyInThread: Boolean(message.replyInThread),
-      textStream: streamResult.textStream,
-      onCardCreated: (cId, toolElId) => {
-        cardKitCardId = cId;
-        cardKitToolElementId = toolElId;
-      },
-    });
-    usedCardKit = true;
-  } catch (err) {
-    log.error("CardKit streaming failed, falling back to text response", err, {
-      messageId: message.messageId,
-      conversationId,
-    });
-    try {
-      for await (const chunk of streamResult.textStream) {
-        fullResponse += chunk;
+    for await (const chunk of streamResult.textStream) {
+      fullResponse += chunk;
+      buffer += chunk;
+      if (cardSession) {
+        const elapsed = Date.now() - lastFlush;
+        if (
+          buffer.length >= CARDKIT_MIN_CHUNK_LEN ||
+          elapsed >= CARDKIT_FLUSH_INTERVAL_MS
+        ) {
+          void cardSession.updateAiContent(fullResponse);
+          buffer = "";
+          lastFlush = Date.now();
+        }
       }
-    } catch (streamErr) {
-      log.error("AI text stream collection failed", streamErr, { conversationId });
-      generation?.end({ error: streamErr });
     }
+
+    if (cardSession && buffer) {
+      void cardSession.updateAiContent(fullResponse);
+    }
+
+    if (cardSession) {
+      const { overflowText } = await cardSession.finalize();
+      if (overflowText && overflowText.trim()) {
+        log.info("feishu AI response exceeded card capacity, sending overflow text via follow-up replies", {
+          conversationId,
+          overflowLength: overflowText.length,
+        });
+        const overflowChunks = splitTextForCardElements(overflowText, 3500);
+        for (const overflowChunk of overflowChunks) {
+          if (overflowChunk.trim()) {
+            await replyFeishuTextMessage(
+              accessToken,
+              message.messageId,
+              overflowChunk,
+              shouldReplyInThread
+            ).catch((err) => log.error("failed to send feishu overflow message", err));
+          }
+        }
+      }
+    }
+  } catch (streamErr) {
+    log.error("AI text stream collection failed", streamErr, { conversationId });
+    generation?.end({ error: streamErr });
   }
 
   if (fullResponse) {
     generation?.end({ output: fullResponse });
   }
+
+  const usedCardKit = Boolean(cardSession);
 
   if (!usedCardKit && fullResponse) {
     await replyFeishuTextMessage(accessToken, message.messageId, fullResponse, true).catch(() => {});
