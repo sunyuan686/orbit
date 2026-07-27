@@ -27,9 +27,11 @@ import {
 
 const log = createLogger("feishu-ai-chat");
 
-/** CardKit 流推送：积算 N 字或 N ms 后批量 flush，减少 API 调用次数 */
-const CARDKIT_MIN_CHUNK_LEN = 8;
-const CARDKIT_FLUSH_INTERVAL_MS = 300;
+/** CardKit 流推送：积算 N 字或 N ms 后批量 flush，降低请求频率 */
+const CARDKIT_MIN_CHUNK_LEN = 60;
+const CARDKIT_FLUSH_INTERVAL_MS = 1200;
+/** 单次 Worker 执行中，CardKit 子请求调用次数上限，防止触发 Cloudflare 50 次子请求配额限制 */
+const CARDKIT_MAX_SUBREQUESTS = 35;
 
 function nowSec(): number {
   return Math.floor(Date.now() / 1000);
@@ -220,6 +222,7 @@ class CardKitSession {
   private queue = Promise.resolve();
   private lastSentMap = new Map<string, string>();
   private overflowText = "";
+  private subrequestCount = 0;
 
   constructor(
     private accessToken: string,
@@ -229,6 +232,7 @@ class CardKitSession {
   ) {}
 
   private enqueue<T>(task: (seq: number) => Promise<T>): Promise<T> {
+    this.subrequestCount++;
     const currentSeq = this.sequence++;
     const res = this.queue
       .then(() => task(currentSeq))
@@ -245,6 +249,8 @@ class CardKitSession {
 
   async updateToolStatus(content: string): Promise<void> {
     if (this.lastSentMap.get(this.toolElementId) === content) return;
+    if (this.subrequestCount >= CARDKIT_MAX_SUBREQUESTS) return;
+
     this.lastSentMap.set(this.toolElementId, content);
 
     await this.enqueue((seq) =>
@@ -258,7 +264,9 @@ class CardKitSession {
     );
   }
 
-  async updateAiContent(fullText: string): Promise<void> {
+  async updateAiContent(fullText: string, isFinal = false): Promise<void> {
+    if (!isFinal && this.subrequestCount >= CARDKIT_MAX_SUBREQUESTS) return;
+
     const chunks = splitTextForCardElements(fullText, 3500);
 
     const maxElements = this.aiElementIds.length;
@@ -288,7 +296,8 @@ class CardKitSession {
     }
   }
 
-  async finalize(): Promise<{ overflowText: string }> {
+  async finalize(fullText: string): Promise<{ overflowText: string }> {
+    await this.updateAiContent(fullText, true);
     await this.enqueue((seq) =>
       finalizeFeishuStreamingCard(this.accessToken, this.cardId, seq)
     );
@@ -558,12 +567,8 @@ async function processSingleAiChat(
       }
     }
 
-    if (cardSession && buffer) {
-      void cardSession.updateAiContent(fullResponse);
-    }
-
     if (cardSession) {
-      const { overflowText } = await cardSession.finalize();
+      const { overflowText } = await cardSession.finalize(fullResponse);
       if (overflowText && overflowText.trim()) {
         log.info("feishu AI response exceeded card capacity, sending overflow text via follow-up replies", {
           conversationId,
