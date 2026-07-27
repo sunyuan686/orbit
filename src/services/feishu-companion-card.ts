@@ -125,15 +125,12 @@ function buildCard(
 
   elements.push({ tag: "hr" });
   elements.push({
-    tag: "action",
-    actions: [
-      {
-        tag: "button",
-        text: { tag: "plain_text", content: "回到 Orbit 查看详情" },
-        type: "default",
-        url: deepLink,
-      },
-    ],
+    tag: "button",
+    text: { tag: "plain_text", content: "回到 Orbit 查看详情" },
+    type: "default",
+    multi_url: { url: deepLink },
+    url: deepLink,
+    behaviors: [{ type: "open_url", default_url: deepLink }],
   });
 
   return {
