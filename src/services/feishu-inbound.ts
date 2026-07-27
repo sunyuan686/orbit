@@ -77,6 +77,7 @@ function extensionForMime(mimeType: string): string {
 }
 
 import {
+  buildFeishuThreadKey,
   clearFeishuAiSession,
 } from "./feishu-ai-chat.js";
 
@@ -254,7 +255,7 @@ async function handleQueryCommand(
   const baseUrl = ctx.baseUrl;
 
   if (trimmed.toLowerCase() === "/clear" || trimmed.toLowerCase() === "/reset") {
-    const threadKey = message.threadId || message.chatId;
+    const threadKey = buildFeishuThreadKey(message, message.senderOpenId);
     await clearFeishuAiSession(ctx.db, threadKey);
     await replyText(ctx, message, "已重置当前 AI 对话 🗑️");
     return;

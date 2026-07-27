@@ -307,6 +307,20 @@ class CardKitSession {
 
 // ─── 公开入口 ─────────────────────────────────────────────────────────────────
 
+export function buildFeishuThreadKey(
+  message: { threadId?: string; chatId: string; chatType?: string; senderOpenId?: string },
+  fallbackUserId?: string
+): string {
+  if (message.threadId) {
+    return `thread:${message.threadId}`;
+  }
+  if (message.chatType === "group" || message.chatId.startsWith("oc_")) {
+    return `group:${message.chatId}`;
+  }
+  const p2pId = message.senderOpenId || fallbackUserId || "";
+  return `p2p:${p2pId}`;
+}
+
 /**
  * 清空指定 threadKey 的 AI 会话（下次对话重新开始）。
  */
@@ -337,15 +351,7 @@ export async function handleFeishuAiChat(
   text: string,
   actor: FeishuAiChatActor
 ): Promise<void> {
-  let threadKey = "";
-  if (message.threadId) {
-    threadKey = `thread:${message.threadId}`;
-  } else if (message.chatType === "group" || message.chatId.startsWith("oc_")) {
-    threadKey = `group:${message.chatId}`;
-  } else {
-    const p2pId = message.senderOpenId || actor.userId;
-    threadKey = `p2p:${p2pId}`;
-  }
+  const threadKey = buildFeishuThreadKey(message, actor.userId);
 
   const previousTask = threadQueueMap.get(threadKey) ?? Promise.resolve();
 
