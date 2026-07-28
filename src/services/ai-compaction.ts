@@ -46,10 +46,21 @@ export interface GenerateHandoffSummaryOptions {
 /**
  * Generates a 4-dimensional structured Handoff Summary of dropped history turns using the chat LLM.
  */
+export interface HandoffSummaryResult {
+  text: string | null;
+  usage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+  };
+  llmRequest?: unknown;
+  llmResponse?: unknown;
+}
+
 export async function generateHandoffSummary({
   model,
   droppedTurns,
-}: GenerateHandoffSummaryOptions): Promise<string | null> {
+}: GenerateHandoffSummaryOptions): Promise<HandoffSummaryResult | null> {
   if (!droppedTurns || droppedTurns.length === 0) {
     return null;
   }
@@ -76,18 +87,40 @@ ${renderedHistory}
     const response = await generateText({
       model,
       prompt,
-      // Use moderate temperature for concise factual summary
       temperature: 0.2,
+      include: {
+        requestBody: true,
+        requestMessages: true,
+        responseBody: true,
+      },
     });
 
     const summaryText = response.text.trim();
+    const step = response.steps[0];
     log.info("compaction summary generated successfully", {
       turnsCount: droppedTurns.length,
       durationMs: Date.now() - startedAt,
       summaryLength: summaryText.length,
     });
 
-    return summaryText;
+    return {
+      text: summaryText,
+      usage: response.usage
+        ? {
+            inputTokens: response.usage.inputTokens,
+            outputTokens: response.usage.outputTokens,
+            totalTokens: response.usage.totalTokens,
+          }
+        : undefined,
+      llmRequest:
+        step?.request?.body ??
+        (step?.request?.messages ? { messages: step.request.messages } : undefined),
+      llmResponse:
+        step?.response?.body ??
+        (step?.response?.messages
+          ? { messages: step.response.messages }
+          : undefined),
+    };
   } catch (err) {
     log.error("compaction summary generation failed, falling back to static truncation", err);
     return null;

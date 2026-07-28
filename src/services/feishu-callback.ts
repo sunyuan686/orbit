@@ -5,6 +5,9 @@ import {
   resolveCallbackEventType,
   type LarkInboundPayload,
 } from "./feishu-webhook.js";
+import { resumeFeishuAiChatAfterApproval } from "./feishu-ai-chat.js";
+import { getUserById } from "./space-authors.js";
+import type { AiRuntimeEnv } from "./ai-model.js";
 
 export type FeishuCallbackResponse = Record<string, unknown>;
 
@@ -12,6 +15,9 @@ interface FeishuCallbackContext {
   db: any;
   baseUrl: string;
   config: FeishuConfigStored;
+  appId: string;
+  appSecret: string;
+  aiEnv?: AiRuntimeEnv;
 }
 
 interface OrbitCardAction {
@@ -19,6 +25,10 @@ interface OrbitCardAction {
   entryId?: string;
   contentType?: string;
   url?: string;
+  conversationId?: string;
+  approvalId?: string;
+  approved?: boolean;
+  replyMessageId?: string;
 }
 
 const CONTENT_TYPE_LABEL: Record<string, string> = {
@@ -52,6 +62,14 @@ function parseActionValue(value: unknown): OrbitCardAction | null {
     contentType:
       typeof record.contentType === "string" ? record.contentType : undefined,
     url: typeof record.url === "string" ? record.url : undefined,
+    conversationId:
+      typeof record.conversationId === "string" ? record.conversationId : undefined,
+    approvalId:
+      typeof record.approvalId === "string" ? record.approvalId : undefined,
+    approved:
+      typeof record.approved === "boolean" ? record.approved : undefined,
+    replyMessageId:
+      typeof record.replyMessageId === "string" ? record.replyMessageId : undefined,
   };
 }
 
@@ -101,6 +119,69 @@ function extractAction(payload: LarkInboundPayload): OrbitCardAction | null {
   return null;
 }
 
+function callbackMessageId(payload: LarkInboundPayload): string {
+  const event = payload.event;
+  const context = event?.context;
+  if (context && typeof context === "object") {
+    const openMessageId = (context as { open_message_id?: string }).open_message_id;
+    if (typeof openMessageId === "string" && openMessageId.trim()) {
+      return openMessageId.trim();
+    }
+  }
+  return "";
+}
+
+async function handleAiWriteApproval(
+  action: OrbitCardAction,
+  openId: string,
+  payload: LarkInboundPayload,
+  ctx: FeishuCallbackContext
+): Promise<FeishuCallbackResponse> {
+  const userId = resolveUserIdFromOpenId(openId, ctx.config.authorOpenIds);
+  if (!userId) {
+    return toast("error", "无权限操作");
+  }
+
+  const conversationId = action.conversationId?.trim() ?? "";
+  const approvalId = action.approvalId?.trim() ?? "";
+  if (!conversationId || !approvalId || action.approved === undefined) {
+    return toast("error", "审批参数无效");
+  }
+
+  const user = await getUserById(ctx.db, userId);
+  if (!user) {
+    return toast("error", "用户不存在");
+  }
+
+  const replyMessageId =
+    action.replyMessageId?.trim() || callbackMessageId(payload);
+  if (!replyMessageId) {
+    return toast("error", "无法定位原消息");
+  }
+
+  void resumeFeishuAiChatAfterApproval(
+    {
+      db: ctx.db,
+      appId: ctx.appId,
+      appSecret: ctx.appSecret,
+      baseUrl: ctx.baseUrl,
+      aiEnv: ctx.aiEnv,
+    },
+    {
+      conversationId,
+      approvalId,
+      approved: action.approved,
+      actor: { userId: user.id, name: user.name },
+      replyMessageId,
+    }
+  ).catch(() => undefined);
+
+  return toast(
+    "success",
+    action.approved ? "已确认，正在写入…" : "已取消写入"
+  );
+}
+
 async function handleCardAction(
   payload: LarkInboundPayload,
   ctx: FeishuCallbackContext
@@ -114,6 +195,8 @@ async function handleCardAction(
   if (!action) return {};
 
   switch (action.action) {
+    case "orbit:ai_write_approval":
+      return handleAiWriteApproval(action, openId, payload, ctx);
     case "orbit:ack":
     case "orbit:open":
       return toast("success", "已收到");

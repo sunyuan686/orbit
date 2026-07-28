@@ -503,6 +503,9 @@ export function createIntegrationsRoutes(
         db,
         baseUrl,
         config: runtime.config,
+        appId: runtime.config.appId,
+        appSecret: runtime.secrets.appSecret,
+        aiEnv: options.getAiEnv?.(c),
       })
     );
   });

@@ -6995,6 +6995,63 @@ html.orbit-ai-open body {
   white-space: nowrap;
 }
 
+.orbit-ai-tool--approval {
+  border-color: color-mix(in srgb, var(--color-accent, #c97b63) 35%, transparent);
+}
+
+.orbit-ai-tool-status-dot--approval {
+  background: var(--color-accent, #c97b63);
+}
+
+.orbit-ai-tool-approval {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm, 0.5rem);
+}
+
+.orbit-ai-tool-approval-title {
+  margin: 0;
+  font-size: var(--type-secondary, 0.875rem);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.orbit-ai-tool-approval-preview {
+  margin: 0;
+  padding: var(--space-sm, 0.5rem);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-surface-muted, rgba(0, 0, 0, 0.04));
+  font-family: var(--font-body, inherit);
+  font-size: var(--type-tertiary, 0.8rem);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.orbit-ai-tool-approval-actions {
+  display: flex;
+  gap: var(--space-sm, 0.5rem);
+}
+
+.orbit-ai-tool-approval-btn {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm, 6px);
+  padding: 0.35rem 0.75rem;
+  font-size: var(--type-secondary, 0.875rem);
+  cursor: pointer;
+}
+
+.orbit-ai-tool-approval-btn--approve {
+  background: var(--color-accent, #c97b63);
+  color: #fff;
+}
+
+.orbit-ai-tool-approval-btn--deny {
+  background: transparent;
+  border-color: var(--color-border, rgba(0, 0, 0, 0.12));
+  color: var(--color-text-muted);
+}
+
 @keyframes orbit-ai-tool-pulse {
   0%,
   100% {

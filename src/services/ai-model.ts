@@ -31,6 +31,7 @@ export interface AiRuntimeEnv {
   LANGFUSE_SECRET_KEY?: string;
   LANGFUSE_BASE_URL?: string;
   LANGFUSE_ENV?: string;
+  LANGFUSE_PROJECT_ID?: string;
   AI?: Ai;
 }
 

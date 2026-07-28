@@ -52,6 +52,7 @@ export interface Env {
   LANGFUSE_SECRET_KEY?: string;
   LANGFUSE_BASE_URL?: string;
   LANGFUSE_ENV?: string;
+  LANGFUSE_PROJECT_ID?: string;
   COMPANION_SCHEDULER: DurableObjectNamespace<CompanionScheduler>;
 }
 
@@ -150,6 +151,7 @@ function getNotifyRuntime(c: Context<HonoEnv>): NotifyRuntime {
       LANGFUSE_SECRET_KEY: c.env.LANGFUSE_SECRET_KEY,
       LANGFUSE_BASE_URL: c.env.LANGFUSE_BASE_URL,
       LANGFUSE_ENV: c.env.LANGFUSE_ENV,
+      LANGFUSE_PROJECT_ID: c.env.LANGFUSE_PROJECT_ID,
     },
   };
 }
@@ -251,6 +253,7 @@ app.route("/api/ai", createAiRoutes(getDb, {
     LANGFUSE_SECRET_KEY: c.env.LANGFUSE_SECRET_KEY,
     LANGFUSE_BASE_URL: c.env.LANGFUSE_BASE_URL,
     LANGFUSE_ENV: c.env.LANGFUSE_ENV,
+    LANGFUSE_PROJECT_ID: c.env.LANGFUSE_PROJECT_ID,
   }),
 }));
 app.route(

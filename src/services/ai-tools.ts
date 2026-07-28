@@ -5,6 +5,12 @@ import { entry, memo } from "../db/schema.js";
 import { toPlainText } from "../lib/plain-text.js";
 import { createSearchService } from "./search.js";
 import { createLogger } from "../lib/logger.js";
+import {
+  createContent,
+  deleteContent,
+  updateContent,
+  type ContentWriteActor,
+} from "./content-write.js";
 
 const log = createLogger("ai-tools");
 
@@ -92,11 +98,17 @@ async function executeBraveSearch(query: string, apiKey: string) {
   }));
 }
 
+export interface CreateAiToolsOptions {
+  settingsMap?: Record<string, string>;
+  env?: Record<string, string>;
+  actor?: ContentWriteActor;
+}
+
 export function createAiTools(
   db: any,
-  settingsMap?: Record<string, string>,
-  env?: Record<string, string>
+  options: CreateAiToolsOptions = {}
 ) {
+  const { settingsMap, env, actor } = options;
   const search = createSearchService(db);
 
   return {
@@ -133,6 +145,35 @@ export function createAiTools(
         id: z.string().min(1),
       }),
       execute: async ({ id }) => {
+        const memoRow = await db
+          .select({
+            id: memo.id,
+            title: memo.title,
+            key: memo.key,
+            author: memo.author,
+            body: memo.body,
+            updatedAt: memo.updatedAt,
+            deletedAt: memo.deletedAt,
+          })
+          .from(memo)
+          .where(eq(memo.id, id))
+          .get();
+
+        if (memoRow && !memoRow.deletedAt) {
+          const rawBody = memoRow.body ?? "";
+          const bodyText = headTailTruncate(rawBody ? toPlainText(rawBody) : rawBody);
+          return {
+            id: memoRow.id,
+            title: memoRow.title,
+            type: "memo",
+            key: memoRow.key,
+            author: memoRow.author,
+            entryDate: memoRow.updatedAt,
+            bodyText,
+            truncated: (rawBody ? toPlainText(rawBody) : rawBody).length > MAX_TOOL_CHARS,
+          };
+        }
+
         const row = await db
           .select({
             id: entry.id,
@@ -152,18 +193,16 @@ export function createAiTools(
           return { error: "不存在" };
         }
 
-        // Use head+tail truncation so both the opening context and the
-        // closing emotional conclusion of a diary/letter are preserved.
-        const bodyText = headTailTruncate(
-          row.bodyText || toPlainText(row.body ?? "")
-        );
+        const rawBody = row.bodyText || toPlainText(row.body ?? "");
+        const bodyText = headTailTruncate(rawBody);
         return {
+          id: row.id,
           title: row.title,
           type: row.type,
           author: row.author,
           entryDate: row.entryDate,
           bodyText,
-          truncated: (row.bodyText || toPlainText(row.body ?? "")).length > MAX_TOOL_CHARS,
+          truncated: rawBody.length > MAX_TOOL_CHARS,
         };
       },
     }),
@@ -176,6 +215,7 @@ export function createAiTools(
       execute: async ({ limit }) => {
         const rows = await db
           .select({
+            id: memo.id,
             key: memo.key,
             title: memo.title,
             updatedAt: memo.updatedAt,
@@ -185,11 +225,92 @@ export function createAiTools(
           .orderBy(desc(memo.updatedAt))
           .limit(limit ?? 20);
 
-        return rows.map((row: { key: string; title: string; updatedAt: number }) => ({
-          key: row.key,
-          title: row.title,
-          updatedAt: row.updatedAt,
-        }));
+        return rows.map(
+          (row: { id: string; key: string; title: string; updatedAt: number }) => ({
+            id: row.id,
+            key: row.key,
+            title: row.title,
+            updatedAt: row.updatedAt,
+          })
+        );
+      },
+    }),
+
+    write_content: tool({
+      description:
+        "创建、更新或删除情侣空间内的日记、时间线、留言、信件与备忘录。创建与更新时 body 为 Markdown 正文；删除仅软删除且只能删除自己创建的内容。",
+      inputSchema: z.object({
+        action: z.enum(["create", "update", "delete"]).describe("操作类型"),
+        type: z
+          .enum(["diary", "timeline", "message", "letter", "memo"])
+          .optional()
+          .describe("内容类型；create 时必填"),
+        id: z.string().optional().describe("内容 ID；update/delete 时必填"),
+        title: z.string().optional().describe("标题"),
+        body: z.string().optional().describe("Markdown 正文"),
+        entryDate: z
+          .number()
+          .int()
+          .optional()
+          .describe("条目日期（Unix 秒级时间戳）"),
+        parentId: z
+          .string()
+          .optional()
+          .describe("父条目 ID；用于信件回信或留言回复"),
+        key: z.string().optional().describe("备忘录唯一 key；仅 memo 创建时可选"),
+      }),
+      execute: async ({
+        action,
+        type,
+        id,
+        title,
+        body,
+        entryDate,
+        parentId,
+        key,
+      }) => {
+        if (!actor) {
+          return { error: "当前会话未绑定用户身份，无法写入内容" };
+        }
+
+        try {
+          if (action === "create") {
+            if (!type) {
+              return { error: "创建内容时必须指定 type" };
+            }
+            if (!body) {
+              return { error: "创建内容时必须提供 body" };
+            }
+            return await createContent(db, actor, {
+              type,
+              title,
+              body,
+              entryDate,
+              parentId,
+              key,
+            });
+          }
+
+          if (action === "update") {
+            if (!id) {
+              return { error: "更新内容时必须提供 id" };
+            }
+            return await updateContent(db, actor, {
+              id,
+              title,
+              body,
+              entryDate,
+            });
+          }
+
+          if (!id) {
+            return { error: "删除内容时必须提供 id" };
+          }
+          return await deleteContent(db, actor, id);
+        } catch (err: any) {
+          log.error("write_content failed", err, { action, type, id });
+          return { error: `写入失败: ${err.message || "未知错误"}` };
+        }
       },
     }),
 

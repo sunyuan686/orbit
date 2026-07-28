@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, type UIMessage } from "ai";
+import { DefaultChatTransport, isToolUIPart, type UIMessage } from "ai";
 import { Streamdown } from "streamdown";
 import { Link } from "react-router-dom";
 import "streamdown/styles.css";
@@ -23,6 +23,8 @@ import {
   type AiConversationListItem,
 } from "../lib/api";
 import { parseAssistantContent } from "../lib/ai-message-content";
+import { formatWriteContentApprovalSummary } from "../lib/ai-write-approval";
+import { applyToolApprovalResponse } from "../../../src/services/ai-tool-approval";
 import { useMaxWidthMd } from "../lib/useBreakpoint";
 import { useConfirm } from "../lib/useConfirm";
 import { useToast } from "../lib/useToast";
@@ -138,15 +140,24 @@ function createChatSession(
 
 interface ToolPartShape {
   type: string;
+  toolCallId?: string;
   state?:
     | "input-streaming"
     | "input-available"
     | "approval-requested"
+    | "approval-responded"
     | "output-available"
-    | "output-error";
+    | "output-error"
+    | "output-denied";
   input?: unknown;
   output?: unknown;
   errorText?: string;
+  approval?: {
+    id: string;
+    approved?: boolean;
+    reason?: string;
+    isAutomatic?: boolean;
+  };
 }
 
 // AI SDK v7 does not expose `toolUIs` on useChat; the supported way to render
@@ -164,13 +175,83 @@ function getMessageAuthor(message: UIMessage): string | undefined {
   return meta?.author;
 }
 
+function WriteContentApprovalActions({
+  part,
+  onApprove,
+  onDeny,
+}: {
+  part: ToolPartShape;
+  onApprove: (approvalId: string) => void;
+  onDeny: (approvalId: string) => void;
+}) {
+  const approvalId = part.approval?.id;
+  if (!approvalId || part.approval?.isAutomatic) return null;
+
+  const input = (part.input ?? {}) as {
+    action?: string;
+    type?: string;
+    id?: string;
+    title?: string;
+    body?: string;
+  };
+
+  return (
+    <div className="orbit-ai-tool-approval">
+      <p className="orbit-ai-tool-approval-title">确认写入空间内容？</p>
+      <pre className="orbit-ai-tool-approval-preview">
+        {formatWriteContentApprovalSummary(input)}
+      </pre>
+      <div className="orbit-ai-tool-approval-actions">
+        <button
+          type="button"
+          className="orbit-ai-tool-approval-btn orbit-ai-tool-approval-btn--approve"
+          onClick={() => onApprove(approvalId)}
+        >
+          确认写入
+        </button>
+        <button
+          type="button"
+          className="orbit-ai-tool-approval-btn orbit-ai-tool-approval-btn--deny"
+          onClick={() => onDeny(approvalId)}
+        >
+          取消
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ToolCallBody({
   toolName,
   part,
+  onApprove,
+  onDeny,
 }: {
   toolName: string;
   part: ToolPartShape;
+  onApprove?: (approvalId: string) => void;
+  onDeny?: (approvalId: string) => void;
 }) {
+  if (toolName === "write_content" && part.state === "approval-requested") {
+    if (!onApprove || !onDeny) return null;
+    return (
+      <WriteContentApprovalActions
+        part={part}
+        onApprove={onApprove}
+        onDeny={onDeny}
+      />
+    );
+  }
+
+  if (toolName === "write_content" && part.state === "output-denied") {
+    return (
+      <p className="orbit-ai-tool-snippet" style={{ color: "var(--color-red-600, #dc2626)" }}>
+        已取消写入
+        {part.approval?.reason ? `：${part.approval.reason}` : ""}
+      </p>
+    );
+  }
+
   if (toolName === "search_entries") {
     const results = (part.output ?? []) as Array<{
       id: string;
@@ -227,24 +308,64 @@ function ToolCallBody({
     );
   }
 
-  // list_memos
-  const output = (part.output ?? []) as Array<{
-    key?: string;
-    title?: string;
-    updatedAt?: number;
-  }>;
-  if (Array.isArray(output) && output.length > 0) {
-    return (
-      <ul className="orbit-ai-tool-list">
-        {output.slice(0, 8).map((m, i) => (
-          <li key={m.key ?? i} className="orbit-ai-tool-item">
-            <span className="orbit-ai-tool-item-title">
-              {m.title ?? m.key ?? "备忘录"}
-            </span>
-          </li>
-        ))}
-      </ul>
-    );
+  if (toolName === "list_memos") {
+    const output = (part.output ?? []) as Array<{
+      id?: string;
+      key?: string;
+      title?: string;
+      updatedAt?: number;
+    }>;
+    if (Array.isArray(output) && output.length > 0) {
+      return (
+        <ul className="orbit-ai-tool-list">
+          {output.slice(0, 8).map((m, i) => (
+            <li key={m.id ?? m.key ?? i} className="orbit-ai-tool-item">
+              <span className="orbit-ai-tool-item-title">
+                {m.title ?? m.key ?? "备忘录"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    return null;
+  }
+
+  if (toolName === "write_content") {
+    const output = (part.output ?? {}) as {
+      ok?: boolean;
+      action?: string;
+      id?: string;
+      type?: string;
+      title?: string | null;
+      error?: string;
+    };
+    if (output.error) {
+      return (
+        <p className="orbit-ai-tool-snippet" style={{ color: "var(--color-red-600, #dc2626)" }}>
+          {output.error}
+        </p>
+      );
+    }
+    if (output.ok) {
+      const actionLabel =
+        output.action === "create"
+          ? "已创建"
+          : output.action === "update"
+            ? "已更新"
+            : output.action === "delete"
+              ? "已删除"
+              : "已完成";
+      return (
+        <p className="orbit-ai-tool-snippet">
+          {actionLabel}
+          {output.type ? ` · ${output.type}` : ""}
+          {output.title ? ` · ${output.title}` : ""}
+          {output.id ? ` · #${output.id}` : ""}
+        </p>
+      );
+    }
+    return null;
   }
 
   if (toolName === "web_search") {
@@ -334,6 +455,22 @@ function renderToolArgs(toolName: string, input: unknown): ReactNode {
     return <span className="orbit-ai-tool-arg">limit={limit}</span>;
   }
 
+  if (toolName === "write_content") {
+    const action = typeof a.action === "string" ? a.action : "";
+    const type = typeof a.type === "string" ? a.type : "";
+    const id = typeof a.id === "string" ? a.id : "";
+    const title = typeof a.title === "string" ? a.title : "";
+    if (!action && !type && !id && !title) return null;
+    return (
+      <span className="orbit-ai-tool-arg">
+        {action || "write"}
+        {type ? ` · ${type}` : ""}
+        {title ? ` · "${title}"` : ""}
+        {id ? ` · #${id}` : ""}
+      </span>
+    );
+  }
+
   if (toolName === "web_search") {
     const query = typeof a.query === "string" ? a.query : "";
     if (!query) return null;
@@ -378,6 +515,8 @@ function getToolDisplayName(toolName: string): string {
       return "查看内容";
     case "list_memos":
       return "查找备忘";
+    case "write_content":
+      return "写入内容";
     case "web_search":
       return "网络搜索";
     default:
@@ -385,34 +524,59 @@ function getToolDisplayName(toolName: string): string {
   }
 }
 
-function ToolCallCard({ part }: { part: ToolPartShape }) {
+function ToolCallCard({
+  part,
+  onApprove,
+  onDeny,
+}: {
+  part: ToolPartShape;
+  onApprove?: (approvalId: string) => void;
+  onDeny?: (approvalId: string) => void;
+}) {
   const toolName = part.type.replace(/^tool-/, "");
   const displayName = getToolDisplayName(toolName);
   const isDone = part.state === "output-available";
   const isError = part.state === "output-error";
-  const isLoading = !isDone && !isError;
+  const isDenied = part.state === "output-denied";
+  const needsApproval = part.state === "approval-requested";
+  const isLoading =
+    !isDone && !isError && !isDenied && !needsApproval;
   return (
     <details
       className={
         "orbit-ai-tool" +
         (isLoading ? " orbit-ai-tool--loading" : "") +
-        (isError ? " orbit-ai-tool--error" : "")
+        (isError || isDenied ? " orbit-ai-tool--error" : "") +
+        (needsApproval ? " orbit-ai-tool--approval" : "")
       }
-      open={isLoading || undefined}
+      open={isLoading || needsApproval || undefined}
     >
       <summary className="orbit-ai-tool-header">
         <span
           className={`orbit-ai-tool-status-dot orbit-ai-tool-status-dot--${
-            isLoading ? "loading" : isDone ? "done" : "error"
+            isLoading
+              ? "loading"
+              : needsApproval
+                ? "approval"
+                : isDone
+                  ? "done"
+                  : "error"
           }`}
           aria-hidden="true"
         />
-        <span className="orbit-ai-tool-name">{displayName}</span>
+        <span className="orbit-ai-tool-name">
+          {needsApproval ? `${displayName} · 待确认` : displayName}
+        </span>
         {renderToolArgs(toolName, part.input)}
         <ChevronDownIcon size="sm" className="orbit-ai-tool-chevron" />
       </summary>
       <div className="orbit-ai-tool-body">
-        <ToolCallBody toolName={toolName} part={part} />
+        <ToolCallBody
+          toolName={toolName}
+          part={part}
+          onApprove={onApprove}
+          onDeny={onDeny}
+        />
       </div>
     </details>
   );
@@ -424,10 +588,14 @@ function MessageBody({
   parts,
   isAssistant,
   isStreaming,
+  onApprove,
+  onDeny,
 }: {
   parts: UIMessage["parts"];
   isAssistant: boolean;
   isStreaming: boolean;
+  onApprove?: (approvalId: string) => void;
+  onDeny?: (approvalId: string) => void;
 }) {
   const nodes: ReactNode[] = [];
   let textBuffer = "";
@@ -464,13 +632,44 @@ function MessageBody({
       const toolName = part.type.replace(/^tool-/, "");
       nodes.push(
         <ToolCallErrorBoundary key={`tc-${i}`} toolName={toolName}>
-          <ToolCallCard part={part} />
+          <ToolCallCard part={part} onApprove={onApprove} onDeny={onDeny} />
         </ToolCallErrorBoundary>
       );
     }
   });
   flush("tb-end");
   return <>{nodes}</>;
+}
+
+function hasActionableToolApproval(messages: UIMessage[]): boolean {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role !== "assistant") continue;
+    return (message.parts ?? []).some(
+      (part) =>
+        isToolUIPart(part) &&
+        part.state === "approval-requested" &&
+        part.approval?.id &&
+        !part.approval.isAutomatic
+    );
+  }
+  return false;
+}
+
+function hasInFlightWriteTool(messages: UIMessage[]): boolean {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role !== "assistant") continue;
+    return (message.parts ?? []).some(
+      (part) =>
+        isToolUIPart(part) &&
+        part.type === "tool-write_content" &&
+        (part.state === "input-streaming" ||
+          part.state === "input-available" ||
+          part.state === "approval-requested")
+    );
+  }
+  return false;
 }
 
 export function AiChatPanel({
@@ -551,11 +750,26 @@ export function AiChatPanel({
     []
   );
 
-  const { messages, sendMessage, status, error, clearError } = useChat({
+  const { messages, sendMessage, status, error, clearError, setMessages } = useChat({
     id: chatSession.id,
     messages: chatSession.messages,
     transport,
   });
+
+  const handleToolApproval = useCallback(
+    async (approvalId: string, approved: boolean) => {
+      setMessages((prev) =>
+        applyToolApprovalResponse(
+          prev,
+          approvalId,
+          approved,
+          approved ? "用户已确认写入" : "用户已取消写入"
+        )
+      );
+      await sendMessage();
+    },
+    [setMessages, sendMessage]
+  );
 
   const reloadList = useCallback(async () => {
     setListLoading(true);
@@ -930,6 +1144,22 @@ export function AiChatPanel({
     })();
   const configError =
     error?.message?.includes("API Key") || error?.message?.includes("未配置");
+  const actionableToolApproval = useMemo(
+    () => hasActionableToolApproval(messages),
+    [messages]
+  );
+  const inFlightWriteTool = useMemo(
+    () => hasInFlightWriteTool(messages),
+    [messages]
+  );
+  const showStreamError =
+    Boolean(error) && !actionableToolApproval && !inFlightWriteTool;
+
+  useEffect(() => {
+    if (actionableToolApproval && error) {
+      clearError();
+    }
+  }, [actionableToolApproval, clearError, error]);
   const isFloatingLayout = panelLayout === "floating";
   // Mobile: full-bleed sheet — do not apply desktop width / floating coords (inline beats media CSS).
   const panelStyle = isMobile
@@ -1119,6 +1349,8 @@ export function AiChatPanel({
                       parts={parts}
                       isAssistant={message.role === "assistant"}
                       isStreaming={isStreamingMessage}
+                      onApprove={(approvalId) => handleToolApproval(approvalId, true)}
+                      onDeny={(approvalId) => handleToolApproval(approvalId, false)}
                     />
                   </div>
                 );
@@ -1126,9 +1358,9 @@ export function AiChatPanel({
               {isBusy && !hasActiveAssistantContent ? <p className="orbit-muted text-sm">思考中…</p> : null}
             </div>
 
-            {error ? (
+            {showStreamError ? (
               <div className="orbit-ai-error">
-                <p className="orbit-danger-text text-sm">{error.message}</p>
+                <p className="orbit-danger-text text-sm">{error?.message}</p>
                 {configError ? (
                   <Link to="/settings?tab=ai" className="orbit-text-link text-sm">
                     前往 AI 设置

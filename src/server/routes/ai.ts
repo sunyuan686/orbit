@@ -18,6 +18,7 @@ const ai = createAiRoutes(() => db, {
     LANGFUSE_SECRET_KEY: process.env.LANGFUSE_SECRET_KEY,
     LANGFUSE_BASE_URL: process.env.LANGFUSE_BASE_URL,
     LANGFUSE_ENV: process.env.LANGFUSE_ENV,
+    LANGFUSE_PROJECT_ID: process.env.LANGFUSE_PROJECT_ID,
   }),
 });
 

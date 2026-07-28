@@ -560,6 +560,42 @@ export function createAiChatStore(db: any) {
     return rows.map(rowToUIMessage);
   }
 
+  async function upsertMessage(input: {
+    conversationId: string;
+    role: UIMessage["role"];
+    parts: UIMessage["parts"];
+    author?: string | null;
+    id: string;
+  }): Promise<AiMessageRow> {
+    const existing = (await db
+      .select()
+      .from(aiMessage)
+      .where(eq(aiMessage.id, input.id))
+      .get()) as AiMessageRow | undefined;
+
+    if (existing) {
+      const preview = partsToPreview(input.parts);
+      await db
+        .update(aiMessage)
+        .set({
+          parts: serializeParts(input.parts),
+          author: input.author ?? existing.author,
+        })
+        .where(eq(aiMessage.id, input.id));
+      await db
+        .update(aiConversation)
+        .set({ lastPreview: preview, updatedAt: now() })
+        .where(eq(aiConversation.id, input.conversationId));
+      return {
+        ...existing,
+        parts: serializeParts(input.parts),
+        author: input.author ?? existing.author,
+      };
+    }
+
+    return insertMessage(input);
+  }
+
   async function insertMessage(input: {
     conversationId: string;
     role: UIMessage["role"];
@@ -610,6 +646,7 @@ export function createAiChatStore(db: any) {
     softDeleteConversation,
     listMessages,
     insertMessage,
+    upsertMessage,
     buildConversationTitle,
   };
 }

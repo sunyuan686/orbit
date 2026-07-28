@@ -1,22 +1,24 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
-import {
-  convertToModelMessages,
-  streamText,
-  type UIMessage,
-} from "ai";
+import { type UIMessage } from "ai";
 import type { AiContextMode } from "../services/ai-chat-store.js";
 import {
   createAiChatStore,
   extractTextFromParts,
-  generateAiId,
-  trimMessagesForModel,
-  compressMessagesForModel,
 } from "../services/ai-chat-store.js";
-import { generateHandoffSummary } from "../services/ai-compaction.js";
-import { AiModelConfigError, resolveModel, type AiRuntimeEnv } from "../services/ai-model.js";
-import { buildSystemPrompt } from "../services/ai-prompt.js";
-import { createAiTools } from "../services/ai-tools.js";
+import {
+  attachAgentLangfuseRecorder,
+  beginAiChatTrace,
+  finalizeAiChatTrace,
+  prepareAiChatAgent,
+  streamAiChat,
+} from "../services/ai-chat-runtime.js";
+import {
+  getLatestUserMessage,
+  isApprovalContinuation,
+  restoreToolApprovalSignatures,
+} from "../services/ai-tool-approval.js";
+import { AiModelConfigError, type AiRuntimeEnv } from "../services/ai-model.js";
 import { checkAiRateLimit } from "../services/ai-rate-limit.js";
 import {
   listDeepseekModels,
@@ -33,7 +35,6 @@ import {
   listWorkersAiChatModels,
 } from "../services/workers-ai-models.js";
 import { readSettingsMap } from "../db/settings-store.js";
-import { createLangfuseTrace, formatToolsForLangfuse } from "../services/langfuse.js";
 import { createLogger } from "../lib/logger.js";
 import type { SessionAuthor } from "./session-author.js";
 
@@ -76,11 +77,21 @@ async function requireSessionAuthor(
   return sessionAuthor;
 }
 
-function getLatestUserMessage(messages: UIMessage[]): UIMessage | null {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i]?.role === "user") return messages[i];
-  }
-  return null;
+function getLatestUserMessageFromIncoming(messages: UIMessage[]): UIMessage | null {
+  return getLatestUserMessage(messages);
+}
+
+async function syncAssistantMessage(
+  store: ReturnType<typeof createAiChatStore>,
+  conversationId: string,
+  message: UIMessage
+): Promise<void> {
+  await store.upsertMessage({
+    id: message.id,
+    conversationId,
+    role: "assistant",
+    parts: message.parts,
+  });
 }
 
 function normalizeContext(raw?: AiChatContext): {
@@ -380,8 +391,9 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
     }
 
     const incoming = Array.isArray(body.messages) ? body.messages : [];
-    const latestUser = getLatestUserMessage(incoming);
-    if (!latestUser) {
+    const approvalContinuation = isApprovalContinuation(incoming);
+    const latestUser = getLatestUserMessageFromIncoming(incoming);
+    if (!latestUser && !approvalContinuation) {
       return c.json({ error: "缺少用户消息" }, 400);
     }
 
@@ -403,21 +415,40 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
         if (!conv || !(await store.canAccessConversation(conv, session.userId))) {
           return c.json({ error: "会话不存在或无权访问" }, 404);
         }
-        uiMessages = await store.listMessages(conversationId);
-        const exists = uiMessages.some((message) => message.id === latestUser.id);
-        if (!exists) {
-          await store.insertMessage({
-            conversationId,
-            role: "user",
-            parts: latestUser.parts,
-            author: session.author,
-            id: latestUser.id,
-          });
-          uiMessages = [...uiMessages, latestUser];
+
+        if (approvalContinuation) {
+          const storedMessages = await store.listMessages(conversationId);
+          uiMessages = restoreToolApprovalSignatures(incoming, storedMessages);
+          const assistantWithApproval = [...uiMessages]
+            .reverse()
+            .find((message) => message.role === "assistant");
+          if (assistantWithApproval) {
+            await syncAssistantMessage(
+              store,
+              conversationId,
+              assistantWithApproval
+            );
+          }
+        } else {
+          uiMessages = await store.listMessages(conversationId);
+          const exists = uiMessages.some((message) => message.id === latestUser!.id);
+          if (!exists) {
+            await store.insertMessage({
+              conversationId,
+              role: "user",
+              parts: latestUser!.parts,
+              author: session.author,
+              id: latestUser!.id,
+            });
+            uiMessages = [...uiMessages, latestUser!];
+          }
         }
       } else {
+        if (approvalContinuation) {
+          return c.json({ error: "审批续聊需要已有会话" }, 400);
+        }
         const title = store.buildConversationTitle(
-          extractTextFromParts(latestUser.parts)
+          extractTextFromParts(latestUser!.parts)
         );
         const created = await store.createConversationWithMessage({
           userId: session.userId,
@@ -428,103 +459,117 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
           shared: false,
           message: {
             role: "user",
-            parts: latestUser.parts,
+            parts: latestUser!.parts,
             author: session.author,
-            id: latestUser.id,
+            id: latestUser!.id,
           },
         });
         conversationId = created.conversation.id;
-        uiMessages = [latestUser];
+        uiMessages = [latestUser!];
      }
 
-      const { model, provider, modelId } = await resolveModel(db, env);
-      const settingsMap = await readSettingsMap(db);
-      const system = await buildSystemPrompt(db, context);
-      const tools = createAiTools(db, settingsMap, env as Record<string, string>);
-
-      const { finalMessages, droppedTurns } = compressMessagesForModel(uiMessages);
-      let effectiveMessages = finalMessages;
-
-      if (droppedTurns.length > 0) {
-        const summaryText = await generateHandoffSummary({ model, droppedTurns });
-        if (summaryText) {
-          const bridgeMessage: UIMessage = {
-            id: generateAiId("aimsg_bridge"),
-            role: "user",
-            parts: [
-              {
-                type: "text",
-                text: `[系统上下文交接摘要 / Handoff Summary]\n因为对话较长，早期被截断的历史对话已被自动整理为以下 4 维摘要，请参考这些背景信息回答后续问题：\n\n${summaryText}`,
-              },
-            ],
-          };
-          effectiveMessages = [bridgeMessage, ...finalMessages];
-        }
-      }
-
-      const modelMessages = await convertToModelMessages(effectiveMessages);
-
-      const trace = createLangfuseTrace({
+      const handles = beginAiChatTrace({
         name: "web-chat",
         userId: session.userId,
         sessionId: conversationId,
-        input: extractTextFromParts(latestUser.parts),
-        metadata: { provider, modelId, contextMode: context.mode, articleId: context.articleId },
-        tags: ["web", provider],
-      }, env);
-      const generation = trace?.generation({
-        name: "streamText",
-        model: modelId,
-        input: {
-          system,
-          messages: modelMessages,
-          tools: formatToolsForLangfuse(tools),
+        input: approvalContinuation
+          ? "tool-approval-continuation"
+          : extractTextFromParts(latestUser!.parts),
+        metadata: {
+          contextMode: context.mode,
+          articleId: context.articleId,
         },
+        tags: ["web"],
+        env,
       });
 
-      const startedAt = Date.now();
-      const result = streamText({
-        model,
-        system,
-        messages: modelMessages,
-        tools,
-        // Intentionally uncapped: the agent runs until the model returns a
-        // final answer with no tool calls (its own "done" signal), like
-        // Codex's end_turn. The previous stepCountIs(5) clipped legitimate
-        // multi-hop retrieval. If a runaway loop is ever observed, add a
-        // finite brake here with stepCountIs(N).
-        stopWhen: () => false,
-        onFinish: async () => {
-          log.info("chat finished", {
-            conversationId,
-            provider,
-            modelId,
-            durationMs: Date.now() - startedAt,
-          });
+      const agent = await prepareAiChatAgent({
+        db,
+        env,
+        uiMessages,
+        promptContext: context,
+        actor: {
+          userId: session.userId,
+          author: session.author,
         },
+        trace: handles.trace,
+      });
+
+      attachAgentLangfuseRecorder(handles, {
+        modelId: agent.modelId,
+        provider: agent.provider,
+        system: agent.system,
+        tools: agent.tools,
+        initialMessages: agent.modelMessages,
+      });
+      handles.trace?.updateTrace({
+        metadata: {
+          provider: agent.provider,
+          modelId: agent.modelId,
+          contextMode: context.mode,
+          articleId: context.articleId,
+        },
+        tags: ["web", agent.provider],
+      });
+
+      const result = streamAiChat({
+        model: agent.model,
+        system: agent.system,
+        messages: agent.modelMessages,
+        tools: agent.tools,
+        conversationId,
+        provider: agent.provider,
+        modelId: agent.modelId,
+        env,
+        log,
+        trace: handles.trace,
+        agentRecorder: handles.agentRecorder ?? undefined,
         onError: ({ error }) => {
-          generation?.end({ error });
-          log.error("stream error", { conversationId, provider, error });
+          log.error("stream error", error, {
+            conversationId,
+            provider: agent.provider,
+            modelId: agent.modelId,
+          });
+          void finalizeAiChatTrace(handles, { error }).catch((e) =>
+            log.error("langfuse error flush failed", e)
+          );
         },
       });
 
       const responseConversationId = conversationId;
+      const streamOriginalMessages =
+        incoming.length > 0 ? incoming : uiMessages;
+
       return result.toUIMessageStreamResponse({
         headers: {
           "X-Conversation-Id": responseConversationId,
         },
-        originalMessages: uiMessages,
+        originalMessages: streamOriginalMessages,
+        onError: (error) => {
+          log.error("ui message stream error", error, {
+            conversationId: responseConversationId,
+            provider: agent.provider,
+            modelId: agent.modelId,
+          });
+          if (process.env.NODE_ENV !== "production") {
+            return error instanceof Error ? error.message : String(error);
+          }
+          return "An error occurred.";
+        },
         onFinish: async ({ responseMessage }) => {
+          if (handles.finalized) return;
           try {
             const outputText = extractTextFromParts(responseMessage.parts);
-            generation?.end({ output: outputText });
-            await store.insertMessage({
+            await finalizeAiChatTrace(handles, { output: outputText });
+            await store.upsertMessage({
               conversationId: responseConversationId,
               role: "assistant",
               parts: responseMessage.parts,
+              id: responseMessage.id,
             });
           } catch (err) {
             log.error("persist assistant failed", err);
+            await finalizeAiChatTrace(handles).catch(() => {});
           }
         },
       });

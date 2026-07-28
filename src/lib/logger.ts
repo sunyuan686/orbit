@@ -37,6 +37,29 @@ function serializeContext(context?: Record<string, unknown>): string {
   }
 }
 
+/** Normalize unknown errors for structured logs (Error, AI SDK errors, plain objects). */
+export function serializeError(err: unknown): Record<string, unknown> {
+  if (err instanceof Error) {
+    const record: Record<string, unknown> = {
+      name: err.name,
+      message: err.message,
+    };
+    const extra = err as Error & { chunkType?: string; chunkId?: string };
+    if (extra.chunkType) record.chunkType = extra.chunkType;
+    if (extra.chunkId) record.chunkId = extra.chunkId;
+    if (minLevel === "debug" && err.stack) record.stack = err.stack;
+    return record;
+  }
+  if (typeof err === "object" && err !== null) {
+    try {
+      return JSON.parse(JSON.stringify(err)) as Record<string, unknown>;
+    } catch {
+      return { raw: String(err) };
+    }
+  }
+  return { raw: String(err) };
+}
+
 function write(
   level: LogLevel,
   module: string,
@@ -89,13 +112,8 @@ export function createLogger(module: string): Logger {
     },
     error(message, err, context) {
       const merged: Record<string, unknown> = { ...context };
-      if (err instanceof Error) {
-        merged.error = err.message;
-        if (err.stack && minLevel === "debug") {
-          merged.stack = err.stack;
-        }
-      } else if (err !== undefined) {
-        merged.error = String(err);
+      if (err !== undefined) {
+        Object.assign(merged, serializeError(err));
       }
       write("error", module, message, merged);
     },
