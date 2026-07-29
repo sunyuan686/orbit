@@ -18,6 +18,8 @@ import {
   applyToolApprovalResponse,
   findPendingWriteContentApprovals,
   formatWriteContentApprovalSummary,
+  isApprovalContinuation,
+  rejectAllPendingWriteContentApprovals,
   resolveToolApprovalSecret,
 } from "./ai-tool-approval.js";
 import {
@@ -27,6 +29,11 @@ import {
   prepareAiChatAgent,
   streamAiChat,
 } from "./ai-chat-runtime.js";
+import {
+  enrichFeishuGroupMessagesForModel,
+  stripFeishuSpeakerPrefix,
+} from "./feishu-message-content.js";
+import { normalizeFeishuAiResponseTimeoutMs } from "./feishu-settings.js";
 import {
   addFeishuReaction,
   appendFeishuCardContent,
@@ -59,6 +66,8 @@ export interface FeishuAiChatContext {
   appSecret: string;
   baseUrl: string;
   aiEnv?: AiRuntimeEnv;
+  /** 无完整响应时的静默超时（毫秒），默认 3 分钟 */
+  aiResponseTimeoutMs?: number;
 }
 
 export interface FeishuAiChatActor {
@@ -187,6 +196,142 @@ export function formatToolCallLogs(logs: ToolCallLog[]): string {
 const FEISHU_SYSTEM_PROMPT_SUFFIX =
   "\n\n提示：你正在通过飞书与用户对话。如果回复中包含站内链接，请直接给出完整 URL。写入空间内容前会等待用户确认，若用户拒绝写入，请告知结果且不要重复尝试同一写入操作。";
 
+const FEISHU_GROUP_SYSTEM_PROMPT_SUFFIX =
+  "\n\n提示：当前为群聊，多条用户消息可能来自不同成员。每条用户消息以「姓名:」开头标识说话人，请根据该前缀区分是谁在说话。";
+
+const FEISHU_AI_TIMEOUT_CARD_MESSAGE =
+  "⏱️ **响应超时**\n\n已自动结束本次处理，你可以继续发送新消息。\n\n发送 **/reset** 可清空对话重新开始。";
+
+class FeishuAiTimeoutError extends Error {
+  constructor() {
+    super("feishu ai response timeout");
+    this.name = "FeishuAiTimeoutError";
+  }
+}
+
+export function isFeishuChatResetCommand(text: string): boolean {
+  const trimmed = stripFeishuSpeakerPrefix(text).trim();
+  if (!trimmed) return false;
+  const lower = trimmed.toLowerCase();
+  return (
+    lower === "/clear" ||
+    lower === "/reset" ||
+    trimmed === "重新开始" ||
+    trimmed === "新对话" ||
+    trimmed === "结束对话"
+  );
+}
+
+async function finalizeFeishuCardWithError(
+  cardSession: CardKitSession | null,
+  message: string
+): Promise<void> {
+  if (!cardSession) return;
+  try {
+    await cardSession.finalize(message);
+  } catch (err) {
+    log.warn("failed to finalize feishu card after error", {
+      cardId: cardSession.cardId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+async function markFeishuTypingDone(
+  accessToken: string,
+  messageId: string,
+  activeReactionPromise?: Promise<string | null>
+): Promise<void> {
+  if (activeReactionPromise) {
+    await activeReactionPromise
+      .then(async (reactionId) => {
+        if (reactionId) {
+          await removeFeishuReaction(accessToken, messageId, reactionId).catch(() => {});
+        }
+        await addFeishuReaction(accessToken, messageId, "DONE").catch(() => {});
+      })
+      .catch(() => {});
+    return;
+  }
+  await addFeishuReaction(accessToken, messageId, "DONE").catch(() => {});
+}
+
+async function silentlyFinalizeFeishuTimeout(options: {
+  cardSession: CardKitSession | null;
+  handles: ReturnType<typeof beginAiChatTrace>;
+  accessToken: string;
+  message: FeishuAiChatMessage;
+  conversationId: string;
+  timeoutMs: number;
+  activeReactionPromise?: Promise<string | null>;
+}): Promise<void> {
+  log.warn("feishu AI chat timed out, finalizing card silently", {
+    conversationId: options.conversationId,
+    messageId: options.message.messageId,
+    timeoutMs: options.timeoutMs,
+  });
+  if (options.cardSession) {
+    await finalizeFeishuCardWithError(
+      options.cardSession,
+      FEISHU_AI_TIMEOUT_CARD_MESSAGE
+    );
+  }
+  await finalizeAiChatTrace(options.handles, {
+    error: new FeishuAiTimeoutError(),
+  });
+  await markFeishuTypingDone(
+    options.accessToken,
+    options.message.messageId,
+    options.activeReactionPromise
+  );
+}
+
+function raceFeishuAgentTurn(
+  options: Parameters<typeof runFeishuAgentTurn>[0],
+  abortController: AbortController,
+  timeoutMs: number
+): ReturnType<typeof runFeishuAgentTurn> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      abortController.abort();
+      reject(new FeishuAiTimeoutError());
+    }, timeoutMs);
+
+    runFeishuAgentTurn(options)
+      .then((result) => {
+        clearTimeout(timer);
+        resolve(result);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
+function buildApprovalCallbackButton(
+  label: string,
+  type: "primary" | "default",
+  approved: boolean,
+  baseValue: Record<string, string>
+): Record<string, unknown> {
+  return {
+    tag: "button",
+    text: { tag: "plain_text", content: label },
+    type,
+    behaviors: [
+      {
+        type: "callback",
+        value: {
+          action: "orbit:ai_write_approval",
+          approved,
+          ...baseValue,
+        },
+      },
+    ],
+  };
+}
+
 function buildWriteContentApprovalCard(
   conversationId: string,
   approvalId: string,
@@ -211,31 +356,8 @@ function buildWriteContentApprovalCard(
           tag: "markdown",
           content: summary,
         },
-        {
-          tag: "action",
-          actions: [
-            {
-              tag: "button",
-              text: { tag: "plain_text", content: "确认写入" },
-              type: "primary",
-              value: JSON.stringify({
-                action: "orbit:ai_write_approval",
-                approved: true,
-                ...baseValue,
-              }),
-            },
-            {
-              tag: "button",
-              text: { tag: "plain_text", content: "取消" },
-              type: "default",
-              value: JSON.stringify({
-                action: "orbit:ai_write_approval",
-                approved: false,
-                ...baseValue,
-              }),
-            },
-          ],
-        },
+        buildApprovalCallbackButton("确认写入", "primary", true, baseValue),
+        buildApprovalCallbackButton("取消", "default", false, baseValue),
       ],
     },
   };
@@ -255,8 +377,17 @@ async function sendWriteContentApprovalCard(
     summary,
     messageId
   );
-  const cardId = await createFeishuCardJson(accessToken, cardJson);
-  await replyFeishuCardMessage(accessToken, messageId, cardId, replyInThread);
+  try {
+    const cardId = await createFeishuCardJson(accessToken, cardJson);
+    await replyFeishuCardMessage(accessToken, messageId, cardId, replyInThread);
+  } catch (err) {
+    log.error("failed to send feishu write approval card", err, {
+      conversationId,
+      approvalId,
+      messageId,
+    });
+    throw err;
+  }
 }
 
 interface FeishuAgentStreamResult {
@@ -270,6 +401,7 @@ async function collectFeishuAgentStream(options: {
   uiMessages: UIMessage[];
   cardSession: CardKitSession | null;
   toolLogs: ToolCallLog[];
+  abortSignal?: AbortSignal;
 }): Promise<FeishuAgentStreamResult> {
   const uiStream = options.streamResult.toUIMessageStream({
     originalMessages: options.uiMessages,
@@ -291,6 +423,9 @@ async function collectFeishuAgentStream(options: {
   for await (const message of readUIMessageStream({
     stream: uiStream,
   })) {
+    if (options.abortSignal?.aborted) {
+      break;
+    }
     assistantMessage = message;
     const fullResponse = extractTextFromParts(message.parts);
     if (fullResponse !== lastText && options.cardSession) {
@@ -328,6 +463,7 @@ async function runFeishuAgentTurn(options: {
   accessToken: string;
   cardSession: CardKitSession | null;
   handles: ReturnType<typeof beginAiChatTrace>;
+  abortSignal?: AbortSignal;
 }): Promise<{
   assistantMessage: UIMessage;
   fullResponse: string;
@@ -335,12 +471,20 @@ async function runFeishuAgentTurn(options: {
 }> {
   const store = createAiChatStore(options.ctx.db);
   const settingsMap = await readSettingsMap(options.ctx.db);
+  const modelMessages = enrichFeishuGroupMessagesForModel(
+    options.uiMessages,
+    options.message.chatType
+  );
+  const promptSuffix =
+    options.message.chatType === "group"
+      ? `${FEISHU_SYSTEM_PROMPT_SUFFIX}${FEISHU_GROUP_SYSTEM_PROMPT_SUFFIX}`
+      : FEISHU_SYSTEM_PROMPT_SUFFIX;
   const agent = await prepareAiChatAgent({
     db: options.ctx.db,
     env: options.ctx.aiEnv,
-    uiMessages: options.uiMessages,
+    uiMessages: modelMessages,
     promptContext: { mode: "global" },
-    promptSuffix: FEISHU_SYSTEM_PROMPT_SUFFIX,
+    promptSuffix,
     settingsMap,
     actor: {
       userId: options.actor.userId,
@@ -404,6 +548,7 @@ async function runFeishuAgentTurn(options: {
       });
       void finalizeAiChatTrace(options.handles, { error }).catch(() => {});
     },
+    abortSignal: options.abortSignal,
   });
 
   const { assistantMessage, fullResponse } = await collectFeishuAgentStream({
@@ -411,7 +556,16 @@ async function runFeishuAgentTurn(options: {
     uiMessages: options.uiMessages,
     cardSession: options.cardSession,
     toolLogs,
+    abortSignal: options.abortSignal,
   });
+
+  if (options.abortSignal?.aborted) {
+    return {
+      assistantMessage,
+      fullResponse: "",
+      pendingApproval: null,
+    };
+  }
 
   await store.upsertMessage({
     conversationId: options.conversationId,
@@ -466,7 +620,7 @@ async function finalizeFeishuChatResponse(options: {
       options.accessToken,
       options.message.messageId,
       options.fullResponse,
-      true
+      shouldReplyInThread
     ).catch(() => {});
   }
 
@@ -474,13 +628,21 @@ async function finalizeFeishuChatResponse(options: {
     log.warn("feishu AI response empty or failed", {
       conversationId: options.conversationId,
       messageId: options.message.messageId,
+      replyInThread: shouldReplyInThread,
+      threadId: options.message.threadId ?? "",
     });
-    await replyFeishuTextMessage(
-      options.accessToken,
-      options.message.messageId,
-      "AI 回复失败，请稍后再试 🔄",
-      true
-    ).catch(() => {});
+    const errorText =
+      "AI 回复失败，请稍后再试 🔄\n\n发送 **/reset** 或 **重新开始** 可清空当前对话。";
+    if (options.cardSession) {
+      await finalizeFeishuCardWithError(options.cardSession, errorText);
+    } else {
+      await replyFeishuTextMessage(
+        options.accessToken,
+        options.message.messageId,
+        errorText,
+        shouldReplyInThread
+      ).catch(() => {});
+    }
     return;
   }
 
@@ -590,6 +752,11 @@ export async function resumeFeishuAiChatAfterApproval(
   };
 
   let cardSession: CardKitSession | null = null;
+  const responseTimeoutMs = normalizeFeishuAiResponseTimeoutMs(
+    ctx.aiResponseTimeoutMs
+  );
+  const abortController = new AbortController();
+
   try {
     const { cardId, toolElementId, aiElementIds } =
       await createFeishuStreamingCard(accessToken);
@@ -607,17 +774,22 @@ export async function resumeFeishuAiChatAfterApproval(
   }
 
   try {
-    const turn = await runFeishuAgentTurn({
-      ctx,
-      message,
-      actor: input.actor,
-      threadKey: `approval:${input.conversationId}`,
-      conversationId: input.conversationId,
-      uiMessages: updatedMessages,
-      accessToken,
-      cardSession,
-      handles,
-    });
+    const turn = await raceFeishuAgentTurn(
+      {
+        ctx,
+        message,
+        actor: input.actor,
+        threadKey: `approval:${input.conversationId}`,
+        conversationId: input.conversationId,
+        uiMessages: updatedMessages,
+        accessToken,
+        cardSession,
+        handles,
+        abortSignal: abortController.signal,
+      },
+      abortController,
+      responseTimeoutMs
+    );
 
     if (turn.pendingApproval) {
       const summary = formatWriteContentApprovalSummary(turn.pendingApproval.input);
@@ -784,14 +956,16 @@ class CardKitSession {
 
 // ─── 公开入口 ─────────────────────────────────────────────────────────────────
 
+/**
+ * 解析飞书 AI 会话键：按聊天归属划分 session，不按飞书话题 thread_id 拆分。
+ * - 群聊 group:{chatId}：群内共享上下文
+ * - 单聊 p2p:{openId}：主窗口与话题回复共用同一上下文
+ */
 export function buildFeishuThreadKey(
   message: { threadId?: string; chatId: string; chatType?: string; senderOpenId?: string },
   fallbackUserId?: string
 ): string {
-  if (message.threadId) {
-    return `thread:${message.threadId}`;
-  }
-  if (message.chatType === "group" || message.chatId.startsWith("oc_")) {
+  if (message.chatType === "group") {
     return `group:${message.chatId}`;
   }
   const p2pId = message.senderOpenId || fallbackUserId || "";
@@ -814,6 +988,41 @@ export async function clearFeishuAiSession(
 /** 每个会话 (threadKey) 的消息处理排队 Map，保证同一会话并发消息按顺序串行执行 */
 const threadQueueMap = new Map<string, Promise<void>>();
 
+/** 用于中断正在进行的 AI 流 */
+const threadAbortControllers = new Map<string, AbortController>();
+
+/** 每次中断或 supersede 时递增，防止过期任务继续写卡片 */
+const threadRunGeneration = new Map<string, number>();
+
+function getThreadAbortController(threadKey: string): AbortController {
+  const existing = threadAbortControllers.get(threadKey);
+  if (existing && !existing.signal.aborted) {
+    return existing;
+  }
+  const controller = new AbortController();
+  threadAbortControllers.set(threadKey, controller);
+  return controller;
+}
+
+function isCurrentFeishuAiRun(threadKey: string, generation: number): boolean {
+  return (threadRunGeneration.get(threadKey) ?? 0) === generation;
+}
+
+/**
+ * 强制中断指定会话正在进行的 AI 处理（用于 /reset 或卡死自救）。
+ * 会 abort 当前流、清空排队、使进行中的任务放弃写回。
+ */
+export function interruptFeishuAiThread(threadKey: string): void {
+  const controller = threadAbortControllers.get(threadKey);
+  if (controller && !controller.signal.aborted) {
+    controller.abort();
+  }
+  threadAbortControllers.delete(threadKey);
+  threadRunGeneration.set(threadKey, (threadRunGeneration.get(threadKey) ?? 0) + 1);
+  threadQueueMap.delete(threadKey);
+  log.info("interrupted feishu AI thread", { threadKey });
+}
+
 /** 查询当前会话是否有正在处理/排队中的任务 */
 export function isThreadBusy(threadKey: string): boolean {
   return threadQueueMap.has(threadKey);
@@ -829,8 +1038,15 @@ export async function handleFeishuAiChat(
   actor: FeishuAiChatActor
 ): Promise<void> {
   const threadKey = buildFeishuThreadKey(message, actor.userId);
+  const isReset = isFeishuChatResetCommand(text);
 
-  const previousTask = threadQueueMap.get(threadKey) ?? Promise.resolve();
+  if (isReset) {
+    interruptFeishuAiThread(threadKey);
+  }
+
+  const previousTask = isReset
+    ? Promise.resolve()
+    : (threadQueueMap.get(threadKey) ?? Promise.resolve());
 
   const currentTask = previousTask
     .then(async () => {
@@ -858,6 +1074,10 @@ async function processSingleAiChat(
   actor: FeishuAiChatActor,
   threadKey: string
 ): Promise<void> {
+  const runGeneration = threadRunGeneration.get(threadKey) ?? 0;
+  const abortController = getThreadAbortController(threadKey);
+  const abortSignal = abortController.signal;
+
   // 获取 access token
   let accessToken: string;
   try {
@@ -882,6 +1102,47 @@ async function processSingleAiChat(
   const conversationId = await resolveConversation(ctx.db, threadKey, actor);
   const store = createAiChatStore(ctx.db);
   let uiMessages = await store.listMessages(conversationId);
+  const shouldReplyInThread = Boolean(message.threadId || message.replyInThread);
+  const responseTimeoutMs = normalizeFeishuAiResponseTimeoutMs(
+    ctx.aiResponseTimeoutMs
+  );
+
+  if (isFeishuChatResetCommand(text)) {
+    await clearFeishuAiSession(ctx.db, threadKey);
+    if (!isCurrentFeishuAiRun(threadKey, runGeneration)) return;
+    await replyFeishuTextMessage(
+      accessToken,
+      message.messageId,
+      "已中断当前处理并清空对话，可以重新开始了 🗑️",
+      shouldReplyInThread
+    ).catch(() => {});
+    return;
+  }
+
+  const lastAssistant = [...uiMessages].reverse().find((m) => m.role === "assistant");
+  const pendingApprovals = findPendingWriteContentApprovals(lastAssistant);
+  if (pendingApprovals.length > 0 && !isApprovalContinuation(uiMessages)) {
+    log.info("feishu chat auto-rejecting stale pending write approval", {
+      conversationId,
+      approvalIds: pendingApprovals.map((item) => item.approvalId),
+      messageId: message.messageId,
+    });
+    uiMessages = rejectAllPendingWriteContentApprovals(
+      uiMessages,
+      "用户已开始新对话，已自动取消待确认的写入"
+    );
+    const recoveredAssistant = [...uiMessages]
+      .reverse()
+      .find((item) => item.role === "assistant");
+    if (recoveredAssistant) {
+      await store.upsertMessage({
+        id: recoveredAssistant.id,
+        conversationId,
+        role: "assistant",
+        parts: recoveredAssistant.parts,
+      });
+    }
+  }
 
   const exists = uiMessages.some((m) => m.id === message.messageId);
   if (!exists) {
@@ -909,10 +1170,13 @@ async function processSingleAiChat(
     conversationId,
     messageCount: uiMessages.length,
     messageId: message.messageId,
+    threadId: message.threadId ?? "",
+    replyInThread: Boolean(message.replyInThread),
+    shouldReplyInThread,
+    responseTimeoutMs,
   });
 
   let cardSession: CardKitSession | null = null;
-  const shouldReplyInThread = Boolean(message.threadId || message.replyInThread);
 
   try {
     const { cardId, toolElementId, aiElementIds } = await createFeishuStreamingCard(accessToken);
@@ -926,17 +1190,38 @@ async function processSingleAiChat(
   }
 
   try {
-    const turn = await runFeishuAgentTurn({
-      ctx,
-      message,
-      actor,
-      threadKey,
-      conversationId,
-      uiMessages,
-      accessToken,
-      cardSession,
-      handles,
-    });
+    const turn = await raceFeishuAgentTurn(
+      {
+        ctx,
+        message,
+        actor,
+        threadKey,
+        conversationId,
+        uiMessages,
+        accessToken,
+        cardSession,
+        handles,
+        abortSignal,
+      },
+      abortController,
+      responseTimeoutMs
+    );
+
+    if (!isCurrentFeishuAiRun(threadKey, runGeneration)) {
+      log.info("feishu chat run superseded after agent turn", {
+        conversationId,
+        messageId: message.messageId,
+      });
+      return;
+    }
+
+    if (abortSignal.aborted) {
+      log.info("feishu chat run aborted after agent turn", {
+        conversationId,
+        messageId: message.messageId,
+      });
+      return;
+    }
 
     if (turn.pendingApproval) {
       const summary = formatWriteContentApprovalSummary(turn.pendingApproval.input);
@@ -946,14 +1231,36 @@ async function processSingleAiChat(
         );
         await cardSession.finalize(turn.fullResponse || "等待你确认写入操作…");
       }
-      await sendWriteContentApprovalCard(
-        accessToken,
-        message.messageId,
-        conversationId,
-        turn.pendingApproval.approvalId,
-        summary,
-        shouldReplyInThread
-      );
+      try {
+        await sendWriteContentApprovalCard(
+          accessToken,
+          message.messageId,
+          conversationId,
+          turn.pendingApproval.approvalId,
+          summary,
+          shouldReplyInThread
+        );
+      } catch (err) {
+        log.error("feishu write approval card delivery failed", err, {
+          conversationId,
+          approvalId: turn.pendingApproval.approvalId,
+          messageId: message.messageId,
+        });
+        const errorText =
+          "写入确认卡片发送失败，请重新描述要写入的内容。\n\n发送 **/reset** 可重新开始对话。";
+        if (cardSession) {
+          await finalizeFeishuCardWithError(cardSession, errorText);
+        } else {
+          await replyFeishuTextMessage(
+            accessToken,
+            message.messageId,
+            errorText,
+            shouldReplyInThread
+          ).catch(() => {});
+        }
+        await finalizeAiChatTrace(handles, { error: err });
+        return;
+      }
       await finalizeAiChatTrace(handles, {
         output: turn.fullResponse || "pending-write-approval",
       });
@@ -988,13 +1295,41 @@ async function processSingleAiChat(
       responsePreview: turn.fullResponse.slice(0, 60),
     });
   } catch (err) {
+    if (err instanceof FeishuAiTimeoutError) {
+      if (isCurrentFeishuAiRun(threadKey, runGeneration)) {
+        await silentlyFinalizeFeishuTimeout({
+          cardSession,
+          handles,
+          accessToken,
+          message,
+          conversationId,
+          timeoutMs: responseTimeoutMs,
+          activeReactionPromise,
+        });
+      }
+      return;
+    }
+    if (abortSignal.aborted || !isCurrentFeishuAiRun(threadKey, runGeneration)) {
+      log.info("feishu chat run aborted or superseded", {
+        conversationId,
+        messageId: message.messageId,
+        aborted: abortSignal.aborted,
+      });
+      return;
+    }
     log.error("feishu AI chat failed", err, { conversationId, messageId: message.messageId });
     await finalizeAiChatTrace(handles, { error: err });
-    await replyFeishuTextMessage(
-      accessToken,
-      message.messageId,
-      "AI 回复失败，请稍后再试 🔄",
-      shouldReplyInThread
-    ).catch(() => {});
+    const errorText =
+      "AI 回复失败，请稍后再试 🔄\n\n发送 **/reset** 或 **重新开始** 可中断并清空当前对话。";
+    if (cardSession) {
+      await finalizeFeishuCardWithError(cardSession, errorText);
+    } else {
+      await replyFeishuTextMessage(
+        accessToken,
+        message.messageId,
+        errorText,
+        shouldReplyInThread
+      ).catch(() => {});
+    }
   }
 }

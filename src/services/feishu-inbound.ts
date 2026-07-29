@@ -31,7 +31,7 @@ import {
 } from "./notify.js";
 import type { AiRuntimeEnv } from "./ai-model.js";
 import { syncAssetReferences } from "./asset-references.js";
-import { handleFeishuAiChat, isThreadBusy } from "./feishu-ai-chat.js";
+import { handleFeishuAiChat } from "./feishu-ai-chat.js";
 import { createLogger } from "../lib/logger.js";
 
 const log = createLogger("feishu-inbound");
@@ -79,7 +79,15 @@ function extensionForMime(mimeType: string): string {
 import {
   buildFeishuThreadKey,
   clearFeishuAiSession,
+  interruptFeishuAiThread,
+  isFeishuChatResetCommand,
+  isThreadBusy,
 } from "./feishu-ai-chat.js";
+import {
+  normalizeFeishuMentions,
+  buildFeishuAgentUserText,
+  type FeishuInboundMention,
+} from "./feishu-message-content.js";
 
 export interface FeishuInboundMessage {
   messageId: string;
@@ -89,6 +97,8 @@ export interface FeishuInboundMessage {
   messageType: string;
   content: string;
   senderOpenId: string;
+  mentions?: FeishuInboundMention[];
+  botOpenId?: string;
 }
 
 export interface FeishuInboundContext {
@@ -158,6 +168,9 @@ function extractImageKey(messageType: string, content: string): string | null {
 
 function isQueryCommand(text: string): boolean {
   const trimmed = text.trim();
+  if (isFeishuChatResetCommand(trimmed)) {
+    return true;
+  }
   if (
     trimmed.startsWith("/today") ||
     trimmed.startsWith("/week") ||
@@ -254,10 +267,11 @@ async function handleQueryCommand(
   const trimmed = text.trim();
   const baseUrl = ctx.baseUrl;
 
-  if (trimmed.toLowerCase() === "/clear" || trimmed.toLowerCase() === "/reset") {
+  if (isFeishuChatResetCommand(trimmed)) {
     const threadKey = buildFeishuThreadKey(message, message.senderOpenId);
+    interruptFeishuAiThread(threadKey);
     await clearFeishuAiSession(ctx.db, threadKey);
-    await replyText(ctx, message, "已重置当前 AI 对话 🗑️");
+    await replyText(ctx, message, "已中断当前处理并清空对话 🗑️");
     return;
   }
 
@@ -532,6 +546,14 @@ export async function processFeishuInboundMessage(
     userName: actor.name,
   });
 
+  const threadKey = buildFeishuThreadKey(message, actor.userId);
+  const isQueued = isThreadBusy(threadKey);
+  const initialEmoji = isQueued ? "THINKING" : "Typing";
+
+  const typingReactionPromise = getTenantAccessToken(ctx.appId, ctx.appSecret).then((token) => {
+    return addFeishuReaction(token, message.messageId, initialEmoji);
+  }).catch(() => null);
+
   if (message.chatType === "group") {
     // 1. 群聊中必须 @Bot 机器人
     if (!options.hasGroupMention) {
@@ -555,16 +577,12 @@ export async function processFeishuInboundMessage(
     }
   }
 
-  // ⚡️ 核心体验升级：根据该会话是否已有任务运行，选择贴 💬 (Typing) 正在打字 或 🤔 (THINKING) 排队思考中 表情！
-  const threadKey = message.threadId || message.chatId;
-  const isQueued = isThreadBusy(threadKey);
-  const initialEmoji = isQueued ? "THINKING" : "Typing";
-
-  const typingReactionPromise = getTenantAccessToken(ctx.appId, ctx.appSecret).then((token) => {
-    return addFeishuReaction(token, message.messageId, initialEmoji);
-  }).catch(() => null);
-
-  const text = extractTextFromContent(message.messageType, message.content);
+  const rawText = extractTextFromContent(message.messageType, message.content);
+  const text = normalizeFeishuMentions(
+    rawText,
+    message.mentions ?? [],
+    message.botOpenId
+  );
   const imageKey = extractImageKey(message.messageType, message.content);
 
   // 1. 查询类指令（/today, /week, /month, /summary, /clear, /reset, /搜）
@@ -670,11 +688,17 @@ export async function processFeishuInboundMessage(
 
   // 3. 无 / 前缀的自然语言文本 → 进入 AI 多轮对话！
   if (text) {
+    const agentText = buildFeishuAgentUserText({
+      text,
+      chatType: message.chatType,
+      speakerName: actor.name,
+      speakerOpenId: message.senderOpenId,
+    });
     log.info("dispatching feishu message to AI chat", {
       messageId: message.messageId,
       chatId: message.chatId,
       threadId: message.threadId ?? "",
-      textPreview: text.slice(0, 60),
+      textPreview: agentText.slice(0, 60),
       actorName: actor.name,
       isQueued,
     });
@@ -685,6 +709,7 @@ export async function processFeishuInboundMessage(
         appSecret: ctx.appSecret,
         baseUrl: ctx.baseUrl,
         aiEnv: ctx.aiEnv,
+        aiResponseTimeoutMs: ctx.config.aiResponseTimeoutMs,
       },
       {
         messageId: message.messageId,
@@ -696,7 +721,7 @@ export async function processFeishuInboundMessage(
         isQueued,
         typingReactionPromise,
       },
-      text,
+      agentText,
       actor
     );
   }

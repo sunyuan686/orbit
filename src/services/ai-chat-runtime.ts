@@ -93,6 +93,7 @@ export interface StreamAiChatOptions {
   onToolExecutionStart?: Parameters<typeof streamText>[0]["onToolExecutionStart"];
   onToolExecutionEnd?: Parameters<typeof streamText>[0]["onToolExecutionEnd"];
   onError?: Parameters<typeof streamText>[0]["onError"];
+  abortSignal?: AbortSignal;
 }
 
 function buildHandoffBridgeMessage(summaryText: string): UIMessage {
@@ -242,6 +243,7 @@ export function streamAiChat(options: StreamAiChatOptions) {
     system: options.system,
     messages: options.messages,
     tools: options.tools,
+    ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
     include: {
       requestBody: true,
       requestMessages: true,

@@ -710,6 +710,7 @@ export interface FeishuConfigPublic {
   mergeWindowMs: number;
   homeChatId: string;
   replyInThread: boolean;
+  aiResponseTimeoutMs: number;
   connectionStatus: "connected" | "misconfigured" | "disabled" | "verified";
   lastError: string | null;
   lastConnectedAt: number | null;
@@ -736,6 +737,7 @@ export async function updateFeishuIntegration(data: {
   mergeWindowMs?: number;
   homeChatId?: string;
   replyInThread?: boolean;
+  aiResponseTimeoutMs?: number;
 }): Promise<FeishuConfigPublic> {
   const res = await fetch(`${BASE}/api/integrations/feishu`, {
     method: "PUT",

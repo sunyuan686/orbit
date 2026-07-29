@@ -6,14 +6,20 @@ import {
   loadFeishuRuntime,
   parseFeishuConfig,
   serializeFeishuConfig,
+  normalizeFeishuAiResponseTimeoutMs,
   type FeishuConfigPublic,
   type FeishuConfigStored,
   type FeishuAuthorOpenIds,
 } from "../services/feishu-settings.js";
 import {
   clearTenantAccessTokenCache,
+  getFeishuBotOpenId,
   testFeishuConnection,
 } from "../services/feishu-api.js";
+import {
+  parseFeishuInboundMentions,
+  isFeishuBotMentioned,
+} from "../services/feishu-message-content.js";
 import { handleFeishuCallback } from "../services/feishu-callback.js";
 import {
   parseLarkInboundBody,
@@ -79,6 +85,7 @@ interface FeishuPutBody {
   mergeWindowMs?: number;
   homeChatId?: string;
   replyInThread?: boolean;
+  aiResponseTimeoutMs?: number;
 }
 
 async function requireSessionAuthor(
@@ -267,6 +274,13 @@ async function handleLarkEvent(
     eventId,
   });
 
+  const mentions = parseFeishuInboundMentions(message.mentions);
+  const botOpenId = await getFeishuBotOpenId(
+    runtime.config.appId,
+    runtime.secrets.appSecret
+  );
+  const hasGroupMention = isFeishuBotMentioned(mentions, botOpenId ?? undefined);
+
   await processFeishuInboundMessage(
     {
       db,
@@ -297,8 +311,10 @@ async function handleLarkEvent(
       messageType: message.message_type ?? "text",
       content: message.content ?? "",
       senderOpenId,
+      mentions,
+      botOpenId: botOpenId ?? undefined,
     },
-    { hasGroupMention: Boolean(message.mentions?.length) }
+    { hasGroupMention }
   );
 
   await pruneFeishuMessageDedup(db);
@@ -372,6 +388,10 @@ export function createIntegrationsRoutes(
         body.replyInThread !== undefined
           ? Boolean(body.replyInThread)
           : current.replyInThread,
+      aiResponseTimeoutMs:
+        body.aiResponseTimeoutMs !== undefined
+          ? normalizeFeishuAiResponseTimeoutMs(body.aiResponseTimeoutMs)
+          : current.aiResponseTimeoutMs,
       lastError: null,
     };
 

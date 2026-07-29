@@ -167,6 +167,7 @@ export function FeishuIntegrationPanel() {
   const [allowedGroups, setAllowedGroups] = useState("");
   const [mergeWindowMs, setMergeWindowMs] = useState(2000);
   const [replyInThread, setReplyInThread] = useState(false);
+  const [aiResponseTimeoutSec, setAiResponseTimeoutSec] = useState(180);
 
   useEffect(() => {
     let cancelled = false;
@@ -188,6 +189,7 @@ export function FeishuIntegrationPanel() {
         setAllowedGroups(data.allowedGroupChatIds.join("\n"));
         setMergeWindowMs(data.mergeWindowMs);
         setReplyInThread(Boolean(data.replyInThread));
+        setAiResponseTimeoutSec(Math.round(data.aiResponseTimeoutMs / 1000));
       } catch (err) {
         if (!cancelled && shouldToastApiError(err)) {
           toast.error(getApiErrorMessage(err, "加载飞书配置失败"));
@@ -217,6 +219,7 @@ export function FeishuIntegrationPanel() {
           .filter(Boolean),
         mergeWindowMs,
         replyInThread,
+        aiResponseTimeoutMs: aiResponseTimeoutSec * 1000,
         ...(appSecret ? { appSecret } : {}),
         ...(encryptKey ? { encryptKey } : {}),
       });
@@ -422,8 +425,27 @@ export function FeishuIntegrationPanel() {
             />
           </SettingsField>
           <SettingsField
+            label="AI 响应超时"
+            hint="飞书 AI 超过该时间无完整回复时，自动结束并更新卡片（秒）。范围 30–900 秒，默认 180 秒。"
+            stacked
+          >
+            <input
+              type="number"
+              min={30}
+              max={900}
+              step={30}
+              className="orbit-input orbit-settings-input-block"
+              value={aiResponseTimeoutSec}
+              onChange={(e) =>
+                setAiResponseTimeoutSec(
+                  Math.min(900, Math.max(30, Number(e.target.value) || 180))
+                )
+              }
+            />
+          </SettingsField>
+          <SettingsField
             label="回复方式"
-            hint="开启后回复时自动创建独立话题 (Thread)；关闭则直接在聊天大框中引用回复。"
+            hint="开启后回复会显示在独立话题中，不影响 AI 对话记忆（单聊主窗口与话题共用同一 session）。"
             stacked
           >
             <label style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", cursor: "pointer", paddingTop: "0.4rem" }}>

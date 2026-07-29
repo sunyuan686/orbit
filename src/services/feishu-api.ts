@@ -7,6 +7,13 @@ interface TenantTokenCache {
 
 let tenantTokenCache: TenantTokenCache | null = null;
 
+interface BotOpenIdCache {
+  openId: string;
+  expiresAt: number;
+}
+
+const botOpenIdCache = new Map<string, BotOpenIdCache>();
+
 export class FeishuApiError extends Error {
   constructor(
     message: string,
@@ -92,6 +99,37 @@ export async function getTenantAccessToken(
 
 export function clearTenantAccessTokenCache(): void {
   tenantTokenCache = null;
+}
+
+export async function getFeishuBotOpenId(
+  appId: string,
+  appSecret: string
+): Promise<string | null> {
+  const normalizedAppId = appId.trim();
+  if (!normalizedAppId) return null;
+
+  const now = Date.now();
+  const cached = botOpenIdCache.get(normalizedAppId);
+  if (cached && cached.expiresAt > now + 60_000) {
+    return cached.openId;
+  }
+
+  try {
+    const token = await getTenantAccessToken(appId, appSecret);
+    const data = await feishuJson<{ bot?: { open_id?: string } }>(
+      `${FEISHU_API}/bot/v3/info`,
+      { accessToken: token }
+    );
+    const openId = data.bot?.open_id?.trim();
+    if (!openId) return null;
+    botOpenIdCache.set(normalizedAppId, {
+      openId,
+      expiresAt: now + 60 * 60 * 1000,
+    });
+    return openId;
+  } catch {
+    return null;
+  }
 }
 
 export async function sendFeishuTextMessage(

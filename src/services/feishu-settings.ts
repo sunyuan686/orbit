@@ -21,8 +21,24 @@ export interface FeishuConfigStored {
   mergeWindowMs: number;
   homeChatId: string;
   replyInThread: boolean;
+  /** Feishu AI 无完整响应时的静默超时（毫秒） */
+  aiResponseTimeoutMs: number;
   lastError: string | null;
   lastConnectedAt: number | null;
+}
+
+export const DEFAULT_FEISHU_AI_RESPONSE_TIMEOUT_MS = 3 * 60 * 1000;
+export const MIN_FEISHU_AI_RESPONSE_TIMEOUT_MS = 30 * 1000;
+export const MAX_FEISHU_AI_RESPONSE_TIMEOUT_MS = 15 * 60 * 1000;
+
+export function normalizeFeishuAiResponseTimeoutMs(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULT_FEISHU_AI_RESPONSE_TIMEOUT_MS;
+  }
+  return Math.min(
+    MAX_FEISHU_AI_RESPONSE_TIMEOUT_MS,
+    Math.max(MIN_FEISHU_AI_RESPONSE_TIMEOUT_MS, Math.round(value))
+  );
 }
 
 export interface FeishuConfigPublic {
@@ -37,6 +53,7 @@ export interface FeishuConfigPublic {
   mergeWindowMs: number;
   homeChatId: string;
   replyInThread: boolean;
+  aiResponseTimeoutMs: number;
   connectionStatus: "connected" | "misconfigured" | "disabled" | "verified";
   lastError: string | null;
   lastConnectedAt: number | null;
@@ -59,6 +76,7 @@ const DEFAULT_CONFIG: FeishuConfigStored = {
   mergeWindowMs: 2000,
   homeChatId: "",
   replyInThread: false,
+  aiResponseTimeoutMs: DEFAULT_FEISHU_AI_RESPONSE_TIMEOUT_MS,
   lastError: null,
   lastConnectedAt: null,
 };
@@ -89,6 +107,9 @@ export function parseFeishuConfig(raw: string | undefined): FeishuConfigStored {
       homeChatId:
         typeof parsed.homeChatId === "string" ? parsed.homeChatId.trim() : "",
       replyInThread: Boolean(parsed.replyInThread),
+      aiResponseTimeoutMs: normalizeFeishuAiResponseTimeoutMs(
+        parsed.aiResponseTimeoutMs
+      ),
       lastError:
         typeof parsed.lastError === "string" ? parsed.lastError : null,
       lastConnectedAt:
@@ -155,6 +176,7 @@ export function buildFeishuConfigPublic(
     mergeWindowMs: config.mergeWindowMs,
     homeChatId: config.homeChatId,
     replyInThread: config.replyInThread,
+    aiResponseTimeoutMs: config.aiResponseTimeoutMs,
     connectionStatus,
     lastError: config.lastError,
     lastConnectedAt: config.lastConnectedAt,

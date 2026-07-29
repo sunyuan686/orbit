@@ -123,6 +123,21 @@ export function restoreToolApprovalSignatures(
   });
 }
 
+export function rejectAllPendingWriteContentApprovals(
+  messages: UIMessage[],
+  reason: string
+): UIMessage[] {
+  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+  const pending = findPendingWriteContentApprovals(lastAssistant);
+  if (pending.length === 0) return messages;
+
+  return pending.reduce(
+    (current, item) =>
+      applyToolApprovalResponse(current, item.approvalId, false, reason),
+    messages
+  );
+}
+
 export function applyToolApprovalResponse(
   messages: UIMessage[],
   approvalId: string,

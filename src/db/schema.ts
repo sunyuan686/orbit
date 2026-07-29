@@ -328,8 +328,9 @@ export const feishuMessageDedup = sqliteTable(
 );
 
 /**
- * 飞书 Thread → ai_conversation 映射（含 idle TTL）
- * threadKey = thread_id（有话题时）or chat_id（p2p 单聊）
+ * 飞书 chat → ai_conversation 映射
+ * 单聊：p2p:{openId}（话题回复与主窗口共享同一 session）
+ * 群聊：group:{chatId}（群内共享上下文）
  */
 export const feishuThreadSession = sqliteTable(
   "feishu_thread_session",

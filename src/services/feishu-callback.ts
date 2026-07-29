@@ -166,6 +166,7 @@ async function handleAiWriteApproval(
       appSecret: ctx.appSecret,
       baseUrl: ctx.baseUrl,
       aiEnv: ctx.aiEnv,
+      aiResponseTimeoutMs: ctx.config.aiResponseTimeoutMs,
     },
     {
       conversationId,
