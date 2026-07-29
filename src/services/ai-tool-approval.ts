@@ -3,9 +3,6 @@ import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
   type UIMessage,
 } from "ai";
-import type { WriteContentToolInput } from "./content-write.js";
-
-export type { WriteContentToolInput };
 
 export const WRITE_CONTENT_APPROVAL_TOOL = "write_content";
 
@@ -22,6 +19,17 @@ const ACTION_LABEL: Record<string, string> = {
   update: "更新",
   delete: "删除",
 };
+
+export interface WriteContentToolInput {
+  action?: "create" | "update" | "delete";
+  type?: "diary" | "timeline" | "message" | "letter" | "memo";
+  id?: string;
+  title?: string;
+  body?: string;
+  entryDate?: number;
+  parentId?: string;
+  key?: string;
+}
 
 const APPROVAL_BODY_PREVIEW_MAX = 1200;
 

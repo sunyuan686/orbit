@@ -18,6 +18,7 @@ import {
   notifyEntryCreated,
   type NotifyRuntime,
 } from "./notify.js";
+import type { WriteContentToolInput } from "./ai-tool-approval.js";
 
 export type ContentType = "diary" | "timeline" | "message" | "letter" | "memo";
 
@@ -389,17 +390,6 @@ export async function deleteContent(
     type: entryRow.type,
     title: entryRow.title,
   };
-}
-
-export interface WriteContentToolInput {
-  action?: "create" | "update" | "delete";
-  type?: ContentType;
-  id?: string;
-  title?: string;
-  body?: string;
-  entryDate?: number;
-  parentId?: string;
-  key?: string;
 }
 
 export async function executeWriteContentInput(
