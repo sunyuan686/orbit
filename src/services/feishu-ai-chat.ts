@@ -19,7 +19,9 @@ import {
   findPendingWriteContentApprovals,
   formatWriteContentApprovalSummary,
   isApprovalContinuation,
+  parseFeishuTextApprovalDecision,
   rejectAllPendingWriteContentApprovals,
+  resolveWriteContentFeedbackMessage,
   resolveToolApprovalSecret,
 } from "./ai-tool-approval.js";
 import {
@@ -194,7 +196,10 @@ export function formatToolCallLogs(logs: ToolCallLog[]): string {
 }
 
 const FEISHU_SYSTEM_PROMPT_SUFFIX =
-  "\n\n提示：你正在通过飞书与用户对话。如果回复中包含站内链接，请直接给出完整 URL。写入空间内容前会等待用户确认，若用户拒绝写入，请告知结果且不要重复尝试同一写入操作。";
+  "\n\n提示：你正在通过飞书与用户对话。如果回复中包含站内链接，请直接给出完整 URL。需要写入空间内容时直接调用 write_content，不要用文字向用户索要确认（飞书会自动弹出确认卡片）。写入成功后给出完整 URL；用户取消写入时告知已取消。";
+
+const FEISHU_PENDING_WRITE_APPROVAL_NOTE =
+  "请在下方卡片中点击「确认写入」或「取消」。";
 
 const FEISHU_GROUP_SYSTEM_PROMPT_SUFFIX =
   "\n\n提示：当前为群聊，多条用户消息可能来自不同成员。每条用户消息以「姓名:」开头标识说话人，请根据该前缀区分是谁在说话。";
@@ -348,6 +353,7 @@ function buildWriteContentApprovalCard(
     schema: "2.0",
     header: {
       title: { tag: "plain_text", content: "确认写入空间内容" },
+      subtitle: { tag: "plain_text", content: "请审阅摘要后点击确认" },
       template: "orange",
     },
     body: {
@@ -730,6 +736,17 @@ export async function resumeFeishuAiChatAfterApproval(
     env: ctx.aiEnv ?? {},
   });
 
+  if (!input.approved) {
+    await finalizeAiChatTrace(handles, { output: "write-cancelled" });
+    await replyFeishuTextMessage(
+      accessToken,
+      input.replyMessageId,
+      "已取消写入，未保存任何内容。",
+      Boolean(input.replyInThread)
+    ).catch(() => {});
+    return;
+  }
+
   const message: FeishuAiChatMessage = {
     messageId: input.replyMessageId,
     chatId: "",
@@ -779,6 +796,9 @@ export async function resumeFeishuAiChatAfterApproval(
 
     if (turn.pendingApproval) {
       const summary = formatWriteContentApprovalSummary(turn.pendingApproval.input);
+      if (cardSession) {
+        await cardSession.finalize(FEISHU_PENDING_WRITE_APPROVAL_NOTE);
+      }
       await sendWriteContentApprovalCard(
         accessToken,
         input.replyMessageId,
@@ -787,14 +807,23 @@ export async function resumeFeishuAiChatAfterApproval(
         summary,
         Boolean(input.replyInThread)
       );
+      await finalizeAiChatTrace(handles, {
+        output: turn.fullResponse || "pending-write-approval",
+      });
       return;
     }
+
+    const feedback = resolveWriteContentFeedbackMessage(
+      ctx.baseUrl,
+      turn.assistantMessage,
+      turn.fullResponse
+    );
 
     await finalizeFeishuChatResponse({
       accessToken,
       message,
       cardSession,
-      fullResponse: turn.fullResponse,
+      fullResponse: feedback,
       conversationId: input.conversationId,
       handles,
     });
@@ -1130,6 +1159,27 @@ async function processSingleAiChat(
       .reverse()
       .find((m) => m.role === "assistant");
     const pendingApprovals = findPendingWriteContentApprovals(lastAssistant);
+    const textApproval = parseFeishuTextApprovalDecision(
+      stripFeishuSpeakerPrefix(text)
+    );
+    if (
+      pendingApprovals.length > 0 &&
+      !isApprovalContinuation(uiMessages) &&
+      textApproval !== null
+    ) {
+      await resumeFeishuAiChatAfterApproval(
+        ctx,
+        {
+          conversationId,
+          approvalId: pendingApprovals[0]!.approvalId,
+          approved: textApproval,
+          actor,
+          replyMessageId: message.messageId,
+          replyInThread: shouldReplyInThread,
+        }
+      );
+      return;
+    }
     if (pendingApprovals.length > 0 && !isApprovalContinuation(uiMessages)) {
       log.info("feishu chat auto-rejecting stale pending write approval", {
         conversationId,
@@ -1252,12 +1302,7 @@ async function processSingleAiChat(
           turn.pendingApproval.input
         );
         if (cardSession) {
-          await cardSession.updateToolStatus(
-            `⏸️ **等待确认写入**\n\n${summary}\n\n请在下方卡片中选择「确认写入」或「取消」。`
-          );
-          await cardSession.finalize(
-            turn.fullResponse || "等待你确认写入操作…"
-          );
+          await cardSession.finalize(FEISHU_PENDING_WRITE_APPROVAL_NOTE);
         }
         try {
           await sendWriteContentApprovalCard(

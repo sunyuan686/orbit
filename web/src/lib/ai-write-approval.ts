@@ -18,6 +18,27 @@ export interface WriteContentApprovalInput {
   id?: string;
   title?: string;
   body?: string;
+  entryDate?: number;
+  parentId?: string;
+  key?: string;
+}
+
+const APPROVAL_BODY_PREVIEW_MAX = 1200;
+
+function formatApprovalEntryDate(entryDate?: number): string | undefined {
+  if (!entryDate) return undefined;
+  const beijing = new Date(entryDate * 1000 + 8 * 3600 * 1000);
+  const year = beijing.getUTCFullYear();
+  const month = String(beijing.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(beijing.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatApprovalBodyPreview(body?: string): string | undefined {
+  const trimmed = body?.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length <= APPROVAL_BODY_PREVIEW_MAX) return trimmed;
+  return `${trimmed.slice(0, APPROVAL_BODY_PREVIEW_MAX)}…`;
 }
 
 export function formatWriteContentApprovalSummary(
@@ -26,14 +47,31 @@ export function formatWriteContentApprovalSummary(
   const action = ACTION_LABEL[input.action ?? ""] ?? input.action ?? "写入";
   const type = CONTENT_TYPE_LABEL[input.type ?? ""] ?? input.type ?? "";
   const title = input.title?.trim();
-  const bodyPreview = input.body?.trim()
-    ? input.body.trim().slice(0, 200) +
-      (input.body.trim().length > 200 ? "…" : "")
-    : "";
+  const bodyPreview = formatApprovalBodyPreview(input.body);
+  const entryDate = formatApprovalEntryDate(input.entryDate);
+  const isDelete = input.action === "delete";
 
-  const lines = [`${action}${type ? ` · ${type}` : ""}`];
+  const lines: string[] = [
+    isDelete
+      ? "以下内容将从 Orbit 空间删除，请审阅："
+      : "以下内容将写入 Orbit 空间，请审阅：",
+    "",
+    `${action}${type ? ` · ${type}` : ""}`,
+  ];
+
+  if (input.id) lines.push(`条目 ID：${input.id}`);
   if (title) lines.push(`标题：${title}`);
-  if (input.id) lines.push(`ID：${input.id}`);
-  if (bodyPreview) lines.push(bodyPreview);
+  if (input.key?.trim()) lines.push(`备忘录 Key：${input.key.trim()}`);
+  if (entryDate) lines.push(`日期：${entryDate}`);
+  if (input.parentId?.trim()) {
+    lines.push(`关联条目：${input.parentId.trim()}`);
+  }
+
+  if (bodyPreview) {
+    lines.push("", "正文预览", bodyPreview);
+  } else if (!isDelete && (input.action === "create" || input.action === "update")) {
+    lines.push("", "（无正文内容）");
+  }
+
   return lines.join("\n");
 }

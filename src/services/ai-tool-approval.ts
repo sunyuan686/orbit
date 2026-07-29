@@ -26,6 +26,27 @@ export interface WriteContentToolInput {
   id?: string;
   title?: string;
   body?: string;
+  entryDate?: number;
+  parentId?: string;
+  key?: string;
+}
+
+const APPROVAL_BODY_PREVIEW_MAX = 1200;
+
+function formatApprovalEntryDate(entryDate?: number): string | undefined {
+  if (!entryDate) return undefined;
+  const beijing = new Date(entryDate * 1000 + 8 * 3600 * 1000);
+  const year = beijing.getUTCFullYear();
+  const month = String(beijing.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(beijing.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatApprovalBodyPreview(body?: string): string | undefined {
+  const trimmed = body?.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length <= APPROVAL_BODY_PREVIEW_MAX) return trimmed;
+  return `${trimmed.slice(0, APPROVAL_BODY_PREVIEW_MAX)}…`;
 }
 
 export function isApprovalContinuation(messages: UIMessage[]): boolean {
@@ -169,21 +190,123 @@ export function applyToolApprovalResponse(
   });
 }
 
+export interface WriteContentToolOutcome {
+  ok: boolean;
+  action?: string;
+  id?: string;
+  type?: string;
+  title?: string | null;
+  error?: string;
+}
+
+const FEISHU_TEXT_APPROVE = new Set([
+  "确认",
+  "确认写入",
+  "同意",
+  "写入",
+  "ok",
+  "yes",
+  "y",
+]);
+
+const FEISHU_TEXT_DENY = new Set(["取消", "不要", "否", "no", "n"]);
+
+export function parseFeishuTextApprovalDecision(text: string): boolean | null {
+  const normalized = text.trim().toLowerCase();
+  if (!normalized) return null;
+  if (FEISHU_TEXT_APPROVE.has(normalized)) return true;
+  if (FEISHU_TEXT_DENY.has(normalized)) return false;
+  return null;
+}
+
+export function extractWriteContentToolOutcomes(
+  message: UIMessage | undefined
+): WriteContentToolOutcome[] {
+  if (!message || message.role !== "assistant") return [];
+
+  return (message.parts ?? [])
+    .filter(isToolUIPart)
+    .filter((part) => part.type === `tool-${WRITE_CONTENT_APPROVAL_TOOL}`)
+    .filter((part) => part.state === "output-available")
+    .map((part) => part.output as WriteContentToolOutcome)
+    .filter((output) => output && typeof output === "object");
+}
+
+export function formatWriteContentSuccessMessage(
+  baseUrl: string,
+  outcomes: WriteContentToolOutcome[]
+): string | null {
+  const successes = outcomes.filter((item) => item.ok && item.id && item.type);
+  if (successes.length === 0) return null;
+
+  const root = baseUrl.replace(/\/$/, "");
+  return successes
+    .map((item) => {
+      const label = CONTENT_TYPE_LABEL[item.type!] ?? item.type!;
+      const title = item.title?.trim() || label;
+      const url = `${root}/${item.type}/${item.id}`;
+      const action = ACTION_LABEL[item.action ?? ""] ?? "写入";
+      return `✅ **${action}成功** · ${label}\n标题：${title}\n🔗 [在 Orbit 中查看](${url})`;
+    })
+    .join("\n\n");
+}
+
+export function formatWriteContentErrorMessage(
+  outcomes: WriteContentToolOutcome[]
+): string | null {
+  const failures = outcomes.filter((item) => !item.ok);
+  if (failures.length === 0) return null;
+  return `❌ 写入失败：${failures
+    .map((item) => item.error?.trim() || "未知错误")
+    .join("；")}`;
+}
+
+export function resolveWriteContentFeedbackMessage(
+  baseUrl: string,
+  message: UIMessage | undefined,
+  fallback?: string
+): string {
+  const outcomes = extractWriteContentToolOutcomes(message);
+  return (
+    formatWriteContentSuccessMessage(baseUrl, outcomes) ??
+    formatWriteContentErrorMessage(outcomes) ??
+    fallback?.trim() ??
+    ""
+  );
+}
+
 export function formatWriteContentApprovalSummary(
   input: WriteContentToolInput
 ): string {
   const action = ACTION_LABEL[input.action ?? ""] ?? input.action ?? "写入";
   const type = CONTENT_TYPE_LABEL[input.type ?? ""] ?? input.type ?? "";
   const title = input.title?.trim();
-  const bodyPreview = input.body?.trim()
-    ? input.body.trim().slice(0, 160) +
-      (input.body.trim().length > 160 ? "…" : "")
-    : "";
+  const bodyPreview = formatApprovalBodyPreview(input.body);
+  const entryDate = formatApprovalEntryDate(input.entryDate);
+  const isDelete = input.action === "delete";
 
-  const lines = [`**${action}**${type ? ` · ${type}` : ""}`];
+  const lines: string[] = [
+    isDelete
+      ? "以下内容将从 Orbit 空间**删除**，请审阅："
+      : "以下内容将写入 Orbit 空间，请审阅：",
+    "",
+    `**${action}**${type ? ` · ${type}` : ""}`,
+  ];
+
+  if (input.id) lines.push(`条目 ID：\`${input.id}\``);
   if (title) lines.push(`标题：${title}`);
-  if (input.id) lines.push(`ID：${input.id}`);
-  if (bodyPreview) lines.push(`\n> ${bodyPreview}`);
+  if (input.key?.trim()) lines.push(`备忘录 Key：\`${input.key.trim()}\``);
+  if (entryDate) lines.push(`日期：${entryDate}`);
+  if (input.parentId?.trim()) {
+    lines.push(`关联条目：\`${input.parentId.trim()}\``);
+  }
+
+  if (bodyPreview) {
+    lines.push("", "**正文预览**", `> ${bodyPreview.replace(/\n/g, "\n> ")}`);
+  } else if (!isDelete && (input.action === "create" || input.action === "update")) {
+    lines.push("", "_（无正文内容）_");
+  }
+
   return lines.join("\n");
 }
 
