@@ -1,5 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { entry } from "../db/schema.js";
+import { createLogger } from "../lib/logger.js";
 import { resolveUserIdFromOpenId, type FeishuConfigStored } from "./feishu-settings.js";
 import {
   resolveCallbackEventType,
@@ -8,6 +9,8 @@ import {
 import { resumeFeishuAiChatAfterApproval } from "./feishu-ai-chat.js";
 import { getUserById } from "./space-authors.js";
 import type { AiRuntimeEnv } from "./ai-model.js";
+
+const log = createLogger("feishu-callback");
 
 export type FeishuCallbackResponse = Record<string, unknown>;
 
@@ -18,6 +21,7 @@ interface FeishuCallbackContext {
   appId: string;
   appSecret: string;
   aiEnv?: AiRuntimeEnv;
+  scheduleBackground?: (task: Promise<unknown>) => void;
 }
 
 interface OrbitCardAction {
@@ -66,11 +70,17 @@ function parseActionValue(value: unknown): OrbitCardAction | null {
       typeof record.conversationId === "string" ? record.conversationId : undefined,
     approvalId:
       typeof record.approvalId === "string" ? record.approvalId : undefined,
-    approved:
-      typeof record.approved === "boolean" ? record.approved : undefined,
+    approved: parseApprovedValue(record.approved),
     replyMessageId:
       typeof record.replyMessageId === "string" ? record.replyMessageId : undefined,
   };
+}
+
+function parseApprovedValue(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return undefined;
 }
 
 function toast(
@@ -159,7 +169,7 @@ async function handleAiWriteApproval(
     return toast("error", "无法定位原消息");
   }
 
-  void resumeFeishuAiChatAfterApproval(
+  const resumeTask = resumeFeishuAiChatAfterApproval(
     {
       db: ctx.db,
       appId: ctx.appId,
@@ -175,7 +185,20 @@ async function handleAiWriteApproval(
       actor: { userId: user.id, name: user.name },
       replyMessageId,
     }
-  ).catch(() => undefined);
+  ).catch((err) => {
+    log.error("feishu approval resume background failed", err, {
+      conversationId,
+      approvalId,
+      approved: action.approved,
+      replyMessageId,
+    });
+  });
+
+  if (ctx.scheduleBackground) {
+    ctx.scheduleBackground(resumeTask);
+  } else {
+    void resumeTask;
+  }
 
   return toast(
     "success",

@@ -526,6 +526,7 @@ export function createIntegrationsRoutes(
         appId: runtime.config.appId,
         appSecret: runtime.secrets.appSecret,
         aiEnv: options.getAiEnv?.(c),
+        scheduleBackground: (task) => scheduleBackground(c, options, task),
       })
     );
   });

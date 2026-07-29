@@ -16,6 +16,7 @@ import {
 } from "./ai-chat-store.js";
 import {
   applyToolApprovalResponse,
+  restoreToolApprovalSignatures,
   findPendingWriteContentApprovals,
   formatWriteContentApprovalSummary,
   isApprovalContinuation,
@@ -203,6 +204,20 @@ const FEISHU_PENDING_WRITE_APPROVAL_NOTE =
 
 const FEISHU_GROUP_SYSTEM_PROMPT_SUFFIX =
   "\n\n提示：当前为群聊，多条用户消息可能来自不同成员。每条用户消息以「姓名:」开头标识说话人，请根据该前缀区分是谁在说话。";
+
+const FEISHU_P2P_SYSTEM_PROMPT_SUFFIX =
+  "\n\n提示：当前为飞书单聊，你正在与「{name}」单独对话。请用「你」称呼对方，不要同时对空间两位成员使用「你们」或向两人一并打招呼；除非对方明确问起另一位成员。";
+
+function buildFeishuPromptSuffix(
+  chatType: string | undefined,
+  actorName: string
+): string {
+  if (chatType === "group") {
+    return `${FEISHU_SYSTEM_PROMPT_SUFFIX}${FEISHU_GROUP_SYSTEM_PROMPT_SUFFIX}`;
+  }
+  const name = actorName.trim() || "用户";
+  return `${FEISHU_SYSTEM_PROMPT_SUFFIX}${FEISHU_P2P_SYSTEM_PROMPT_SUFFIX.replace("{name}", name)}`;
+}
 
 const FEISHU_AI_TIMEOUT_CARD_MESSAGE =
   "⏱️ **响应超时**\n\n已自动结束本次处理，你可以继续发送新消息。\n\n发送 **/reset** 可清空对话重新开始。";
@@ -481,10 +496,10 @@ async function runFeishuAgentTurn(options: {
     options.uiMessages,
     options.message.chatType
   );
-  const promptSuffix =
-    options.message.chatType === "group"
-      ? `${FEISHU_SYSTEM_PROMPT_SUFFIX}${FEISHU_GROUP_SYSTEM_PROMPT_SUFFIX}`
-      : FEISHU_SYSTEM_PROMPT_SUFFIX;
+  const promptSuffix = buildFeishuPromptSuffix(
+    options.message.chatType,
+    options.actor.name
+  );
   const agent = await prepareAiChatAgent({
     db: options.ctx.db,
     env: options.ctx.aiEnv,
@@ -684,12 +699,16 @@ export async function resumeFeishuAiChatAfterApproval(
     input.approved,
     input.approved ? "用户已在飞书确认写入" : "用户已在飞书取消写入"
   );
+  const uiMessages = restoreToolApprovalSignatures(
+    updatedMessages,
+    storedMessages
+  );
 
   const approvalSecret = resolveToolApprovalSecret(
     (ctx.aiEnv ?? {}) as Record<string, string | undefined>
   );
   if (input.approved && approvalSecret) {
-    const hasSignature = updatedMessages.some(
+    const hasSignature = uiMessages.some(
       (message) =>
         message.role === "assistant" &&
         (message.parts ?? []).some(
@@ -714,7 +733,7 @@ export async function resumeFeishuAiChatAfterApproval(
     }
   }
 
-  const assistantWithApproval = [...updatedMessages]
+  const assistantWithApproval = [...uiMessages]
     .reverse()
     .find((message) => message.role === "assistant");
   if (assistantWithApproval) {
@@ -784,7 +803,7 @@ export async function resumeFeishuAiChatAfterApproval(
         actor: input.actor,
         threadKey: `approval:${input.conversationId}`,
         conversationId: input.conversationId,
-        uiMessages: updatedMessages,
+        uiMessages,
         accessToken,
         cardSession,
         handles,
