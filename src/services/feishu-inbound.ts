@@ -259,6 +259,25 @@ async function replyText(
   await sendFeishuTextMessage(token, message.chatId, "chat_id", text);
 }
 
+async function finalizeInboundTypingReaction(
+  ctx: FeishuInboundContext,
+  message: FeishuInboundMessage,
+  typingReactionPromise: Promise<string | null>
+): Promise<void> {
+  try {
+    const typingReactionId = await typingReactionPromise;
+    const token = await getTenantAccessToken(ctx.appId, ctx.appSecret);
+    if (typingReactionId) {
+      await removeFeishuReaction(token, message.messageId, typingReactionId).catch(
+        () => {}
+      );
+    }
+    await addFeishuReaction(token, message.messageId, "DONE").catch(() => {});
+  } catch {
+    // Ignore reaction update failures.
+  }
+}
+
 async function handleQueryCommand(
   ctx: FeishuInboundContext,
   message: FeishuInboundMessage,
@@ -593,13 +612,7 @@ export async function processFeishuInboundMessage(
       actorName: actor.name,
     });
     await handleQueryCommand(ctx, message, text);
-    void typingReactionPromise.then(async (typingReactionId) => {
-      const token = await getTenantAccessToken(ctx.appId, ctx.appSecret);
-      if (typingReactionId) {
-        await removeFeishuReaction(token, message.messageId, typingReactionId).catch(() => {});
-      }
-      await addFeishuReaction(token, message.messageId, "DONE").catch(() => {});
-    }).catch(() => {});
+    await finalizeInboundTypingReaction(ctx, message, typingReactionPromise);
     return;
   }
 
@@ -632,12 +645,7 @@ export async function processFeishuInboundMessage(
     const token = await getTenantAccessToken(ctx.appId, ctx.appSecret);
 
     // ⚡️ 核心体验升级 1：取消 Typing/THINKING 表情，贴上绿色 DONE 表情！
-    void typingReactionPromise.then(async (typingReactionId) => {
-      if (typingReactionId) {
-        await removeFeishuReaction(token, message.messageId, typingReactionId).catch(() => {});
-      }
-      await addFeishuReaction(token, message.messageId, "DONE").catch(() => {});
-    }).catch(() => {});
+    await finalizeInboundTypingReaction(ctx, message, typingReactionPromise);
 
     // ⚡️ 核心体验升级 2：发送带跳转链接的精美交互式卡片！
     const labels: Record<string, string> = {
