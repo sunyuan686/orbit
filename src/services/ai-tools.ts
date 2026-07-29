@@ -6,9 +6,7 @@ import { toPlainText } from "../lib/plain-text.js";
 import { createSearchService } from "./search.js";
 import { createLogger } from "../lib/logger.js";
 import {
-  createContent,
-  deleteContent,
-  updateContent,
+  executeWriteContentInput,
   type ContentWriteActor,
 } from "./content-write.js";
 
@@ -259,56 +257,23 @@ export function createAiTools(
           .describe("父条目 ID；用于信件回信或留言回复"),
         key: z.string().optional().describe("备忘录唯一 key；仅 memo 创建时可选"),
       }),
-      execute: async ({
-        action,
-        type,
-        id,
-        title,
-        body,
-        entryDate,
-        parentId,
-        key,
-      }) => {
+      execute: async (input) => {
         if (!actor) {
           return { error: "当前会话未绑定用户身份，无法写入内容" };
         }
 
         try {
-          if (action === "create") {
-            if (!type) {
-              return { error: "创建内容时必须指定 type" };
-            }
-            if (!body) {
-              return { error: "创建内容时必须提供 body" };
-            }
-            return await createContent(db, actor, {
-              type,
-              title,
-              body,
-              entryDate,
-              parentId,
-              key,
-            });
+          const result = await executeWriteContentInput(db, actor, input);
+          if (!result.ok) {
+            return { error: result.error ?? "写入失败" };
           }
-
-          if (action === "update") {
-            if (!id) {
-              return { error: "更新内容时必须提供 id" };
-            }
-            return await updateContent(db, actor, {
-              id,
-              title,
-              body,
-              entryDate,
-            });
-          }
-
-          if (!id) {
-            return { error: "删除内容时必须提供 id" };
-          }
-          return await deleteContent(db, actor, id);
+          return result;
         } catch (err: any) {
-          log.error("write_content failed", err, { action, type, id });
+          log.error("write_content failed", err, {
+            action: input.action,
+            type: input.type,
+            id: input.id,
+          });
           return { error: `写入失败: ${err.message || "未知错误"}` };
         }
       },

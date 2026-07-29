@@ -390,3 +390,70 @@ export async function deleteContent(
     title: entryRow.title,
   };
 }
+
+export interface WriteContentToolInput {
+  action?: "create" | "update" | "delete";
+  type?: ContentType;
+  id?: string;
+  title?: string;
+  body?: string;
+  entryDate?: number;
+  parentId?: string;
+  key?: string;
+}
+
+export async function executeWriteContentInput(
+  db: any,
+  actor: ContentWriteActor,
+  input: WriteContentToolInput,
+  options: ContentWriteOptions = {}
+): Promise<ContentWriteResult> {
+  const action = input.action;
+  if (!action) {
+    return { ok: false, action: "create", error: "缺少 action" };
+  }
+
+  if (action === "create") {
+    if (!input.type) {
+      return { ok: false, action, error: "创建内容时必须指定 type" };
+    }
+    if (!input.body) {
+      return { ok: false, action, error: "创建内容时必须提供 body" };
+    }
+    return createContent(
+      db,
+      actor,
+      {
+        type: input.type,
+        title: input.title,
+        body: input.body,
+        entryDate: input.entryDate,
+        parentId: input.parentId,
+        key: input.key,
+      },
+      options
+    );
+  }
+
+  if (action === "update") {
+    if (!input.id) {
+      return { ok: false, action, error: "更新内容时必须提供 id" };
+    }
+    return updateContent(
+      db,
+      actor,
+      {
+        id: input.id,
+        title: input.title,
+        body: input.body,
+        entryDate: input.entryDate,
+      },
+      options
+    );
+  }
+
+  if (!input.id) {
+    return { ok: false, action, error: "删除内容时必须提供 id" };
+  }
+  return deleteContent(db, actor, input.id, options);
+}

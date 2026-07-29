@@ -3,6 +3,9 @@ import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
   type UIMessage,
 } from "ai";
+import type { WriteContentToolInput } from "./content-write.js";
+
+export type { WriteContentToolInput };
 
 export const WRITE_CONTENT_APPROVAL_TOOL = "write_content";
 
@@ -19,17 +22,6 @@ const ACTION_LABEL: Record<string, string> = {
   update: "更新",
   delete: "删除",
 };
-
-export interface WriteContentToolInput {
-  action?: "create" | "update" | "delete";
-  type?: string;
-  id?: string;
-  title?: string;
-  body?: string;
-  entryDate?: number;
-  parentId?: string;
-  key?: string;
-}
 
 const APPROVAL_BODY_PREVIEW_MAX = 1200;
 
@@ -157,6 +149,54 @@ export function rejectAllPendingWriteContentApprovals(
       applyToolApprovalResponse(current, item.approvalId, false, reason),
     messages
   );
+}
+
+export function findApprovedWriteContentToolPart(
+  messages: UIMessage[],
+  approvalId: string
+) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message?.role !== "assistant") continue;
+
+    for (const part of message.parts ?? []) {
+      if (!isToolUIPart(part)) continue;
+      if (part.type !== `tool-${WRITE_CONTENT_APPROVAL_TOOL}`) continue;
+      if (part.state !== "approval-responded") continue;
+      if (part.approval?.id !== approvalId) continue;
+      if (part.approval?.approved !== true) continue;
+      return part;
+    }
+  }
+
+  return null;
+}
+
+export function applyWriteContentToolResult(
+  messages: UIMessage[],
+  approvalId: string,
+  output: WriteContentToolOutcome
+): UIMessage[] {
+  return messages.map((message) => {
+    if (message.role !== "assistant") return message;
+
+    let changed = false;
+    const parts = (message.parts ?? []).map((part) => {
+      if (!isToolUIPart(part)) return part;
+      if (part.type !== `tool-${WRITE_CONTENT_APPROVAL_TOOL}`) return part;
+      if (part.approval?.id !== approvalId) return part;
+      if (part.state !== "approval-responded") return part;
+
+      changed = true;
+      return {
+        ...part,
+        state: "output-available",
+        output,
+      } as (typeof message.parts)[number];
+    });
+
+    return changed ? { ...message, parts } : message;
+  });
 }
 
 export function applyToolApprovalResponse(
