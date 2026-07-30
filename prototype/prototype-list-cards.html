@@ -2,491 +2,675 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Orbit 留言板 - 精致视图切换与双模式展示</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Noto+Serif+SC:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Orbit 列表卡片原型</title>
   <style>
     :root {
-      --font-body: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-      --font-serif: "Noto Serif SC", "Songti SC", STSong, Georgia, serif;
-      --font-handwriting: "Caveat", cursive;
-
-      /* Page background */
-      --bg: #f8f6f0;
-      
-      /* Classic View Palette */
-      --classic-card-bg: #f5efe4;
-      --classic-card-border: rgba(210, 195, 175, 0.4);
-      --classic-tab: #ded6c5;
-      --classic-text: #2c2623;
-      --classic-muted: #887d75;
-
-      /* Polaroid View Palette */
-      --polaroid-card-bg: #fffcf7;
-      --polaroid-shadow: 0 8px 24px rgba(65, 50, 35, 0.07), 0 2px 6px rgba(0, 0, 0, 0.03);
-      --polaroid-shadow-hover: 0 14px 32px rgba(65, 50, 35, 0.12), 0 4px 10px rgba(0, 0, 0, 0.04);
-      --polaroid-tape: rgba(225, 210, 190, 0.7);
-
-      --accent-rose: #d9777f;
-      --accent-rose-bg: #fdf0f1;
+      --font-heading: "New York Small", "New York", "Iowan Old Style", Charter, Georgia, "Songti SC", STSong, serif;
+      --font-body: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      --bg: oklch(0.14 0.008 80);
+      --surface: oklch(0.17 0.01 80);
+      --surface-raised: oklch(0.21 0.012 80);
+      --border: oklch(0.32 0.012 80);
+      --border-light: oklch(0.26 0.01 80);
+      --text: oklch(0.93 0.006 80);
+      --text-secondary: oklch(0.72 0.012 80);
+      --text-muted: oklch(0.56 0.01 80);
+      --accent: oklch(0.82 0.012 80);
+      --on-accent: oklch(0.14 0.008 80);
+      --radius: 8px;
+      --content: 680px;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; }
     body {
-      background: var(--bg);
-      color: #2c2623;
+      margin: 0;
+      min-height: 100vh;
       font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
       line-height: 1.55;
-      padding: 36px 20px 80px;
     }
 
-    /* Container Shell */
     .shell {
-      max-width: 760px;
+      max-width: calc(var(--content) + 48px);
       margin: 0 auto;
+      padding: 28px 24px 64px;
     }
 
-    /* 1. Top Header Row (Title on left, New Button on right) */
-    .top-bar {
+    .top {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
       gap: 16px;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
     }
-    .page-title-group h1 {
+    .top h1 {
+      margin: 0;
+      font-family: var(--font-heading);
       font-size: 1.5rem;
-      font-weight: 700;
-      color: #222;
+      font-weight: 400;
       letter-spacing: -0.01em;
     }
-
-    .btn-new {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      height: 32px;
+    .top p {
+      margin: 6px 0 0;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+    }
+    .btn {
+      flex-shrink: 0;
+      height: 36px;
       padding: 0 14px;
       border: 0;
       border-radius: 6px;
-      background: #1c1816;
-      color: #fff;
-      font-size: 0.8125rem;
-      font-weight: 500;
+      background: var(--accent);
+      color: var(--on-accent);
+      font: 500 0.875rem/1 var(--font-body);
       cursor: pointer;
-      box-sizing: border-box;
-      transition: background 0.15s;
     }
-    .btn-new:hover { background: #333; }
 
-    /* 2. Secondary Toolbar Bar (View Switcher positioned below header) */
-    .sub-toolbar {
+    .tabs {
       display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-light);
     }
-
-    /* Refined View Switcher Segmented Control (Height: 25px) */
-    .view-switcher {
-      display: inline-flex;
-      align-items: center;
-      gap: 2px;
-      height: 25px;
-      padding: 2px;
-      background: rgba(225, 215, 200, 0.45);
-      border: 1px solid rgba(200, 185, 165, 0.4);
+    .tab {
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid transparent;
       border-radius: 6px;
-      box-sizing: border-box;
-    }
-    .switcher-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      height: 19px;
-      padding: 0 7px;
-      font-size: 0.725rem;
-      font-weight: 400;
-      border: none;
-      border-radius: 4px;
       background: transparent;
-      color: #736760;
+      color: var(--text-secondary);
+      font: 500 0.8125rem/1 var(--font-body);
       cursor: pointer;
-      opacity: 0.75;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .switcher-btn svg {
-      width: 12px;
-      height: 12px;
-    }
-    .switcher-btn:hover {
-      opacity: 1;
-      color: #222;
-    }
-    .switcher-btn.active {
-      opacity: 1;
-      background: #ffffff;
-      color: #222;
-      font-weight: 500;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
+    .tab:hover { background: var(--surface-raised); color: var(--text); }
+    .tab[aria-selected="true"] {
+      background: var(--surface-raised);
+      border-color: var(--border);
+      color: var(--text);
     }
 
-    /* ====================================================
-       1. CLASSIC STYLE (默认列表模式)
-    ==================================================== */
-    .classic-list {
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .list { display: flex; flex-direction: column; gap: 10px; }
+
+    /* —— shared —— */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius);
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+    }
+    .card:hover { border-color: var(--border); }
+    .meta {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .author { color: var(--text-secondary); }
+    .snippet {
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      line-height: 1.55;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .cover {
+      display: block;
+      object-fit: cover;
+      background: var(--surface-raised);
+    }
+
+    /* —— message: sticky notes —— */
+    .msg-board {
       display: flex;
       flex-direction: column;
       gap: 14px;
     }
-    .classic-card {
-      background: var(--classic-card-bg);
-      border-radius: 10px;
-      padding: 18px 20px 14px;
+    .msg {
       position: relative;
-      border: 1px solid var(--classic-card-border);
-      transition: border-color 0.15s ease;
-    }
-    .classic-card:hover {
-      border-color: rgba(160, 140, 120, 0.6);
-    }
-    .classic-card::before {
-      content: "";
-      position: absolute;
-      top: 6px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 44px;
-      height: 8px;
-      background: var(--classic-tab);
-      border-radius: 4px;
-    }
-    .classic-card-body {
-      font-size: 0.9375rem;
-      color: var(--classic-text);
-      line-height: 1.6;
-      margin-top: 6px;
-    }
-    .classic-card-with-img {
-      display: flex;
-      gap: 16px;
-      justify-content: space-between;
-      align-items: flex-start;
-    }
-    .classic-thumb {
-      width: 68px;
-      height: 68px;
-      object-fit: cover;
-      border-radius: 6px;
-      flex-shrink: 0;
-      border: 1px solid rgba(0,0,0,0.1);
-    }
-    .classic-card-meta {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 12px;
-      font-size: 0.75rem;
-      color: var(--classic-muted);
-    }
-
-    /* ====================================================
-       2. POLAROID / CARD STYLE (100% 等高卡片网格模式)
-    ==================================================== */
-    .polaroid-grid {
+      padding: 18px 16px 14px;
+      border: 0;
+      border-radius: 2px 2px 8px 8px;
+      background: oklch(0.23 0.018 85);
+      box-shadow:
+        0 1px 0 oklch(1 0 0 / 0.04) inset,
+        0 6px 16px oklch(0 0 0 / 0.28);
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 20px;
-      align-items: stretch;
+      gap: 10px;
+      transform-origin: top center;
     }
-    .polaroid-card {
-      background: var(--polaroid-card-bg);
-      border-radius: 14px;
-      padding: 20px 18px;
-      position: relative;
-      box-shadow: var(--polaroid-shadow);
-      border: 1px solid rgba(255, 255, 255, 0.9);
-      transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-      transform-origin: center top;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      height: 100%;
-      min-height: 210px;
-    }
-    .polaroid-card.tilt-a { transform: rotate(-1.2deg); }
-    .polaroid-card.tilt-b { transform: rotate(1.1deg); }
-
-    .polaroid-card:hover {
-      transform: translateY(-4px) scale(1.01) rotate(0deg);
-      box-shadow: var(--polaroid-shadow-hover);
-      z-index: 5;
-    }
-
-    /* Frosted Tape Header */
-    .polaroid-card::before {
+    .msg::before {
       content: "";
       position: absolute;
-      top: -10px;
+      top: -5px;
       left: 50%;
-      transform: translateX(-50%);
-      width: 68px;
-      height: 20px;
-      background: var(--polaroid-tape);
-      border: 1px solid rgba(200, 180, 160, 0.4);
-      backdrop-filter: blur(4px);
-      border-radius: 3px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+      width: 42px;
+      height: 12px;
+      margin-left: -21px;
+      border-radius: 2px;
+      background: oklch(0.55 0.04 85 / 0.45);
+      box-shadow: 0 1px 2px oklch(0 0 0 / 0.25);
     }
-
-    .polaroid-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
+    .msg.from-b {
+      background: oklch(0.22 0.02 55);
     }
-    .polaroid-user {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    .msg.from-b::before {
+      background: oklch(0.52 0.05 45 / 0.4);
     }
-    .avatar-circle {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.725rem;
-      font-weight: 700;
-      color: #fff;
+    .msg.tilt-a { transform: rotate(-0.6deg); }
+    .msg.tilt-b { transform: rotate(0.7deg); }
+    .msg:hover {
+      border-color: transparent;
+      filter: brightness(1.06);
     }
-    .avatar-circle.yuan { background: linear-gradient(135deg, #f687b3, #d53f8c); }
-    .avatar-circle.lin { background: linear-gradient(135deg, #4299e1, #3182ce); }
-
-    .polaroid-user-name {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: #2c2623;
+    .msg.has-cover {
+      grid-template-columns: 1fr 68px;
+      align-items: start;
     }
-    .polaroid-date {
-      font-size: 0.75rem;
-      color: #998e85;
-    }
-
-    .polaroid-text {
+    .msg .body {
+      margin: 0;
       font-size: 0.9375rem;
+      color: var(--text);
       line-height: 1.65;
-      color: #38302b;
-      flex: 1;
       display: -webkit-box;
-      -webkit-line-clamp: 6;
+      -webkit-line-clamp: 4;
       -webkit-box-orient: vertical;
       overflow: hidden;
-      margin: 0;
     }
-
-    .polaroid-card.has-photo .polaroid-text {
-      -webkit-line-clamp: 2;
+    .msg .cover {
+      width: 68px;
+      height: 68px;
+      border-radius: 4px;
+      grid-row: 1 / span 2;
+      grid-column: 2;
+      box-shadow: 0 0 0 1px oklch(0 0 0 / 0.2);
     }
-
-    /* Compact Photo Frame inside card */
-    .polaroid-photo-frame {
-      background: rgba(225, 215, 200, 0.3);
-      padding: 4px;
-      border: 1px solid #eae2d5;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-      margin-top: 10px;
-      height: 200px;
-      flex-shrink: 0;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .polaroid-photo-frame img {
+    .msg .meta {
+      grid-column: 1;
+      justify-content: space-between;
       width: 100%;
+    }
+    .msg .author {
+      font-family: var(--font-heading);
+      font-size: 0.8125rem;
+      color: oklch(0.82 0.02 85);
+    }
+
+    /* —— diary: journal page —— */
+    .diary-list { display: flex; flex-direction: column; gap: 16px; }
+    .diary {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 0;
+      border-radius: 10px;
+      overflow: hidden;
+      background:
+        linear-gradient(90deg, oklch(0.19 0.012 80) 0 72px, var(--surface) 72px);
+      border: 1px solid var(--border-light);
+    }
+    .diary.has-cover {
+      grid-template-rows: auto auto;
+      grid-template-columns: 72px 1fr;
+    }
+    .diary .date-col {
+      grid-row: 1 / span 2;
+      padding: 16px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      border-right: 1px solid var(--border-light);
+      background: oklch(0.19 0.012 80);
+    }
+    .diary .day {
+      font-family: var(--font-heading);
+      font-size: 1.75rem;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      color: var(--text);
+    }
+    .diary .month {
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .diary .year {
+      margin-top: 6px;
+      font-size: 0.625rem;
+      color: var(--text-muted);
+    }
+    .diary .cover-wrap {
+      grid-column: 2;
+      grid-row: 1;
+    }
+    .diary .cover-wrap .cover {
+      width: 100%;
+      height: 140px;
+    }
+    .diary .body {
+      grid-column: 2;
+      padding: 14px 16px 16px;
+      display: grid;
+      gap: 8px;
+      background-image: repeating-linear-gradient(
+        transparent,
+        transparent 27px,
+        oklch(0.28 0.01 80 / 0.35) 27px,
+        oklch(0.28 0.01 80 / 0.35) 28px
+      );
+      background-position: 0 2.6em;
+    }
+    .diary.has-cover .body { grid-row: 2; }
+    .diary:not(.has-cover) .body { grid-row: 1; }
+    .diary .title {
+      margin: 0;
+      font-family: var(--font-heading);
+      font-size: 1.125rem;
+      font-weight: 400;
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+    }
+    .diary .snippet {
+      -webkit-line-clamp: 3;
+      line-height: 1.75;
+      color: var(--text-secondary);
+    }
+    .diary .meta { margin-top: 2px; }
+
+    /* —— timeline: rail —— */
+    .tl-wrap {
+      position: relative;
+      padding-left: 20px;
+    }
+    .tl-wrap::before {
+      content: "";
+      position: absolute;
+      left: 5px;
+      top: 8px;
+      bottom: 8px;
+      width: 1px;
+      background: var(--border);
+    }
+    .tl {
+      position: relative;
+      margin-bottom: 12px;
+    }
+    .tl:last-child { margin-bottom: 0; }
+    .tl::before {
+      content: "";
+      position: absolute;
+      left: -17px;
+      top: 18px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-secondary);
+      border: 2px solid var(--bg);
+      box-sizing: content-box;
+    }
+    .tl .card {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    .tl .card.has-cover {
+      grid-template-columns: 1fr 88px;
+    }
+    .tl .body { padding: 12px 14px; display: grid; gap: 4px; }
+    .tl .date {
+      font-family: var(--font-heading);
+      font-size: 0.9375rem;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+    .tl .title {
+      margin: 0;
+      font-size: 0.9375rem;
+      font-weight: 500;
+    }
+    .tl .cover {
+      width: 88px;
       height: 100%;
-      object-fit: contain;
-      border-radius: 5px;
-      display: block;
+      min-height: 80px;
+    }
+
+    /* —— letter: thread —— */
+    .letter-root { display: grid; gap: 8px; }
+    .letter {
+      padding: 14px 16px;
+      display: grid;
+      gap: 6px;
+    }
+    .letter.has-cover {
+      grid-template-columns: 1fr 80px;
+    }
+    .letter .title {
+      margin: 0;
+      font-family: var(--font-heading);
+      font-size: 1.0625rem;
+      font-weight: 400;
+    }
+    .letter .cover {
+      width: 80px;
+      height: 80px;
+      border-radius: 6px;
+      grid-row: 1 / span 3;
+      grid-column: 2;
+    }
+    .letter-thread {
+      margin-left: 12px;
+      padding: 10px 12px;
+      border-left: 2px solid var(--border);
+      background: var(--surface-raised);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+    .letter-thread strong { color: var(--text); font-weight: 500; }
+    .badge {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: var(--surface-raised);
+      border: 1px solid var(--border-light);
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+      vertical-align: middle;
+    }
+
+    /* —— memo: index —— */
+    .memo {
+      padding: 14px 16px;
+      display: grid;
+      gap: 6px;
+    }
+    .memo .key {
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      text-transform: none;
+    }
+    .memo .title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 500;
+    }
+    .memo .foot {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+    }
+    .memo .updated { font-size: 0.75rem; color: var(--text-muted); }
+
+    .note {
+      margin-top: 28px;
+      padding: 12px 14px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      line-height: 1.6;
     }
   </style>
 </head>
 <body>
-
   <div class="shell">
-
-    <!-- 1. Top Header Row (Title on left, New Button on right) -->
-    <header class="top-bar">
-      <div class="page-title-group">
-        <h1>留言板</h1>
+    <div class="top">
+      <div>
+        <h1 id="page-title">留言板</h1>
+        <p>单文件原型 · 有图 / 无图混排 · 切换类型看形态差异</p>
       </div>
-      <button type="button" class="btn-new">新建</button>
-    </header>
-
-    <!-- 2. Sub-Toolbar Row (View Switcher positioned in lower area right above content) -->
-    <div class="sub-toolbar">
-      <div class="view-switcher" role="tablist" aria-label="视图切换">
-        <button type="button" class="switcher-btn active" id="btn-mode-classic" onclick="setMode('classic')">
-          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 4a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5A.75.75 0 0 1 2.5 4zm0 4a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5A.75.75 0 0 1 2.5 8zm0 4a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5a.75.75 0 0 1-.75-.75z"/></svg>
-          <span>列表</span>
-        </button>
-        <button type="button" class="switcher-btn" id="btn-mode-polaroid" onclick="setMode('polaroid')">
-          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 3A1.5 1.5 0 0 1 3 1.5h10A1.5 1.5 0 0 1 14.5 3v10a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 13V3zm1.5 0v7h10V3H3zm0 8.5v1.5h10v-1.5H3z"/></svg>
-          <span>卡片</span>
-        </button>
-      </div>
+      <button class="btn" type="button">新建</button>
     </div>
 
-    <!-- VIEW 1: CLASSIC MODE (默认列表) -->
-    <main id="view-classic" class="classic-list">
-      
-      <article class="classic-card">
-        <div class="classic-card-body">
-          整理恋爱日记,又看到一直都是臭宝宝跑来找我,臭宝宝为了我们的感情付出了太多太多了,谢谢臭宝宝。臭宝宝总是无微不至地关心我,给我买换季衣服,给我买好吃的.臭宝对我的好宝都记在心里. 相反我的付...
-        </div>
-        <div class="classic-card-meta">
-          <span>小圆子</span>
-          <span>2025-08-10</span>
-        </div>
-      </article>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="message">留言板</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="diary">日记</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="timeline">时间线</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="letter">信箱</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="memo">备忘录</button>
+    </div>
 
-      <article class="classic-card">
-        <div class="classic-card-body">
-          最近这段时间压力比较大,没有好好陪臭宝宝,没有给臭宝宝足够的安全感,很对不起臭宝宝,今天我去加班,臭宝关心我,给我点外卖,陪我聊天,安慰我,加上很久没有见臭宝宝了,更加的想臭宝宝了呜呜.回头看很久没有好...
-        </div>
-        <div class="classic-card-meta">
-          <span>小圆子</span>
-          <span>2025-08-09</span>
-        </div>
-      </article>
+    <!-- 留言板 -->
+    <section class="panel active" id="panel-message" role="tabpanel">
+      <div class="msg-board">
+        <article class="card msg has-cover from-a tilt-a">
+          <p class="body">今天路过那家咖啡馆，橱窗还是那盏黄灯。忽然很想你也在——下次一起去坐一下午吧。</p>
+          <img class="cover" src="https://picsum.photos/seed/orbit-msg1/144/144" alt="" width="68" height="68" />
+          <div class="meta"><span class="author">小园子</span><span>2026-07-03</span></div>
+        </article>
+        <article class="card msg from-b tilt-b">
+          <p class="body">收到。周末我来挑地方，你负责准时出门就行 :)</p>
+          <div class="meta"><span class="author">小麒子</span><span>2026-07-02</span></div>
+        </article>
+        <article class="card msg from-a tilt-a">
+          <p class="body">冰箱里剩的那盒草莓给你留着了，别忘了吃。另外钥匙放抽屉第二格。</p>
+          <div class="meta"><span class="author">小园子</span><span>2026-06-28</span></div>
+        </article>
+        <article class="card msg has-cover from-b tilt-b">
+          <p class="body">夕阳把阳台染成橘红，拍了一张。回来的路上风有点大，但心情很好。</p>
+          <img class="cover" src="https://picsum.photos/seed/orbit-msg2/144/144" alt="" width="68" height="68" />
+          <div class="meta"><span class="author">小麒子</span><span>2026-06-20</span></div>
+        </article>
+        <article class="card msg from-a">
+          <p class="body">晚安。明天见。</p>
+          <div class="meta"><span class="author">小园子</span><span>2026-06-18</span></div>
+        </article>
+      </div>
+    </section>
 
-      <article class="classic-card">
-        <div class="classic-card-body">
-          亲爱的臭宝宝，很幸运遇到你。从恋爱的那一刻开始，我就决定我要和你一直在一起，随着我们在一起的时间越来越长，越来越了解彼此，这想法更加坚定。我要永远守护你，我一定要把臭宝娶回家。臭宝，昨天是我们的两周年...
-        </div>
-        <div class="classic-card-meta">
-          <span>小圆子</span>
-          <span>2024-05-20</span>
-        </div>
-      </article>
-
-      <article class="classic-card">
-        <div class="classic-card-with-img">
-          <div class="classic-card-body">
-            陪小辛过的第三个生日啦。翻聊天记录的时候才看到，过第二个生日当天我们还在生气呜呜，我太坏了。给臭宝宝道歉，第二个生日的时候给臭宝做了立体咔嚓。20220501第一次陪过生日 20230519第...
+    <!-- 日记 -->
+    <section class="panel" id="panel-diary" role="tabpanel">
+      <div class="diary-list">
+        <article class="card diary has-cover">
+          <div class="date-col">
+            <span class="day">10</span>
+            <span class="month">Jul</span>
+            <span class="year">2026</span>
           </div>
-          <img src="https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&w=300&q=80" alt="Birthday" class="classic-thumb" />
-        </div>
-        <div class="classic-card-meta">
-          <span>小圆子</span>
-          <span>2024-05-08</span>
-        </div>
-      </article>
-
-      <article class="classic-card">
-        <div class="classic-card-body">
-          臭宝，愿你有的全是功夫，有的是希望。我在北京很想你！
-        </div>
-        <div class="classic-card-meta">
-          <span>小圆子</span>
-          <span>2024-04-07</span>
-        </div>
-      </article>
-
-      <article class="classic-card">
-        <div class="classic-card-body">
-          不知不觉已经2024年了，今天是我们在一起的第600天了，哇塞，我们已经600天了，牛逼plus。臭宝宝要陪我好多个600天，我要宝一直陪着我。爱你臭宝宝
-        </div>
-        <div class="classic-card-meta">
-          <span>小圆子</span>
-          <span>2024-01-09</span>
-        </div>
-      </article>
-
-    </main>
-
-    <!-- VIEW 2: POLAROID MODE (卡片网格 - 100% 等高) -->
-    <main id="view-polaroid" class="polaroid-grid" style="display: none;">
-
-      <!-- Card 1 -->
-      <article class="polaroid-card tilt-a">
-        <div class="polaroid-header">
-          <div class="polaroid-user">
-            <div class="avatar-circle yuan">圆</div>
-            <span class="polaroid-user-name">小圆子</span>
+          <div class="cover-wrap">
+            <img class="cover" src="https://picsum.photos/seed/orbit-d1/640/280" alt="" />
           </div>
-          <span class="polaroid-date">2025-08-10</span>
-        </div>
-        <p class="polaroid-text">整理恋爱日记,又看到一直都是臭宝宝跑来找我,臭宝宝为了我们的感情付出了太多太多了,谢谢臭宝宝。臭宝宝总是无微不至地关心我,给我买换季衣服,给我买好吃的...</p>
-      </article>
-
-      <!-- Card 2 -->
-      <article class="polaroid-card tilt-b">
-        <div class="polaroid-header">
-          <div class="polaroid-user">
-            <div class="avatar-circle yuan">圆</div>
-            <span class="polaroid-user-name">小圆子</span>
+          <div class="body">
+            <h2 class="title">下雨的周五</h2>
+            <p class="snippet">下班时雨已经很大，地铁口挤满了人。我想起去年同一天我们也在躲雨，你把外套盖在我们头上……</p>
+            <div class="meta"><span class="author">小园子</span></div>
           </div>
-          <span class="polaroid-date">2025-08-09</span>
-        </div>
-        <p class="polaroid-text">最近这段时间压力比较大,没有好好陪臭宝宝,没有给臭宝宝足够的安全感,很对不起臭宝宝...</p>
-      </article>
-
-      <!-- Card 3 (With Photo - 100% Equal Height to Neighbors) -->
-      <article class="polaroid-card has-photo tilt-a">
-        <div class="polaroid-header">
-          <div class="polaroid-user">
-            <div class="avatar-circle yuan">圆</div>
-            <span class="polaroid-user-name">小圆子</span>
+        </article>
+        <article class="card diary">
+          <div class="date-col">
+            <span class="day">05</span>
+            <span class="month">Jul</span>
+            <span class="year">2026</span>
           </div>
-          <span class="polaroid-date">2024-05-08</span>
-        </div>
-        <p class="polaroid-text">陪小辛过的第三个生日啦。给臭宝宝道歉，第二个生日的时候给臭宝宝做了立体咔嚓。第一次陪过生日！</p>
-        <div class="polaroid-photo-frame">
-          <img src="https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&w=600&q=80" alt="Birthday Memory" />
-        </div>
-      </article>
-
-      <!-- Card 4 -->
-      <article class="polaroid-card tilt-b">
-        <div class="polaroid-header">
-          <div class="polaroid-user">
-            <div class="avatar-circle yuan">圆</div>
-            <span class="polaroid-user-name">小圆子</span>
+          <div class="body">
+            <h2 class="title">关于一件小事</h2>
+            <p class="snippet">今天没有什么大事发生。只是早上你泡的咖啡刚好，窗外的树叶也刚好在动。于是想记下来。</p>
+            <div class="meta"><span class="author">小麒子</span></div>
           </div>
-          <span class="polaroid-date">2024-01-09</span>
+        </article>
+        <article class="card diary has-cover">
+          <div class="date-col">
+            <span class="day">22</span>
+            <span class="month">Jun</span>
+            <span class="year">2026</span>
+          </div>
+          <div class="cover-wrap">
+            <img class="cover" src="https://picsum.photos/seed/orbit-d2/640/280" alt="" />
+          </div>
+          <div class="body">
+            <h2 class="title">海边一天</h2>
+            <p class="snippet">沙子烫脚，浪有点凶。我们把拖鞋埋在岸边当标记，回来时差点找不到……</p>
+            <div class="meta"><span class="author">小园子</span></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 时间线 -->
+    <section class="panel" id="panel-timeline" role="tabpanel">
+      <div class="tl-wrap">
+        <div class="tl">
+          <article class="card has-cover">
+            <div class="body">
+              <div class="date">2026-05-20</div>
+              <h2 class="title">第一次一起旅行</h2>
+              <p class="snippet">从车站到海边，地图几乎没用上。我们靠问路和直觉走到了日落最好的地方。</p>
+            </div>
+            <img class="cover" src="https://picsum.photos/seed/orbit-t1/176/160" alt="" />
+          </article>
         </div>
-        <p class="polaroid-text">不知不觉已经2024年了，今天是我们在一起的第600天了，哇塞，我们已经600天了，牛逼plus。臭宝宝要陪我好多个600天，我要宝一直陪着我。爱你臭宝宝！</p>
-      </article>
+        <div class="tl">
+          <article class="card">
+            <div class="body">
+              <div class="date">2024-05-20</div>
+              <h2 class="title">两周年</h2>
+              <p class="snippet">家里做了简单的晚饭，点了那支一直舍不得用的蜡烛。</p>
+            </div>
+          </article>
+        </div>
+        <div class="tl">
+          <article class="card has-cover">
+            <div class="body">
+              <div class="date">2023-05-11</div>
+              <h2 class="title">在一起</h2>
+              <p class="snippet">那天晚上空气很安静。我们都没有说很长的话，但都记得。</p>
+            </div>
+            <img class="cover" src="https://picsum.photos/seed/orbit-t2/176/160" alt="" />
+          </article>
+        </div>
+        <div class="tl">
+          <article class="card">
+            <div class="body">
+              <div class="date">2022-05-19</div>
+              <h2 class="title">恋爱</h2>
+              <p class="snippet">起点。后来所有故事都从这里长出来。</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
 
-    </main>
+    <!-- 信箱 -->
+    <section class="panel" id="panel-letter" role="tabpanel">
+      <div class="list">
+        <div class="letter-root">
+          <article class="card letter has-cover">
+            <h2 class="title">写给你，关于这个夏天</h2>
+            <p class="snippet">我想把六月里那些来不及说的话，慢慢写在纸上。不是抱怨，是想让你看见我的另一面……</p>
+            <div class="meta">
+              <span class="author">小园子</span>
+              <span>2026-06-15</span>
+              <span class="badge">2 封回信</span>
+            </div>
+            <img class="cover" src="https://picsum.photos/seed/orbit-l1/160/160" alt="" />
+          </article>
+          <div class="letter-thread">
+            <strong>小麒子 · 小园子</strong> · 最近回信 2026-06-18 · 点击展开回信
+          </div>
+        </div>
+        <div class="letter-root">
+          <article class="card letter">
+            <h2 class="title">一封迟到的生日信</h2>
+            <p class="snippet">礼物已经在路上了，但我想先把话写给你。生日快乐，愿下一年依然有彼此。</p>
+            <div class="meta">
+              <span class="author">小麒子</span>
+              <span>2026-03-02</span>
+              <span class="badge">1 封回信</span>
+            </div>
+          </article>
+          <div class="letter-thread">
+            <strong>小麒子 · 小园子</strong> · 最近回信 2026-03-03 · 点击展开回信
+          </div>
+        </div>
+        <div class="letter-root">
+          <article class="card letter">
+            <h2 class="title">不必回复的一封</h2>
+            <p class="snippet">有些话写下来就够了。你忙的时候看见就好，不用特意回。</p>
+            <div class="meta">
+              <span class="author">小园子</span>
+              <span>2025-11-08</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
 
+    <!-- 备忘录 -->
+    <section class="panel" id="panel-memo" role="tabpanel">
+      <div class="list">
+        <article class="card memo">
+          <div class="key">恋爱原则</div>
+          <h2 class="title">恋爱原则</h2>
+          <p class="snippet">吵架不过夜；重大决定一起做；对方家人的事先听完再表态……</p>
+          <div class="foot">
+            <span class="author" style="font-size:0.75rem">小园子</span>
+            <span class="updated">更新于 2026-07-01</span>
+          </div>
+        </article>
+        <article class="card memo">
+          <div class="key">旅行清单</div>
+          <h2 class="title">旅行清单</h2>
+          <p class="snippet">护照、充电器、备用药、那条总忘记的充电线、共用相册文件夹链接。</p>
+          <div class="foot">
+            <span class="author" style="font-size:0.75rem">小麒子</span>
+            <span class="updated">更新于 2026-05-12</span>
+          </div>
+        </article>
+        <article class="card memo">
+          <div class="key">常去的店</div>
+          <h2 class="title">常去的店</h2>
+          <p class="snippet">周末咖啡：街角第二家；火锅：地铁口左转那家，要中辣。</p>
+          <div class="foot">
+            <span class="author" style="font-size:0.75rem">小园子</span>
+            <span class="updated">更新于 2026-04-03</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <p class="note">
+      留言：便签（胶带条、轻微倾斜、双方微差色）。日记：左栏大日期 + 横线纸感，有图顶栏封面。
+      刷新浏览器看最新版。外网图来自 picsum.photos。
+    </p>
   </div>
 
   <script>
-    function setMode(mode) {
-      const classicView = document.getElementById('view-classic');
-      const polaroidView = document.getElementById('view-polaroid');
-      const btnClassic = document.getElementById('btn-mode-classic');
-      const btnPolaroid = document.getElementById('btn-mode-polaroid');
+    const titles = {
+      message: "留言板",
+      diary: "日记",
+      timeline: "时间线",
+      letter: "信箱",
+      memo: "备忘录",
+    };
+    const tabs = document.querySelectorAll(".tab");
+    const panels = document.querySelectorAll(".panel");
+    const pageTitle = document.getElementById("page-title");
 
-      if (mode === 'polaroid') {
-        classicView.style.display = 'none';
-        polaroidView.style.display = 'grid';
-        btnClassic.classList.remove('active');
-        btnPolaroid.classList.add('active');
-      } else {
-        classicView.style.display = 'flex';
-        polaroidView.style.display = 'none';
-        btnClassic.classList.add('active');
-        btnPolaroid.classList.remove('active');
-      }
-    }
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const id = tab.dataset.tab;
+        tabs.forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
+        panels.forEach((p) => p.classList.toggle("active", p.id === "panel-" + id));
+        pageTitle.textContent = titles[id];
+      });
+    });
   </script>
-
 </body>
 </html>
