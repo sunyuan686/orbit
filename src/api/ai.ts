@@ -16,8 +16,8 @@ import {
 import {
   getLatestUserMessage,
   isApprovalContinuation,
-  restoreToolApprovalSignatures,
 } from "../services/ai-tool-approval.js";
+import { prepareApprovalContinuationMessages } from "../services/write-content-approval-completion.js";
 import { AiModelConfigError, type AiRuntimeEnv } from "../services/ai-model.js";
 import { checkAiRateLimit } from "../services/ai-rate-limit.js";
 import {
@@ -418,15 +418,16 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
 
         if (approvalContinuation) {
           const storedMessages = await store.listMessages(conversationId);
-          uiMessages = restoreToolApprovalSignatures(incoming, storedMessages);
-          const assistantWithApproval = [...uiMessages]
-            .reverse()
-            .find((message) => message.role === "assistant");
-          if (assistantWithApproval) {
+          const prepared = prepareApprovalContinuationMessages(
+            incoming,
+            storedMessages
+          );
+          uiMessages = prepared.messages;
+          if (prepared.assistantMessage) {
             await syncAssistantMessage(
               store,
               conversationId,
-              assistantWithApproval
+              prepared.assistantMessage
             );
           }
         } else {

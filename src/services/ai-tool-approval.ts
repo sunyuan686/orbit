@@ -309,6 +309,51 @@ export function formatWriteContentErrorMessage(
     .join("；")}`;
 }
 
+export function buildWriteContentResultCard(
+  baseUrl: string,
+  outcome: WriteContentToolOutcome
+): Record<string, unknown> {
+  if (outcome.ok && outcome.id && outcome.type) {
+    const root = baseUrl.replace(/\/$/, "");
+    const label = CONTENT_TYPE_LABEL[outcome.type] ?? outcome.type;
+    const title = outcome.title?.trim() || label;
+    const action = ACTION_LABEL[outcome.action ?? ""] ?? "写入";
+    const url = `${root}/${outcome.type}/${outcome.id}`;
+
+    return {
+      schema: "2.0",
+      header: {
+        title: { tag: "plain_text", content: `${action}成功 · ${label}` },
+        template: "green",
+      },
+      body: {
+        elements: [
+          {
+            tag: "markdown",
+            content: `✅ 内容已写入 Orbit 空间\n\n**标题：**${title}\n\n🔗 [**在 Orbit 中查看**](${url})`,
+          },
+        ],
+      },
+    };
+  }
+
+  return {
+    schema: "2.0",
+    header: {
+      title: { tag: "plain_text", content: "写入失败" },
+      template: "red",
+    },
+    body: {
+      elements: [
+        {
+          tag: "markdown",
+          content: `❌ ${outcome.error?.trim() || "未知错误"}`,
+        },
+      ],
+    },
+  };
+}
+
 export function resolveWriteContentFeedbackMessage(
   baseUrl: string,
   message: UIMessage | undefined,

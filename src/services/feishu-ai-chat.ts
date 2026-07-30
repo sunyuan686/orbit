@@ -15,20 +15,19 @@ import {
   generateAiId,
 } from "./ai-chat-store.js";
 import {
-  applyToolApprovalResponse,
-  applyWriteContentToolResult,
-  restoreToolApprovalSignatures,
-  findApprovedWriteContentToolPart,
   findPendingWriteContentApprovals,
+  buildWriteContentResultCard,
   formatWriteContentApprovalSummary,
+  formatWriteContentErrorMessage,
+  formatWriteContentSuccessMessage,
   isApprovalContinuation,
   parseFeishuTextApprovalDecision,
   rejectAllPendingWriteContentApprovals,
-  resolveWriteContentFeedbackMessage,
-  type WriteContentToolInput,
   type WriteContentToolOutcome,
 } from "./ai-tool-approval.js";
-import { executeWriteContentInput } from "./content-write.js";
+import {
+  completeWriteContentApproval,
+} from "./write-content-approval-completion.js";
 import {
   attachAgentLangfuseRecorder,
   beginAiChatTrace,
@@ -415,6 +414,36 @@ async function sendWriteContentApprovalCard(
   }
 }
 
+async function sendWriteContentResultCard(
+  accessToken: string,
+  messageId: string,
+  baseUrl: string,
+  outcome: WriteContentToolOutcome,
+  replyInThread: boolean
+): Promise<void> {
+  const cardJson = buildWriteContentResultCard(baseUrl, outcome);
+  try {
+    const cardId = await createFeishuCardJson(accessToken, cardJson);
+    await replyFeishuCardMessage(accessToken, messageId, cardId, replyInThread);
+  } catch (err) {
+    log.error("failed to send feishu write result card", err, {
+      messageId,
+      contentId: outcome.id,
+      contentType: outcome.type,
+    });
+    const fallback =
+      formatWriteContentSuccessMessage(baseUrl, [outcome]) ??
+      formatWriteContentErrorMessage([outcome]) ??
+      (outcome.ok ? "✅ 写入成功" : "❌ 写入失败，请稍后再试");
+    await replyFeishuTextMessage(
+      accessToken,
+      messageId,
+      fallback,
+      replyInThread
+    );
+  }
+}
+
 interface FeishuAgentStreamResult {
   assistantMessage: UIMessage;
   fullResponse: string;
@@ -697,28 +726,6 @@ export async function resumeFeishuAiChatAfterApproval(
   const accessToken = await getTenantAccessToken(ctx.appId, ctx.appSecret);
   const store = createAiChatStore(ctx.db);
   const storedMessages = await store.listMessages(input.conversationId);
-  const updatedMessages = applyToolApprovalResponse(
-    storedMessages,
-    input.approvalId,
-    input.approved,
-    input.approved ? "用户已在飞书确认写入" : "用户已在飞书取消写入"
-  );
-  const uiMessages = restoreToolApprovalSignatures(
-    updatedMessages,
-    storedMessages
-  );
-
-  const assistantWithApproval = [...uiMessages]
-    .reverse()
-    .find((message) => message.role === "assistant");
-  if (assistantWithApproval) {
-    await store.upsertMessage({
-      id: assistantWithApproval.id,
-      conversationId: input.conversationId,
-      role: "assistant",
-      parts: assistantWithApproval.parts,
-    });
-  }
 
   const handles = beginAiChatTrace({
     name: "feishu-chat-approval",
@@ -732,104 +739,73 @@ export async function resumeFeishuAiChatAfterApproval(
 
   const replyInThread = Boolean(input.replyInThread);
 
-  if (!input.approved) {
-    await finalizeAiChatTrace(handles, { output: "write-cancelled" });
-    await replyFeishuTextMessage(
-      accessToken,
-      input.replyMessageId,
-      "已取消写入，未保存任何内容。",
-      replyInThread
-    ).catch(() => {});
-    return;
-  }
-
-  const approvedToolPart = findApprovedWriteContentToolPart(
-    uiMessages,
-    input.approvalId
-  );
-  if (!approvedToolPart) {
-    log.error("feishu approval resume missing approved tool part", undefined, {
-      conversationId: input.conversationId,
-      approvalId: input.approvalId,
-    });
-    await finalizeAiChatTrace(handles, { output: "write-approval-missing-tool" });
-    await replyFeishuTextMessage(
-      accessToken,
-      input.replyMessageId,
-      "未找到待写入内容，请重新描述要写入的内容。",
-      replyInThread
-    ).catch(() => {});
-    return;
-  }
-
   try {
-    const writeInput = (approvedToolPart.input ?? {}) as WriteContentToolInput;
-    const result = await executeWriteContentInput(ctx.db, {
-      userId: input.actor.userId,
-      author: input.actor.name,
-    }, writeInput);
+    const completion = await completeWriteContentApproval({
+      db: ctx.db,
+      storedMessages,
+      approvalId: input.approvalId,
+      approved: input.approved,
+      actor: { userId: input.actor.userId, author: input.actor.name },
+      baseUrl: ctx.baseUrl,
+      approvalReasonApproved: "用户已在飞书确认写入",
+      approvalReasonDenied: "用户已在飞书取消写入",
+    });
 
-    const outcome: WriteContentToolOutcome = result.ok
-      ? {
-          ok: true,
-          action: result.action,
-          id: result.id,
-          type: result.type,
-          title: result.title,
-        }
-      : {
-          ok: false,
-          action: result.action,
-          id: result.id,
-          type: result.type,
-          title: result.title,
-          error: result.error ?? "写入失败",
-        };
-
-    const completedMessages = applyWriteContentToolResult(
-      uiMessages,
-      input.approvalId,
-      outcome
-    );
-    const assistantMessage = [...completedMessages]
-      .reverse()
-      .find((message) => message.role === "assistant");
-
-    if (assistantMessage) {
+    if (completion.assistantMessage) {
       await store.upsertMessage({
-        id: assistantMessage.id,
+        id: completion.assistantMessage.id,
         conversationId: input.conversationId,
         role: "assistant",
-        parts: assistantMessage.parts,
+        parts: completion.assistantMessage.parts,
       });
     }
 
-    const feedback = resolveWriteContentFeedbackMessage(
-      ctx.baseUrl,
-      assistantMessage,
-      ""
-    );
+    if (completion.status === "cancelled") {
+      await finalizeAiChatTrace(handles, { output: "write-cancelled" });
+      await replyFeishuTextMessage(
+        accessToken,
+        input.replyMessageId,
+        completion.feedbackText,
+        replyInThread
+      ).catch(() => {});
+      return;
+    }
+
+    if (completion.status === "missing-tool") {
+      log.error("feishu approval resume missing approved tool part", undefined, {
+        conversationId: input.conversationId,
+        approvalId: input.approvalId,
+      });
+      await finalizeAiChatTrace(handles, {
+        output: "write-approval-missing-tool",
+      });
+      await replyFeishuTextMessage(
+        accessToken,
+        input.replyMessageId,
+        completion.feedbackText,
+        replyInThread
+      ).catch(() => {});
+      return;
+    }
 
     log.info("feishu write approval executed", {
       conversationId: input.conversationId,
       approvalId: input.approvalId,
-      ok: outcome.ok,
-      contentId: outcome.id,
-      contentType: outcome.type,
+      ok: completion.outcome?.ok,
+      contentId: completion.outcome?.id,
+      contentType: completion.outcome?.type,
     });
 
-    await finalizeAiChatTrace(handles, { output: feedback || outcome });
-    await replyFeishuTextMessage(
+    await finalizeAiChatTrace(handles, {
+      output: completion.feedbackText || completion.outcome,
+    });
+    await sendWriteContentResultCard(
       accessToken,
       input.replyMessageId,
-      feedback || (outcome.ok ? "✅ 写入成功" : "❌ 写入失败，请稍后再试"),
+      ctx.baseUrl,
+      completion.outcome!,
       replyInThread
-    ).catch((err) => {
-      log.error("failed to send feishu write approval feedback", err, {
-        conversationId: input.conversationId,
-        approvalId: input.approvalId,
-      });
-    });
+    );
   } catch (err) {
     log.error("feishu approval resume failed", err, {
       conversationId: input.conversationId,
