@@ -18,6 +18,10 @@ import {
   notifyEntryCreated,
   type NotifyRuntime,
 } from "./notify.js";
+import {
+  parseBeijingDateKey,
+  resolveEntryDate,
+} from "../lib/beijing-date.js";
 import type { WriteContentToolInput } from "./ai-tool-approval.js";
 
 export type ContentType = "diary" | "timeline" | "message" | "letter" | "memo";
@@ -392,6 +396,15 @@ export async function deleteContent(
   };
 }
 
+function resolveToolEntryDate(
+  date?: string
+): { ok: true; entryDate: number } | { ok: false; error: string } {
+  if (date?.trim() && !parseBeijingDateKey(date)) {
+    return { ok: false, error: "date 格式无效，请使用 YYYY-MM-DD" };
+  }
+  return { ok: true, entryDate: resolveEntryDate(date) };
+}
+
 export async function executeWriteContentInput(
   db: any,
   actor: ContentWriteActor,
@@ -410,6 +423,10 @@ export async function executeWriteContentInput(
     if (!input.body) {
       return { ok: false, action, error: "创建内容时必须提供 body" };
     }
+    const resolvedDate = resolveToolEntryDate(input.date?.trim() || undefined);
+    if (!resolvedDate.ok) {
+      return { ok: false, action, error: resolvedDate.error };
+    }
     return createContent(
       db,
       actor,
@@ -417,7 +434,7 @@ export async function executeWriteContentInput(
         type: input.type,
         title: input.title,
         body: input.body,
-        entryDate: input.entryDate,
+        entryDate: resolvedDate.entryDate,
         parentId: input.parentId,
         key: input.key,
       },
@@ -429,6 +446,18 @@ export async function executeWriteContentInput(
     if (!input.id) {
       return { ok: false, action, error: "更新内容时必须提供 id" };
     }
+    let entryDate: number | undefined;
+    if (input.date !== undefined) {
+      const trimmed = input.date.trim();
+      if (!trimmed) {
+        return { ok: false, action, error: "date 格式无效，请使用 YYYY-MM-DD" };
+      }
+      const resolvedDate = resolveToolEntryDate(trimmed);
+      if (!resolvedDate.ok) {
+        return { ok: false, action, error: resolvedDate.error };
+      }
+      entryDate = resolvedDate.entryDate;
+    }
     return updateContent(
       db,
       actor,
@@ -436,7 +465,7 @@ export async function executeWriteContentInput(
         id: input.id,
         title: input.title,
         body: input.body,
-        entryDate: input.entryDate,
+        entryDate,
       },
       options
     );

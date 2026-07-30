@@ -246,11 +246,11 @@ export function createAiTools(
         id: z.string().optional().describe("内容 ID；update/delete 时必填"),
         title: z.string().optional().describe("标题"),
         body: z.string().optional().describe("Markdown 正文"),
-        entryDate: z
-          .number()
-          .int()
+        date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
           .optional()
-          .describe("条目日期（Unix 秒级时间戳）"),
+          .describe("条目日期 YYYY-MM-DD（北京时间）。记录今天的内容时省略，由系统使用当天日期"),
         parentId: z
           .string()
           .optional()

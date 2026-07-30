@@ -3,6 +3,7 @@ import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
   type UIMessage,
 } from "ai";
+import { formatWriteContentDateLabel } from "../lib/beijing-date.js";
 
 export const WRITE_CONTENT_APPROVAL_TOOL = "write_content";
 
@@ -26,21 +27,12 @@ export interface WriteContentToolInput {
   id?: string;
   title?: string;
   body?: string;
-  entryDate?: number;
+  date?: string;
   parentId?: string;
   key?: string;
 }
 
 const APPROVAL_BODY_PREVIEW_MAX = 1200;
-
-function formatApprovalEntryDate(entryDate?: number): string | undefined {
-  if (!entryDate) return undefined;
-  const beijing = new Date(entryDate * 1000 + 8 * 3600 * 1000);
-  const year = beijing.getUTCFullYear();
-  const month = String(beijing.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(beijing.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 function formatApprovalBodyPreview(body?: string): string | undefined {
   const trimmed = body?.trim();
@@ -375,7 +367,7 @@ export function formatWriteContentApprovalSummary(
   const type = CONTENT_TYPE_LABEL[input.type ?? ""] ?? input.type ?? "";
   const title = input.title?.trim();
   const bodyPreview = formatApprovalBodyPreview(input.body);
-  const entryDate = formatApprovalEntryDate(input.entryDate);
+  const entryDate = formatWriteContentDateLabel(input.date, input.action);
   const isDelete = input.action === "delete";
 
   const lines: string[] = [

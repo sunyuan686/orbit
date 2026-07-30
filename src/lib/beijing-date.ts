@@ -31,3 +31,49 @@ export function beijingRangeStartUnix(days: number, referenceTs = Math.floor(Dat
   const today = beijingTodayKey(referenceTs);
   return beijingStartOfDayUnix(addBeijingDays(today, -(days - 1)));
 }
+
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Validate and normalize YYYY-MM-DD calendar key (Beijing). */
+export function parseBeijingDateKey(value?: string): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  if (!DATE_KEY_PATTERN.test(trimmed)) return null;
+
+  const [y, m, d] = trimmed.split("-").map(Number);
+  const ms = Date.UTC(y, m - 1, d);
+  const check = new Date(ms);
+  if (
+    check.getUTCFullYear() !== y ||
+    check.getUTCMonth() !== m - 1 ||
+    check.getUTCDate() !== d
+  ) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+/** Resolve AI tool date string to stored entry_date (Beijing start of day). */
+export function resolveEntryDate(
+  dateKey?: string,
+  referenceTs = Math.floor(Date.now() / 1000)
+): number {
+  const parsed = parseBeijingDateKey(dateKey);
+  const key = parsed ?? beijingTodayKey(referenceTs);
+  return beijingStartOfDayUnix(key);
+}
+
+/** Label for write_content approval cards. */
+export function formatWriteContentDateLabel(
+  dateKey?: string,
+  action?: string,
+  referenceTs = Math.floor(Date.now() / 1000)
+): string | undefined {
+  const parsed = parseBeijingDateKey(dateKey);
+  if (parsed) return parsed;
+  if (action === "create") {
+    return `${beijingTodayKey(referenceTs)}（今天）`;
+  }
+  return undefined;
+}

@@ -12,6 +12,7 @@ import {
   shouldToastApiError,
   TYPE_LABEL,
   updateComment,
+  ApiError,
   type CommentGroups,
 } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
@@ -85,6 +86,9 @@ export function ArticleView() {
 
   useEffect(() => {
     if (entryQuery.isError && shouldToastApiError(entryQuery.error)) {
+      if (entryQuery.error instanceof ApiError && entryQuery.error.status === 404) {
+        return;
+      }
       toast.error(getApiErrorMessage(entryQuery.error, "加载失败"));
     }
   }, [entryQuery.isError, entryQuery.error, toast]);
@@ -188,8 +192,9 @@ export function ArticleView() {
     if (!confirmed) return;
     try {
       await deleteEntry(entry.id);
+      queryClient.removeQueries({ queryKey: queryKeys.entry(entry.id) });
+      queryClient.removeQueries({ queryKey: queryKeys.comments(targetType, entry.id) });
       await queryClient.invalidateQueries({ queryKey: ["entries"] });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.entry(entry.id) });
       await queryClient.invalidateQueries({ queryKey: ["gallery"] });
       toast.success("已删除");
       navigate(type ? `/${type}` : "/", { replace: true });
