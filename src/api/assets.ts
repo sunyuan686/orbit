@@ -3,7 +3,6 @@ import type { Context } from "hono";
 import { eq } from "drizzle-orm";
 import { asset } from "../db/schema.js";
 import { generateId } from "../lib/id.js";
-import type { ProcessImageMetadata } from "../lib/image-metadata.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 
@@ -15,10 +14,6 @@ interface SaveAssetInput {
 
 interface AssetStorage {
   save(input: SaveAssetInput, c: Context): Promise<string>;
-}
-
-interface AssetRoutesOptions {
-  processImageMetadata?: ProcessImageMetadata;
 }
 
 async function sha256Prefix(body: ArrayBuffer): Promise<string> {
@@ -40,13 +35,21 @@ function inferMimeType(file: File, ext: string): string {
   return "image/jpeg";
 }
 
-export function createAssetsRoutes(
-  getDb: DbProvider,
-  storage: AssetStorage,
-  options?: AssetRoutesOptions
-) {
+function parsePositiveInt(raw: FormDataEntryValue | null): number | undefined {
+  if (!raw || typeof raw !== "string") return undefined;
+  const value = parseInt(raw, 10);
+  return value > 0 ? value : undefined;
+}
+
+function parseClientBlurhash(raw: FormDataEntryValue | null): string | undefined {
+  if (!raw || typeof raw !== "string") return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length >= 200) return undefined;
+  return trimmed;
+}
+
+export function createAssetsRoutes(getDb: DbProvider, storage: AssetStorage) {
   const assets = new Hono();
-  const processImageMetadata = options?.processImageMetadata;
 
   assets.post("/upload", async (c) => {
     const db = await getDb(c);
@@ -64,18 +67,9 @@ export function createAssetsRoutes(
     const mimeType = inferMimeType(file, ext);
     const url = await storage.save({ filename, mimeType, body }, c);
 
-    let width: number | undefined;
-    let height: number | undefined;
-    let blurhash: string | undefined;
-
-    if (mimeType.startsWith("image/") && processImageMetadata) {
-      const meta = await processImageMetadata(body);
-      if (meta) {
-        width = meta.width;
-        height = meta.height;
-        blurhash = meta.blurhash;
-      }
-    }
+    let width = parsePositiveInt(formData.get("width"));
+    let height = parsePositiveInt(formData.get("height"));
+    let blurhash = parseClientBlurhash(formData.get("blurhash"));
 
     const existingAsset = await db
       .select({

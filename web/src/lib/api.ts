@@ -330,10 +330,15 @@ export async function uploadImage(
   entryId?: string
 ): Promise<UploadImageResult> {
   const { compressImage } = await import("./compressImage");
+  const { extractImageMetadataOptional } = await import("./media-metadata");
   const payload = await compressImage(file);
+  const meta = await extractImageMetadataOptional(payload);
   const form = new FormData();
   form.append("file", payload);
   if (entryId) form.append("entryId", entryId);
+  if (meta?.width) form.append("width", String(meta.width));
+  if (meta?.height) form.append("height", String(meta.height));
+  if (meta?.blurhash) form.append("blurhash", meta.blurhash);
   const res = await fetch(`${BASE}/api/assets/upload`, {
     method: "POST",
     credentials: "include",

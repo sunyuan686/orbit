@@ -1,6 +1,11 @@
 import sharp from "sharp";
 import { encode } from "blurhash";
-import type { ImageMetadata } from "./image-metadata.js";
+
+export interface ImageMetadata {
+  width?: number;
+  height?: number;
+  blurhash?: string;
+}
 
 export async function processImageMetadataWithSharp(
   body: ArrayBuffer
