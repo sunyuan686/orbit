@@ -150,7 +150,7 @@ export function GalleryPage() {
                 blurhash={item.blurhash}
                 width={item.width}
                 height={item.height}
-                className="orbit-gallery-thumb-img"
+                variant="thumb"
               />
               {!item.linked && <span className="orbit-gallery-thumb-badge">未关联</span>}
             </button>
@@ -194,7 +194,7 @@ export function GalleryPage() {
               blurhash={activeItem.blurhash}
               width={activeItem.width}
               height={activeItem.height}
-              className="orbit-gallery-lightbox-image"
+              variant="lightbox"
             />
 
             <div className="orbit-gallery-lightbox-meta">

@@ -1,54 +1,60 @@
 import { useEffect, useRef, useState } from "react";
 import { getMediaPlaceholderDataUrl } from "../lib/blurhash-placeholder";
 
+type GalleryImageVariant = "thumb" | "lightbox" | "home";
+
 interface GalleryImageProps {
   src: string;
   blurhash?: string | null;
   width?: number | null;
   height?: number | null;
-  className?: string;
+  variant?: GalleryImageVariant;
 }
+
+type LoadState = "loading" | "loaded" | "error";
 
 export function GalleryImage({
   src,
   blurhash,
   width,
   height,
-  className,
+  variant = "thumb",
 }: GalleryImageProps) {
   const imgRef = useRef<HTMLImageElement>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
   const placeholder = getMediaPlaceholderDataUrl(blurhash, width, height);
 
   useEffect(() => {
-    setLoaded(false);
+    setLoadState("loading");
     const el = imgRef.current;
     if (el?.complete && el.naturalWidth > 0) {
-      setLoaded(true);
+      setLoadState("loaded");
     }
   }, [src]);
 
+  const stackClass = `orbit-gallery-image-stack orbit-gallery-image-stack--${variant}`;
+
   return (
-    <img
-      ref={imgRef}
-      src={src}
-      alt=""
-      loading="lazy"
-      decoding="async"
-      className={className}
-      data-loaded={loaded ? "true" : "false"}
-      onLoad={() => setLoaded(true)}
-      onError={() => setLoaded(true)}
-      style={
-        placeholder
-          ? {
-              backgroundImage: `url(${placeholder})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-            }
-          : undefined
-      }
-    />
+    <span className={stackClass}>
+      {placeholder && (
+        <span
+          className="orbit-gallery-image-placeholder"
+          style={{ backgroundImage: `url(${placeholder})` }}
+          aria-hidden
+        />
+      )}
+      <img
+        ref={imgRef}
+        src={src}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        className="orbit-gallery-image-img"
+        data-loaded={loadState === "loaded" ? "true" : "false"}
+        data-error={loadState === "error" ? "true" : "false"}
+        onLoad={() => setLoadState("loaded")}
+        onError={() => setLoadState("error")}
+      />
+    </span>
   );
 }

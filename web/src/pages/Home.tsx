@@ -326,7 +326,7 @@ export function HomePage() {
                   blurhash={item.blurhash}
                   width={item.width}
                   height={item.height}
-                  className="orbit-home-photo-img"
+                  variant="home"
                 />
               </Link>
             ))}

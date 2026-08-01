@@ -7863,32 +7863,60 @@ html.orbit-ai-open body {
 }
 
 .orbit-gallery-thumb img,
-.orbit-gallery-thumb-img {
+.orbit-gallery-image-stack {
+  width: 100%;
+  height: 100%;
+}
+
+.orbit-gallery-image-stack {
+  display: block;
+  position: relative;
+  overflow: hidden;
+}
+
+.orbit-gallery-image-stack--home {
+  width: 100%;
+}
+
+.orbit-gallery-image-placeholder {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.orbit-gallery-image-stack--lightbox .orbit-gallery-image-placeholder {
+  background-size: contain;
+}
+
+.orbit-gallery-image-img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
   opacity: 0;
   transition: opacity var(--motion-normal) var(--motion-ease-enter);
 }
 
-.orbit-gallery-thumb img[data-loaded="true"],
-.orbit-gallery-thumb-img[data-loaded="true"] {
+.orbit-gallery-image-img[data-loaded="true"] {
   opacity: 1;
 }
 
-.orbit-gallery-lightbox-image {
+.orbit-gallery-image-stack--lightbox {
   width: 100%;
-  max-width: 100%;
-  max-height: min(72vh, 900px);
-  object-fit: contain;
   background: var(--color-surface-raised);
-  opacity: 0;
-  transition: opacity var(--motion-normal) var(--motion-ease-enter);
 }
 
-.orbit-gallery-lightbox-image[data-loaded="true"] {
-  opacity: 1;
+.orbit-gallery-image-stack--lightbox .orbit-gallery-image-img {
+  object-fit: contain;
+  max-height: min(72vh, 900px);
+  margin: 0 auto;
+}
+
+.orbit-gallery-image-stack--home .orbit-gallery-image-img {
+  aspect-ratio: 3 / 4;
+  background: var(--color-surface-raised);
 }
 
 .orbit-gallery-thumb-badge {
@@ -8312,19 +8340,14 @@ html.orbit-ai-open body {
 }
 
 .orbit-home-photo img,
-.orbit-home-photo-img {
+.orbit-home-photo .orbit-gallery-image-stack {
   display: block;
   width: 100%;
-  aspect-ratio: 3 / 4;
-  object-fit: cover;
-  background: var(--color-surface-raised);
-  opacity: 0;
-  transition: opacity var(--motion-normal) var(--motion-ease-enter);
 }
 
-.orbit-home-photo img[data-loaded="true"],
-.orbit-home-photo-img[data-loaded="true"] {
-  opacity: 1;
+.orbit-home-photo .orbit-gallery-image-img {
+  aspect-ratio: 3 / 4;
+  background: var(--color-surface-raised);
 }
 
 @media (prefers-reduced-motion: no-preference) {
