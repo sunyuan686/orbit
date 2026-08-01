@@ -4,6 +4,9 @@ import { eq } from "drizzle-orm";
 import { asset } from "../db/schema.js";
 import { generateId } from "../lib/id.js";
 
+import sharp from "sharp";
+import { encode } from "blurhash";
+
 type DbProvider = (c: Context) => any | Promise<any>;
 
 interface SaveAssetInput {
@@ -35,6 +38,34 @@ function inferMimeType(file: File, ext: string): string {
   return "image/jpeg";
 }
 
+async function processImageMetadata(buffer: Buffer) {
+  try {
+    const image = sharp(buffer);
+    const metadata = await image.metadata();
+    const width = metadata.width ?? undefined;
+    const height = metadata.height ?? undefined;
+
+    const { data, info } = await image
+      .raw()
+      .ensureAlpha()
+      .resize(32, 32, { fit: "inside" })
+      .toBuffer({ resolveWithObject: true });
+
+    const blurhashStr = encode(
+      new Uint8ClampedArray(data),
+      info.width,
+      info.height,
+      4,
+      4
+    );
+
+    return { width, height, blurhash: blurhashStr };
+  } catch (e) {
+    console.warn("Failed to process image blurhash metadata:", e);
+    return { width: undefined, height: undefined, blurhash: undefined };
+  }
+}
+
 export function createAssetsRoutes(getDb: DbProvider, storage: AssetStorage) {
   const assets = new Hono();
 
@@ -54,8 +85,24 @@ export function createAssetsRoutes(getDb: DbProvider, storage: AssetStorage) {
     const mimeType = inferMimeType(file, ext);
     const url = await storage.save({ filename, mimeType, body }, c);
 
+    let width: number | undefined;
+    let height: number | undefined;
+    let blurhash: string | undefined;
+
+    if (mimeType.startsWith("image/")) {
+      const meta = await processImageMetadata(Buffer.from(body));
+      width = meta.width;
+      height = meta.height;
+      blurhash = meta.blurhash;
+    }
+
     const existingAsset = await db
-      .select({ id: asset.id })
+      .select({
+        id: asset.id,
+        width: asset.width,
+        height: asset.height,
+        blurhash: asset.blurhash,
+      })
       .from(asset)
       .where(eq(asset.storageKey, filename))
       .get();
@@ -67,11 +114,18 @@ export function createAssetsRoutes(getDb: DbProvider, storage: AssetStorage) {
         storageKey: filename,
         mimeType,
         size: body.byteLength,
+        width: width ?? null,
+        height: height ?? null,
+        blurhash: blurhash ?? null,
         createdAt: Math.floor(Date.now() / 1000),
       });
+    } else {
+      width = existingAsset.width ?? width;
+      height = existingAsset.height ?? height;
+      blurhash = existingAsset.blurhash ?? blurhash;
     }
 
-    return c.json({ url, filename });
+    return c.json({ url, filename, width, height, blurhash });
   });
 
   return assets;

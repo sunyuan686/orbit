@@ -74,8 +74,8 @@ export default defineConfig({
     }),
   ],
   server: {
-    // cloudflared 走 127.0.0.1（IPv4）；默认 localhost 在 macOS 上可能只绑 ::1
-    host: "127.0.0.1",
+    // 监听所有网络接口（0.0.0.0），支持 localhost 与局域网 IP（如 192.168.1.65）访问
+    host: "0.0.0.0",
     port: 5173,
     // Cloudflare quick tunnel 的 Host 不是 localhost，需放行
     allowedHosts: [".trycloudflare.com"],

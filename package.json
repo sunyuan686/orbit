@@ -13,6 +13,7 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:search-status": "tsx scripts/search-status.ts",
+    "db:backfill-blurhash": "tsx scripts/backfill-blurhash.ts",
     "tunnel": "bash scripts/dev-tunnel.sh"
   },
   "devDependencies": {
@@ -34,11 +35,13 @@
     "ai": "^7.0.3",
     "better-auth": "^1.6.18",
     "better-sqlite3": "^12.10.1",
+    "blurhash": "^2.0.5",
     "concurrently": "^10.0.3",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.11.9",
     "langfuse": "^3.38.20",
+    "sharp": "^0.35.3",
     "wait-on": "^8.0.3",
     "workers-ai-provider": "^3.2.1"
   }

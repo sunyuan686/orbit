@@ -317,10 +317,18 @@ export async function fetchSearch(
   return res.json();
 }
 
+export interface UploadImageResult {
+  url: string;
+  filename: string;
+  width?: number;
+  height?: number;
+  blurhash?: string;
+}
+
 export async function uploadImage(
   file: File,
   entryId?: string
-): Promise<string> {
+): Promise<UploadImageResult> {
   const { compressImage } = await import("./compressImage");
   const payload = await compressImage(file);
   const form = new FormData();
@@ -333,7 +341,13 @@ export async function uploadImage(
   });
   await assertOk(res, "图片上传失败");
   const data = await res.json();
-  return data.url as string;
+  return {
+    url: data.url as string,
+    filename: data.filename as string,
+    width: data.width,
+    height: data.height,
+    blurhash: data.blurhash,
+  };
 }
 
 export type GalleryFilter = "all" | "linked" | "orphan";

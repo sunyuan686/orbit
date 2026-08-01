@@ -12,6 +12,12 @@ function applyDark(dark: boolean) {
   const root = document.documentElement;
   root.setAttribute("data-theme-switching", "");
   root.classList.toggle("dark", dark);
+
+  const themeColorMetas = document.querySelectorAll('meta[name="theme-color"]');
+  themeColorMetas.forEach((meta) => {
+    meta.setAttribute("content", dark ? "#1c1917" : "#fafaf9");
+  });
+
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       root.removeAttribute("data-theme-switching");

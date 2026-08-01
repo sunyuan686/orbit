@@ -98,8 +98,26 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
+const fallbackToast: ToastContextValue = {
+  success: (msg: string) => {
+    if (import.meta.env.DEV) {
+      console.warn("[useToast] ToastProvider missing, success message:", msg);
+    }
+  },
+  error: (msg: string) => {
+    if (import.meta.env.DEV) {
+      console.warn("[useToast] ToastProvider missing, error message:", msg);
+    }
+  },
+};
+
 export function useToast(): ToastContextValue {
   const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error("useToast must be used within ToastProvider");
+  if (!ctx) {
+    if (import.meta.env.DEV) {
+      console.warn("[useToast] ToastProvider not found in React tree. Returning fallback toast.");
+    }
+    return fallbackToast;
+  }
   return ctx;
 }

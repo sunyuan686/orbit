@@ -73,11 +73,11 @@ export const MilkdownEditor: FC<Props> = (props) => {
                     e.preventDefault();
                     const file = item.getAsFile();
                     if (!file) return;
-                    const url = await uploadImage(file);
+                    const res = await uploadImage(file);
                     if (props.onChange) {
                       props.onChange(
                         (document.querySelector(".milkdown .editor")
-                          ?.textContent || "") + `\n![](${url})\n`
+                          ?.textContent || "") + `\n![](${res.url})\n`
                       );
                     }
                   }

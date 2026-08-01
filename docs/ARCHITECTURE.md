@@ -85,6 +85,7 @@ user / session / account / verification  — better-auth 标准表
 | 字段 | 说明 |
 |------|------|
 | `storageKey` | SHA256 前 8 位 + 扩展名（内容寻址，天然去重） |
+| `blurhash` | 上传时生成的占位图编码，用于图片加载前展示 |
 | `entryId` | 关联文章，可为空 |
 
 运行时由 `ASSETS_BASE_URL` + `storageKey` 拼接访问 URL，不硬存公网地址。

@@ -21,7 +21,7 @@ import { ApiTokenSettingsPanel } from "../components/ApiTokenSettingsPanel";
 import { AiProvidersSettingsPanel } from "../components/AiProvidersSettingsPanel";
 import { FeishuIntegrationPanel } from "../components/FeishuIntegrationPanel";
 import { NotificationsSettingsPanel } from "../components/NotificationsSettingsPanel";
-import { AiIcon, BellIcon, ChevronLeftIcon, ChevronRightIcon, KeyIcon, MemoriesIcon, MessageIcon, PaletteIcon, TimelineIcon, UserIcon } from "../components/OrbitIcons";
+import { AiIcon, BellIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeOffIcon, KeyIcon, MemoriesIcon, MessageIcon, PaletteIcon, TimelineIcon, UserIcon } from "../components/OrbitIcons";
 import { BirthdaySettingsField } from "../components/BirthdaySettingsField";
 import { SpaceSettingsPanel } from "../components/SpaceSettingsPanel";
 import { CompanionSettingsPanel } from "../components/CompanionSettingsPanel";
@@ -252,7 +252,9 @@ export function SettingsPage() {
   const [savingEmail, setSavingEmail] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
   const [displayName, setDisplayName] = useState("");
@@ -759,25 +761,47 @@ export function SettingsPage() {
                     </div>
                     <div className="orbit-settings-field-control">
                       <div className="orbit-settings-password-fields">
-                        <input
-                          id="settings-current-password"
-                          type="password"
-                          value={currentPassword}
-                          autoComplete="current-password"
-                          placeholder="当前密码"
-                          className="orbit-input orbit-settings-input-block"
-                          onChange={(event) => setCurrentPassword(event.target.value)}
-                        />
-                        <input
-                          id="settings-new-password"
-                          type="password"
-                          value={newPassword}
-                          autoComplete="new-password"
-                          placeholder="新密码"
-                          className="orbit-input orbit-settings-input-block"
-                          minLength={8}
-                          onChange={(event) => setNewPassword(event.target.value)}
-                        />
+                        <div className="orbit-password-input-wrapper">
+                          <input
+                            id="settings-current-password"
+                            type={showCurrentPassword ? "text" : "password"}
+                            value={currentPassword}
+                            autoComplete="current-password"
+                            placeholder="当前密码"
+                            className="orbit-input orbit-settings-input-block"
+                            onChange={(event) => setCurrentPassword(event.target.value)}
+                          />
+                          <button
+                            type="button"
+                            className="orbit-password-toggle-btn"
+                            onClick={() => setShowCurrentPassword((prev) => !prev)}
+                            aria-label={showCurrentPassword ? "隐藏密码" : "显示密码"}
+                            title={showCurrentPassword ? "隐藏密码" : "显示密码"}
+                          >
+                            {showCurrentPassword ? <EyeOffIcon size="sm" /> : <EyeIcon size="sm" />}
+                          </button>
+                        </div>
+                        <div className="orbit-password-input-wrapper">
+                          <input
+                            id="settings-new-password"
+                            type={showNewPassword ? "text" : "password"}
+                            value={newPassword}
+                            autoComplete="new-password"
+                            placeholder="新密码"
+                            className="orbit-input orbit-settings-input-block"
+                            minLength={8}
+                            onChange={(event) => setNewPassword(event.target.value)}
+                          />
+                          <button
+                            type="button"
+                            className="orbit-password-toggle-btn"
+                            onClick={() => setShowNewPassword((prev) => !prev)}
+                            aria-label={showNewPassword ? "隐藏密码" : "显示密码"}
+                            title={showNewPassword ? "隐藏密码" : "显示密码"}
+                          >
+                            {showNewPassword ? <EyeOffIcon size="sm" /> : <EyeIcon size="sm" />}
+                          </button>
+                        </div>
                         <button
                           type="submit"
                           className="orbit-btn orbit-btn-sm orbit-settings-form-submit"

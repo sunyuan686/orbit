@@ -1,36 +1,59 @@
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import type { JSONContent } from "@tiptap/core";
+import { NodeSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useEffect, useLayoutEffect, useCallback, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  useImperativeHandle,
+} from "react";
 import { uploadImage, getApiErrorMessage } from "../lib/api";
 import type { CommentItem } from "../lib/api";
 import { normalizeBodyForEditor } from "../lib/content";
 import { useToast } from "../lib/useToast";
+import Link from "@tiptap/extension-link";
 import { CommentHighlight } from "../extensions/CommentHighlight";
 import { OrbitImage } from "../extensions/OrbitImage";
 import { ORBIT_ALLOW_DOC_CHANGE, ReadonlyGuard } from "../extensions/ReadonlyGuard";
+import { SlashCommands } from "../extensions/SlashCommands";
+import { LinkToolbar } from "../extensions/LinkToolbar";
+import { BubbleMenu } from "../extensions/BubbleMenu";
+import { InsertParagraphAround } from "../extensions/InsertParagraphAround";
+import { EnsureTrailingParagraph } from "../extensions/EnsureTrailingParagraph";
+import { LinkInputRules } from "../extensions/LinkInputRules";
+import { TabIndent } from "../extensions/TabIndent";
 import { resolveCommentPosition, getAnchorContext } from "../lib/anchor";
 import type { InlineDraft } from "../lib/inlineComment";
 import { InlineMarginaliaPopover } from "./InlineMarginaliaPopover";
-import {
-  BoldIcon,
-  ItalicIcon,
-  StrikeIcon,
-  Heading2Icon,
-  Heading3Icon,
-  ListIcon,
-  QuoteIcon,
-  ImageIcon,
-  UndoIcon,
-  RedoIcon,
-} from "./OrbitIcons";
+import { MediaAttachmentsBar, type MediaAttachmentItem } from "./MediaAttachmentsBar";
 import { anchorLogger, marginaliaLogger } from "../lib/logger";
+import {
+  clampEditorSelection,
+  emptyDocJson,
+  type EditorHandoffState,
+  type EditorSelection,
+} from "../lib/editor-handoff";
 
 const INLINE_DRAFT_MARK_ID = "__draft__";
 
+export interface TiptapEditorHandle {
+  getEditorState: () => EditorHandoffState;
+  setEditorState: (json: JSONContent, selection?: EditorSelection | null) => void;
+  focusSelection: (selection?: EditorSelection | null) => void;
+  getEditor: () => Editor | null;
+}
+
 interface Props {
   defaultValue?: string;
+  defaultJson?: JSONContent;
   onChange?: (html: string) => void;
+  onJsonChange?: (json: JSONContent) => void;
   readonly?: boolean;
   entryId?: string;
   inlineComments?: CommentItem[];
@@ -42,128 +65,45 @@ interface Props {
   onCancelInlineDraft?: () => void;
   onSubmitInlineComment?: (body: string) => Promise<void>;
   onSelectInlineComment?: (id: string) => void;
+  /** 编辑器模式：note 随想 / article 长文章 */
+  mode?: "note" | "article";
+  /** 切换随想/文章模式（全屏展开）回调 */
+  onToggleMode?: () => void;
+  /** 全屏 overlay 内嵌时隐藏展开按钮 */
+  hideFullscreenToggle?: boolean;
   /** 编辑器就绪后回调，用于父组件访问 editor 实例 */
   onEditorCreate?: (editor: Editor) => void;
 }
 
-function ToolbarButton({
-  onClick,
-  active,
-  disabled,
-  title,
-  children,
-}: {
-  onClick: () => void;
-  active?: boolean;
-  disabled?: boolean;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onMouseDown={(e) => {
-        e.preventDefault();
-        onClick();
-      }}
-      disabled={disabled}
-      title={title}
-      className={`orbit-toolbar-btn${active ? " orbit-toolbar-btn--active" : ""}`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function Toolbar({
-  editor,
-  onUploadImage,
-}: {
-  editor: Editor | null;
-  onUploadImage: (file: File) => void;
-}) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleImageUpload = useCallback(
-    (file: File) => {
-      if (!editor) return;
-      onUploadImage(file);
-    },
-    [editor, onUploadImage]
-  );
-
-  if (!editor) return null;
-
-  const sep = <div className="orbit-toolbar-sep" role="separator" />;
-
-  return (
-    <div className="orbit-toolbar tiptap-mobile-toolbar">
-      <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")} title="粗体">
-        <BoldIcon size="sm" />
-      </ToolbarButton>
-      <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")} title="斜体">
-        <ItalicIcon size="sm" />
-      </ToolbarButton>
-      <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive("strike")} title="删除线">
-        <StrikeIcon size="sm" />
-      </ToolbarButton>
-      {sep}
-      <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive("heading", { level: 2 })} title="二级标题">
-        <Heading2Icon size="sm" />
-      </ToolbarButton>
-      <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={editor.isActive("heading", { level: 3 })} title="三级标题">
-        <Heading3Icon size="sm" />
-      </ToolbarButton>
-      <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive("bulletList")} title="无序列表">
-        <ListIcon size="sm" />
-      </ToolbarButton>
-      <ToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive("blockquote")} title="引用">
-        <QuoteIcon size="sm" />
-      </ToolbarButton>
-      {sep}
-      <ToolbarButton onClick={() => fileInputRef.current?.click()} title="插入图片">
-        <ImageIcon size="sm" />
-      </ToolbarButton>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleImageUpload(file);
-          e.target.value = "";
-        }}
-      />
-      {sep}
-      <ToolbarButton onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title="撤销">
-        <UndoIcon size="sm" />
-      </ToolbarButton>
-      <ToolbarButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title="重做">
-        <RedoIcon size="sm" />
-      </ToolbarButton>
-    </div>
-  );
-}
-
-export function TiptapEditor({
-  defaultValue,
-  onChange,
-  readonly,
-  entryId,
-  inlineComments = [],
-  enableInlineComments = false,
-  activeInlineCommentId,
-  inlineDraft = null,
-  currentAuthor,
-  onCreateInlineComment,
-  onCancelInlineDraft,
-  onSubmitInlineComment,
-  onSelectInlineComment,
-  onEditorCreate,
-}: Props) {
+export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function TiptapEditor(
+  {
+    defaultValue,
+    defaultJson,
+    onChange,
+    onJsonChange,
+    readonly,
+    entryId,
+    mode = "article",
+    onToggleMode,
+    hideFullscreenToggle = false,
+    inlineComments = [],
+    enableInlineComments = false,
+    activeInlineCommentId,
+    inlineDraft = null,
+    currentAuthor,
+    onCreateInlineComment,
+    onCancelInlineDraft,
+    onSubmitInlineComment,
+    onSelectInlineComment,
+    onEditorCreate,
+  },
+  ref,
+) {
   const editorRef = useRef<Editor | null>(null);
+  const bodyJsonRef = useRef<JSONContent>(defaultJson ?? emptyDocJson());
+  const lastSelectionRef = useRef<EditorSelection | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
   const [selectionMenu, setSelectionMenu] = useState<{
     top: number;
@@ -191,19 +131,25 @@ export function TiptapEditor({
       ed.chain().focus().setImage({ src: blobUrl }).run();
 
       try {
-        const url = await uploadImage(file, entryId);
+        const res = await uploadImage(file, entryId);
         // 先预加载正式 URL，再换 src，避免 blob→远程替换时闪白
         // 用 createElement，避免与 TipTap Image 扩展同名冲突
         await new Promise<void>((resolve) => {
           const img = document.createElement("img");
           img.onload = () => resolve();
           img.onerror = () => resolve();
-          img.src = url;
+          img.src = res.url;
         });
         if (ed.isDestroyed) return;
         ed.view.state.doc.descendants((node, pos) => {
           if (node.type.name === "image" && node.attrs.src === blobUrl) {
-            const tr = ed.view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, src: url });
+            const tr = ed.view.state.tr.setNodeMarkup(pos, undefined, {
+              ...node.attrs,
+              src: res.url,
+              width: res.width ?? node.attrs.width,
+              height: res.height ?? node.attrs.height,
+              blurhash: res.blurhash ?? node.attrs.blurhash,
+            });
             ed.view.dispatch(tr);
             return false;
           }
@@ -226,17 +172,53 @@ export function TiptapEditor({
     [entryId, toast]
   );
 
+  const [attachments, setAttachments] = useState<MediaAttachmentItem[]>([]);
+
+  const handleRemoveAttachment = useCallback((id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
+  const handleUpdateAlt = useCallback((id: string, alt: string) => {
+    setAttachments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, alt } : a))
+    );
+  }, []);
+
   const handleImageUpload = useCallback(
-    (file: File) => {
+    async (file: File) => {
       if (!editorRef.current) return;
-      void uploadImageToEditor(editorRef.current, file);
+      if (mode === "note") {
+        try {
+          const res = await uploadImage(file, entryId);
+          const newItem: MediaAttachmentItem = {
+            id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            url: res.url,
+            width: res.width,
+            height: res.height,
+          };
+          setAttachments((prev) => [...prev, newItem]);
+        } catch (err) {
+          toast.error(getApiErrorMessage(err, "图片上传失败"));
+        }
+      } else {
+        void uploadImageToEditor(editorRef.current, file);
+      }
     },
-    [uploadImageToEditor]
+    [mode, entryId, uploadImageToEditor, toast]
   );
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        link: false,
+      }),
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+        HTMLAttributes: {
+          class: "orbit-link",
+        },
+      }),
       ReadonlyGuard,
       CommentHighlight,
       OrbitImage.configure({
@@ -244,15 +226,31 @@ export function TiptapEditor({
         allowBase64: false,
         HTMLAttributes: { class: "orbit-prose-img" },
       }),
-      Placeholder.configure({ placeholder: "开始写作…" }),
+      Placeholder.configure({
+        placeholder: mode === "note" ? "记录这一刻的随手记与思想…" : "开始写作，或输入 '/' 唤起快捷菜单…",
+      }),
+      SlashCommands.configure({
+        onUploadImageRequest: () => {
+          fileInputRef.current?.click();
+        },
+      }),
+      LinkToolbar,
+      BubbleMenu,
+      InsertParagraphAround,
+      EnsureTrailingParagraph,
+      LinkInputRules,
+      TabIndent,
     ],
-    content: normalizeBodyForEditor(defaultValue || ""),
+    content: defaultJson ?? normalizeBodyForEditor(defaultValue || ""),
     editable: !readonly,
     shouldRerenderOnTransaction: !readonly,
     onUpdate: ({ editor: currentEditor }) => {
       if (readonly) {
         return;
       }
+      const json = currentEditor.getJSON();
+      bodyJsonRef.current = json;
+      onJsonChange?.(json);
       onChange?.(currentEditor.getHTML());
     },
     editorProps: {
@@ -310,13 +308,130 @@ export function TiptapEditor({
   useEffect(() => {
     editorRef.current = editor;
     if (editor) {
+      bodyJsonRef.current = editor.getJSON();
       onEditorCreate?.(editor);
     }
   }, [editor, onEditorCreate]);
 
   useEffect(() => {
+    if (!editor || editor.isDestroyed || readonly) return;
+
+    const syncEditorMinHeight = () => {
+      const dom = editor.view.dom as HTMLElement;
+      const last = dom.lastElementChild as HTMLElement | null;
+      const contentH = last ? last.offsetTop + last.offsetHeight : 0;
+      const buffer = mode === "note" ? 120 : 60;
+      dom.style.minHeight = `${contentH + buffer}px`;
+    };
+
+    syncEditorMinHeight();
+    editor.on("update", syncEditorMinHeight);
+    return () => {
+      editor.off("update", syncEditorMinHeight);
+    };
+  }, [editor, mode, readonly]);
+
+  const handleEditorBodyMouseDown = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      const currentEditor = editorRef.current;
+      if (!currentEditor || currentEditor.isDestroyed || readonly) return;
+
+      const target = event.target as HTMLElement;
+      if (target.closest(".ProseMirror")) return;
+
+      if (currentEditor.state.selection instanceof NodeSelection) {
+        event.preventDefault();
+        currentEditor.chain().focus("end").run();
+      }
+    },
+    [readonly],
+  );
+
+  useEffect(() => {
     if (!editor || editor.isDestroyed) return;
-    if (defaultValue === undefined) return;
+
+    const trackSelection = () => {
+      const { from, to } = editor.state.selection;
+      lastSelectionRef.current = { from, to };
+    };
+
+    editor.on("selectionUpdate", trackSelection);
+    trackSelection();
+    return () => {
+      editor.off("selectionUpdate", trackSelection);
+    };
+  }, [editor]);
+
+  const readEditorSelection = useCallback((): EditorSelection | null => {
+    const currentEditor = editorRef.current;
+    if (!currentEditor || currentEditor.isDestroyed) {
+      return lastSelectionRef.current;
+    }
+    const { from, to } = currentEditor.state.selection;
+    return { from, to };
+  }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getEditorState: () => {
+        const currentEditor = editorRef.current;
+        const json = currentEditor && !currentEditor.isDestroyed
+          ? currentEditor.getJSON()
+          : bodyJsonRef.current;
+        const html = currentEditor && !currentEditor.isDestroyed
+          ? currentEditor.getHTML()
+          : "";
+        return {
+          json,
+          html,
+          selection: readEditorSelection(),
+        };
+      },
+      setEditorState: (json, selection) => {
+        const currentEditor = editorRef.current;
+        if (!currentEditor || currentEditor.isDestroyed) {
+          bodyJsonRef.current = json;
+          return;
+        }
+        currentEditor.commands.setContent(json, { emitUpdate: false });
+        bodyJsonRef.current = json;
+        onJsonChange?.(json);
+        onChange?.(currentEditor.getHTML());
+        if (selection) {
+          const clamped = clampEditorSelection(currentEditor, selection);
+          lastSelectionRef.current = clamped;
+          currentEditor.chain().focus().setTextSelection(clamped).run();
+        }
+      },
+      focusSelection: (selection) => {
+        const currentEditor = editorRef.current;
+        if (!currentEditor || currentEditor.isDestroyed) {
+          return;
+        }
+        const targetSelection = selection ?? readEditorSelection();
+        if (!targetSelection) {
+          currentEditor.commands.focus();
+          return;
+        }
+        const clamped = clampEditorSelection(currentEditor, targetSelection);
+        lastSelectionRef.current = clamped;
+        currentEditor.chain().focus().setTextSelection(clamped).run();
+      },
+      getEditor: () => {
+        const currentEditor = editorRef.current;
+        if (!currentEditor || currentEditor.isDestroyed) {
+          return null;
+        }
+        return currentEditor;
+      },
+    }),
+    [onChange, onJsonChange, readEditorSelection],
+  );
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    if (defaultJson !== undefined || defaultValue === undefined) return;
     const next = normalizeBodyForEditor(defaultValue || "");
     const current = editor.getHTML();
     if (next !== current) {
@@ -671,10 +786,67 @@ export function TiptapEditor({
 
   return (
     <div className="orbit-editor-chrome">
-      <Toolbar editor={editor} onUploadImage={handleImageUpload} />
-      <div className="orbit-editor-body">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImageUpload(file);
+          e.target.value = "";
+        }}
+      />
+      <div className="orbit-editor-body" onMouseDown={handleEditorBodyMouseDown}>
         <EditorContent editor={editor} />
+        {mode === "note" && (
+          <MediaAttachmentsBar
+            attachments={attachments}
+            onRemove={handleRemoveAttachment}
+            onUpdateAlt={handleUpdateAlt}
+          />
+        )}
       </div>
+
+      {/* 底部工具栏 (仅在随想 Note 模式下显示；全屏 Article 沉浸文章模式下隐藏，保持 100% 纯净) */}
+      {mode === "note" && (
+        <div className="orbit-editor-toolbar">
+          <div className="orbit-editor-toolbar-left">
+            <button
+              type="button"
+              className="orbit-editor-tool-btn"
+              onClick={() => fileInputRef.current?.click()}
+              title="上传图片"
+              aria-label="上传图片"
+            >
+              <svg className="orbit-editor-tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                <circle cx="9" cy="9" r="2" />
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+              </svg>
+            </button>
+          </div>
+
+          {onToggleMode && !hideFullscreenToggle && (
+            <div className="orbit-editor-tool-view-group">
+              <button
+                type="button"
+                className="orbit-editor-tool-btn orbit-editor-fullscreen-btn"
+                onClick={onToggleMode}
+                title="展开全屏文章模式"
+                aria-label="切换全屏文章模式"
+              >
+                <svg className="orbit-editor-tool-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.48" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5.85 3H3v2.85" />
+                  <path d="M12.15 3H15v2.85" />
+                  <path d="M3 12.15V15h2.85" />
+                  <path d="M15 12.15V15h-2.85" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
-}
+});

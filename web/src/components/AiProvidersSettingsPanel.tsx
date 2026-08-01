@@ -27,6 +27,7 @@ import {
 } from "../lib/ai-model-catalog";
 import { useAppSettings } from "../lib/appSettingsContext";
 import { useToast } from "../lib/useToast";
+import { safeRandomUUID } from "../lib/uuid";
 import { ChevronDownIcon, CloseIcon, SearchIcon } from "./OrbitIcons";
 
 function SettingsSection({
@@ -86,7 +87,7 @@ interface ConnectionDraft {
 
 function emptyConnectionDraft(): ConnectionDraft {
   return {
-    id: crypto.randomUUID(),
+    id: safeRandomUUID(),
     name: "",
     baseUrl: "",
     apiKey: "",

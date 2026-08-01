@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { TYPE_LABEL, formatSpaceTagline } from "../lib/api";
 import { setPageTitle } from "../lib/pageTitle";
@@ -10,12 +10,8 @@ import { UserAccount } from "./UserAccount";
 import { SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, GalleryIcon, MemoriesIcon, HomeIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
 import { NotificationBell } from "./NotificationBell";
 import { AiChatFab } from "./AiChatFab";
-import type { AiChatContext } from "./AiChatPanel";
+import { AiChatPanel, type AiChatContext } from "./AiChatPanel";
 import { RouteErrorBoundary } from "./RouteErrorBoundary";
-
-const AiChatPanel = lazy(() =>
-  import("./AiChatPanel").then((m) => ({ default: m.AiChatPanel }))
-);
 
 const navItems: { to: string; label: string; type: NavContentType }[] = [
   { to: "/diary", label: TYPE_LABEL.diary, type: "diary" },
@@ -195,7 +191,7 @@ function LayoutShell() {
   };
 
   return (
-    <div className="orbit-shell flex h-screen transition-colors">
+    <div className="orbit-shell flex h-dvh transition-colors">
       <div
         className={`orbit-overlay-scrim fixed inset-0 z-40 md:hidden${
           open ? " orbit-overlay-scrim--visible" : ""
@@ -393,7 +389,7 @@ function LayoutShell() {
         }}
       />
       {aiMounted ? (
-        <Suspense fallback={null}>
+        <RouteErrorBoundary>
           <AiChatPanel
             open={aiOpen}
             onClose={() => setAiOpen(false)}
@@ -401,7 +397,7 @@ function LayoutShell() {
             articleTitle={aiArticleTitle}
             articleType={aiArticleType}
           />
-        </Suspense>
+        </RouteErrorBoundary>
       ) : null}
     </div>
   );

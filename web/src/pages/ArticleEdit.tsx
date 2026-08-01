@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { authClient, fetchEntry, saveEntry, createEntry, fetchComments, TYPE_LABEL, formatDate, getApiErrorMessage, shouldToastApiError, type CommentItem, type CommentPositionMapping, type EntryDetail } from "../lib/api";
@@ -9,13 +9,14 @@ import { setPageTitle } from "../lib/pageTitle";
 import { resolveEditorAuthor } from "../lib/authors";
 import { canEditContent } from "../lib/contentPolicies";
 import { useToast } from "../lib/useToast";
-import type { Editor } from "@tiptap/react";
-import { TiptapEditor } from "../components/TiptapEditor";
+import { TiptapEditor, type TiptapEditorHandle } from "../components/TiptapEditor";
+import { EditorFullscreenOverlay } from "../components/EditorFullscreenOverlay";
 import { DatePicker } from "../components/DatePicker";
 import { CloseIcon } from "../components/OrbitIcons";
 import { fromDateInput, toDateInput } from "../lib/dateInput";
 import { anchorLogger } from "../lib/logger";
 import { queryKeys } from "../lib/queryKeys";
+import type { EditorHandoffState } from "../lib/editor-handoff";
 
 export function ArticleEdit() {
   const { type, id } = useParams<{ type: string; id: string }>();
@@ -24,7 +25,6 @@ export function ArticleEdit() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
-  // id 缺失、为 "new"、或非法（如 "undefined"）时都视为新建
   const isNew = !id || id === "new" || id === "undefined";
 
   const [title, setTitle] = useState("");
@@ -32,13 +32,13 @@ export function ArticleEdit() {
   const [entryAuthor, setEntryAuthor] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(isNew);
   const [saving, setSaving] = useState(false);
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const [fullscreenHandoff, setFullscreenHandoff] = useState<EditorHandoffState | null>(null);
   const bodyRef = useRef(body);
-  // 边注位置重映射：保存时用混合锚定算法重新查找位置
   const inlineCommentsRef = useRef<CommentItem[]>([]);
-  const editorRef = useRef<Editor | null>(null);
+  const editorRef = useRef<TiptapEditorHandle>(null);
   const displayAuthor = resolveEditorAuthor(entryAuthor, session?.user?.name);
   const isMemo = type === "memo";
-  // 发生日期：新建默认今天；memo 不展示
   const [entryDate, setEntryDate] = useState<number>(() =>
     Math.floor(Date.now() / 1000)
   );
@@ -98,7 +98,6 @@ export function ArticleEdit() {
 
     Promise.all([
       fetchEntry(id),
-      // 加载边注以便保存时重算位置
       fetchComments(targetType, id).catch(() => ({ bottom: [], inline: [] })),
     ])
       .then(([entry, commentGroups]) => {
@@ -124,9 +123,33 @@ export function ArticleEdit() {
       });
   }, [id, isNew, toast, type, navigate, session?.user?.id]);
 
-  const handleEditorCreate = (editor: Editor) => {
-    editorRef.current = editor;
-  };
+  const applyFullscreenClose = useCallback((detail: {
+    html: string;
+    title: string;
+    selection: EditorHandoffState["selection"];
+    json: EditorHandoffState["json"];
+  }) => {
+    bodyRef.current = detail.html;
+    setBody(detail.html);
+    setTitle(detail.title);
+    setFullscreenOpen(false);
+    setFullscreenHandoff(null);
+    requestAnimationFrame(() => {
+      editorRef.current?.setEditorState(detail.json, detail.selection);
+      editorRef.current?.focusSelection(detail.selection);
+    });
+  }, []);
+
+  const handleOpenFullscreen = useCallback(() => {
+    const state = editorRef.current?.getEditorState();
+    if (!state) return;
+    setFullscreenHandoff(state);
+    setFullscreenOpen(true);
+  }, []);
+
+  const handleFullscreenClose = useCallback((detail: Parameters<typeof applyFullscreenClose>[0]) => {
+    applyFullscreenClose(detail);
+  }, [applyFullscreenClose]);
 
   const handleSave = async () => {
     if (!displayAuthor) {
@@ -169,9 +192,8 @@ export function ArticleEdit() {
         toast.success("已创建");
         navigate(`/${type}/${result.id}`, { replace: true });
       } else {
-        // 边注位置重映射：用混合锚定算法重新查找每个边注的位置
         let commentMappings: CommentPositionMapping[] | undefined;
-        const editor = editorRef.current;
+        const editor = editorRef.current?.getEditor();
         const comments = inlineCommentsRef.current;
         if (editor && comments.length > 0) {
           try {
@@ -185,7 +207,6 @@ export function ArticleEdit() {
                   anchorSuffix: c.anchorSuffix,
                 });
                 if (!resolved) return null;
-                // 仅记录实际发生变化的位置
                 if (
                   resolved.from === c.anchorFrom &&
                   resolved.to === c.anchorTo
@@ -227,7 +248,6 @@ export function ArticleEdit() {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["entries"] }),
           queryClient.invalidateQueries({ queryKey: queryKeys.entry(id!) }),
-          // 保存可能重映射边注锚点，评论缓存必须一并失效
           queryClient.invalidateQueries({
             queryKey: queryKeys.comments(isMemo ? "memo" : "entry", id!),
           }),
@@ -262,82 +282,90 @@ export function ArticleEdit() {
   if (!loaded) return <p className="orbit-muted">加载中…</p>;
 
   return (
-    <div className="orbit-editor-layout">
-      {/* 顶部操作栏 */}
-      <div className="flex items-center justify-between mb-6 gap-4">
-        <div>
-          <h2 className="orbit-page-title">
-            {isLetterReply
-              ? "写回信"
-              : isNew
-                ? `新建${TYPE_LABEL[type || ""] || ""}`
-                : "编辑"}
-          </h2>
-          {isLetterReply && replyContext && (
-            <p className="orbit-letter-reply-context">
-              回复 {replyContext.author ?? "对方"} 的信
-              {replyContext.entryDate
-                ? ` · ${formatDate(replyContext.entryDate)}`
-                : ""}
-            </p>
-          )}
-          {displayAuthor && (
-            <p className="orbit-entry-date mt-1">
-              作者：{displayAuthor}
-            </p>
-          )}
+    <>
+      <div className="orbit-editor-layout">
+        <div className="flex items-center justify-between mb-6 gap-4">
+          <div>
+            <h2 className="orbit-page-title">
+              {isLetterReply
+                ? "写回信"
+                : isNew
+                  ? `新建${TYPE_LABEL[type || ""] || ""}`
+                  : "编辑"}
+            </h2>
+            {isLetterReply && replyContext && (
+              <p className="orbit-letter-reply-context">
+                回复 {replyContext.author ?? "对方"} 的信
+                {replyContext.entryDate
+                  ? ` · ${formatDate(replyContext.entryDate)}`
+                  : ""}
+              </p>
+            )}
+            {displayAuthor && (
+              <p className="orbit-entry-date mt-1">
+                作者：{displayAuthor}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="orbit-btn"
+              aria-label="关闭"
+              title="关闭"
+            >
+              <CloseIcon />
+              关闭
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="orbit-btn orbit-btn-primary"
+            >
+              {saving ? "保存中…" : "保存"}
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={handleClose}
-            className="orbit-btn"
-            aria-label="关闭"
-            title="关闭"
-          >
-            <CloseIcon />
-            关闭
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="orbit-btn orbit-btn-primary"
-          >
-            {saving ? "保存中…" : "保存"}
-          </button>
-        </div>
+
+        {!isMemo && (
+          <div className="orbit-form-row">
+            <label htmlFor="entry-date" className="orbit-form-label">
+              日期
+            </label>
+            <DatePicker
+              id="entry-date"
+              value={toDateInput(entryDate)}
+              onChange={(value) => setEntryDate(fromDateInput(value))}
+              aria-label="选择日期"
+            />
+          </div>
+        )}
+
+        <TiptapEditor
+          ref={editorRef}
+          defaultValue={body}
+          onChange={(val) => { bodyRef.current = val; }}
+          entryId={isNew ? undefined : id}
+          mode="note"
+          onToggleMode={handleOpenFullscreen}
+        />
       </div>
 
-      {/* 标题输入 */}
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="标题"
-        className="orbit-title-input"
-      />
-
-      {!isMemo && (
-        <div className="orbit-form-row">
-          <label htmlFor="entry-date" className="orbit-form-label">
-            日期
-          </label>
-          <DatePicker
-            id="entry-date"
-            value={toDateInput(entryDate)}
-            onChange={(value) => setEntryDate(fromDateInput(value))}
-            aria-label="选择日期"
-          />
-        </div>
-      )}
-
-      <TiptapEditor
-        defaultValue={body}
-        onChange={(val) => { bodyRef.current = val; }}
+      <EditorFullscreenOverlay
+        open={fullscreenOpen}
+        title={title}
+        handoff={fullscreenHandoff}
         entryId={isNew ? undefined : id}
-        onEditorCreate={isNew ? undefined : handleEditorCreate}
+        saving={saving}
+        onClose={handleFullscreenClose}
+        onSave={(detail) => {
+          applyFullscreenClose(detail);
+          void handleSave();
+        }}
+        onDismiss={handleClose}
       />
-    </div>
+    </>
   );
 }

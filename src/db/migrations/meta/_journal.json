@@ -134,6 +134,13 @@
       "when": 1785000000000,
       "tag": "0018_companion_log",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1785513617997,
+      "tag": "0019_brave_prodigy",
+      "breakpoints": true
     }
   ]
 }

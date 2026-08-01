@@ -9,6 +9,7 @@ import {
 } from "../lib/api";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../lib/useToast";
+import { EyeIcon, EyeOffIcon } from "../components/OrbitIcons";
 
 export function Join() {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ export function Join() {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -175,17 +177,28 @@ export function Join() {
               <label className="orbit-auth-label" htmlFor="join-password">
                 密码
               </label>
-              <input
-                id="join-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="至少 8 位"
-                required
-                minLength={8}
-                className="orbit-input"
-                autoComplete="new-password"
-              />
+              <div className="orbit-password-input-wrapper">
+                <input
+                  id="join-password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="至少 8 位"
+                  required
+                  minLength={8}
+                  className="orbit-input"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className="orbit-password-toggle-btn"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                  title={showPassword ? "隐藏密码" : "显示密码"}
+                >
+                  {showPassword ? <EyeOffIcon size="sm" /> : <EyeIcon size="sm" />}
+                </button>
+              </div>
             </div>
 
             <button

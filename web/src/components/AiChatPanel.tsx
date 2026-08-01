@@ -22,7 +22,8 @@ import {
   type AiContextMode,
   type AiConversationListItem,
 } from "../lib/api";
-import { parseAssistantContent } from "../lib/ai-message-content";
+import { parseAssistantContent, splitEmbeddedThinking } from "../lib/ai-message-content";
+import { safeRandomUUID } from "../lib/uuid";
 import { formatWriteContentApprovalSummary } from "../lib/ai-write-approval";
 import { applyToolApprovalResponse } from "../../../src/services/ai-tool-approval";
 import { useMaxWidthMd } from "../lib/useBreakpoint";
@@ -118,7 +119,7 @@ function clampFloatingPos(pos: FloatingPos, width: number, height: number): Floa
 }
 
 function createChatId(): string {
-  return `orbit-ai-${crypto.randomUUID()}`;
+  return `orbit-ai-${safeRandomUUID()}`;
 }
 
 type ChatSessionState = {
@@ -600,7 +601,10 @@ function MessageBody({
   const nodes: ReactNode[] = [];
   let textBuffer = "";
   const flush = (key: string) => {
-    if (!textBuffer.trim()) {
+    const visibleText = isAssistant
+      ? splitEmbeddedThinking(textBuffer).text
+      : textBuffer;
+    if (!visibleText.trim()) {
       textBuffer = "";
       return;
     }
@@ -613,10 +617,10 @@ function MessageBody({
             isAnimating={isStreaming}
             mode={isStreaming ? "streaming" : "static"}
           >
-            {textBuffer}
+            {visibleText}
           </Streamdown>
         ) : (
-          textBuffer
+          visibleText
         )}
       </div>
     );
@@ -855,15 +859,17 @@ export function AiChatPanel({
     const vv = window.visualViewport;
 
     function syncViewport() {
-      if (!vv) {
+      if (!vv || typeof vv.height !== "number" || vv.height <= 0) {
         root.style.setProperty("--ai-vv-top", "0px");
         root.style.setProperty("--ai-vv-height", "100dvh");
         return;
       }
       // Prefer layout-stable inset: visualViewport tracks keyboard without page zoom.
       // offsetTop + height map the panel to the visible area above the keyboard.
-      root.style.setProperty("--ai-vv-top", `${Math.max(0, vv.offsetTop)}px`);
-      root.style.setProperty("--ai-vv-height", `${Math.max(0, vv.height)}px`);
+      const top = Math.max(0, vv.offsetTop || 0);
+      const height = vv.height > 100 ? vv.height : window.innerHeight;
+      root.style.setProperty("--ai-vv-top", `${top}px`);
+      root.style.setProperty("--ai-vv-height", `${height}px`);
     }
 
     syncViewport();
@@ -1107,6 +1113,21 @@ export function AiChatPanel({
     void reloadList();
   }
 
+  const actionableToolApproval = useMemo(
+    () => hasActionableToolApproval(messages),
+    [messages]
+  );
+  const inFlightWriteTool = useMemo(
+    () => hasInFlightWriteTool(messages),
+    [messages]
+  );
+
+  useEffect(() => {
+    if (actionableToolApproval && error) {
+      clearError();
+    }
+  }, [actionableToolApproval, clearError, error]);
+
   if (!panelMounted) return null;
 
   const conversationId = chatSession.conversationId;
@@ -1144,22 +1165,8 @@ export function AiChatPanel({
     })();
   const configError =
     error?.message?.includes("API Key") || error?.message?.includes("未配置");
-  const actionableToolApproval = useMemo(
-    () => hasActionableToolApproval(messages),
-    [messages]
-  );
-  const inFlightWriteTool = useMemo(
-    () => hasInFlightWriteTool(messages),
-    [messages]
-  );
   const showStreamError =
     Boolean(error) && !actionableToolApproval && !inFlightWriteTool;
-
-  useEffect(() => {
-    if (actionableToolApproval && error) {
-      clearError();
-    }
-  }, [actionableToolApproval, clearError, error]);
   const isFloatingLayout = panelLayout === "floating";
   // Mobile: full-bleed sheet — do not apply desktop width / floating coords (inline beats media CSS).
   const panelStyle = isMobile
@@ -1308,15 +1315,16 @@ export function AiChatPanel({
               ) : null}
               {messages.map((message, messageIndex) => {
                 const author = getMessageAuthor(message);
-                const { reasoning } =
+                const { reasoning, text: visibleText } =
                   message.role === "assistant"
                     ? parseAssistantContent(message)
-                    : { reasoning: "" };
+                    : { reasoning: "", text: "" };
                 const showReasoning = Boolean(reasoning);
                 const parts = message.parts ?? [];
-                const hasText = parts.some(
-                  (p) => p.type === "text" && Boolean(p.text)
-                );
+                const hasText =
+                  message.role === "assistant"
+                    ? Boolean(visibleText)
+                    : parts.some((p) => p.type === "text" && Boolean(p.text));
                 const hasTool = parts.some((p) => isToolPart(p));
                 if (!showReasoning && !hasText && !hasTool) return null;
                 const isStreamingMessage =

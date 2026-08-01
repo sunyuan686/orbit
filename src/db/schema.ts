@@ -145,6 +145,7 @@ export const asset = sqliteTable(
     mimeType: text("mime_type").notNull().default("image/jpeg"),
     width: integer("width"),
     height: integer("height"),
+    blurhash: text("blurhash"),
     size: integer("size"),
     position: text("position").notNull().default("a0"),
     createdAt: integer("created_at")

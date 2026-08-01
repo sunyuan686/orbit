@@ -4,6 +4,8 @@ import { authClient, fetchSpaceStatus, type SpaceStatus } from "../lib/api";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../lib/useToast";
 
+import { EyeIcon, EyeOffIcon } from "../components/OrbitIcons";
+
 type Mode = "signin" | "signup";
 
 export function Login() {
@@ -15,6 +17,7 @@ export function Login() {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [spaceStatus, setSpaceStatus] = useState<SpaceStatus | null>(null);
 
@@ -172,17 +175,28 @@ export function Login() {
               <label className="orbit-auth-label" htmlFor="login-password">
                 密码
               </label>
-              <input
-                id="login-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="至少 8 位"
-                required
-                minLength={8}
-                className="orbit-input"
-                autoComplete={mode === "signin" ? "current-password" : "new-password"}
-              />
+              <div className="orbit-password-input-wrapper">
+                <input
+                  id="login-password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="至少 8 位"
+                  required
+                  minLength={8}
+                  className="orbit-input"
+                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                />
+                <button
+                  type="button"
+                  className="orbit-password-toggle-btn"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                  title={showPassword ? "隐藏密码" : "显示密码"}
+                >
+                  {showPassword ? <EyeOffIcon size="sm" /> : <EyeIcon size="sm" />}
+                </button>
+              </div>
             </div>
 
             <button

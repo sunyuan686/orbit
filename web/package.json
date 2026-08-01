@@ -28,6 +28,7 @@
     "@tiptap/starter-kit": "^3.26.1",
     "ai": "^7.0.3",
     "better-auth": "^1.6.18",
+    "blurhash": "^2.0.5",
     "date-fns": "^4.4.0",
     "react": "^19.2.0",
     "react-day-picker": "^10.0.1",
