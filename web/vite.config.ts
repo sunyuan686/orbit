@@ -61,6 +61,11 @@ export default defineConfig({
           {
             urlPattern: USER_MEDIA_ASSET,
             handler: "NetworkOnly",
+            options: {
+              fetchOptions: {
+                credentials: "include",
+              },
+            },
           },
           {
             urlPattern: /^\/api\//,

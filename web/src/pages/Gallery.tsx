@@ -52,6 +52,7 @@ export function GalleryPage() {
     queryFn: ({ pageParam }) =>
       fetchGallery({ filter, limit: PAGE_SIZE, offset: pageParam }),
     initialPageParam: 0,
+    refetchOnWindowFocus: false,
     getNextPageParam: (lastPage, pages) => {
       const loaded = pages.reduce((n, page) => n + page.items.length, 0);
       return loaded < lastPage.total ? loaded : undefined;
