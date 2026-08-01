@@ -3,9 +3,7 @@ import type { Context } from "hono";
 import { eq } from "drizzle-orm";
 import { asset } from "../db/schema.js";
 import { generateId } from "../lib/id.js";
-
-import sharp from "sharp";
-import { encode } from "blurhash";
+import type { ProcessImageMetadata } from "../lib/image-metadata.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 
@@ -17,6 +15,10 @@ interface SaveAssetInput {
 
 interface AssetStorage {
   save(input: SaveAssetInput, c: Context): Promise<string>;
+}
+
+interface AssetRoutesOptions {
+  processImageMetadata?: ProcessImageMetadata;
 }
 
 async function sha256Prefix(body: ArrayBuffer): Promise<string> {
@@ -38,36 +40,13 @@ function inferMimeType(file: File, ext: string): string {
   return "image/jpeg";
 }
 
-async function processImageMetadata(buffer: Buffer) {
-  try {
-    const image = sharp(buffer);
-    const metadata = await image.metadata();
-    const width = metadata.width ?? undefined;
-    const height = metadata.height ?? undefined;
-
-    const { data, info } = await image
-      .raw()
-      .ensureAlpha()
-      .resize(32, 32, { fit: "inside" })
-      .toBuffer({ resolveWithObject: true });
-
-    const blurhashStr = encode(
-      new Uint8ClampedArray(data),
-      info.width,
-      info.height,
-      4,
-      4
-    );
-
-    return { width, height, blurhash: blurhashStr };
-  } catch (e) {
-    console.warn("Failed to process image blurhash metadata:", e);
-    return { width: undefined, height: undefined, blurhash: undefined };
-  }
-}
-
-export function createAssetsRoutes(getDb: DbProvider, storage: AssetStorage) {
+export function createAssetsRoutes(
+  getDb: DbProvider,
+  storage: AssetStorage,
+  options?: AssetRoutesOptions
+) {
   const assets = new Hono();
+  const processImageMetadata = options?.processImageMetadata;
 
   assets.post("/upload", async (c) => {
     const db = await getDb(c);
@@ -89,11 +68,13 @@ export function createAssetsRoutes(getDb: DbProvider, storage: AssetStorage) {
     let height: number | undefined;
     let blurhash: string | undefined;
 
-    if (mimeType.startsWith("image/")) {
-      const meta = await processImageMetadata(Buffer.from(body));
-      width = meta.width;
-      height = meta.height;
-      blurhash = meta.blurhash;
+    if (mimeType.startsWith("image/") && processImageMetadata) {
+      const meta = await processImageMetadata(body);
+      if (meta) {
+        width = meta.width;
+        height = meta.height;
+        blurhash = meta.blurhash;
+      }
     }
 
     const existingAsset = await db

@@ -1,40 +1,11 @@
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { eq, isNull, and, like } from "drizzle-orm";
-import sharp from "sharp";
-import { encode } from "blurhash";
 import { db } from "../src/db/index.js";
 import { asset } from "../src/db/schema.js";
+import { processImageMetadataWithSharp } from "../src/lib/image-metadata-node.js";
 
 const ASSETS_DIR = join(process.cwd(), "data", "assets");
-
-async function processImageMetadata(buffer: Buffer) {
-  try {
-    const image = sharp(buffer);
-    const metadata = await image.metadata();
-    const width = metadata.width ?? undefined;
-    const height = metadata.height ?? undefined;
-
-    const { data, info } = await image
-      .raw()
-      .ensureAlpha()
-      .resize(32, 32, { fit: "inside" })
-      .toBuffer({ resolveWithObject: true });
-
-    const blurhashStr = encode(
-      new Uint8ClampedArray(data),
-      info.width,
-      info.height,
-      4,
-      4
-    );
-
-    return { width, height, blurhash: blurhashStr };
-  } catch (e) {
-    console.warn("Failed to process image blurhash:", e);
-    return { width: undefined, height: undefined, blurhash: undefined };
-  }
-}
 
 async function main() {
   console.log("🔍 Scanning for image assets without blurhash...");
@@ -64,9 +35,9 @@ async function main() {
 
     try {
       const buffer = readFileSync(filepath);
-      const meta = await processImageMetadata(buffer);
+      const meta = await processImageMetadataWithSharp(buffer);
 
-      if (meta.blurhash) {
+      if (meta?.blurhash) {
         await db
           .update(asset)
           .set({
