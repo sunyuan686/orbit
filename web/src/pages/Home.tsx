@@ -23,6 +23,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../lib/useToast";
 import { ActivityHeatmap } from "../components/ActivityHeatmap";
+import { GalleryImage } from "../components/GalleryImage";
 import {
   DiaryIcon,
   TimelineIcon,
@@ -320,7 +321,13 @@ export function HomePage() {
                 className="orbit-home-photo"
                 title="查看相册"
               >
-                <img src={item.url} alt="" loading="lazy" />
+                <GalleryImage
+                  src={item.url}
+                  blurhash={item.blurhash}
+                  width={item.width}
+                  height={item.height}
+                  className="orbit-home-photo-img"
+                />
               </Link>
             ))}
           </div>

@@ -25,6 +25,9 @@ export interface GalleryItem {
   url: string;
   mimeType: string;
   size: number;
+  width: number | null;
+  height: number | null;
+  blurhash: string | null;
   uploadedAt: number;
   sortAt: number;
   linked: boolean;
@@ -191,6 +194,9 @@ export async function getGalleryItem(
       storageKey: asset.storageKey,
       mimeType: asset.mimeType,
       size: asset.size,
+      width: asset.width,
+      height: asset.height,
+      blurhash: asset.blurhash,
       createdAt: asset.createdAt,
     })
     .from(asset)
@@ -200,6 +206,9 @@ export async function getGalleryItem(
         storageKey: string;
         mimeType: string;
         size: number | null;
+        width: number | null;
+        height: number | null;
+        blurhash: string | null;
         createdAt: number;
       }
     | undefined;
@@ -214,6 +223,9 @@ export async function getGalleryItem(
     url: `/assets/${normalized}`,
     mimeType: row.mimeType || mimeTypeFromKey(normalized),
     size: row.size ?? 0,
+    width: row.width,
+    height: row.height,
+    blurhash: row.blurhash,
     uploadedAt: row.createdAt,
     sortAt: row.createdAt,
     linked: sources.length > 0,
@@ -248,6 +260,9 @@ export async function listGalleryItems(
       storageKey: asset.storageKey,
       mimeType: asset.mimeType,
       size: asset.size,
+      width: asset.width,
+      height: asset.height,
+      blurhash: asset.blurhash,
       createdAt: asset.createdAt,
       linked: sql<number>`case when ${linkedExists} then 1 else 0 end`,
     })
@@ -259,6 +274,9 @@ export async function listGalleryItems(
     storageKey: string;
     mimeType: string;
     size: number | null;
+    width: number | null;
+    height: number | null;
+    blurhash: string | null;
     createdAt: number;
     linked: number;
   }>;
@@ -274,6 +292,9 @@ export async function listGalleryItems(
       url: `/assets/${storageKey}`,
       mimeType: row.mimeType || mimeTypeFromKey(storageKey),
       size: row.size ?? 0,
+      width: row.width,
+      height: row.height,
+      blurhash: row.blurhash,
       uploadedAt: row.createdAt,
       sortAt: row.createdAt,
       linked: sources.length > 0 || row.linked === 1,

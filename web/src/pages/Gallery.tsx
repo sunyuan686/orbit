@@ -21,6 +21,7 @@ import { setPageTitle } from "../lib/pageTitle";
 import { useConfirm } from "../lib/useConfirm";
 import { useToast } from "../lib/useToast";
 import { CloseIcon } from "../components/OrbitIcons";
+import { GalleryImage } from "../components/GalleryImage";
 
 const PAGE_SIZE = 48;
 
@@ -144,7 +145,13 @@ export function GalleryPage() {
               onClick={() => setActiveItem(item)}
               aria-label={`查看图片 ${item.storageKey}`}
             >
-              <img src={item.url} alt="" loading="lazy" decoding="async" />
+              <GalleryImage
+                src={item.url}
+                blurhash={item.blurhash}
+                width={item.width}
+                height={item.height}
+                className="orbit-gallery-thumb-img"
+              />
               {!item.linked && <span className="orbit-gallery-thumb-badge">未关联</span>}
             </button>
           ))}
@@ -182,7 +189,13 @@ export function GalleryPage() {
               <CloseIcon size="md" />
             </button>
 
-            <img src={activeItem.url} alt="" className="orbit-gallery-lightbox-image" />
+            <GalleryImage
+              src={activeItem.url}
+              blurhash={activeItem.blurhash}
+              width={activeItem.width}
+              height={activeItem.height}
+              className="orbit-gallery-lightbox-image"
+            />
 
             <div className="orbit-gallery-lightbox-meta">
               <p className="text-sm orbit-text-secondary">

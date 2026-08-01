@@ -370,6 +370,9 @@ export interface GalleryItem {
   url: string;
   mimeType: string;
   size: number;
+  width: number | null;
+  height: number | null;
+  blurhash: string | null;
   uploadedAt: number;
   sortAt: number;
   linked: boolean;

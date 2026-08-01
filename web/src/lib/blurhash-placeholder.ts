@@ -57,6 +57,19 @@ export function getBlurhashDecodeSize(
 }
 
 /**
+ * Build a tiny placeholder data URL from blurhash and optional source dimensions.
+ */
+export function getMediaPlaceholderDataUrl(
+  blurhash?: string | null,
+  width?: number | null,
+  height?: number | null,
+): string | undefined {
+  if (!blurhash) return undefined;
+  const decodeSize = getBlurhashDecodeSize(width ?? undefined, height ?? undefined);
+  return blurhashToDataUrl(blurhash, decodeSize.width, decodeSize.height);
+}
+
+/**
  * Convert a blurhash string to a base64-encoded BMP data URL.
  */
 export function blurhashToDataUrl(hash: string, width = 4, height = 3): string {

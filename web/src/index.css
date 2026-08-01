@@ -7862,11 +7862,33 @@ html.orbit-ai-open body {
   cursor: pointer;
 }
 
-.orbit-gallery-thumb img {
+.orbit-gallery-thumb img,
+.orbit-gallery-thumb-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  opacity: 0;
+  transition: opacity var(--motion-normal) var(--motion-ease-enter);
+}
+
+.orbit-gallery-thumb img[data-loaded="true"],
+.orbit-gallery-thumb-img[data-loaded="true"] {
+  opacity: 1;
+}
+
+.orbit-gallery-lightbox-image {
+  width: 100%;
+  max-width: 100%;
+  max-height: min(72vh, 900px);
+  object-fit: contain;
+  background: var(--color-surface-raised);
+  opacity: 0;
+  transition: opacity var(--motion-normal) var(--motion-ease-enter);
+}
+
+.orbit-gallery-lightbox-image[data-loaded="true"] {
+  opacity: 1;
 }
 
 .orbit-gallery-thumb-badge {
@@ -7909,13 +7931,6 @@ html.orbit-ai-open body {
   top: max(0.75rem, calc(0.75rem + env(safe-area-inset-top, 0px)));
   right: max(0.75rem, calc(0.75rem + env(safe-area-inset-right, 0px)));
   z-index: 1;
-}
-
-.orbit-gallery-lightbox-image {
-  width: 100%;
-  max-height: 70vh;
-  object-fit: contain;
-  background: var(--color-surface-raised);
 }
 
 .orbit-gallery-lightbox-meta {
@@ -8296,12 +8311,20 @@ html.orbit-ai-open body {
   transform: rotate(-1.6deg);
 }
 
-.orbit-home-photo img {
+.orbit-home-photo img,
+.orbit-home-photo-img {
   display: block;
   width: 100%;
   aspect-ratio: 3 / 4;
   object-fit: cover;
   background: var(--color-surface-raised);
+  opacity: 0;
+  transition: opacity var(--motion-normal) var(--motion-ease-enter);
+}
+
+.orbit-home-photo img[data-loaded="true"],
+.orbit-home-photo-img[data-loaded="true"] {
+  opacity: 1;
 }
 
 @media (prefers-reduced-motion: no-preference) {
