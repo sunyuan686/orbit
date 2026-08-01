@@ -5,6 +5,8 @@
 | 脚本 | 命令 | 用途 | 风险 |
 |------|------|------|------|
 | `search-status.ts` | `npm run db:search-status` | 查看本地 FTS 搜索索引状态 | 只读 |
+| `backfill-blurhash.ts` | `npm run db:backfill-blurhash` | 本地 SQLite + `data/assets/` 补 blurhash | 改本地 DB |
+| `backfill-blurhash-remote.ts` | `npm run db:backfill-blurhash:remote -- --confirm` | 远程 D1 补 blurhash（源：`data/assets/` 或 R2） | 改生产 D1 |
 | `migrate-to-r2.sh` | 见下方 | 把 `data/assets/` 上传到**远程** R2 | 覆盖同名对象，不删 D1 |
 
 **不要在 CI 里跑** `migrate-to-r2.sh`。CI 只用 `wrangler d1 migrations apply`（增量改表结构，不导数据）。
