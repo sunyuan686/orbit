@@ -1248,10 +1248,6 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {
-        "entry_type_check": {
-          "name": "entry_type_check",
-          "value": "\"entry\".\"type\" IN ('diary', 'timeline', 'message', 'letter', 'note', 'appreciation')"
-        },
         "entry_status_check": {
           "name": "entry_status_check",
           "value": "\"entry\".\"status\" IN ('draft', 'published')"

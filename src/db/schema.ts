@@ -127,10 +127,6 @@ export const entry = sqliteTable(
   },
   (t) => [
     check(
-      "entry_type_check",
-      sql`${t.type} IN ('diary', 'timeline', 'message', 'letter', 'note', 'appreciation')`
-    ),
-    check(
       "entry_status_check",
       sql`${t.status} IN ('draft', 'published')`
     ),
