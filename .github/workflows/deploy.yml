@@ -44,6 +44,8 @@ jobs:
       - name: Build frontend
         run: npm run build
         working-directory: web
+        env:
+          VITE_TURNSTILE_SITE_KEY: ${{ secrets.VITE_TURNSTILE_SITE_KEY }}
 
       - name: Verify PWA build artifacts
         run: npm run verify:pwa
