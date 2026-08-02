@@ -1,3 +1,5 @@
+CREATE TABLE `__temp_asset` AS SELECT * FROM `asset`;--> statement-breakpoint
+DROP TABLE `asset`;--> statement-breakpoint
 CREATE TABLE `__temp_feishu_thread_session` AS SELECT * FROM `feishu_thread_session`;--> statement-breakpoint
 DROP TABLE `feishu_thread_session`;--> statement-breakpoint
 CREATE TABLE `__temp_ai_message` AS SELECT * FROM `ai_message`;--> statement-breakpoint
@@ -30,6 +32,25 @@ ALTER TABLE `__new_entry` RENAME TO `entry`;--> statement-breakpoint
 CREATE INDEX `idx_entry_type_date` ON `entry` (`type`,`entry_date`);--> statement-breakpoint
 CREATE INDEX `idx_entry_parent` ON `entry` (`parent_id`);--> statement-breakpoint
 CREATE INDEX `idx_entry_status_user` ON `entry` (`status`,`user_id`);--> statement-breakpoint
+CREATE TABLE `asset` (
+	`id` text PRIMARY KEY NOT NULL,
+	`entry_id` text,
+	`storage_key` text NOT NULL,
+	`mime_type` text DEFAULT 'image/jpeg' NOT NULL,
+	`width` integer,
+	`height` integer,
+	`size` integer,
+	`position` text DEFAULT 'a0' NOT NULL,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
+	`deleted_at` integer,
+	`blurhash` text,
+	FOREIGN KEY (`entry_id`) REFERENCES `entry`(`id`) ON UPDATE no action ON DELETE no action
+);--> statement-breakpoint
+INSERT INTO `asset` SELECT * FROM `__temp_asset`;--> statement-breakpoint
+DROP TABLE `__temp_asset`;--> statement-breakpoint
+CREATE INDEX `idx_asset_storage_key` ON `asset` (`storage_key`);--> statement-breakpoint
+CREATE INDEX `idx_asset_entry_id` ON `asset` (`entry_id`);--> statement-breakpoint
+CREATE INDEX `idx_asset_created` ON `asset` (`created_at`);--> statement-breakpoint
 CREATE TABLE `ai_conversation` (
 	`id` text PRIMARY KEY NOT NULL,
 	`title` text NOT NULL,
@@ -38,11 +59,11 @@ CREATE TABLE `ai_conversation` (
 	`user_id` text NOT NULL,
 	`author` text NOT NULL,
 	`shared` integer DEFAULT false NOT NULL,
-	`source` text DEFAULT 'web' NOT NULL,
-	`last_preview` text DEFAULT '' NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
 	`deleted_at` integer,
+	`last_preview` text DEFAULT '' NOT NULL,
+	`source` text DEFAULT 'web' NOT NULL,
 	FOREIGN KEY (`article_id`) REFERENCES `entry`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action,
 	CONSTRAINT "ai_conversation_context_mode_check" CHECK("ai_conversation"."context_mode" IN ('global', 'article'))
