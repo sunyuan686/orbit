@@ -15,5 +15,6 @@ export const queryKeys = {
     ["memory-nodes", params ?? {}] as const,
   memoryMilestones: ["memory-milestones"] as const,
   memoryThemes: ["memory-themes"] as const,
+  drafts: (type: string) => ["drafts", type] as const,
   search: (q: string) => ["search", q] as const,
 };

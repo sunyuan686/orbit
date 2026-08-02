@@ -8,10 +8,10 @@ export interface ImageMetadata {
 }
 
 export async function processImageMetadataWithSharp(
-  body: ArrayBuffer
+  body: ArrayBuffer | Buffer
 ): Promise<ImageMetadata | undefined> {
   try {
-    const image = sharp(Buffer.from(body));
+    const image = sharp(Buffer.isBuffer(body) ? body : Buffer.from(body));
     const metadata = await image.metadata();
     const width = metadata.width ?? undefined;
     const height = metadata.height ?? undefined;

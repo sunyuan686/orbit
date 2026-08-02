@@ -288,7 +288,7 @@ export function ArticleView() {
                 className={`flex-1 min-w-0${entry.type === "letter" ? " orbit-letter-sheet" : ""}`}
               >
                 <TiptapEditor
-                  key={entry.id}
+                  key={`${entry.id}-${entry.updatedAt ?? ""}`}
                   defaultValue={entry.body}
                   readonly
                   inlineComments={comments.inline}

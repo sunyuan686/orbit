@@ -34,6 +34,7 @@ export function ComposeModal({
 }: ComposeModalProps) {
   const [format, setFormat] = useState<ComposeFormat>(defaultFormat);
   const [title, setTitle] = useState("");
+  const [showTitle, setShowTitle] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [body, setBody] = useState("");
   const bodyRef = useRef(body);
@@ -45,6 +46,7 @@ export function ComposeModal({
   const [lastComposeMode, setLastComposeMode] = useState<ComposeMode>(defaultMode);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<TiptapEditorHandle>(null);
 
   useEffect(() => {
@@ -57,8 +59,9 @@ export function ComposeModal({
       setLastComposeMode(defaultMode);
       setFullscreenOpen(false);
       setFullscreenHandoff(null);
+      setShowTitle(Boolean(title && title.trim().length > 0));
     }
-  }, [isOpen, defaultFormat, defaultMode]);
+  }, [isOpen, defaultFormat, defaultMode, title]);
 
   const applyFullscreenClose = useCallback((detail: {
     html: string;
@@ -69,6 +72,9 @@ export function ComposeModal({
     bodyRef.current = detail.html;
     setBody(detail.html);
     setTitle(detail.title);
+    if (detail.title && detail.title.trim().length > 0) {
+      setShowTitle(true);
+    }
     setLastComposeMode("article");
     setFullscreenOpen(false);
     setFullscreenHandoff(null);
@@ -90,11 +96,18 @@ export function ComposeModal({
     if (submitting) return;
     setSubmitting(true);
     try {
+      let finalBody = bodyOverride ?? bodyRef.current;
+      if (attachments.length > 0) {
+        const imgsHtml = attachments
+          .map((a) => `<img src="${a.url}"${a.alt ? ` alt="${a.alt}"` : ""} class="orbit-prose-img" />`)
+          .join("");
+        finalBody += imgsHtml;
+      }
       await onSubmit?.({
         format,
         mode: lastComposeMode,
         title: title.trim(),
-        body: bodyOverride ?? bodyRef.current,
+        body: finalBody,
         attachments,
         linkUrl: linkUrl.trim(),
       });
@@ -203,12 +216,13 @@ export function ComposeModal({
           </div>
 
           <div className="orbit-compose-body">
-            {format === "link" && (
+            {(format === "link" || (format === "note" && showTitle)) && (
               <input
+                ref={titleInputRef}
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="添加文章标题…"
+                placeholder="添加标题…"
                 className="orbit-compose-title-input"
               />
             )}
@@ -267,6 +281,29 @@ export function ComposeModal({
                 </svg>
                 {uploading ? "上传中…" : "添加图片"}
               </button>
+
+              {format === "note" && (
+                <button
+                  type="button"
+                  className={`orbit-compose-tool-btn ${showTitle ? "active" : ""}`}
+                  onClick={() => {
+                    const willShow = !showTitle;
+                    setShowTitle(willShow);
+                    if (willShow) {
+                      requestAnimationFrame(() => {
+                        titleInputRef.current?.focus();
+                      });
+                    }
+                  }}
+                  title={showTitle ? "隐藏标题" : "添加标题"}
+                  aria-label={showTitle ? "隐藏标题" : "添加标题"}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 12h16M4 6h16M4 18h10" />
+                  </svg>
+                  标题
+                </button>
+              )}
             </div>
 
             <button

@@ -15,7 +15,7 @@ import {
 } from "react";
 import { uploadImage, getApiErrorMessage } from "../lib/api";
 import type { CommentItem } from "../lib/api";
-import { normalizeBodyForEditor } from "../lib/content";
+import { normalizeBodyForEditor, combineHtmlAndAttachments } from "../lib/content";
 import { useToast } from "../lib/useToast";
 import Link from "@tiptap/extension-link";
 import { CommentHighlight } from "../extensions/CommentHighlight";
@@ -71,6 +71,9 @@ interface Props {
   onToggleMode?: () => void;
   /** 全屏 overlay 内嵌时隐藏展开按钮 */
   hideFullscreenToggle?: boolean;
+  /** 标题展开状态与切换回调 */
+  showTitle?: boolean;
+  onToggleTitle?: () => void;
   /** 编辑器就绪后回调，用于父组件访问 editor 实例 */
   onEditorCreate?: (editor: Editor) => void;
 }
@@ -86,6 +89,8 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
     mode = "article",
     onToggleMode,
     hideFullscreenToggle = false,
+    showTitle = false,
+    onToggleTitle,
     inlineComments = [],
     enableInlineComments = false,
     activeInlineCommentId,
@@ -172,7 +177,16 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
     [entryId, toast]
   );
 
+  const initialContent = useMemo(() => {
+    if (defaultJson) return defaultJson;
+    return normalizeBodyForEditor(defaultValue || "");
+  }, [defaultJson, defaultValue]);
+
   const [attachments, setAttachments] = useState<MediaAttachmentItem[]>([]);
+  const attachmentsRef = useRef(attachments);
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
 
   const handleRemoveAttachment = useCallback((id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
@@ -186,7 +200,6 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
 
   const handleImageUpload = useCallback(
     async (file: File) => {
-      if (!editorRef.current) return;
       if (mode === "note") {
         try {
           const res = await uploadImage(file, entryId);
@@ -201,11 +214,29 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
           toast.error(getApiErrorMessage(err, "图片上传失败"));
         }
       } else {
+        if (!editorRef.current) return;
         void uploadImageToEditor(editorRef.current, file);
       }
     },
     [mode, entryId, uploadImageToEditor, toast]
   );
+
+  const emitChange = useCallback(
+    (rawHtml: string, currentAttachments: MediaAttachmentItem[]) => {
+      if (mode === "note") {
+        onChange?.(combineHtmlAndAttachments(rawHtml, currentAttachments));
+      } else {
+        onChange?.(rawHtml);
+      }
+    },
+    [mode, onChange]
+  );
+
+  useEffect(() => {
+    if (mode === "note" && editorRef.current && !editorRef.current.isDestroyed && !readonly) {
+      emitChange(editorRef.current.getHTML(), attachments);
+    }
+  }, [attachments, mode, readonly, emitChange]);
 
   const editor = useEditor({
     extensions: [
@@ -241,7 +272,8 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
       LinkInputRules,
       TabIndent,
     ],
-    content: defaultJson ?? normalizeBodyForEditor(defaultValue || ""),
+    autofocus: readonly ? false : "end",
+    content: initialContent,
     editable: !readonly,
     shouldRerenderOnTransaction: !readonly,
     onUpdate: ({ editor: currentEditor }) => {
@@ -251,7 +283,7 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
       const json = currentEditor.getJSON();
       bodyJsonRef.current = json;
       onJsonChange?.(json);
-      onChange?.(currentEditor.getHTML());
+      emitChange(currentEditor.getHTML(), attachmentsRef.current);
     },
     editorProps: {
       attributes: {
@@ -313,22 +345,28 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
     }
   }, [editor, onEditorCreate]);
 
+  const lastDefaultValueRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || defaultJson) return;
+    if (defaultValue === lastDefaultValueRef.current) return;
+    lastDefaultValueRef.current = defaultValue;
+
+    const normalized = normalizeBodyForEditor(defaultValue || "");
+    editor.commands.setContent(normalized, { emitUpdate: false });
+  }, [editor, defaultValue, defaultJson]);
+
   useEffect(() => {
     if (!editor || editor.isDestroyed || readonly) return;
 
     const syncEditorMinHeight = () => {
       const dom = editor.view.dom as HTMLElement;
-      const last = dom.lastElementChild as HTMLElement | null;
-      const contentH = last ? last.offsetTop + last.offsetHeight : 0;
-      const buffer = mode === "note" ? 120 : 60;
-      dom.style.minHeight = `${contentH + buffer}px`;
+      if (dom) {
+        dom.style.minHeight = mode === "note" ? "120px" : "320px";
+      }
     };
 
     syncEditorMinHeight();
-    editor.on("update", syncEditorMinHeight);
-    return () => {
-      editor.off("update", syncEditorMinHeight);
-    };
   }, [editor, mode, readonly]);
 
   const handleEditorBodyMouseDown = useCallback(
@@ -367,6 +405,9 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
     if (!currentEditor || currentEditor.isDestroyed) {
       return lastSelectionRef.current;
     }
+    if (currentEditor.state.selection instanceof NodeSelection) {
+      return null;
+    }
     const { from, to } = currentEditor.state.selection;
     return { from, to };
   }, []);
@@ -379,12 +420,12 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
         const json = currentEditor && !currentEditor.isDestroyed
           ? currentEditor.getJSON()
           : bodyJsonRef.current;
-        const html = currentEditor && !currentEditor.isDestroyed
+        const rawHtml = currentEditor && !currentEditor.isDestroyed
           ? currentEditor.getHTML()
           : "";
         return {
           json,
-          html,
+          html: rawHtml,
           selection: readEditorSelection(),
         };
       },
@@ -397,11 +438,13 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
         currentEditor.commands.setContent(json, { emitUpdate: false });
         bodyJsonRef.current = json;
         onJsonChange?.(json);
-        onChange?.(currentEditor.getHTML());
-        if (selection) {
+        emitChange(currentEditor.getHTML(), attachmentsRef.current);
+        if (selection && !(currentEditor.state.selection instanceof NodeSelection)) {
           const clamped = clampEditorSelection(currentEditor, selection);
           lastSelectionRef.current = clamped;
           currentEditor.chain().focus().setTextSelection(clamped).run();
+        } else {
+          currentEditor.commands.focus("end");
         }
       },
       focusSelection: (selection) => {
@@ -409,9 +452,13 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
         if (!currentEditor || currentEditor.isDestroyed) {
           return;
         }
+        if (currentEditor.state.selection instanceof NodeSelection) {
+          currentEditor.commands.focus("end");
+          return;
+        }
         const targetSelection = selection ?? readEditorSelection();
         if (!targetSelection) {
-          currentEditor.commands.focus();
+          currentEditor.commands.focus("end");
           return;
         }
         const clamped = clampEditorSelection(currentEditor, targetSelection);
@@ -790,10 +837,15 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        multiple
         className="hidden"
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleImageUpload(file);
+          const files = e.target.files;
+          if (files && files.length > 0) {
+            for (let i = 0; i < files.length; i++) {
+              handleImageUpload(files[i]);
+            }
+          }
           e.target.value = "";
         }}
       />
@@ -825,6 +877,20 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
                 <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
               </svg>
             </button>
+
+            {onToggleTitle && (
+              <button
+                type="button"
+                className={`orbit-editor-tool-btn ${showTitle ? "active" : ""}`}
+                onClick={onToggleTitle}
+                title={showTitle ? "隐藏标题" : "添加标题"}
+                aria-label={showTitle ? "隐藏标题" : "添加标题"}
+              >
+                <svg className="orbit-editor-tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 12h16M4 6h16M4 18h10" />
+                </svg>
+              </button>
+            )}
           </div>
 
           {onToggleMode && !hideFullscreenToggle && (

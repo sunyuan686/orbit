@@ -34,6 +34,7 @@ import { createMemoriesRoutes } from "./api/memories.js";
 import { getSessionAuthor } from "./api/session-author.js";
 import { requestContext } from "./lib/request-context.js";
 import { createRequireAuth } from "./lib/request-auth.js";
+import { verifyTurnstileToken } from "./lib/turnstile.js";
 import type { NotifyRuntime } from "./services/notify.js";
 import { CompanionScheduler } from "./services/companion-scheduler.js";
 import { scanTestCandidate } from "./services/companion-engine.js";
@@ -44,6 +45,7 @@ export interface Env {
   AI: Ai;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
+  TURNSTILE_SECRET_KEY?: string;
   CF_ACCOUNT_ID?: string;
   CF_API_TOKEN?: string;
   TAVILY_API_KEY?: string;
@@ -70,7 +72,7 @@ app.use(
   "*",
   cors({
     origin: (origin) => origin,
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: ["Content-Type", "Authorization", "x-turnstile-token"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     exposeHeaders: ["X-Conversation-Id"],
@@ -79,12 +81,43 @@ app.use(
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
-app.on(["GET", "POST"], "/api/auth/**", async (c) => {
+const workerTurnstileMiddleware = async (c: any, next: () => Promise<void>) => {
+  const secret = c.env.TURNSTILE_SECRET_KEY;
+  if (secret) {
+    const token = c.req.header("x-turnstile-token") || "";
+    const clientIp = c.req.header("cf-connecting-ip") || c.req.header("x-forwarded-for");
+    const result = await verifyTurnstileToken(token, clientIp);
+    if (!result.success) {
+      return c.json(
+        {
+          status: 400,
+          message: "真人验证失败，请在页面完成真人验证后再尝试",
+          error: { message: "真人验证失败，请在页面完成真人验证后再尝试" },
+        },
+        400
+      );
+    }
+  }
+  await next();
+};
+
+app.use("/api/auth/sign-in/*", workerTurnstileMiddleware);
+app.use("/api/auth/sign-up/*", workerTurnstileMiddleware);
+
+app.on(["GET", "POST"], "/api/auth/*", async (c) => {
   const auth = createAuth(getDb(c), {
     secret: c.env.BETTER_AUTH_SECRET,
     baseURL: c.env.BETTER_AUTH_URL,
   });
   return auth.handler(c.req.raw);
+});
+
+// API 防缓存响应头
+app.use("/api/*", async (c, next) => {
+  await next();
+  c.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  c.header("Pragma", "no-cache");
+  c.header("Expires", "0");
 });
 
 // ─── Auth middleware ──────────────────────────────────────────────────────────

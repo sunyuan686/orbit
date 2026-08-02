@@ -24,6 +24,7 @@ import { db } from "../db/index.js";
 import { createLogger } from "../lib/logger.js";
 import { requestContext } from "../lib/request-context.js";
 import { createRequireAuth } from "../lib/request-auth.js";
+import { verifyTurnstileToken } from "../lib/turnstile.js";
 import { apiTokens } from "./routes/api-tokens.js";
 import { activity } from "./routes/activity.js";
 import { memories } from "./routes/memories.js";
@@ -44,15 +45,46 @@ app.use(
   "*",
   cors({
     origin: [...DEV_FRONTEND_ORIGINS, "http://localhost:3001"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: ["Content-Type", "Authorization", "x-turnstile-token"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     exposeHeaders: ["X-Conversation-Id"],
   })
 );
 
+// Cloudflare Turnstile 验证中间件（配置真实密钥，校验客户端凭证）
+const turnstileMiddleware = async (c: any, next: () => Promise<void>) => {
+  if (process.env.TURNSTILE_SECRET_KEY) {
+    const token = c.req.header("x-turnstile-token") || "";
+    const clientIp = c.req.header("cf-connecting-ip") || c.req.header("x-forwarded-for");
+    const result = await verifyTurnstileToken(token, clientIp);
+    if (!result.success) {
+      return c.json(
+        {
+          status: 400,
+          message: "真人验证失败，请在页面完成真人验证后再尝试",
+          error: { message: "真人验证失败，请在页面完成真人验证后再尝试" },
+        },
+        400
+      );
+    }
+  }
+  await next();
+};
+
+app.use("/api/auth/sign-in/*", turnstileMiddleware);
+app.use("/api/auth/sign-up/*", turnstileMiddleware);
+
 // better-auth 路由（/api/auth/*）
-app.on(["GET", "POST"], "/api/auth/**", (c) => auth.handler(c.req.raw));
+app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+
+// API 防缓存响应头（防止浏览器 GET 请求强缓存旧数据）
+app.use("/api/*", async (c, next) => {
+  await next();
+  c.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  c.header("Pragma", "no-cache");
+  c.header("Expires", "0");
+});
 
 const requireAuth = createRequireAuth({
   getAuth: () => auth,

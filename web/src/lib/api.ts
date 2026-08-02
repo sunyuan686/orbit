@@ -16,6 +16,10 @@ export interface EntrySummary {
   userId?: string | null;
   entryDate: number | null;
   parentId: string | null;
+  /** draft | published */
+  status?: string;
+  /** 最后更新时间（草稿列表用） */
+  updatedAt?: number;
   /** memo 稳定 slug；仅 type=memo 时有 */
   key?: string | null;
   /** 正文纯文本预览 */
@@ -41,6 +45,8 @@ export interface EntryDetail {
   body: string;
   entryDate: number | null;
   parentId: string | null;
+  /** draft | published */
+  status?: string;
   createdAt?: number;
   updatedAt?: number;
 }
@@ -235,6 +241,7 @@ export async function fetchEntries(
   }
   const res = await fetch(`${BASE}/api/articles?${params}`, {
     credentials: "include",
+    cache: "no-cache",
   });
   await assertOk(res, "加载列表失败");
   return res.json();
@@ -243,7 +250,7 @@ export async function fetchEntries(
 export async function fetchReplies(parentId: string): Promise<EntrySummary[]> {
   const res = await fetch(
     `${BASE}/api/articles/${encodeURIComponent(parentId)}/replies`,
-    { credentials: "include" }
+    { credentials: "include", cache: "no-cache" }
   );
   await assertOk(res, "加载回复失败");
   return res.json();
@@ -252,6 +259,7 @@ export async function fetchReplies(parentId: string): Promise<EntrySummary[]> {
 export async function fetchEntry(id: string): Promise<EntryDetail> {
   const res = await fetch(`${BASE}/api/articles/${encodeURIComponent(id)}`, {
     credentials: "include",
+    cache: "no-cache",
   });
   await assertOk(res, "内容不存在或加载失败");
   return res.json();
@@ -263,10 +271,11 @@ export async function saveEntry(
     title?: string;
     body?: string;
     entryDate?: number;
+    status?: "draft" | "published";
     /** 边注位置重映射（文章编辑后同步更新） */
     commentMappings?: CommentPositionMapping[];
   }
-): Promise<void> {
+): Promise<EntryDetail> {
   const res = await fetch(`${BASE}/api/articles/${encodeURIComponent(id)}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -274,6 +283,7 @@ export async function saveEntry(
     body: JSON.stringify(data),
   });
   await assertOk(res, "保存失败，请稍后重试");
+  return res.json();
 }
 
 export async function createEntry(data: {
@@ -282,7 +292,8 @@ export async function createEntry(data: {
   body?: string;
   entryDate?: number;
   parentId?: string | null;
-}): Promise<{ id: string }> {
+  status?: "draft" | "published";
+}): Promise<{ id: string; status?: string }> {
   const res = await fetch(`${BASE}/api/articles`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -290,6 +301,16 @@ export async function createEntry(data: {
     body: JSON.stringify(data),
   });
   await assertOk(res, "创建失败，请稍后重试");
+  return res.json();
+}
+
+/** 获取当前用户某类型的草稿列表 */
+export async function fetchDrafts(type: string): Promise<EntrySummary[]> {
+  const params = new URLSearchParams({ type, status: "draft" });
+  const res = await fetch(`${BASE}/api/articles?${params}`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载草稿失败");
   return res.json();
 }
 

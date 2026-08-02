@@ -72,7 +72,6 @@ export function MediaAttachmentsBar({
                   type="text"
                   value={tempAlt}
                   onChange={(e) => setTempAlt(e.target.value)}
-                  placeholder="为视障人士或无图环境描述图片内容…"
                   className="orbit-compose-alt-input"
                   autoFocus
                   onKeyDown={(e) => {

@@ -96,6 +96,7 @@ export const spaceInvite = sqliteTable(
  * 核心内容表
  * type: diary（日记事件）| timeline（里程碑）| message（留言板）| letter（信件）
  * parentId: letter 用于关联同轮回信（一封可有多条回信）；message 用于链式回复
+ * status: draft（草稿，仅作者可见）| published（已发布）
  */
 export const entry = sqliteTable(
   "entry",
@@ -114,6 +115,8 @@ export const entry = sqliteTable(
     parentId: text("parent_id").references(
       (): AnySQLiteColumn => entry.id
     ),
+    /** 发布状态：draft（草稿）| published（已发布） */
+    status: text("status").notNull().default("published"),
     createdAt: integer("created_at")
       .notNull()
       .default(sql`(unixepoch())`),
@@ -127,8 +130,13 @@ export const entry = sqliteTable(
       "entry_type_check",
       sql`${t.type} IN ('diary', 'timeline', 'message', 'letter')`
     ),
+    check(
+      "entry_status_check",
+      sql`${t.status} IN ('draft', 'published')`
+    ),
     index("idx_entry_type_date").on(t.type, t.entryDate),
     index("idx_entry_parent").on(t.parentId),
+    index("idx_entry_status_user").on(t.status, t.userId),
   ]
 );
 

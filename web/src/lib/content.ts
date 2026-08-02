@@ -51,17 +51,47 @@ export function normalizeBodyForEditor(body: string): string {
 
 /**
  * 判断 body 是否为"空"：兼容纯文本、Markdown 与 Tiptap 输出的 HTML。
- * 去掉标签、图片、实体、空白后若无所剩，视为空。
+ * 去掉 HTML 标签、实体、空白后若无所剩，且不包含图片/媒体元素，视为空。
  */
 export function isEmptyBody(value: string | null | undefined): boolean {
   if (!value) return true;
+  if (/<(img|video|audio|iframe)\b/i.test(value) || /!\[[^\]]*\]\([^)]+\)/.test(value)) {
+    return false;
+  }
   return (
     value
       .replace(/<!--[\s\S]*?-->/g, "")
-      .replace(/<img[^>]*>/gi, "")
       .replace(/<[^>]+>/g, "")
       .replace(/&nbsp;/g, " ")
-      .replace(/!\[[^\]]*\]\([^)]+\)/g, "")
       .replace(/\s+/g, "").length === 0
   );
 }
+
+export interface ExtractedMediaAttachment {
+  id: string;
+  url: string;
+  alt?: string;
+  width?: number;
+  height?: number;
+}
+
+/**
+ * 将正文 HTML 与媒体附件卡片数组重新组合为标准带 <img> 标签的完整 HTML 字符串。
+ */
+export function combineHtmlAndAttachments(
+  textHtml: string,
+  attachments: ExtractedMediaAttachment[]
+): string {
+  if (!attachments || attachments.length === 0) {
+    return textHtml || "";
+  }
+  const imgsHtml = attachments
+    .map(
+      (a) =>
+        `<img src="${a.url}"${a.alt ? ` alt="${a.alt.replace(/"/g, "&quot;")}"` : ""} class="orbit-prose-img" />`
+    )
+    .join("");
+  return `${textHtml || ""}${imgsHtml}`;
+}
+
+

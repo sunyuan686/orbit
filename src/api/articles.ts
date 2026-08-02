@@ -147,14 +147,62 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
   const articles = new Hono();
 
   // GET /api/articles?type=diary|timeline|message|letter|memo
-  // letter 默认只返回主信（parentId=null）；?roots=0 返回全部
+  // ?status=draft  仅返回当前用户的草稿（需登录）
+  // 默认只返回 published；letter 默认只返回主信（parentId=null）；?roots=0 返回全部
   // 无 limit：仍返回数组（兼容）；有 limit：{ items, total, limit, offset }
   articles.get("/", async (c) => {
     const db = await getDb(c);
     const type = c.req.query("type");
+    const statusFilter = c.req.query("status"); // 'draft' | undefined
     const rootsOnly = c.req.query("roots") !== "0";
     const page = parseOptionalPage(c);
     if (!page.ok) return page.response;
+
+    // 草稿查询：鉴权后只返回自己的草稿
+    if (statusFilter === "draft") {
+      const sessionResult = await requireSessionAuthor(c, getSessionAuthor);
+      if (sessionResult instanceof Response) return sessionResult;
+      const sessionAuthor = sessionResult as SessionAuthor;
+
+      const conditions = [
+        isNull(entry.deletedAt),
+        eq(entry.status, "draft"),
+        eq(entry.userId, sessionAuthor.userId),
+      ];
+      if (type && type !== "all") {
+        conditions.push(eq(entry.type, type));
+      }
+      const where = and(...conditions);
+
+      const drafts = await db
+        .select({
+          id: entry.id,
+          type: entry.type,
+          title: entry.title,
+          author: entry.author,
+          userId: entry.userId,
+          entryDate: entry.entryDate,
+          createdAt: entry.createdAt,
+          updatedAt: entry.updatedAt,
+          parentId: entry.parentId,
+          status: entry.status,
+          snippetRaw: sql<string>`substr(coalesce(${entry.bodyText}, ''), 1, 160)`,
+        })
+        .from(entry)
+        .where(where)
+        .orderBy(desc(entry.updatedAt));
+
+      const nameMap = await loadUserNameMap(
+        db,
+        drafts.map((e: { userId: string | null }) => e.userId)
+      );
+      const items = drafts.map((row: any) => ({
+        ...mapEntrySummary(row, nameMap),
+        status: row.status,
+        updatedAt: row.updatedAt,
+      }));
+      return c.json(items);
+    }
 
     if (type === "memo") {
       const where = isNull(memo.deletedAt);
@@ -221,7 +269,8 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       });
     }
 
-    const conditions = [isNull(entry.deletedAt)];
+    // 默认只返回 published
+    const conditions = [isNull(entry.deletedAt), eq(entry.status, "published")];
     if (type && type !== "all") {
       conditions.push(eq(entry.type, type));
     }
@@ -325,20 +374,24 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     return c.json(await presentEntryDetail(db, row));
   });
 
-  // POST /api/articles — 新建
+  // POST /api/articles — 新建（支持 status: draft | published）
   articles.post("/", async (c) => {
     const db = await getDb(c);
     const sessionResult = await requireSessionAuthor(c, getSessionAuthor);
     if (sessionResult instanceof Response) return sessionResult;
     const sessionAuthor = sessionResult as SessionAuthor;
 
-    const { type, title, body, entryDate, parentId } = await c.req.json<{
+    const { type, title, body, entryDate, parentId, status } = await c.req.json<{
       type: string;
       title?: string;
       body?: string;
       entryDate?: number;
       parentId?: string | null;
+      status?: "draft" | "published";
     }>();
+
+    const effectiveStatus: "draft" | "published" =
+      status === "draft" ? "draft" : "published";
 
     if (type === "memo") {
       if (isEmptyBody(body)) return bodyRequiredResponse(c);
@@ -362,7 +415,10 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       return c.json({ id });
     }
 
-    if (isEmptyBody(body)) return bodyRequiredResponse(c);
+    // 草稿允许空 body（先占位），published 必须有内容
+    if (effectiveStatus === "published" && isEmptyBody(body)) {
+      return bodyRequiredResponse(c);
+    }
 
     const id = generateId("ent");
     const bodyValue = body ?? "";
@@ -374,6 +430,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       bodyText: bodyValue ? toPlainText(bodyValue) : "",
       entryDate: entryDate ?? now(),
       parentId: parentId ?? null,
+      status: effectiveStatus,
       createdAt: now(),
       updatedAt: now(),
       ...authorWriteFields(sessionAuthor),
@@ -381,31 +438,35 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     await syncAssetReferences(db, type, id, bodyValue);
     await auditArticleWrite(c, db, sessionAuthor, AuditAction.ARTICLE_CREATE, AuditResourceType.ENTRY, id, {
       contentType: type,
+      status: effectiveStatus,
       titleLength: title?.length ?? 0,
       bodyLength: bodyValue.length,
       entryDate: entryDate ?? null,
       parentId: parentId ?? null,
     });
 
-    const notifyRuntime = getNotifyRuntime?.(c);
-    if (notifyRuntime) {
-      const task = notifyEntryCreated(db, notifyRuntime, {
-        actorUserId: sessionAuthor.userId,
-        actorName: sessionAuthor.author,
-        entryId: id,
-        entryType: type,
-        parentId: parentId ?? null,
-        bodyPreview: bodyValue ? toPlainText(bodyValue) : "",
-        requestId: getRequestId(c),
-      });
-      if (waitUntil) waitUntil(c, task);
-      else void task.catch(() => undefined);
+    // 草稿不触发通知
+    if (effectiveStatus === "published") {
+      const notifyRuntime = getNotifyRuntime?.(c);
+      if (notifyRuntime) {
+        const task = notifyEntryCreated(db, notifyRuntime, {
+          actorUserId: sessionAuthor.userId,
+          actorName: sessionAuthor.author,
+          entryId: id,
+          entryType: type,
+          parentId: parentId ?? null,
+          bodyPreview: bodyValue ? toPlainText(bodyValue) : "",
+          requestId: getRequestId(c),
+        });
+        if (waitUntil) waitUntil(c, task);
+        else void task.catch(() => undefined);
+      }
     }
 
-    return c.json({ id });
+    return c.json({ id, status: effectiveStatus });
   });
 
-  // PUT /api/articles/:id — 更新（可选附带边注位置重映射）
+  // PUT /api/articles/:id — 更新（可选附带边注位置重映射、status 发布草稿）
   articles.put("/:id", async (c) => {
     const db = await getDb(c);
     const sessionResult = await requireSessionAuthor(c, getSessionAuthor);
@@ -413,16 +474,20 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const sessionAuthor = sessionResult as SessionAuthor;
 
     const id = c.req.param("id");
-    const { title, body, entryDate, commentMappings } = await c.req.json<{
+    const { title, body, entryDate, commentMappings, status } = await c.req.json<{
       title?: string;
       body?: string;
       entryDate?: number;
+      status?: "draft" | "published";
       /** 边注位置重映射数组 */
       commentMappings?: { id: string; anchorFrom: number; anchorTo: number }[];
     }>();
 
-    // 传了 body 且为空时拒绝；未传 body 视为不修改（如只改标题）
-    if (body !== undefined && isEmptyBody(body)) {
+    // 草稿转 published 时才检查 body 非空；单纯更新内容时如果传了 body 且为空也拒绝
+    if (status === "published" && isEmptyBody(body)) {
+      return bodyRequiredResponse(c);
+    }
+    if (status !== "published" && body !== undefined && isEmptyBody(body)) {
       return bodyRequiredResponse(c);
     }
 
@@ -453,7 +518,8 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
         titleLength: title?.length ?? null,
         bodyLength: body?.length ?? null,
       });
-      return c.json({ ok: true });
+      const updatedMemo = await db.select().from(memo).where(eq(memo.id, id)).get();
+      return c.json(await presentMemoDetail(db, updatedMemo!));
     }
 
     const existing = await db
@@ -476,6 +542,9 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       ...editorWriteFields(sessionAuthor),
       updatedAt: now(),
     };
+    if (status === "draft" || status === "published") {
+      entryUpdates.status = status;
+    }
     if (body !== undefined) {
       entryUpdates.body = body;
       entryUpdates.bodyText = body ? toPlainText(body) : "";
@@ -535,13 +604,15 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
 
     await auditArticleWrite(c, db, sessionAuthor, AuditAction.ARTICLE_UPDATE, AuditResourceType.ENTRY, id, {
       contentType: existing.type,
+      status: status ?? null,
       titleLength: title?.length ?? null,
       bodyLength: body?.length ?? null,
       entryDate: entryDate ?? null,
       commentMappingsCount: commentMappings?.length ?? 0,
     });
 
-    return c.json({ ok: true });
+    const updatedRow = await db.select().from(entry).where(eq(entry.id, id)).get();
+    return c.json(await presentEntryDetail(db, updatedRow!));
   });
 
   // DELETE /api/articles/:id — 统一软删除（仅作者本人）

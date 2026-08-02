@@ -7,6 +7,7 @@ import { VitePWA } from "vite-plugin-pwa";
 const USER_MEDIA_ASSET = /^\/assets\/[a-f0-9]{8}\.(?:jpe?g|png|gif|webp)$/i;
 
 export default defineConfig({
+  envDir: "../",
   plugins: [
     react(),
     tailwindcss(),

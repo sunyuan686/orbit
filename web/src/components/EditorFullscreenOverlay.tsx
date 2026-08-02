@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { NodeSelection } from "@tiptap/pm/state";
 import { TiptapEditor, type TiptapEditorHandle } from "./TiptapEditor";
 import { CloseIcon } from "./OrbitIcons";
 import {
@@ -60,12 +61,12 @@ export function EditorFullscreenOverlay({
       requestAnimationFrame(() => {
         const editor = editorRef.current?.getEditor();
         if (!editor || editor.isDestroyed) return;
-        if (selection) {
+        if (selection && !(editor.state.selection instanceof NodeSelection)) {
           const clamped = clampEditorSelection(editor, selection);
           editor.chain().focus().setTextSelection(clamped).run();
           return;
         }
-        editor.commands.focus();
+        editor.commands.focus("end");
       });
       return;
     }
@@ -204,7 +205,7 @@ export function EditorFullscreenOverlay({
           <TiptapEditor
             key="orbit-fullscreen-editor"
             ref={editorRef}
-            defaultJson={handoff.json}
+            defaultValue={handoff.html}
             entryId={entryId}
             mode="article"
             hideFullscreenToggle

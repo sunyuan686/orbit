@@ -1691,6 +1691,8 @@ h1, h2, h3, h4, h5, h6 {
   font-size: var(--type-xs);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .orbit-article-meta {
@@ -4347,7 +4349,8 @@ a.orbit-settings-mobile-row {
     background-color 0.15s ease;
 }
 
-.orbit-date-picker-trigger[aria-expanded="true"] {
+.orbit-date-picker-trigger:focus-within,
+.orbit-date-picker-trigger--open {
   border-color: var(--color-border);
   background: var(--color-surface-raised);
   box-shadow: var(--shadow-subtle);
@@ -4363,28 +4366,95 @@ a.orbit-settings-mobile-row {
   background: var(--color-surface-raised);
 }
 
-.orbit-date-picker-trigger:focus-visible {
-  outline: none;
-  border-color: var(--color-border);
-  box-shadow:
-    0 0 0 2px var(--color-surface),
-    0 0 0 4px var(--color-focus-ring);
-}
-
 .orbit-date-picker-trigger-icon {
   flex-shrink: 0;
   color: var(--color-text-muted);
 }
 
-.orbit-date-picker-trigger-value {
+.orbit-date-picker-input {
   flex: 1;
   min-width: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
 }
 
-.orbit-date-picker-trigger-placeholder {
-  flex: 1;
-  min-width: 0;
+.orbit-date-picker-input::placeholder {
   color: var(--color-text-muted);
+}
+
+/* Inline micro variant for immersive editor metadata bar */
+.orbit-date-picker--inline .orbit-date-picker-trigger {
+  min-height: 24px;
+  padding: 0.1rem 0.4rem;
+  font-size: var(--type-xs);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  gap: 0.25rem;
+  color: var(--color-text-muted);
+}
+
+.orbit-date-picker--inline .orbit-date-picker-trigger:hover,
+.orbit-date-picker--inline .orbit-date-picker-trigger--open {
+  background: var(--color-surface-raised, rgba(0, 0, 0, 0.04));
+  border-color: var(--color-border-light);
+  color: var(--color-text-primary);
+  box-shadow: none;
+}
+
+.orbit-date-picker--inline .orbit-date-picker-input {
+  width: 6.2rem;
+  font-size: var(--type-xs);
+  color: inherit;
+  cursor: pointer;
+}
+
+.orbit-editor-meta-bar {
+  color: var(--color-text-muted);
+  font-size: var(--type-xs);
+  line-height: 1.4;
+}
+
+.orbit-entry-author {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.orbit-meta-divider {
+  opacity: 0.4;
+  user-select: none;
+}
+
+.orbit-page-title-badge {
+  font-weight: 500;
+  color: var(--color-text-primary);
+  background: var(--color-surface-raised);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.orbit-date-picker-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  margin-left: 0.25rem;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.orbit-date-picker-clear-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover, rgba(0, 0, 0, 0.06));
 }
 
 .orbit-date-picker-popover {
@@ -4398,6 +4468,123 @@ a.orbit-settings-mobile-row {
   border: 1px solid var(--color-border);
   border-radius: 14px;
   box-shadow: var(--shadow-float);
+}
+
+/* Header & Controls */
+.orbit-date-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2.25rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.orbit-date-picker-header-title {
+  font-family: var(--font-body);
+  font-size: var(--type-secondary);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.orbit-date-picker-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.orbit-date-picker-nav-btn:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+
+.orbit-date-picker-nav-btn:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+.orbit-date-picker-caption-group {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.orbit-date-picker-caption-btn {
+  padding: 0.25rem 0.625rem;
+  font-family: var(--font-body);
+  font-size: var(--type-secondary);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.orbit-date-picker-caption-btn:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface-hover, var(--color-surface-raised));
+}
+
+.orbit-date-picker-caption-btn:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+/* Grid View (Year & Month grid) */
+.orbit-date-picker-grid-view {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.625rem;
+  padding: 0.625rem 0;
+  min-height: 15rem;
+  align-content: center;
+}
+
+.orbit-date-picker-grid-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.75rem;
+  padding: 0.25rem;
+  font-family: var(--font-body);
+  font-size: var(--type-secondary);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: 10px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.orbit-date-picker-grid-cell:hover {
+  background: var(--color-surface-raised);
+  border-color: var(--color-border);
+}
+
+.orbit-date-picker-grid-cell--active {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  border-color: var(--color-border);
+  box-shadow: inset 0 0 0 1.5px var(--color-text-secondary);
 }
 
 .orbit-date-picker-popover .orbit-date-picker-calendar {
@@ -4966,7 +5153,9 @@ a.orbit-settings-mobile-row {
 
 .ProseMirror {
   outline: none;
-  font-size: var(--type-body);
+  /* iOS WebKit auto-zooms focused contenteditable when font-size < 16px.
+     Use max(16px, …) so the PWA editor never triggers viewport zoom on focus. */
+  font-size: max(16px, var(--type-body));
   line-height: var(--leading-body);
   color: var(--color-text-primary);
 }
@@ -5673,6 +5862,12 @@ a.orbit-settings-mobile-row {
   border-radius: 12px;
 }
 
+@media (max-width: 480px) {
+  .orbit-auth-panel {
+    padding: 1.25rem 1rem;
+  }
+}
+
 .orbit-auth-tabs {
   display: flex;
   gap: 0.25rem;
@@ -5813,6 +6008,42 @@ a.orbit-settings-mobile-row {
   width: 100%;
   margin-top: 0.5rem;
   min-height: 44px;
+}
+
+.orbit-turnstile-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 1rem 0;
+  min-height: 65px;
+  width: 100%;
+}
+
+.orbit-turnstile-container iframe {
+  max-width: 100% !important;
+}
+
+.orbit-turnstile-error {
+  padding: 10px 14px;
+  margin: 12px 0;
+  font-size: 12px;
+  color: #b45309;
+  background-color: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.orbit-turnstile-error-sub {
+  opacity: 0.85;
+  font-size: 11px;
+}
+
+.dark .orbit-turnstile-error {
+  color: #fde68a;
+  background-color: rgba(180, 83, 9, 0.2);
+  border-color: rgba(251, 191, 36, 0.3);
 }
 
 /* ──────────────────────────────────────────────────────────
@@ -7766,8 +7997,51 @@ html.orbit-ai-open body {
   }
 
   .orbit-ai-fab {
-    right: calc(1rem + env(safe-area-inset-right, 0px));
-    bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+    position: fixed;
+    right: 16px;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    z-index: 55;
+    width: 44px;
+    height: 44px;
+    border-radius: 9999px;
+    background: var(--ai-fab-bg);
+    border: 1px solid var(--ai-fab-border);
+    box-shadow: var(--ai-fab-shadow);
+    transition:
+      transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 0.3s ease,
+      right 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.3s ease,
+      background var(--motion-fast),
+      border-color var(--motion-fast);
+  }
+
+  /* Docked state ("缩到墙里"): slides to right wall, half tucked into screen edge */
+  .orbit-ai-fab.orbit-ai-fab--docked:not(.orbit-ai-fab--hidden) {
+    right: -22px !important;
+    transform: translateX(0);
+    opacity: 0.6;
+    box-shadow: -2px 4px 10px rgba(0, 0, 0, 0.15);
+  }
+
+  .orbit-ai-fab.orbit-ai-fab--docked:not(.orbit-ai-fab--hidden) .orbit-ai-fab-icon {
+    transform: translateX(-5px);
+    opacity: 0.9;
+  }
+
+  /* Expanded / Hover / Active state: pops out into full floating ball */
+  .orbit-ai-fab.orbit-ai-fab--expanded:not(.orbit-ai-fab--hidden) {
+    right: 16px !important;
+    transform: translateX(0);
+    opacity: 1;
+    background: var(--ai-fab-bg-hover);
+    box-shadow: var(--ai-fab-shadow-hover);
+  }
+
+  .orbit-ai-fab.orbit-ai-fab--expanded:not(.orbit-ai-fab--hidden):hover .orbit-ai-fab-icon,
+  .orbit-ai-fab.orbit-ai-fab--expanded:not(.orbit-ai-fab--hidden):active .orbit-ai-fab-icon {
+    transform: scale(1.12) rotate(-8deg);
+    opacity: 1;
   }
 
   .orbit-ai-composer {
@@ -7948,6 +8222,17 @@ html.orbit-ai-open body {
   backdrop-filter: blur(8px);
 }
 
+.orbit-gallery-lightbox-controls {
+  opacity: 1;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+.orbit-gallery-lightbox-controls--hidden {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 .orbit-gallery-lightbox-panel {
   position: relative;
   width: min(960px, 100%);
@@ -7961,9 +8246,92 @@ html.orbit-ai-open body {
 
 .orbit-gallery-lightbox-close {
   position: absolute;
-  top: max(0.75rem, calc(0.75rem + env(safe-area-inset-top, 0px)));
-  right: max(0.75rem, calc(0.75rem + env(safe-area-inset-right, 0px)));
-  z-index: 1;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 10;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.32);
+  color: #ffffff;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: background var(--motion-fast), transform var(--motion-fast) var(--motion-ease-enter);
+}
+
+.orbit-gallery-lightbox-close:hover {
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+.orbit-gallery-lightbox-counter {
+  position: absolute;
+  top: max(1.25rem, calc(1rem + env(safe-area-inset-top, 0px)));
+  left: max(1.25rem, calc(1rem + env(safe-area-inset-left, 0px)));
+  z-index: 50;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  font-size: var(--type-xs, 12px);
+  font-weight: 500;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  pointer-events: none;
+}
+
+.orbit-gallery-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 50;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.32);
+  color: #ffffff;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--motion-fast), transform var(--motion-fast) var(--motion-ease-enter), opacity var(--motion-fast);
+  cursor: pointer;
+}
+
+.orbit-gallery-lightbox-nav--prev {
+  left: max(1rem, calc(0.75rem + env(safe-area-inset-left, 0px)));
+}
+
+.orbit-gallery-lightbox-nav--next {
+  right: max(1rem, calc(0.75rem + env(safe-area-inset-right, 0px)));
+}
+
+.orbit-gallery-lightbox-nav:hover {
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+  transform: translateY(-50%) scale(1.06);
+}
+
+.orbit-gallery-lightbox-nav:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+@media (max-width: 640px) {
+  .orbit-gallery-lightbox-nav {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    opacity: 0.85;
+  }
 }
 
 .orbit-gallery-lightbox-meta {
@@ -9577,7 +9945,9 @@ button.orbit-activity-cell:hover {
   width: 100%;
   height: 28px;
   padding: 4px 8px;
-  font-size: 13px;
+  /* iOS WebKit auto-zooms focused inputs when font-size < 16px.
+     Use 16px to prevent viewport zoom in PWA without disabling user pinch-zoom. */
+  font-size: 16px;
   color: var(--color-text-primary);
   background: color-mix(in srgb, var(--color-surface-muted, #f4f4f5) 60%, transparent);
   border: 1px solid var(--color-border-light, oklch(0.88 0.01 80));
@@ -9742,11 +10112,6 @@ button.orbit-activity-cell:hover {
   color: var(--color-text-primary);
 }
 
-@media (max-width: 700px), (max-height: 760px) {
-  .orbit-compose-fullscreen-btn {
-    display: none;
-  }
-}
 
 .orbit-compose-body {
   flex: 1;
@@ -9824,6 +10189,11 @@ button.orbit-activity-cell:hover {
   color: var(--color-text-primary);
 }
 
+.orbit-compose-tool-btn.active {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+}
+
 /* Media Attachments Bar */
 .orbit-compose-attachments-bar {
   margin-top: 8px;
@@ -9842,7 +10212,6 @@ button.orbit-activity-cell:hover {
   width: 90px;
   height: 90px;
   border-radius: 8px;
-  overflow: hidden;
   border: 1px solid var(--color-border-light, oklch(0.9 0.01 80));
   background: var(--color-surface-muted, #f4f4f5);
 }
@@ -9851,6 +10220,7 @@ button.orbit-activity-cell:hover {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 7px;
 }
 
 .orbit-compose-attachment-remove {
@@ -9868,6 +10238,7 @@ button.orbit-activity-cell:hover {
   justify-content: center;
   cursor: pointer;
   transition: transform 0.12s ease;
+  z-index: 2;
 }
 
 .orbit-compose-attachment-remove:hover {
@@ -9888,6 +10259,7 @@ button.orbit-activity-cell:hover {
   color: #ffffff;
   cursor: pointer;
   transition: background 0.15s ease;
+  z-index: 2;
 }
 
 .orbit-compose-attachment-alt-btn.has-alt {
@@ -9896,50 +10268,96 @@ button.orbit-activity-cell:hover {
 
 .orbit-compose-alt-popover {
   position: absolute;
-  inset: 0;
-  z-index: 10;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 260px;
+  max-width: calc(100vw - 32px);
+  z-index: 50;
   background: var(--color-surface, #ffffff);
-  padding: 6px;
+  border: 1px solid var(--color-border-light, oklch(0.88 0.01 80));
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 4px 10px -2px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  animation: orbit-compose-alt-popover-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dark .orbit-compose-alt-popover {
-  background: oklch(0.2 0.01 80);
+  background: oklch(0.22 0.01 80);
+  border-color: oklch(0.32 0.01 80);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes orbit-compose-alt-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .orbit-compose-alt-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary, oklch(0.45 0.01 80));
+}
+
+.dark .orbit-compose-alt-header {
+  color: var(--color-text-muted, oklch(0.7 0.01 80));
 }
 
 .orbit-compose-alt-close {
   border: none;
   background: transparent;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
   color: var(--color-text-muted);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.orbit-compose-alt-close:hover {
+  background: var(--color-surface-hover, oklch(0.95 0.01 80));
+  color: var(--color-text-primary);
 }
 
 .orbit-compose-alt-input {
   width: 100%;
-  border: 1px solid var(--color-border, oklch(0.85 0.01 80));
-  background: transparent;
-  font-size: 11px;
-  padding: 4px;
-  border-radius: 4px;
+  border: 1px solid var(--color-border-light, oklch(0.88 0.01 80));
+  background: var(--color-surface-muted, oklch(0.98 0.005 80));
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 7px 10px;
+  border-radius: 6px;
   outline: none;
   color: var(--color-text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.orbit-compose-alt-input:focus {
+  border-color: var(--color-accent, #10b981);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+}
+
+.dark .orbit-compose-alt-input {
+  background: oklch(0.18 0.01 80);
+  border-color: oklch(0.3 0.01 80);
 }
 
 .orbit-compose-alt-actions {
   display: flex;
   justify-content: flex-end;
+  margin-top: 2px;
 }
 
 /* Jant-Style Editor & Toolbar Micro-Design Alignment */
@@ -10020,15 +10438,15 @@ button.orbit-activity-cell:hover {
   color: var(--color-text-primary);
 }
 
+.orbit-editor-tool-btn.active {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+}
+
 .orbit-editor-tool-btn:active {
   transform: scale(0.96);
 }
 
-@media (max-width: 700px), (max-height: 760px), (hover: none) and (pointer: coarse) {
-  .orbit-editor-tool-view-group {
-    display: none !important;
-  }
-}
 
 /* Jant 100% Immersive Fullscreen Article Overlay (对标 Jant 截图 1) */
 .orbit-fullscreen-dialog {
@@ -10175,6 +10593,40 @@ button.orbit-activity-cell:hover {
   --_img-toolbar-bg: oklch(0.32 0.01 260 / 0.88);
 }
 
+/* 草稿按钮 badge */
+.orbit-draft-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--color-accent, #6366f1);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  margin-left: 2px;
+}
+
+/* 草稿按鈕容器（需要 position: relative 以支持角标绝对定位） */
+.orbit-draft-icon-btn {
+  position: relative;
+}
+
+/* overlay 角标形式的 badge（右上角） */
+.orbit-draft-count-badge--overlay {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  margin-left: 0;
+  min-width: 16px;
+  height: 16px;
+  font-size: 10px;
+  pointer-events: none;
+}
+
 .tiptap-image-container {
   position: relative;
   border-radius: 6px;
@@ -10305,7 +10757,8 @@ button.orbit-activity-cell:hover {
   border: none;
   outline: none;
   background: transparent;
-  font-size: 12px;
+  /* iOS WebKit auto-zooms focused inputs when font-size < 16px. */
+  font-size: max(16px, 12px);
   color: var(--color-text-secondary, oklch(0.55 0 0));
   text-align: center;
 }
@@ -10424,3 +10877,382 @@ button.orbit-activity-cell:hover {
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
 }
 
+/* ─── 草稿箱 ─────────────────────────────────────────────── */
+
+/* 草稿按钮（参考 orbit-btn，带淡色强调背景） */
+.orbit-btn-draft {
+  position: relative;
+  background: color-mix(in srgb, var(--color-accent, #6366f1) 10%, transparent);
+  color: var(--color-accent, #6366f1);
+  border-color: color-mix(in srgb, var(--color-accent, #6366f1) 25%, transparent);
+}
+
+.orbit-btn-draft:hover {
+  background: color-mix(in srgb, var(--color-accent, #6366f1) 18%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent, #6366f1) 40%, transparent);
+}
+
+/* 背景遮罩 */
+.orbit-draft-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(2px);
+  z-index: 400;
+  animation: orbit-fade-in 0.2s ease;
+}
+
+/* 抽屉面板 */
+.orbit-draft-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(380px, 92vw);
+  background: var(--color-bg);
+  border-left: 1px solid var(--color-border);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.12);
+  z-index: 401;
+  display: flex;
+  flex-direction: column;
+  animation: orbit-drawer-slide-in 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  overflow: hidden;
+}
+
+@keyframes orbit-drawer-slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes orbit-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 抽屉头部 */
+.orbit-draft-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border-light);
+  flex-shrink: 0;
+}
+
+.orbit-draft-drawer-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--type-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.orbit-draft-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.orbit-draft-drawer-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.orbit-draft-drawer-close:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+
+/* 抽屉内容区 */
+.orbit-draft-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0;
+}
+
+/* 空状态 */
+.orbit-draft-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 3rem 2rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.orbit-draft-empty p {
+  margin: 0;
+  font-size: var(--type-sm);
+}
+
+.orbit-draft-empty-hint {
+  font-size: var(--type-xs) !important;
+  opacity: 0.7;
+}
+
+/* 草稿列表 */
+.orbit-draft-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* 草稿条目 */
+.orbit-draft-item {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--color-border-light);
+  transition: background 0.12s ease;
+}
+
+.orbit-draft-item:last-child {
+  border-bottom: none;
+}
+
+.orbit-draft-item:hover {
+  background: var(--color-surface-raised);
+}
+
+/* 恢复按钮（主体） */
+.orbit-draft-item-restore {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.875rem 1rem 0.875rem 1.25rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.orbit-draft-item-preview {
+  font-size: var(--type-sm);
+  color: var(--color-text-primary);
+  line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.orbit-draft-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.orbit-draft-item-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-light);
+}
+
+.orbit-draft-item-tag--new {
+  background: color-mix(in srgb, var(--color-accent, #6366f1) 10%, transparent);
+  color: var(--color-accent, #6366f1);
+  border-color: color-mix(in srgb, var(--color-accent, #6366f1) 25%, transparent);
+}
+
+.orbit-draft-item-time {
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+}
+
+/* 删除按钮 */
+.orbit-draft-item-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  flex-shrink: 0;
+  border: none;
+  border-left: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  opacity: 0;
+}
+
+.orbit-draft-item:hover .orbit-draft-item-delete {
+  opacity: 1;
+}
+
+.orbit-draft-item-delete:hover {
+  background: color-mix(in srgb, var(--color-danger, #ef4444) 10%, transparent);
+  color: var(--color-danger, #ef4444);
+  border-left-color: var(--color-border-light);
+}
+
+/* 确认删除态 */
+.orbit-draft-item-delete.confirming {
+  opacity: 1;
+  background: color-mix(in srgb, var(--color-danger, #ef4444) 15%, transparent);
+  color: var(--color-danger, #ef4444);
+  border-left-color: color-mix(in srgb, var(--color-danger, #ef4444) 30%, transparent);
+}
+
+/* 编辑页标题旁草稿标签 */
+.orbit-draft-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: var(--type-xs);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  background: color-mix(in srgb, var(--color-accent, #6366f1) 12%, transparent);
+  color: var(--color-accent, #6366f1);
+  border: 1px solid color-mix(in srgb, var(--color-accent, #6366f1) 28%, transparent);
+  margin-top: 4px;
+}
+
+/* ── ActionSheetDialog（Jant 风格操作确认弹窗） ──────────────────────────── */
+
+/* 背景遮罩 */
+.orbit-action-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: orbit-fade-in 0.18s ease;
+}
+
+/* 弹窗卡片 */
+.orbit-action-sheet {
+  width: min(320px, 90vw);
+  background: var(--color-bg);
+  border-radius: 16px;
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.22),
+    0 2px 8px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  animation: orbit-action-sheet-pop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border: 1px solid var(--color-border-light);
+}
+
+@keyframes orbit-action-sheet-pop {
+  from {
+    transform: scale(0.88);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 头部：标题 + 描述 */
+.orbit-action-sheet-header {
+  padding: 1.25rem 1.5rem 1.125rem;
+  text-align: center;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.orbit-action-sheet-title {
+  margin: 0;
+  font-size: var(--type-sm);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.35;
+}
+
+.orbit-action-sheet-description {
+  margin: 0.5rem 0 0;
+  font-size: var(--type-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* 操作按钮区 */
+.orbit-action-sheet-actions {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 单个操作按钮 */
+.orbit-action-sheet-btn {
+  width: 100%;
+  padding: 0.9rem 1.5rem;
+  border: none;
+  border-bottom: 1px solid var(--color-border-light);
+  background: transparent;
+  font-size: var(--type-sm);
+  font-weight: 400;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.12s ease;
+  text-align: center;
+  line-height: 1;
+}
+
+.orbit-action-sheet-btn:last-child {
+  border-bottom: none;
+}
+
+.orbit-action-sheet-btn:hover {
+  background: var(--color-surface-raised);
+}
+
+.orbit-action-sheet-btn:active {
+  background: var(--color-border-light);
+}
+
+/* 粗体变体 */
+.orbit-action-sheet-btn--bold {
+  font-weight: 700;
+}
+
+/* 危险操作（红色） */
+.orbit-action-sheet-btn--destructive {
+  color: var(--color-danger, #ef4444);
+}
+
+.orbit-action-sheet-btn--destructive:hover {
+  background: color-mix(in srgb, var(--color-danger, #ef4444) 8%, transparent);
+}
+
+/* 低调操作（灰色） */
+.orbit-action-sheet-btn--muted {
+  color: var(--color-text-muted);
+}

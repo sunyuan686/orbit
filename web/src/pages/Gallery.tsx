@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   useInfiniteQuery,
@@ -20,7 +20,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { setPageTitle } from "../lib/pageTitle";
 import { useConfirm } from "../lib/useConfirm";
 import { useToast } from "../lib/useToast";
-import { CloseIcon } from "../components/OrbitIcons";
+import { CloseIcon, ChevronLeftIcon, ChevronRightIcon } from "../components/OrbitIcons";
 import { GalleryImage } from "../components/GalleryImage";
 
 const PAGE_SIZE = 48;
@@ -39,6 +39,22 @@ export function GalleryPage() {
   const [activeItem, setActiveItem] = useState<GalleryItem | null>(null);
   const toastedError = useRef<unknown>(null);
 
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const [touchOffset, setTouchOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isSwiping, setIsSwiping] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const resetControlsTimer = useCallback(() => {
+    setShowControls(true);
+    if (controlsTimerRef.current) {
+      clearTimeout(controlsTimerRef.current);
+    }
+    controlsTimerRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 1500);
+  }, []);
+
   useEffect(() => {
     setPageTitle("相册");
   }, []);
@@ -46,6 +62,17 @@ export function GalleryPage() {
   useEffect(() => {
     setActiveItem(null);
   }, [filter]);
+
+  useEffect(() => {
+    if (activeItem) {
+      resetControlsTimer();
+    } else {
+      setShowControls(true);
+      if (controlsTimerRef.current) {
+        clearTimeout(controlsTimerRef.current);
+      }
+    }
+  }, [activeItem, resetControlsTimer]);
 
   const galleryQuery = useInfiniteQuery({
     queryKey: queryKeys.gallery(filter, { pageSize: PAGE_SIZE }),
@@ -76,6 +103,118 @@ export function GalleryPage() {
   const loadingMore = galleryQuery.isFetchingNextPage;
   const hasMore = galleryQuery.hasNextPage;
 
+  const currentIndex = useMemo(() => {
+    if (!activeItem) return -1;
+    return items.findIndex((item) => item.storageKey === activeItem.storageKey);
+  }, [activeItem, items]);
+
+  const hasPrev = currentIndex > 0;
+  const hasNext =
+    currentIndex >= 0 && (currentIndex < items.length - 1 || hasMore);
+
+  const handlePrev = useCallback(() => {
+    if (currentIndex > 0) {
+      setActiveItem(items[currentIndex - 1]);
+      resetControlsTimer();
+    }
+  }, [currentIndex, items, resetControlsTimer]);
+
+  const handleNext = useCallback(() => {
+    if (currentIndex >= 0 && currentIndex < items.length - 1) {
+      setActiveItem(items[currentIndex + 1]);
+      resetControlsTimer();
+      if (
+        currentIndex >= items.length - 3 &&
+        hasMore &&
+        !loadingMore
+      ) {
+        void galleryQuery.fetchNextPage();
+      }
+    }
+  }, [currentIndex, items, hasMore, loadingMore, galleryQuery, resetControlsTimer]);
+
+  // Preload adjacent images
+  useEffect(() => {
+    if (currentIndex < 0) return;
+    const prevItem = items[currentIndex - 1];
+    const nextItem = items[currentIndex + 1];
+    if (prevItem?.url) {
+      const img = new Image();
+      img.src = prevItem.url;
+    }
+    if (nextItem?.url) {
+      const img = new Image();
+      img.src = nextItem.url;
+    }
+  }, [currentIndex, items]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (!activeItem) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      resetControlsTimer();
+      if (e.key === "Escape") {
+        setActiveItem(null);
+      } else if (e.key === "ArrowLeft") {
+        handlePrev();
+      } else if (e.key === "ArrowRight") {
+        handleNext();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeItem, handlePrev, handleNext, resetControlsTimer]);
+
+  // Touch handlers for swipe & pull-to-dismiss
+  const handleTouchStart = (e: React.TouchEvent) => {
+    resetControlsTimer();
+    if (e.touches.length !== 1) return;
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      time: Date.now(),
+    };
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current || e.touches.length !== 1) return;
+    const deltaX = e.touches[0].clientX - touchStartRef.current.x;
+    const deltaY = e.touches[0].clientY - touchStartRef.current.y;
+    setTouchOffset({ x: deltaX, y: deltaY });
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStartRef.current) return;
+    const { x: deltaX, y: deltaY, time } = {
+      x: touchOffset.x,
+      y: touchOffset.y,
+      time: touchStartRef.current.time,
+    };
+    const duration = Date.now() - time;
+    touchStartRef.current = null;
+    setIsSwiping(false);
+    setTouchOffset({ x: 0, y: 0 });
+
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+
+    // Pull down to dismiss
+    if (deltaY > 90 && absY > absX * 1.2) {
+      setActiveItem(null);
+      return;
+    }
+
+    // Horizontal swipe
+    if (absX > 45 || (absX > 20 && duration < 250)) {
+      if (deltaX < 0) {
+        handleNext();
+      } else {
+        handlePrev();
+      }
+    }
+  };
+
   const deleteMutation = useMutation({
     mutationFn: (storageKey: string) => deleteGalleryImage(storageKey),
     onSuccess: async () => {
@@ -103,6 +242,10 @@ export function GalleryPage() {
     if (!confirmed) return;
     deleteMutation.mutate(activeItem.storageKey);
   };
+
+  const controlsClass = showControls
+    ? "orbit-gallery-lightbox-controls"
+    : "orbit-gallery-lightbox-controls orbit-gallery-lightbox-controls--hidden";
 
   return (
     <div className="orbit-gallery-page max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">
@@ -178,16 +321,82 @@ export function GalleryPage() {
           role="dialog"
           aria-modal="true"
           aria-label="图片预览"
+          style={{
+            backgroundColor:
+              touchOffset.y > 0
+                ? `rgba(0, 0, 0, ${Math.max(0.2, 0.85 - touchOffset.y / 400)})`
+                : undefined,
+          }}
+          onMouseMove={resetControlsTimer}
           onClick={() => setActiveItem(null)}
         >
-          <div className="orbit-gallery-lightbox-panel" onClick={(e) => e.stopPropagation()}>
+          {currentIndex >= 0 && (
+            <div className={`orbit-gallery-lightbox-counter ${controlsClass}`} onClick={(e) => e.stopPropagation()}>
+              {currentIndex + 1} / {total || items.length}
+            </div>
+          )}
+
+          {hasPrev && (
             <button
               type="button"
-              className="orbit-gallery-lightbox-close orbit-icon-btn inline-flex"
-              aria-label="关闭预览"
-              onClick={() => setActiveItem(null)}
+              className={`orbit-gallery-lightbox-nav orbit-gallery-lightbox-nav--prev orbit-icon-btn ${controlsClass}`}
+              aria-label="上一张图片"
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePrev();
+              }}
             >
-              <CloseIcon size="md" />
+              <ChevronLeftIcon size="md" />
+            </button>
+          )}
+
+          {hasNext && (
+            <button
+              type="button"
+              className={`orbit-gallery-lightbox-nav orbit-gallery-lightbox-nav--next orbit-icon-btn ${controlsClass}`}
+              aria-label="下一张图片"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleNext();
+              }}
+            >
+              <ChevronRightIcon size="md" />
+            </button>
+          )}
+
+          <div
+            className="orbit-gallery-lightbox-panel"
+            style={{
+              transform:
+                touchOffset.x !== 0 || touchOffset.y !== 0
+                  ? `translate3d(${touchOffset.x}px, ${touchOffset.y > 0 ? touchOffset.y : 0}px, 0) scale(${
+                      touchOffset.y > 0 ? Math.max(0.75, 1 - touchOffset.y / 500) : 1
+                    })`
+                  : undefined,
+              transition: isSwiping ? "none" : "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+            }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!showControls) {
+                resetControlsTimer();
+              } else {
+                setShowControls(false);
+              }
+            }}
+          >
+            <button
+              type="button"
+              className={`orbit-gallery-lightbox-close orbit-icon-btn inline-flex ${controlsClass}`}
+              aria-label="关闭预览"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveItem(null);
+              }}
+            >
+              <CloseIcon size="sm" />
             </button>
 
             <GalleryImage

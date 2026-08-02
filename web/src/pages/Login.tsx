@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { TurnstileWidget } from "../components/TurnstileWidget";
 import { authClient, fetchSpaceStatus, type SpaceStatus } from "../lib/api";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../lib/useToast";
@@ -18,8 +19,11 @@ export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [spaceStatus, setSpaceStatus] = useState<SpaceStatus | null>(null);
+
+  const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY || "";
 
   const from =
     (location.state as { from?: { pathname: string } } | null)?.from?.pathname ??
@@ -65,17 +69,32 @@ export function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (turnstileSiteKey && !turnstileToken) {
+      toast.error("请先完成真人身份验证");
+      return;
+    }
+
     setLoading(true);
+
+    const headers: Record<string, string> = {};
+    if (turnstileToken) {
+      headers["x-turnstile-token"] = turnstileToken;
+    }
 
     try {
       if (mode === "signin") {
         const { error } = await authClient.signIn.email({
           email,
           password,
-          fetchOptions: { credentials: "include" },
+          fetchOptions: { credentials: "include", headers },
         });
         if (error) {
-          toast.error("邮箱或密码错误，请重试");
+          const msg =
+            error.message ||
+            (error as { statusText?: string }).statusText ||
+            "邮箱或密码错误，请重试";
+          toast.error(msg);
           return;
         }
       } else {
@@ -87,7 +106,7 @@ export function Login() {
           name: displayName.trim(),
           email,
           password,
-          fetchOptions: { credentials: "include" },
+          fetchOptions: { credentials: "include", headers },
         });
         if (error) {
           toast.error(
@@ -199,9 +218,18 @@ export function Login() {
               </div>
             </div>
 
+            {turnstileSiteKey ? (
+              <TurnstileWidget
+                siteKey={turnstileSiteKey}
+                onSuccess={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken("")}
+                onError={() => setTurnstileToken("")}
+              />
+            ) : null}
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (Boolean(turnstileSiteKey) && !turnstileToken)}
               className="orbit-btn orbit-btn-primary orbit-auth-submit"
             >
               {loading ? "处理中…" : mode === "signin" ? "登录" : "注册"}
@@ -211,4 +239,5 @@ export function Login() {
       </div>
     </div>
   );
+
 }
