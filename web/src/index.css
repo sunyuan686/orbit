@@ -7102,6 +7102,9 @@ html.orbit-ai-open body {
   list-style: none;
   font-size: var(--type-secondary);
   color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  padding: 0;
 }
 
 .orbit-ai-reasoning-summary::-webkit-details-marker {
@@ -7118,7 +7121,8 @@ html.orbit-ai-open body {
   transition: transform var(--motion-fast);
 }
 
-.orbit-ai-reasoning[open] .orbit-ai-reasoning-chevron {
+.orbit-ai-reasoning[open] .orbit-ai-reasoning-chevron,
+.orbit-ai-reasoning--open .orbit-ai-reasoning-chevron {
   transform: rotate(180deg);
 }
 
@@ -7779,6 +7783,59 @@ html.orbit-ai-open body {
   outline-offset: 2px;
 }
 
+.orbit-ai-stop-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: 9999px;
+  background: var(--color-danger, #ef4444);
+  color: #ffffff;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast),
+    transform var(--motion-fast) var(--motion-ease-enter),
+    opacity var(--motion-fast);
+}
+
+.orbit-ai-stop-btn:hover {
+  opacity: 0.9;
+}
+
+.orbit-ai-stop-btn:active {
+  transform: scale(0.96);
+}
+
+.orbit-ai-message-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: 0.25rem;
+}
+
+.orbit-ai-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.45rem;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--type-secondary);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.orbit-ai-action-btn:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+
 .orbit-ai-conversation-list {
   display: flex;
   flex-direction: column;
@@ -7941,6 +7998,10 @@ html.orbit-ai-open body {
 }
 
 @media (max-width: 767px) {
+  .orbit-ai-layout-menu {
+    display: none !important;
+  }
+
   .orbit-ai-panel-header {
     padding-top: max(0.75rem, calc(0.5rem + env(safe-area-inset-top, 0px)));
     padding-bottom: 0.5rem;
@@ -10643,6 +10704,10 @@ button.orbit-activity-cell:hover {
   border-color: var(--color-border-light, oklch(0.85 0.01 80));
 }
 
+.orbit-prose[data-readonly="true"] .tiptap-image-figure:hover .tiptap-image-container {
+  border-color: transparent;
+}
+
 .tiptap-image-figure[data-selected="true"] .tiptap-image-container {
   border-color: var(--color-accent, #2e5b47);
 }
@@ -10655,6 +10720,10 @@ button.orbit-activity-cell:hover {
   object-fit: contain;
   border-radius: 4px;
   display: block;
+}
+
+.orbit-prose[data-readonly="true"] .tiptap-image-figure img {
+  cursor: pointer;
 }
 
 .tiptap-image-figure[data-layout="wide"] img,
@@ -11256,3 +11325,65 @@ button.orbit-activity-cell:hover {
 .orbit-action-sheet-btn--muted {
   color: var(--color-text-muted);
 }
+
+/* —— appreciation card & badge —— */
+.orbit-appreciation-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  min-height: 200px;
+  padding: 1.25rem;
+  border-radius: 14px;
+  text-decoration: none;
+  color: inherit;
+  background: linear-gradient(135deg, oklch(0.985 0.02 25), oklch(0.97 0.035 70));
+  box-shadow:
+    0 1px 0 oklch(1 0 0 / 0.6) inset,
+    0 8px 24px oklch(0.92 0.04 25 / 0.2);
+  border: 1px solid oklch(0.92 0.04 25);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+}
+
+.orbit-appreciation-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 32px oklch(0.9 0.06 25 / 0.3);
+}
+
+.orbit-appreciation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.orbit-appreciation-badge-header {
+  margin-bottom: 0.625rem;
+}
+
+.orbit-appreciation-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: oklch(0.45 0.16 20);
+  background: oklch(0.94 0.05 25 / 0.8);
+  border: 1px solid oklch(0.9 0.06 25 / 0.5);
+}
+
+.dark .orbit-appreciation-card {
+  background: linear-gradient(135deg, oklch(0.24 0.04 20), oklch(0.22 0.03 40));
+  border-color: oklch(0.35 0.06 20);
+  box-shadow: 0 8px 24px oklch(0 0 0 / 0.4);
+}
+
+.dark .orbit-appreciation-badge {
+  color: oklch(0.9 0.08 25);
+  background: oklch(0.32 0.07 20 / 0.8);
+  border-color: oklch(0.42 0.08 20 / 0.6);
+}
+

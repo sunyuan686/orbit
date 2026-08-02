@@ -48,7 +48,8 @@
 | 日记 / 时间线 / 留言板 | ✅   | `entry` 多类型，富文本 + 图片 |
 | 信箱 / 信件        | ✅   | 主信 + 回信树，列表折叠往来      |
 | 备忘录            | ✅   | 按 `key` 长期维护         |
-| 随想 / 短动态        | 📋  | 双态编辑器与媒体九宫格，方案见 [thought-compose.md](docs/specs/thought-compose.md) |
+| 随想 / 短动态        | ✅   | 轻量随想、九宫格媒体拼图，方案见 [thought-appreciation.md](docs/specs/thought-appreciation.md) |
+| 记录感谢           | ✅   | 专属暖心感谢卡与情感微徽章，方案见 [thought-appreciation.md](docs/specs/thought-appreciation.md) |
 | 内容模板           | 📋  | 按类型复用模板，新建快速填充       |
 | 信件仪式感呈现        | 🚧  | 列表信封探出卡片已上；信纸/信封阅读态仍待 |
 | 留言板仪式感呈现       | ✅   | 便签卡列表；日记/时间线/信箱/备忘录分形态列表 |

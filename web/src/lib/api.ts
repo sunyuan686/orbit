@@ -87,17 +87,8 @@ export interface CommentGroups {
   inline: CommentItem[];
 }
 
-/** 类型 → 中文名 */
-export const TYPE_LABEL: Record<string, string> = {
-  diary: "日记",
-  timeline: "时间线",
-  message: "留言板",
-  letter: "信箱",
-  memo: "备忘录",
-  // 兼容旧路径
-  messages: "留言板",
-  letters: "信箱",
-};
+import { TYPE_LABEL, getEntryTypeLabel } from "./entry-types";
+export { TYPE_LABEL, getEntryTypeLabel };
 
 const BEIJING_OFFSET_SECONDS = 8 * 3600;
 

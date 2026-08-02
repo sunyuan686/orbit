@@ -5,8 +5,23 @@ import { MediaAttachmentsBar, type MediaAttachmentItem } from "./MediaAttachment
 import { uploadImage } from "../lib/api";
 import type { EditorHandoffState } from "../lib/editor-handoff";
 
-export type ComposeFormat = "note" | "link" | "quote";
+export type ComposeFormat = "note" | "appreciation" | "link" | "quote";
 export type ComposeMode = "note" | "article";
+
+export interface AppreciationTag {
+  id: string;
+  icon: string;
+  label: string;
+}
+
+export const APPRECIATION_TAGS: AppreciationTag[] = [
+  { id: "drink", icon: "☕️", label: "暖心饮品" },
+  { id: "food", icon: "🍱", label: "美味餐食" },
+  { id: "care", icon: "💪", label: "贴心照顾" },
+  { id: "listen", icon: "👂", label: "倾听安慰" },
+  { id: "surprise", icon: "🎁", label: "惊喜礼物" },
+  { id: "tacit", icon: "✨", label: "默契配合" },
+];
 
 export interface ComposeModalProps {
   isOpen: boolean;
@@ -18,6 +33,7 @@ export interface ComposeModalProps {
     body: string;
     attachments: MediaAttachmentItem[];
     linkUrl?: string;
+    appreciationTag?: string | null;
   }) => Promise<void>;
   defaultFormat?: ComposeFormat;
   defaultMode?: ComposeMode;
@@ -36,6 +52,7 @@ export function ComposeModal({
   const [title, setTitle] = useState("");
   const [showTitle, setShowTitle] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
   const [body, setBody] = useState("");
   const bodyRef = useRef(body);
   const [attachments, setAttachments] = useState<MediaAttachmentItem[]>([]);
@@ -59,6 +76,7 @@ export function ComposeModal({
       setLastComposeMode(defaultMode);
       setFullscreenOpen(false);
       setFullscreenHandoff(null);
+      setSelectedTagId(null);
       setShowTitle(Boolean(title && title.trim().length > 0));
     }
   }, [isOpen, defaultFormat, defaultMode, title]);
@@ -85,7 +103,7 @@ export function ComposeModal({
   }, []);
 
   const handleOpenFullscreen = useCallback(() => {
-    if (format !== "note") return;
+    if (format !== "note" && format !== "appreciation") return;
     const state = editorRef.current?.getEditorState();
     if (!state) return;
     setFullscreenHandoff(state);
@@ -97,6 +115,13 @@ export function ComposeModal({
     setSubmitting(true);
     try {
       let finalBody = bodyOverride ?? bodyRef.current;
+      if (format === "appreciation" && selectedTagId) {
+        const tag = APPRECIATION_TAGS.find((t) => t.id === selectedTagId);
+        if (tag) {
+          const badgeHtml = `<p class="orbit-appreciation-badge-header"><span class="orbit-appreciation-badge">${tag.icon} ${tag.label}</span></p>`;
+          finalBody = badgeHtml + finalBody;
+        }
+      }
       if (attachments.length > 0) {
         const imgsHtml = attachments
           .map((a) => `<img src="${a.url}"${a.alt ? ` alt="${a.alt}"` : ""} class="orbit-prose-img" />`)
@@ -110,6 +135,7 @@ export function ComposeModal({
         body: finalBody,
         attachments,
         linkUrl: linkUrl.trim(),
+        appreciationTag: selectedTagId,
       });
       onClose();
     } catch (err) {
@@ -124,6 +150,7 @@ export function ComposeModal({
     linkUrl,
     onClose,
     onSubmit,
+    selectedTagId,
     submitting,
     title,
   ]);
@@ -184,6 +211,13 @@ export function ComposeModal({
               </button>
               <button
                 type="button"
+                className={`orbit-compose-segment-btn ${format === "appreciation" ? "active" : ""}`}
+                onClick={() => setFormat("appreciation")}
+              >
+                感谢
+              </button>
+              <button
+                type="button"
                 className={`orbit-compose-segment-btn ${format === "link" ? "active" : ""}`}
                 onClick={() => setFormat("link")}
               >
@@ -199,7 +233,7 @@ export function ComposeModal({
             </div>
 
             <div className="orbit-compose-header-right">
-              {format === "note" && (
+              {(format === "note" || format === "appreciation") && (
                 <button
                   type="button"
                   className="orbit-compose-fullscreen-btn"
@@ -216,7 +250,29 @@ export function ComposeModal({
           </div>
 
           <div className="orbit-compose-body">
-            {(format === "link" || (format === "note" && showTitle)) && (
+            {format === "appreciation" && (
+              <div className="orbit-compose-tags-bar" style={{ display: "flex", gap: "0.375rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+                {APPRECIATION_TAGS.map((tag) => (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    className={`orbit-appreciation-badge ${selectedTagId === tag.id ? "active" : ""}`}
+                    style={{
+                      cursor: "pointer",
+                      opacity: selectedTagId === null || selectedTagId === tag.id ? 1 : 0.6,
+                      transform: selectedTagId === tag.id ? "scale(1.05)" : "scale(1)",
+                      transition: "all 0.2s ease",
+                    }}
+                    onClick={() => setSelectedTagId(selectedTagId === tag.id ? null : tag.id)}
+                  >
+                    <span>{tag.icon}</span>
+                    <span>{tag.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {(format === "link" || ((format === "note" || format === "appreciation") && showTitle)) && (
               <input
                 ref={titleInputRef}
                 type="text"

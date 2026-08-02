@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
+import { FEED_ENTRY_TYPES } from "../lib/entry-types";
 import {
   TYPE_LABEL,
   fetchActivityStats,
@@ -107,33 +108,13 @@ export function HomePage() {
   }, []);
 
   const homeEntryParams = { limit: 8, offset: 0 } as const;
+  const feedTypes = FEED_ENTRY_TYPES;
   const entryQueries = useQueries({
-    queries: [
-      {
-        queryKey: queryKeys.entries("diary", homeEntryParams),
-        queryFn: (): Promise<EntryListPage> =>
-          fetchEntries("diary", homeEntryParams),
-      },
-      {
-        queryKey: queryKeys.entries("timeline", homeEntryParams),
-        queryFn: (): Promise<EntryListPage> =>
-          fetchEntries("timeline", homeEntryParams),
-      },
-      {
-        queryKey: queryKeys.entries("message", homeEntryParams),
-        queryFn: (): Promise<EntryListPage> =>
-          fetchEntries("message", homeEntryParams),
-      },
-      {
-        queryKey: queryKeys.entries("letter", {
-          roots: true,
-          limit: 8,
-          offset: 0,
-        }),
-        queryFn: (): Promise<EntryListPage> =>
-          fetchEntries("letter", { roots: true, limit: 8, offset: 0 }),
-      },
-    ],
+    queries: feedTypes.map((t) => ({
+      queryKey: queryKeys.entries(t, t === "letter" ? { roots: true, limit: 8, offset: 0 } : homeEntryParams),
+      queryFn: (): Promise<EntryListPage> =>
+        fetchEntries(t, t === "letter" ? { roots: true, limit: 8, offset: 0 } : homeEntryParams),
+    })),
   });
 
   const statusQuery = useQuery({
@@ -176,22 +157,15 @@ export function HomePage() {
   const memories = memoriesQuery.data ?? null;
   const photos = galleryQuery.data?.items ?? [];
 
-  const diary = entryQueries[0]?.data;
-  const timeline = entryQueries[1]?.data;
-  const message = entryQueries[2]?.data;
-  const letters = entryQueries[3]?.data;
-
   const recent = useMemo(() => {
-    if (!diary || !timeline || !message || !letters) return [];
-    const merged: RecentItem[] = [
-      ...diary.items.map((e) => ({ ...e, contentType: "diary" })),
-      ...timeline.items.map((e) => ({ ...e, contentType: "timeline" })),
-      ...message.items.map((e) => ({ ...e, contentType: "message" })),
-      ...letters.items.map((e) => ({ ...e, contentType: "letter" })),
-    ];
+    if (entryQueries.some((q) => !q.data)) return [];
+    const merged: RecentItem[] = entryQueries.flatMap((q, idx) => {
+      const t = feedTypes[idx];
+      return (q.data?.items ?? []).map((e) => ({ ...e, contentType: t }));
+    });
     merged.sort((a, b) => (b.entryDate ?? 0) - (a.entryDate ?? 0));
     return merged.slice(0, 6);
-  }, [diary, timeline, message, letters]);
+  }, [entryQueries]);
 
   const coupleNames = useMemo(() => formatCoupleNames(authors), [authors]);
   const tagline = formatSpaceTagline(profile);

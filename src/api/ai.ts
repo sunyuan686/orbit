@@ -566,7 +566,7 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
               conversationId: responseConversationId,
               role: "assistant",
               parts: responseMessage.parts,
-              id: responseMessage.id,
+              id: responseMessage.id?.trim() || undefined,
             });
           } catch (err) {
             log.error("persist assistant failed", err);

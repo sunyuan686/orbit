@@ -93,14 +93,18 @@ function openImageLightbox(src: string) {
 class ImageNodeView {
   dom: HTMLElement;
 
+  private container: HTMLElement;
   private img: HTMLImageElement;
   private figcaption: HTMLElement;
-  private captionInput: HTMLInputElement;
-  private altBtn: HTMLButtonElement;
+  private toolbar: HTMLElement | null = null;
+  private captionBar: HTMLElement | null = null;
+  private captionInput: HTMLInputElement | null = null;
+  private altBtn: HTMLButtonElement | null = null;
   private layoutBtns: Map<string, HTMLButtonElement> = new Map();
 
   private node: ProseMirrorNode;
   private view: EditorView;
+  private editor: Editor;
   private getPos: () => number | undefined;
 
   private editingAlt = false;
@@ -110,15 +114,17 @@ class ImageNodeView {
     node: ProseMirrorNode,
     view: EditorView,
     getPos: () => number | undefined,
-    _editor: Editor,
+    editor: Editor,
   ) {
     this.node = node;
     this.view = view;
     this.getPos = getPos;
+    this.editor = editor;
 
     const figure = document.createElement("figure");
     figure.className = "tiptap-image-figure";
     figure.dataset.selected = "false";
+    figure.dataset.editable = String(editor.isEditable);
     figure.dataset.layout = String(node.attrs.layout || "regular");
     figure.dataset.loadState = "loading";
     this.dom = figure;
@@ -126,17 +132,117 @@ class ImageNodeView {
     const container = document.createElement("div");
     container.className = "tiptap-image-container";
     figure.appendChild(container);
+    this.container = container;
 
     const img = document.createElement("img");
     img.draggable = false;
     img.addEventListener("load", () => this.setLoadState("loaded"));
     img.addEventListener("error", () => this.setLoadState("missing"));
+    img.addEventListener("click", (e) => this.handleImageClick(e));
     container.appendChild(img);
     this.img = img;
 
+    const figcaption = document.createElement("figcaption");
+    figcaption.className = "tiptap-image-figcaption";
+    figcaption.textContent = String(node.attrs.caption ?? "");
+    figure.appendChild(figcaption);
+    this.figcaption = figcaption;
+
+    if (editor.isEditable) {
+      this.buildEditControls();
+    }
+
+    this.syncImageAttrs(node);
+  }
+
+  update(node: ProseMirrorNode): boolean {
+    if (node.type !== this.node.type) return false;
+    this.node = node;
+
+    this.syncImageAttrs(node);
+    this.dom.dataset.editable = String(this.editor.isEditable);
+    this.dom.dataset.layout = String(node.attrs.layout || "regular");
+
+    const caption = String(node.attrs.caption ?? "");
+    this.figcaption.textContent = caption;
+
+    if (this.editor.isEditable) {
+      this.buildEditControls();
+      this.layoutBtns.forEach((btn, value) => {
+        btn.classList.toggle("is-active", value === (node.attrs.layout || "regular"));
+      });
+      if (this.captionInput && document.activeElement !== this.captionInput) {
+        if (this.editingAlt) {
+          this.captionInput.value = String(node.attrs.alt ?? "");
+        } else {
+          this.captionInput.value = caption;
+        }
+      }
+    } else {
+      this.destroyEditControls();
+      this.dom.dataset.selected = "false";
+    }
+
+    return true;
+  }
+
+  selectNode() {
+    if (!this.editor.isEditable) {
+      this.dom.dataset.selected = "false";
+      return;
+    }
+    this.dom.dataset.selected = "true";
+  }
+
+  deselectNode() {
+    this.dom.dataset.selected = "false";
+    this.editingAlt = false;
+    if (this.altBtn) this.altBtn.classList.remove("is-active");
+    if (this.captionInput) {
+      this.captionInput.placeholder = "Add a caption…";
+      this.captionInput.value = String(this.node.attrs.caption ?? "");
+    }
+  }
+
+  stopEvent(event: Event): boolean {
+    const target = event.target as HTMLElement;
+    if (target.closest(".tiptap-image-toolbar")) return true;
+    if (target.closest(".tiptap-image-caption-bar")) return true;
+    if (!this.editor.isEditable && (event.type === "click" || event.type === "mousedown")) {
+      return true;
+    }
+    return false;
+  }
+
+  ignoreMutation(): boolean {
+    return true;
+  }
+
+  destroy() {
+    this.destroyEditControls();
+  }
+
+  private handleImageClick(e: MouseEvent) {
+    if (!this.editor.isEditable) {
+      e.preventDefault();
+      e.stopPropagation();
+      const href = String(this.node.attrs.href ?? "");
+      if (href) {
+        window.open(href, "_blank", "noopener,noreferrer");
+      } else {
+        const src = String(this.node.attrs.src ?? "");
+        if (src) openImageLightbox(src);
+      }
+    }
+  }
+
+  private buildEditControls() {
+    if (this.toolbar) return;
+
     const toolbar = document.createElement("div");
     toolbar.className = "tiptap-image-toolbar";
-    container.appendChild(toolbar);
+    this.container.appendChild(toolbar);
+    this.toolbar = toolbar;
 
     const layouts: Array<[string, string, string]> = [
       ["regular", ICONS.regular, "Content width"],
@@ -149,7 +255,7 @@ class ImageNodeView {
       btn.type = "button";
       btn.innerHTML = icon;
       btn.title = title;
-      if (value === (node.attrs.layout || "regular")) btn.className = "is-active";
+      if (value === (this.node.attrs.layout || "regular")) btn.className = "is-active";
       btn.addEventListener("mousedown", (e) => {
         e.preventDefault();
         this.updateAttrs({ layout: value });
@@ -191,12 +297,13 @@ class ImageNodeView {
 
     const captionBar = document.createElement("div");
     captionBar.className = "tiptap-image-caption-bar";
-    figure.appendChild(captionBar);
+    this.dom.insertBefore(captionBar, this.figcaption);
+    this.captionBar = captionBar;
 
     const captionInput = document.createElement("input");
     captionInput.type = "text";
     captionInput.placeholder = "Add a caption…";
-    captionInput.value = String(node.attrs.caption ?? "");
+    captionInput.value = String(this.node.attrs.caption ?? "");
     captionInput.addEventListener("input", () => {
       if (this.editingAlt) {
         this.updateAttrs({ alt: captionInput.value });
@@ -223,64 +330,21 @@ class ImageNodeView {
     });
     captionBar.appendChild(altBtn);
     this.altBtn = altBtn;
-
-    const figcaption = document.createElement("figcaption");
-    figcaption.className = "tiptap-image-figcaption";
-    figcaption.textContent = String(node.attrs.caption ?? "");
-    figure.appendChild(figcaption);
-    this.figcaption = figcaption;
-
-    this.syncImageAttrs(node);
   }
 
-  update(node: ProseMirrorNode): boolean {
-    if (node.type !== this.node.type) return false;
-    this.node = node;
-
-    this.syncImageAttrs(node);
-    this.dom.dataset.layout = String(node.attrs.layout || "regular");
-    this.layoutBtns.forEach((btn, value) => {
-      btn.classList.toggle("is-active", value === (node.attrs.layout || "regular"));
-    });
-
-    const caption = String(node.attrs.caption ?? "");
-    this.figcaption.textContent = caption;
-
-    if (document.activeElement !== this.captionInput) {
-      if (this.editingAlt) {
-        this.captionInput.value = String(node.attrs.alt ?? "");
-      } else {
-        this.captionInput.value = caption;
-      }
+  private destroyEditControls() {
+    if (this.toolbar) {
+      this.toolbar.remove();
+      this.toolbar = null;
     }
-
-    return true;
+    if (this.captionBar) {
+      this.captionBar.remove();
+      this.captionBar = null;
+    }
+    this.captionInput = null;
+    this.altBtn = null;
+    this.layoutBtns.clear();
   }
-
-  selectNode() {
-    this.dom.dataset.selected = "true";
-  }
-
-  deselectNode() {
-    this.dom.dataset.selected = "false";
-    this.editingAlt = false;
-    this.altBtn.classList.remove("is-active");
-    this.captionInput.placeholder = "Add a caption…";
-    this.captionInput.value = String(this.node.attrs.caption ?? "");
-  }
-
-  stopEvent(event: Event): boolean {
-    const target = event.target as HTMLElement;
-    if (target.closest(".tiptap-image-toolbar")) return true;
-    if (target.closest(".tiptap-image-caption-bar")) return true;
-    return false;
-  }
-
-  ignoreMutation(): boolean {
-    return true;
-  }
-
-  destroy() {}
 
   private sep(): HTMLElement {
     const s = document.createElement("span");
@@ -358,6 +422,7 @@ class ImageNodeView {
   }
 
   private toggleAltMode() {
+    if (!this.altBtn || !this.captionInput) return;
     this.editingAlt = !this.editingAlt;
     this.altBtn.classList.toggle("is-active", this.editingAlt);
     if (this.editingAlt) {

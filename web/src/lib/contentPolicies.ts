@@ -1,12 +1,6 @@
-export type EditScope = "author" | "couple";
+import { getEditScope } from "./entry-types";
 
-const editScopeByType: Record<string, EditScope> = {
-  diary: "author",
-  timeline: "author",
-  message: "author",
-  letter: "author",
-  memo: "couple",
-};
+export type EditScope = "author" | "couple";
 
 export function canEditContent(
   contentType: string,
@@ -14,7 +8,7 @@ export function canEditContent(
   sessionUserId: string | null | undefined
 ): boolean {
   if (!sessionUserId) return false;
-  if (editScopeByType[contentType] === "couple") return true;
+  if (getEditScope(contentType) === "couple") return true;
   return Boolean(ownerUserId && ownerUserId === sessionUserId);
 }
 

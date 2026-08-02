@@ -243,6 +243,7 @@ export function streamAiChat(options: StreamAiChatOptions) {
     system: options.system,
     messages: options.messages,
     tools: options.tools,
+    maxRetries: 2,
     ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
     include: {
       requestBody: true,

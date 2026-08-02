@@ -1,18 +1,10 @@
+import { getEditScope as getEditScopeFromRegistry } from "./lib/entry-types.js";
+
 /** Who may edit: sole author, or both accounts in the couple space */
 export type EditScope = "author" | "couple";
 
-export type ContentType = "diary" | "timeline" | "message" | "letter" | "memo";
-
-const editScopeByType: Record<string, EditScope> = {
-  diary: "author",
-  timeline: "author",
-  message: "author",
-  letter: "author",
-  memo: "couple",
-};
-
 export function getEditScope(contentType: string): EditScope {
-  return editScopeByType[contentType] ?? "author";
+  return getEditScopeFromRegistry(contentType);
 }
 
 export function canEditContent(

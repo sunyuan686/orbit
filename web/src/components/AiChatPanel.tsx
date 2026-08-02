@@ -22,7 +22,7 @@ import {
   type AiContextMode,
   type AiConversationListItem,
 } from "../lib/api";
-import { parseAssistantContent, splitEmbeddedThinking } from "../lib/ai-message-content";
+import { parseAssistantContent } from "../lib/ai-message-content";
 import { safeRandomUUID } from "../lib/uuid";
 import { formatWriteContentApprovalSummary } from "../lib/ai-write-approval";
 import { applyToolApprovalResponse } from "../../../src/services/ai-tool-approval";
@@ -40,8 +40,10 @@ import {
   CloseIcon,
   MenuIcon,
   PlusIcon,
+  ReloadIcon,
   SearchIcon,
   ShareIcon,
+  StopIcon,
   ThinkingIcon,
   NAV_CONTENT_ICONS,
   type NavContentType,
@@ -583,6 +585,75 @@ function ToolCallCard({
   );
 }
 
+function ReasoningAccordion({
+  reasoning,
+  isStreaming,
+  hasText,
+}: {
+  reasoning: string;
+  isStreaming: boolean;
+  hasText: boolean;
+  messageId: string;
+}) {
+  const startTimeRef = useRef<number | null>(null);
+  const [elapsedSec, setElapsedSec] = useState<number>(0);
+  const [finalDuration, setFinalDuration] = useState<number | null>(null);
+  const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (startTimeRef.current === null) {
+      startTimeRef.current = Date.now();
+    }
+
+    if (!isStreaming) {
+      const now = Date.now();
+      const start = startTimeRef.current;
+      const duration = Math.max(0.1, (now - start) / 1000);
+      const timer = setTimeout(() => {
+        setFinalDuration(duration);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+
+    const interval = setInterval(() => {
+      if (startTimeRef.current !== null) {
+        const duration = (Date.now() - startTimeRef.current) / 1000;
+        setElapsedSec(duration);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [isStreaming]);
+
+  const isThinkingActive = isStreaming && !hasText;
+  const isOpen = userExpanded ?? isThinkingActive;
+
+  const label = useMemo(() => {
+    if (isThinkingActive) {
+      return `思考中 (${elapsedSec.toFixed(1)}s)…`;
+    }
+    if (finalDuration !== null) {
+      return `已思考 (用时 ${finalDuration.toFixed(1)}s)`;
+    }
+    return "已思考";
+  }, [isThinkingActive, elapsedSec, finalDuration]);
+
+  return (
+    <div className={`orbit-ai-reasoning ${isOpen ? "orbit-ai-reasoning--open" : ""}`}>
+      <button
+        type="button"
+        className="orbit-ai-reasoning-summary"
+        onClick={() => setUserExpanded(!isOpen)}
+      >
+        <ThinkingIcon size="sm" className="orbit-ai-reasoning-icon" />
+        <span>{label}</span>
+        <ChevronDownIcon size="sm" className="orbit-ai-reasoning-chevron" />
+      </button>
+      {isOpen ? <div className="orbit-ai-reasoning-body">{reasoning}</div> : null}
+    </div>
+  );
+}
+
 // Renders a message's parts in order (AI SDK v7 best practice): consecutive
 // text parts are grouped into a markdown bubble, tool parts become cards.
 function MessageBody({
@@ -601,9 +672,7 @@ function MessageBody({
   const nodes: ReactNode[] = [];
   let textBuffer = "";
   const flush = (key: string) => {
-    const visibleText = isAssistant
-      ? splitEmbeddedThinking(textBuffer).text
-      : textBuffer;
+    const visibleText = textBuffer;
     if (!visibleText.trim()) {
       textBuffer = "";
       return;
@@ -754,7 +823,7 @@ export function AiChatPanel({
     []
   );
 
-  const { messages, sendMessage, status, error, clearError, setMessages } = useChat({
+  const { messages, sendMessage, status, error, clearError, setMessages, stop, regenerate } = useChat({
     id: chatSession.id,
     messages: chatSession.messages,
     transport,
@@ -1254,12 +1323,14 @@ export function AiChatPanel({
             >
               <PlusIcon size="sm" />
             </button>
-            <AiLayoutMenu
-              layout={panelLayout}
-              open={layoutMenuOpen}
-              onOpenChange={setLayoutMenuOpen}
-              onSelect={handleLayoutSelect}
-            />
+            {!isMobile ? (
+              <AiLayoutMenu
+                layout={panelLayout}
+                open={layoutMenuOpen}
+                onOpenChange={setLayoutMenuOpen}
+                onSelect={handleLayoutSelect}
+              />
+            ) : null}
             <button
               type="button"
               className="orbit-icon-btn inline-flex"
@@ -1340,18 +1411,12 @@ export function AiChatPanel({
                       <span className="orbit-ai-message-author">{author}</span>
                     ) : null}
                     {showReasoning ? (
-                      <details
-                        key={`${message.id}-${isStreamingMessage ? "streaming" : "done"}`}
-                        className="orbit-ai-reasoning"
-                        open={isStreamingMessage || undefined}
-                      >
-                        <summary className="orbit-ai-reasoning-summary">
-                          <ThinkingIcon size="sm" className="orbit-ai-reasoning-icon" />
-                          <span>{isStreamingMessage ? "思考中…" : "已思考"}</span>
-                          <ChevronDownIcon size="sm" className="orbit-ai-reasoning-chevron" />
-                        </summary>
-                        <div className="orbit-ai-reasoning-body">{reasoning}</div>
-                      </details>
+                      <ReasoningAccordion
+                        reasoning={reasoning}
+                        isStreaming={isStreamingMessage}
+                        hasText={hasText}
+                        messageId={message.id}
+                      />
                     ) : null}
                     <MessageBody
                       parts={parts}
@@ -1360,6 +1425,22 @@ export function AiChatPanel({
                       onApprove={(approvalId) => handleToolApproval(approvalId, true)}
                       onDeny={(approvalId) => handleToolApproval(approvalId, false)}
                     />
+                    {message.role === "assistant" &&
+                    !isStreamingMessage &&
+                    status !== "streaming" ? (
+                      <div className="orbit-ai-message-actions">
+                        <button
+                          type="button"
+                          className="orbit-ai-action-btn"
+                          aria-label="重新生成"
+                          title="重新生成"
+                          onClick={() => void regenerate()}
+                        >
+                          <ReloadIcon size="sm" />
+                          <span>重新生成</span>
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -1416,14 +1497,26 @@ export function AiChatPanel({
                 />
                 <div className="orbit-ai-composer-toolbar">
                   <AiModelPicker disabled={isBusy} onNavigateAway={onClose} />
-                  <button
-                    type="submit"
-                    className="orbit-ai-send-btn"
-                    aria-label="发送"
-                    disabled={isBusy || !input.trim()}
-                  >
-                    <ArrowUpIcon size="sm" />
-                  </button>
+                  {status === "streaming" ? (
+                    <button
+                      type="button"
+                      className="orbit-ai-stop-btn"
+                      aria-label="停止生成"
+                      title="停止生成"
+                      onClick={() => stop()}
+                    >
+                      <StopIcon size="sm" />
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      className="orbit-ai-send-btn"
+                      aria-label="发送"
+                      disabled={isBusy || !input.trim()}
+                    >
+                      <ArrowUpIcon size="sm" />
+                    </button>
+                  )}
                 </div>
               </div>
             </form>

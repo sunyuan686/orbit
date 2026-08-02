@@ -282,6 +282,103 @@ function TimelineGridCard({
   );
 }
 
+function NoteGridCard({
+  entry,
+  tone,
+}: {
+  entry: EntrySummary;
+  tone: "a" | "b";
+}) {
+  const hasCover = Boolean(entry.coverUrl);
+  const initial = entry.author ? entry.author.charAt(0) : "随";
+  const body = entry.snippet || entry.title || "（无内容）";
+  const className = [
+    "orbit-polaroid-card",
+    `orbit-polaroid-card--${tone}`,
+    hasCover ? "orbit-polaroid-card--has-cover" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <Link to={`/note/${entry.id}`} className={className}>
+      <div className="orbit-polaroid-header">
+        <div className="orbit-polaroid-user">
+          <span className={`orbit-polaroid-avatar orbit-polaroid-avatar--${tone}`}>
+            {initial}
+          </span>
+          {entry.author && (
+            <span className="orbit-polaroid-author">{entry.author}</span>
+          )}
+        </div>
+        {entry.entryDate != null && (
+          <span className="orbit-polaroid-date">{formatDate(entry.entryDate)}</span>
+        )}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {entry.title && (
+          <h3 style={{ fontFamily: "var(--font-heading)", fontSize: "0.95rem", fontWeight: 500, marginBottom: "0.375rem" }}>
+            {entry.title}
+          </h3>
+        )}
+        <p className="orbit-polaroid-body">{body}</p>
+      </div>
+
+      {hasCover && entry.coverUrl && (
+        <div className="orbit-polaroid-frame">
+          <img src={entry.coverUrl} alt="" className="orbit-polaroid-img" loading="lazy" />
+        </div>
+      )}
+    </Link>
+  );
+}
+
+function AppreciationGridCard({
+  entry,
+  tone,
+}: {
+  entry: EntrySummary;
+  tone: "a" | "b";
+}) {
+  const hasCover = Boolean(entry.coverUrl);
+  const initial = entry.author ? entry.author.charAt(0) : "谢";
+  const body = entry.snippet || entry.title || "（无内容）";
+
+  return (
+    <Link to={`/appreciation/${entry.id}`} className="orbit-appreciation-card">
+      <div className="orbit-appreciation-header">
+        <div className="orbit-polaroid-user">
+          <span className={`orbit-polaroid-avatar orbit-polaroid-avatar--${tone}`} style={{ background: "oklch(0.6 0.18 20)" }}>
+            {initial}
+          </span>
+          <span className="orbit-polaroid-author" style={{ fontWeight: 600 }}>
+            {entry.author ? `来自 ${entry.author} 的感谢` : "暖心感谢"}
+          </span>
+        </div>
+        {entry.entryDate != null && (
+          <span className="orbit-polaroid-date">{formatDate(entry.entryDate)}</span>
+        )}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0, margin: "0.5rem 0" }}>
+        {entry.title && (
+          <h3 style={{ fontFamily: "var(--font-heading)", fontSize: "1rem", fontWeight: 600, color: "oklch(0.45 0.16 20)", marginBottom: "0.375rem" }}>
+            {entry.title}
+          </h3>
+        )}
+        <p className="orbit-polaroid-body" style={{ color: "var(--color-fg-muted, inherit)" }}>{body}</p>
+      </div>
+
+      {hasCover && entry.coverUrl && (
+        <div className="orbit-polaroid-frame" style={{ marginTop: "0.5rem" }}>
+          <img src={entry.coverUrl} alt="" className="orbit-polaroid-img" loading="lazy" />
+        </div>
+      )}
+    </Link>
+  );
+}
+
 function DiaryCard({ entry }: { entry: EntrySummary }) {
   const hasCover = Boolean(entry.coverUrl);
   const parts =
@@ -607,6 +704,36 @@ function TypedEntryList({
           <TimelineCard key={entry.id} entry={entry} />
         ))}
       </div>
+    );
+  }
+
+  if (type === "note") {
+    return (
+      <ul className="orbit-list-plain orbit-msg-board-polaroid">
+        {entries.map((entry) => (
+          <li key={entry.id}>
+            <NoteGridCard
+              entry={entry}
+              tone={tones.get(authorToneKey(entry)) ?? "a"}
+            />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (type === "appreciation") {
+    return (
+      <ul className="orbit-list-plain orbit-msg-board-polaroid">
+        {entries.map((entry) => (
+          <li key={entry.id}>
+            <AppreciationGridCard
+              entry={entry}
+              tone={tones.get(authorToneKey(entry)) ?? "a"}
+            />
+          </li>
+        ))}
+      </ul>
     );
   }
 

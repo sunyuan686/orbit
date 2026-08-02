@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, isNull } from "drizzle-orm";
 import { notification } from "../db/schema.js";
+import { getEntryTypeLabel } from "../lib/entry-types.js";
 import { readSettingsMap } from "../db/settings-store.js";
 import {
   parseNotificationPreferences,
@@ -327,14 +328,7 @@ export function notifyCommentCreated(
 }
 
 function entryTypeLabel(type: string): string {
-  const labels: Record<string, string> = {
-    diary: "日记",
-    timeline: "时间线",
-    message: "留言",
-    letter: "信",
-    memo: "备忘录",
-  };
-  return labels[type] ?? "内容";
+  return getEntryTypeLabel(type);
 }
 
 export async function resolveActorName(

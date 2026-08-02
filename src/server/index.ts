@@ -20,7 +20,7 @@ import { invite } from "./routes/invite.js";
 import { account } from "./routes/account.js";
 import { auth } from "./auth.js";
 import { DEV_FRONTEND_ORIGINS } from "../config/auth.js";
-import { db } from "../db/index.js";
+import { db, sqlite } from "../db/index.js";
 import { createLogger } from "../lib/logger.js";
 import { requestContext } from "../lib/request-context.js";
 import { createRequireAuth } from "../lib/request-auth.js";
@@ -34,7 +34,9 @@ import { scanTestCandidate } from "../services/companion-engine.js";
 const bootLog = createLogger("server");
 
 // 启动时自动执行迁移，保证 DB schema 最新
+sqlite.pragma("foreign_keys = OFF");
 migrate(db, { migrationsFolder: join(process.cwd(), "src/db/migrations") });
+sqlite.pragma("foreign_keys = ON");
 
 const app = new Hono();
 

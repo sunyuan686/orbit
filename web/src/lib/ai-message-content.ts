@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai";
-import { parseAssistantParts, splitEmbeddedThinking } from "../../../src/lib/ai-message-content.ts";
+import { parseAssistantParts } from "../../../src/lib/ai-message-content.ts";
 
 export interface ParsedAssistantContent {
   reasoning: string;
@@ -10,5 +10,4 @@ export function parseAssistantContent(message: UIMessage): ParsedAssistantConten
   return parseAssistantParts(message.parts);
 }
 
-export { splitEmbeddedThinking };
-
+export { parseAssistantParts };

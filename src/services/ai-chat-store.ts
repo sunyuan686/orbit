@@ -565,15 +565,18 @@ export function createAiChatStore(db: any) {
     role: UIMessage["role"];
     parts: UIMessage["parts"];
     author?: string | null;
-    id: string;
+    id?: string | null;
   }): Promise<AiMessageRow> {
-    const existing = (await db
-      .select()
-      .from(aiMessage)
-      .where(eq(aiMessage.id, input.id))
-      .get()) as AiMessageRow | undefined;
+    const validId = input.id?.trim() || null;
+    const existing = validId
+      ? ((await db
+          .select()
+          .from(aiMessage)
+          .where(eq(aiMessage.id, validId))
+          .get()) as AiMessageRow | undefined)
+      : undefined;
 
-    if (existing) {
+    if (existing && validId) {
       const preview = partsToPreview(input.parts);
       await db
         .update(aiMessage)
@@ -581,7 +584,7 @@ export function createAiChatStore(db: any) {
           parts: serializeParts(input.parts),
           author: input.author ?? existing.author,
         })
-        .where(eq(aiMessage.id, input.id));
+        .where(eq(aiMessage.id, validId));
       await db
         .update(aiConversation)
         .set({ lastPreview: preview, updatedAt: now() })
@@ -593,7 +596,7 @@ export function createAiChatStore(db: any) {
       };
     }
 
-    return insertMessage(input);
+    return insertMessage({ ...input, id: validId ?? undefined });
   }
 
   async function insertMessage(input: {
@@ -603,8 +606,9 @@ export function createAiChatStore(db: any) {
     author?: string | null;
     id?: string;
   }): Promise<AiMessageRow> {
+    const messageId = input.id?.trim() || generateAiId("aimsg");
     const row: AiMessageRow = {
-      id: input.id ?? generateAiId("aimsg"),
+      id: messageId,
       conversationId: input.conversationId,
       role: input.role,
       author: input.author ?? null,

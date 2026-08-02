@@ -8,7 +8,7 @@ const dataDir = join(process.cwd(), "data");
 mkdirSync(dataDir, { recursive: true });
 
 const dbPath = join(dataDir, "orbit.db");
-const sqlite = new Database(dbPath);
+export const sqlite = new Database(dbPath);
 
 sqlite.pragma("journal_mode = WAL");
 sqlite.pragma("foreign_keys = ON");

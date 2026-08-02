@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { TYPE_LABEL, formatSpaceTagline } from "../lib/api";
+import { isValidEntryType, getEntryTypeLabel } from "../lib/entry-types";
 import { setPageTitle } from "../lib/pageTitle";
 import { useTheme, type Theme } from "../lib/useTheme";
 import { SpaceProvider, useSpace } from "../lib/spaceContext";
@@ -15,6 +16,8 @@ import { RouteErrorBoundary } from "./RouteErrorBoundary";
 
 const navItems: { to: string; label: string; type: NavContentType }[] = [
   { to: "/diary", label: TYPE_LABEL.diary, type: "diary" },
+  { to: "/note", label: TYPE_LABEL.note, type: "note" },
+  { to: "/appreciation", label: TYPE_LABEL.appreciation, type: "appreciation" },
   { to: "/timeline", label: TYPE_LABEL.timeline, type: "timeline" },
   { to: "/message", label: TYPE_LABEL.message, type: "message" },
   { to: "/letter", label: TYPE_LABEL.letter, type: "letter" },
@@ -60,11 +63,14 @@ function LayoutShell() {
   const { profile, loading: spaceLoading } = useSpace();
   const { meta: aiArticleMeta } = useAiArticleMeta();
 
-  const articleMatch = location.pathname.match(
-    /^\/(diary|timeline|message|letter)\/([^/]+)$/
-  );
-  const aiContext: AiChatContext = articleMatch
-    ? { mode: "article", articleId: articleMatch[2] }
+  const segments = location.pathname.split("/").filter(Boolean);
+  const isEntryDetailRoute =
+    segments.length === 2 &&
+    isValidEntryType(segments[0]) &&
+    segments[1] !== "new";
+
+  const aiContext: AiChatContext = isEntryDetailRoute
+    ? { mode: "article", articleId: segments[1] }
     : { mode: "global" };
   const aiArticleTitle =
     aiContext.mode === "article" &&
@@ -72,7 +78,7 @@ function LayoutShell() {
     aiArticleMeta.articleId === aiContext.articleId
       ? aiArticleMeta.title
       : undefined;
-  const aiArticleType = articleMatch?.[1] as NavContentType | undefined;
+  const aiArticleType = isEntryDetailRoute ? (segments[0] as NavContentType) : undefined;
 
   const [prevPathname, setPrevPathname] = useState(location.pathname);
   if (location.pathname !== prevPathname) {
@@ -81,7 +87,8 @@ function LayoutShell() {
   }
 
   useEffect(() => {
-    const segment = location.pathname.split("/").filter(Boolean)[0];
+    const pathSegments = location.pathname.split("/").filter(Boolean);
+    const segment = pathSegments[0];
     if (!segment) {
       setPageTitle("首页");
       return;
@@ -110,8 +117,8 @@ function LayoutShell() {
       return;
     }
     if (segment === "new" || location.pathname.endsWith("/edit")) return;
-    if (/^[a-z]+$/.test(segment) && TYPE_LABEL[segment]) {
-      setPageTitle(TYPE_LABEL[segment]);
+    if (isValidEntryType(segment)) {
+      setPageTitle(getEntryTypeLabel(segment));
     }
   }, [location.pathname]);
 

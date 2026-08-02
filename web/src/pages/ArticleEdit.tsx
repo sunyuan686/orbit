@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authClient, fetchEntry, saveEntry, createEntry, fetchComments, TYPE_LABEL, formatDate, getApiErrorMessage, shouldToastApiError, type CommentItem, type CommentPositionMapping, type EntryDetail } from "../lib/api";
+import { resolveEntryType } from "../lib/entry-types";
 import { getThreadRootId } from "../lib/letterThread";
 import { resolveCommentPosition } from "../lib/anchor";
 import { isEmptyBody } from "../lib/content";
@@ -250,11 +251,7 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
     try {
       if (isNew) {
         const result = await createEntry({
-          type: type === "diary" ? "diary"
-            : type === "timeline" ? "timeline"
-            : type === "message" ? "message"
-            : type === "memo" ? "memo"
-            : "letter",
+          type: resolveEntryType(type, "diary"),
           title,
           body: bodyRef.current,
           entryDate: isMemo ? undefined : entryDate,
@@ -397,11 +394,7 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
     try {
       if (isNew) {
         const result = await createEntry({
-          type: type === "diary" ? "diary"
-            : type === "timeline" ? "timeline"
-            : type === "message" ? "message"
-            : type === "memo" ? "memo"
-            : "letter",
+          type: resolveEntryType(type, "diary"),
           title,
           body: bodyRef.current || undefined,
           entryDate: isMemo ? undefined : entryDate,

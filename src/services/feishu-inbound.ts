@@ -212,6 +212,20 @@ function parseWriteCommand(raw: string, defaultType: string): ParsedWrite | null
     return { entryType: "letter", entryDate: now(), text: body };
   }
 
+  // 4. /随想 内容
+  if (text.startsWith("/随想")) {
+    const body = text.replace(/^\/随想\s*/, "").trim();
+    if (!body) return null;
+    return { entryType: "note", entryDate: now(), text: body };
+  }
+
+  // 5. /感谢 内容
+  if (text.startsWith("/感谢")) {
+    const body = text.replace(/^\/感谢\s*/, "").trim();
+    if (!body) return null;
+    return { entryType: "appreciation", entryDate: now(), text: body };
+  }
+
   // 4. /补记 M/D 内容
   const backdate = text.match(
     /^\/补记\s*(\d{1,2})[\/\-.](\d{1,2})[：:\s]*([\s\S]+)$/

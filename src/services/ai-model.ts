@@ -19,6 +19,7 @@ import {
   parseModelRef,
   readConnectionApiKey,
 } from "./ai-connections.js";
+import { wrapReasoningLanguageModel } from "./ai-model-reasoning-wrapper.js";
 
 export interface AiRuntimeEnv {
   BETTER_AUTH_SECRET?: string;
@@ -91,12 +92,13 @@ export async function resolveModel(
       );
     }
 
+    const rawModel = createOpenAiCompatibleModel(
+      connection.baseUrl,
+      apiKey,
+      parsed.modelId
+    );
     return {
-      model: createOpenAiCompatibleModel(
-        connection.baseUrl,
-        apiKey,
-        parsed.modelId
-      ),
+      model: wrapReasoningLanguageModel(rawModel, parsed.modelId, "custom"),
       provider: "custom",
       modelId: modelRef,
     };
@@ -116,8 +118,14 @@ export async function resolveModel(
       );
     }
 
+    const rawModel = workersai(parsed.modelId, {
+      max_tokens: 4096,
+      chat_template_kwargs: {
+        enable_thinking: true,
+      },
+    });
     return {
-      model: workersai(parsed.modelId),
+      model: wrapReasoningLanguageModel(rawModel, parsed.modelId, "workers-ai"),
       provider: "workers-ai",
       modelId: formatWorkersAiModelRef(parsed.modelId),
     };
@@ -134,8 +142,9 @@ export async function resolveModel(
     throw new AiModelConfigError("已选择 DeepSeek，但未配置 API Key");
   }
   const deepseek = createDeepSeek({ apiKey });
+  const rawModel = deepseek(deepseekModelId);
   return {
-    model: deepseek(deepseekModelId),
+    model: wrapReasoningLanguageModel(rawModel, deepseekModelId, "deepseek"),
     provider: "deepseek",
     modelId: formatDeepseekModelRef(deepseekModelId),
   };

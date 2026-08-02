@@ -111,10 +111,29 @@ export function HomeIcon(props: OrbitIconProps) {
   );
 }
 
-export type NavContentType = "diary" | "timeline" | "message" | "letter" | "memo";
+export function NoteIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </OrbitIcon>
+  );
+}
+
+export function AppreciationIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+    </OrbitIcon>
+  );
+}
+
+export type NavContentType = "diary" | "note" | "appreciation" | "timeline" | "message" | "letter" | "memo";
 
 export const NAV_CONTENT_ICONS = {
   diary: DiaryIcon,
+  note: NoteIcon,
+  appreciation: AppreciationIcon,
   timeline: TimelineIcon,
   message: MessageIcon,
   letter: LetterIcon,
@@ -577,4 +596,22 @@ export function InboxIcon(props: OrbitIconProps) {
     </OrbitIcon>
   );
 }
+
+export function StopIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" />
+    </OrbitIcon>
+  );
+}
+
+export function ReloadIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+      <path d="M21 3v5h-5" />
+    </OrbitIcon>
+  );
+}
+
 
