@@ -71,6 +71,7 @@ interface SettingsPutBody {
   }>;
   connectionKey?: { id: string; key: string | null };
   deepseekKey?: string | null;
+  alibabaKey?: string | null;
   aiBotName?: string;
   aiBotPersona?: string;
 }
@@ -82,7 +83,8 @@ async function persistSettings(
   metadata: Record<string, unknown>
 ): Promise<AppSettings> {
   const map = await readSettingsMap(db);
-  const settings = buildAppSettings(map);
+  const env = (c.env as any) ?? process.env;
+  const settings = buildAppSettings(map, env);
   await recordAudit(db, {
     userId: session.userId,
     author: session.author,
@@ -105,7 +107,8 @@ export function createSettingsRoutes(
     const db = await getDb(c);
     try {
       const map = await readSettingsMap(db);
-      return c.json(buildAppSettings(map) satisfies AppSettings);
+      const env = (c.env as any) ?? process.env;
+      return c.json(buildAppSettings(map, env) satisfies AppSettings);
     } catch (err) {
       log.error("read failed", err);
       return c.json({ error: "无法读取设置" }, 500);
@@ -132,6 +135,7 @@ export function createSettingsRoutes(
       body.aiConnections !== undefined ||
       body.connectionKey !== undefined ||
       body.deepseekKey !== undefined ||
+      body.alibabaKey !== undefined ||
       body.aiBotName !== undefined ||
       body.aiBotPersona !== undefined;
 
@@ -240,8 +244,8 @@ export function createSettingsRoutes(
           .filter((id): id is string => typeof id === "string")
           .map((id) => id.trim())
           .filter(
-            (id): id is "workers-ai" | "deepseek" =>
-              id === "workers-ai" || id === "deepseek"
+            (id): id is "workers-ai" | "deepseek" | "alibaba" =>
+              id === "workers-ai" || id === "deepseek" || id === "alibaba"
           );
         if (ids.length === 0) {
           return c.json({ error: "至少保留一个内置供应商" }, 400);
@@ -286,8 +290,8 @@ export function createSettingsRoutes(
 
       const secret = options.getSecret?.(c);
       const needsEncryption =
-        (body.deepseekKey !== undefined || body.connectionKey !== undefined) &&
-        (body.deepseekKey || body.connectionKey?.key);
+        (body.deepseekKey !== undefined || body.alibabaKey !== undefined || body.connectionKey !== undefined) &&
+        (body.deepseekKey || body.alibabaKey || body.connectionKey?.key);
 
       if (needsEncryption && !secret) {
         return c.json({ error: "服务端未配置加密密钥，无法保存 API Key" }, 500);
@@ -325,6 +329,20 @@ export function createSettingsRoutes(
         } else {
           await deleteSetting(db, APP_SETTING_KEYS.aiDeepseekKey);
           auditMetadata.deepseekKey = "cleared";
+        }
+      }
+
+      if (body.alibabaKey !== undefined) {
+        const key = body.alibabaKey?.trim() ?? "";
+        if (key) {
+          const encrypted = await encryptSettingSecret(key, secret!);
+          await upsertSetting(db, APP_SETTING_KEYS.aiAlibabaKey, encrypted);
+          await upsertSetting(db, "ai_key_dashscope", encrypted);
+          auditMetadata.alibabaKey = "updated";
+        } else {
+          await deleteSetting(db, APP_SETTING_KEYS.aiAlibabaKey);
+          await deleteSetting(db, "ai_key_dashscope");
+          auditMetadata.alibabaKey = "cleared";
         }
       }
 

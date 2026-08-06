@@ -108,6 +108,7 @@ export function AiModelPicker({
     if (!settings) return [];
     return filterChatSelectableModels(catalog, settings.aiEnabledModels, {
       hasDeepseekKey: settings.hasDeepseekKey,
+      hasAlibabaKey: settings.hasAlibabaKey,
       enabledProviders: settings.aiEnabledProviders,
       connections: settings.aiConnections,
     });

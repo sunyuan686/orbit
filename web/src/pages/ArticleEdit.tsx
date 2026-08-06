@@ -581,7 +581,10 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
           applyFullscreenClose(detail);
           void handleSave();
         }}
-        onDismiss={handleClose}
+        onDismiss={(detail) => {
+          applyFullscreenClose(detail);
+          handleClose();
+        }}
       />
 
       <DraftDrawer

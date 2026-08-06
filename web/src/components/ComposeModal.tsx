@@ -2,7 +2,9 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { TiptapEditor, type TiptapEditorHandle } from "./TiptapEditor";
 import { EditorFullscreenOverlay } from "./EditorFullscreenOverlay";
 import { MediaAttachmentsBar, type MediaAttachmentItem } from "./MediaAttachmentsBar";
-import { uploadImage } from "../lib/api";
+import { VoiceInputButton } from "./VoiceInputButton";
+import { VoiceNoteRecordButton } from "./VoiceNoteRecordButton";
+import { uploadAsset } from "../lib/api";
 import type { EditorHandoffState } from "../lib/editor-handoff";
 
 export type ComposeFormat = "note" | "appreciation" | "link" | "quote";
@@ -173,17 +175,20 @@ export function ComposeModal({
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const res = await uploadImage(file, entryId);
+        const res = await uploadAsset(file, entryId);
         const newItem: MediaAttachmentItem = {
-          id: `img_${Date.now()}_${i}`,
+          id: `media_${Date.now()}_${i}`,
           url: res.url,
+          mimeType: res.mimeType,
           width: res.width,
           height: res.height,
+          duration: res.duration,
+          transcript: res.transcript,
         };
         setAttachments((prev) => [...prev, newItem]);
       }
     } catch (err) {
-      console.error("Failed to upload image attachment", err);
+      console.error("Failed to upload media attachment", err);
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -318,7 +323,7 @@ export function ComposeModal({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*,audio/*"
                 multiple
                 style={{ display: "none" }}
                 onChange={handleImageSelect}
@@ -328,15 +333,37 @@ export function ComposeModal({
                 className="orbit-compose-tool-btn"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                title="添加图片"
+                title="添加多媒体文件 (图片/视频/音频)"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
                   <circle cx="9" cy="9" r="2" />
                   <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
                 </svg>
-                {uploading ? "上传中…" : "添加图片"}
+                {uploading ? "上传中…" : "添加媒体"}
               </button>
+
+              <VoiceInputButton
+                onTextUpdate={(text) => {
+                  if (text) {
+                    editorRef.current?.insertTextAtCursor(text);
+                  }
+                }}
+              />
+
+              <VoiceNoteRecordButton
+                entryId={entryId}
+                onVoiceNoteCreated={(res) => {
+                  const newItem: MediaAttachmentItem = {
+                    id: `audio_${Date.now()}`,
+                    url: res.url,
+                    mimeType: res.mimeType,
+                    duration: res.duration,
+                    transcript: res.transcript,
+                  };
+                  setAttachments((prev) => [...prev, newItem]);
+                }}
+              />
 
               {format === "note" && (
                 <button

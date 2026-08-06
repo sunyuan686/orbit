@@ -332,39 +332,77 @@ export async function fetchSearch(
 export interface UploadImageResult {
   url: string;
   filename: string;
+  mimeType?: string;
   width?: number;
   height?: number;
   blurhash?: string;
+  duration?: number;
+  transcript?: string;
+}
+
+export type UploadAssetResult = UploadImageResult;
+
+export async function uploadAsset(
+  file: File,
+  entryId?: string
+): Promise<UploadAssetResult> {
+  const form = new FormData();
+  let payload: File = file;
+
+  if (file.type.startsWith("image/")) {
+    const { compressImage } = await import("./compressImage");
+    const { extractImageMetadataOptional } = await import("./media-metadata");
+    payload = await compressImage(file);
+    const meta = await extractImageMetadataOptional(payload);
+    if (meta?.width) form.append("width", String(meta.width));
+    if (meta?.height) form.append("height", String(meta.height));
+    if (meta?.blurhash) form.append("blurhash", meta.blurhash);
+  } else if (file.type.startsWith("audio/") || file.type.startsWith("video/")) {
+    // 尝试在客户端提取音视频时长 (秒)
+    try {
+      const media = document.createElement(file.type.startsWith("audio/") ? "audio" : "video");
+      media.src = URL.createObjectURL(file);
+      await new Promise((res) => {
+        media.onloadedmetadata = res;
+        media.onerror = res;
+        setTimeout(res, 1000);
+      });
+      if (media.duration && !isNaN(media.duration) && isFinite(media.duration)) {
+        form.append("duration", String(Math.round(media.duration)));
+      }
+      URL.revokeObjectURL(media.src);
+    } catch {
+      // 提取失败忽略
+    }
+  }
+
+  form.append("file", payload);
+  if (entryId) form.append("entryId", entryId);
+
+  const res = await fetch(`${BASE}/api/assets/upload`, {
+    method: "POST",
+    credentials: "include",
+    body: form,
+  });
+  await assertOk(res, "文件上传失败");
+  const data = await res.json();
+  return {
+    url: data.url as string,
+    filename: data.filename as string,
+    mimeType: data.mimeType,
+    width: data.width,
+    height: data.height,
+    blurhash: data.blurhash,
+    duration: data.duration,
+    transcript: data.transcript,
+  };
 }
 
 export async function uploadImage(
   file: File,
   entryId?: string
 ): Promise<UploadImageResult> {
-  const { compressImage } = await import("./compressImage");
-  const { extractImageMetadataOptional } = await import("./media-metadata");
-  const payload = await compressImage(file);
-  const meta = await extractImageMetadataOptional(payload);
-  const form = new FormData();
-  form.append("file", payload);
-  if (entryId) form.append("entryId", entryId);
-  if (meta?.width) form.append("width", String(meta.width));
-  if (meta?.height) form.append("height", String(meta.height));
-  if (meta?.blurhash) form.append("blurhash", meta.blurhash);
-  const res = await fetch(`${BASE}/api/assets/upload`, {
-    method: "POST",
-    credentials: "include",
-    body: form,
-  });
-  await assertOk(res, "图片上传失败");
-  const data = await res.json();
-  return {
-    url: data.url as string,
-    filename: data.filename as string,
-    width: data.width,
-    height: data.height,
-    blurhash: data.blurhash,
-  };
+  return uploadAsset(file, entryId);
 }
 
 export type GalleryFilter = "all" | "linked" | "orphan";
@@ -630,11 +668,12 @@ export async function updateSpace(data: {
 export const ACCENT_PRESETS = ["stone", "rose", "sage", "dusk"] as const;
 export type AccentPreset = (typeof ACCENT_PRESETS)[number];
 
-export const AI_PROVIDERS = ["workers-ai", "deepseek", "custom"] as const;
+export const AI_PROVIDERS = ["workers-ai", "deepseek", "alibaba", "custom"] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 
 export const DEFAULT_WORKERS_AI_MODEL = "@cf/zai-org/glm-4.7-flash";
 export const DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash";
+export const DEFAULT_ALIBABA_MODEL = "qwen3.7-plus";
 
 export const DEFAULT_AI_BOT_NAME = "小辛星";
 export const DEFAULT_AI_BOT_PERSONA =
@@ -646,11 +685,15 @@ export const DEFAULT_ENABLED_AI_MODELS: readonly string[] = [
   `workers-ai:@cf/openai/gpt-oss-20b`,
   `deepseek:${DEFAULT_DEEPSEEK_MODEL}`,
   `deepseek:deepseek-v4-pro`,
+  `alibaba:qwen3.8-max`,
+  `alibaba:qwen3.7-plus`,
+  `alibaba:qwen3.5-plus`,
 ];
 
 export const DEFAULT_ENABLED_AI_PROVIDERS: readonly AiProvider[] = [
   "workers-ai",
   "deepseek",
+  "alibaba",
 ];
 
 export interface AiConnectionModel {
@@ -676,6 +719,9 @@ export function inferAiProviderFromModelId(modelId: string): AiProvider {
   if (trimmed.startsWith("workers-ai:") || trimmed.startsWith("@cf/")) {
     return "workers-ai";
   }
+  if (trimmed.startsWith("alibaba:") || trimmed.toLowerCase().includes("qwen")) {
+    return "alibaba";
+  }
   return "deepseek";
 }
 
@@ -687,6 +733,7 @@ export interface AppSettings {
   aiEnabledProviders: AiProvider[];
   aiConnections: AiCustomConnectionPublic[];
   hasDeepseekKey: boolean;
+  hasAlibabaKey: boolean;
   aiBotName: string;
   aiBotPersona: string;
 }
@@ -706,6 +753,7 @@ export async function updateAppSettings(data: {
   aiConnections?: AiCustomConnection[];
   connectionKey?: { id: string; key: string | null };
   deepseekKey?: string | null;
+  alibabaKey?: string | null;
   aiBotName?: string;
   aiBotPersona?: string;
 }): Promise<AppSettings> {
@@ -1084,6 +1132,16 @@ export async function testDeepseekConnection(deepseekKey?: string): Promise<void
     body: JSON.stringify(deepseekKey?.trim() ? { deepseekKey } : {}),
   });
   await assertOk(res, "连接失败，请检查 API Key");
+}
+
+export async function testAlibabaConnection(alibabaKey?: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/ai/alibaba-test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(alibabaKey?.trim() ? { alibabaKey } : {}),
+  });
+  await assertOk(res, "连接失败，请检查阿里百炼 API Key");
 }
 
 export async function testAiConnection(data: {

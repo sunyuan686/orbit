@@ -322,14 +322,18 @@ app.route(
 );
 app.route(
   "/api/assets",
-  createAssetsRoutes(getDb, {
-    async save({ filename, mimeType, body }, c) {
-      await (c as Context<HonoEnv>).env.R2.put(filename, body, {
-        httpMetadata: { contentType: mimeType },
-      });
-      return `/assets/${filename}`;
+  createAssetsRoutes(
+    getDb,
+    {
+      async save({ filename, mimeType, body }, c) {
+        await (c as Context<HonoEnv>).env.R2.put(filename, body, {
+          httpMetadata: { contentType: mimeType },
+        });
+        return `/assets/${filename}`;
+      },
     },
-  })
+    (c) => (c as Context<HonoEnv>).env
+  )
 );
 app.route(
   "/api/gallery",

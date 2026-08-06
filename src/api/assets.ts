@@ -3,6 +3,8 @@ import type { Context } from "hono";
 import { eq } from "drizzle-orm";
 import { asset } from "../db/schema.js";
 import { generateId } from "../lib/id.js";
+import { transcribeAudioWithDashScope } from "../services/dashscope-voice.js";
+import { transcribeAudioWithWorkersAi } from "../services/workers-ai-whisper.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 
@@ -23,12 +25,26 @@ async function sha256Prefix(body: ArrayBuffer): Promise<string> {
 }
 
 function normalizeExtension(name: string): string {
-  const ext = name.includes(".") ? name.slice(name.lastIndexOf(".")).toLowerCase() : ".jpg";
-  return ext === ".jpeg" ? ".jpg" : ext;
+  if (!name.includes(".")) return ".jpg";
+  const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
+  if (ext === ".jpeg") return ".jpg";
+  return ext;
 }
 
 function inferMimeType(file: File, ext: string): string {
   if (file.type) return file.type;
+  // Audio
+  if (ext === ".mp3") return "audio/mpeg";
+  if (ext === ".wav") return "audio/wav";
+  if (ext === ".m4a") return "audio/m4a";
+  if (ext === ".ogg") return "audio/ogg";
+  if (ext === ".aac") return "audio/aac";
+  // Video
+  if (ext === ".mp4") return "video/mp4";
+  if (ext === ".mov") return "video/quicktime";
+  if (ext === ".webm") return "video/webm";
+  if (ext === ".mkv") return "video/x-matroska";
+  // Image defaults
   if (ext === ".png") return "image/png";
   if (ext === ".gif") return "image/gif";
   if (ext === ".webp") return "image/webp";
@@ -48,7 +64,11 @@ function parseClientBlurhash(raw: FormDataEntryValue | null): string | undefined
   return trimmed;
 }
 
-export function createAssetsRoutes(getDb: DbProvider, storage: AssetStorage) {
+export function createAssetsRoutes(
+  getDb: DbProvider,
+  storage: AssetStorage,
+  getEnv?: (c: Context) => any
+) {
   const assets = new Hono();
 
   assets.post("/upload", async (c) => {
@@ -69,7 +89,26 @@ export function createAssetsRoutes(getDb: DbProvider, storage: AssetStorage) {
 
     let width = parsePositiveInt(formData.get("width"));
     let height = parsePositiveInt(formData.get("height"));
+    let duration = parsePositiveInt(formData.get("duration"));
     let blurhash = parseClientBlurhash(formData.get("blurhash"));
+    let transcript = (formData.get("transcript") as string | null) || undefined;
+
+    // 如果是语音文件且前端未提供转写文本，尝试自动打字转写
+    if (mimeType.startsWith("audio/") && !transcript) {
+      try {
+        const env = getEnv ? getEnv(c) : ((c.env as any) || process.env);
+        const dbInstance = await getDb(c);
+        try {
+          const res = await transcribeAudioWithDashScope(body, file.name || "recording.wav", env, undefined, dbInstance);
+          if (res?.text) transcript = res.text.trim();
+        } catch {
+          const resText = await transcribeAudioWithWorkersAi(body, env);
+          if (typeof resText === "string" && resText.trim()) transcript = resText.trim();
+        }
+      } catch {
+        // 自动转写失败时不影响音频文件的正常上传存储
+      }
+    }
 
     const existingAsset = await db
       .select({
@@ -77,6 +116,8 @@ export function createAssetsRoutes(getDb: DbProvider, storage: AssetStorage) {
         width: asset.width,
         height: asset.height,
         blurhash: asset.blurhash,
+        duration: asset.duration,
+        transcript: asset.transcript,
       })
       .from(asset)
       .where(eq(asset.storageKey, filename))
@@ -92,15 +133,19 @@ export function createAssetsRoutes(getDb: DbProvider, storage: AssetStorage) {
         width: width ?? null,
         height: height ?? null,
         blurhash: blurhash ?? null,
+        duration: duration ?? null,
+        transcript: transcript ?? null,
         createdAt: Math.floor(Date.now() / 1000),
       });
     } else {
       width = existingAsset.width ?? width;
       height = existingAsset.height ?? height;
       blurhash = existingAsset.blurhash ?? blurhash;
+      duration = existingAsset.duration ?? duration;
+      transcript = existingAsset.transcript ?? transcript;
     }
 
-    return c.json({ url, filename, width, height, blurhash });
+    return c.json({ url, filename, mimeType, width, height, blurhash, duration, transcript });
   });
 
   return assets;

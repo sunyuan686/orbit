@@ -34,14 +34,21 @@ export interface ParsedDeepseekModelRef {
   modelId: string;
 }
 
+export interface ParsedAlibabaModelRef {
+  kind: "alibaba";
+  modelId: string;
+}
+
 export type ParsedModelRef =
   | ParsedCustomModelRef
   | ParsedWorkersAiModelRef
-  | ParsedDeepseekModelRef;
+  | ParsedDeepseekModelRef
+  | ParsedAlibabaModelRef;
 
 const CUSTOM_MODEL_PREFIX = "custom:";
 const WORKERS_AI_MODEL_PREFIX = "workers-ai:";
 const DEEPSEEK_MODEL_PREFIX = "deepseek:";
+const ALIBABA_MODEL_PREFIX = "alibaba:";
 const CONNECTION_KEY_PREFIX = "ai_connection_key_";
 const MAX_CONNECTIONS = 16;
 const MAX_MODELS_PER_CONNECTION = 64;
@@ -78,6 +85,13 @@ export function formatDeepseekModelRef(modelId: string): string {
   return `${DEEPSEEK_MODEL_PREFIX}${trimmed}`;
 }
 
+export function formatAlibabaModelRef(modelId: string): string {
+  const trimmed = modelId.trim();
+  if (trimmed.startsWith(ALIBABA_MODEL_PREFIX)) return trimmed;
+  if (trimmed.startsWith(CUSTOM_MODEL_PREFIX)) return trimmed;
+  return `${ALIBABA_MODEL_PREFIX}${trimmed}`;
+}
+
 export function parseModelRef(raw: string): ParsedModelRef | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
@@ -97,6 +111,11 @@ export function parseModelRef(raw: string): ParsedModelRef | null {
     return modelId ? { kind: "deepseek", modelId } : null;
   }
 
+  if (trimmed.startsWith(ALIBABA_MODEL_PREFIX)) {
+    const modelId = trimmed.slice(ALIBABA_MODEL_PREFIX.length).trim();
+    return modelId ? { kind: "alibaba", modelId } : null;
+  }
+
   if (trimmed.startsWith(WORKERS_AI_MODEL_PREFIX)) {
     const modelId = trimmed.slice(WORKERS_AI_MODEL_PREFIX.length).trim();
     return modelId.startsWith("@cf/") ? { kind: "workers-ai", modelId } : null;
@@ -104,6 +123,10 @@ export function parseModelRef(raw: string): ParsedModelRef | null {
 
   if (trimmed.startsWith("@cf/")) {
     return { kind: "workers-ai", modelId: trimmed };
+  }
+
+  if (trimmed.toLowerCase().includes("qwen")) {
+    return { kind: "alibaba", modelId: trimmed };
   }
 
   if (trimmed.toLowerCase().includes("deepseek")) {
@@ -128,6 +151,9 @@ export function normalizeEnabledModelRef(raw: string): string | null {
   }
   if (parsed.kind === "workers-ai") {
     return formatWorkersAiModelRef(parsed.modelId);
+  }
+  if (parsed.kind === "alibaba") {
+    return formatAlibabaModelRef(parsed.modelId);
   }
   return formatDeepseekModelRef(parsed.modelId);
 }

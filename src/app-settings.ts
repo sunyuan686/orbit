@@ -1,4 +1,5 @@
 import {
+  formatAlibabaModelRef,
   formatDeepseekModelRef,
   formatWorkersAiModelRef,
   parseAiConnections,
@@ -16,6 +17,7 @@ export const APP_SETTING_KEYS = {
   aiEnabledProviders: "ai_enabled_providers",
   aiConnections: "ai_connections",
   aiDeepseekKey: "ai_deepseek_key",
+  aiAlibabaKey: "ai_alibaba_key",
   aiBotName: "ai_bot_name",
   aiBotPersona: "ai_bot_persona",
 } as const;
@@ -23,11 +25,12 @@ export const APP_SETTING_KEYS = {
 export const ACCENT_PRESETS = ["stone", "rose", "sage", "dusk"] as const;
 export type AccentPreset = (typeof ACCENT_PRESETS)[number];
 
-export const AI_PROVIDERS = ["workers-ai", "deepseek", "custom"] as const;
+export const AI_PROVIDERS = ["workers-ai", "deepseek", "alibaba", "custom"] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 
 export const DEFAULT_WORKERS_AI_MODEL = "@cf/zai-org/glm-4.7-flash";
 export const DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash";
+export const DEFAULT_ALIBABA_MODEL = "qwen3.7-plus";
 
 export const DEFAULT_AI_BOT_NAME = "小辛星";
 export const DEFAULT_AI_BOT_PERSONA =
@@ -40,12 +43,16 @@ export const DEFAULT_ENABLED_AI_MODELS: readonly string[] = [
   formatWorkersAiModelRef("@cf/openai/gpt-oss-20b"),
   formatDeepseekModelRef("deepseek-v4-flash"),
   formatDeepseekModelRef("deepseek-v4-pro"),
+  formatAlibabaModelRef("qwen3.8-max"),
+  formatAlibabaModelRef("qwen3.7-plus"),
+  formatAlibabaModelRef("qwen3.5-plus"),
 ];
 
 /** Built-in providers available in chat when none are configured. */
 export const DEFAULT_ENABLED_AI_PROVIDERS: readonly AiProvider[] = [
   "workers-ai",
   "deepseek",
+  "alibaba",
 ];
 
 export interface AppSettings {
@@ -56,6 +63,7 @@ export interface AppSettings {
   aiEnabledProviders: AiProvider[];
   aiConnections: AiCustomConnectionPublic[];
   hasDeepseekKey: boolean;
+  hasAlibabaKey: boolean;
   aiBotName: string;
   aiBotPersona: string;
 }
@@ -73,8 +81,8 @@ export function isAiProvider(value: string): value is AiProvider {
 
 export function isBuiltinAiProvider(
   provider: AiProvider
-): provider is "workers-ai" | "deepseek" {
-  return provider === "workers-ai" || provider === "deepseek";
+): provider is "workers-ai" | "deepseek" | "alibaba" {
+  return provider === "workers-ai" || provider === "deepseek" || provider === "alibaba";
 }
 
 /** Infer provider from a canonical model ref. */
@@ -82,6 +90,7 @@ export function inferAiProviderFromModelId(modelId: string): AiProvider {
   const parsed = parseModelRef(modelId);
   if (parsed?.kind === "custom") return "custom";
   if (parsed?.kind === "workers-ai") return "workers-ai";
+  if (parsed?.kind === "alibaba") return "alibaba";
   return "deepseek";
 }
 
@@ -113,6 +122,9 @@ function normalizeLegacyModelRef(raw: string): string | null {
   if (parsed.kind === "workers-ai") {
     return formatWorkersAiModelRef(parsed.modelId);
   }
+  if (parsed.kind === "alibaba") {
+    return formatAlibabaModelRef(parsed.modelId);
+  }
   return formatDeepseekModelRef(parsed.modelId);
 }
 
@@ -129,8 +141,8 @@ export function parseAiEnabledProviders(raw: string | undefined): AiProvider[] {
       .filter((id): id is string => typeof id === "string")
       .map((id) => id.trim())
       .filter(
-        (id): id is "workers-ai" | "deepseek" =>
-          id === "workers-ai" || id === "deepseek"
+        (id): id is "workers-ai" | "deepseek" | "alibaba" =>
+          id === "workers-ai" || id === "deepseek" || id === "alibaba"
       );
     return ids.length > 0 ? ids : [...DEFAULT_ENABLED_AI_PROVIDERS];
   } catch {
@@ -158,7 +170,13 @@ export function resolveAiModelRef(
   if (parsed?.kind === "deepseek") {
     return formatDeepseekModelRef(parsed.modelId);
   }
+  if (parsed?.kind === "alibaba") {
+    return formatAlibabaModelRef(parsed.modelId);
+  }
   if (provider === "custom" && trimmed) return trimmed;
+  if (provider === "alibaba") {
+    return formatAlibabaModelRef(DEFAULT_ALIBABA_MODEL);
+  }
   if (provider === "deepseek") {
     return formatDeepseekModelRef(DEFAULT_DEEPSEEK_MODEL);
   }
@@ -166,7 +184,8 @@ export function resolveAiModelRef(
 }
 
 export function buildAppSettings(
-  settingsMap: Record<string, string>
+  settingsMap: Record<string, string>,
+  env?: { DEEPSEEK_API_KEY?: string; ALIBABA_API_KEY?: string; DASHSCOPE_API_KEY?: string }
 ): AppSettings {
   const rawAccent = settingsMap[APP_SETTING_KEYS.accentPreset]?.trim();
   const accentPreset =
@@ -200,6 +219,21 @@ export function buildAppSettings(
   const aiBotPersona =
     settingsMap[APP_SETTING_KEYS.aiBotPersona]?.trim() || DEFAULT_AI_BOT_PERSONA;
 
+  const hasDeepseekKey = Boolean(
+    settingsMap[APP_SETTING_KEYS.aiDeepseekKey]?.trim() ||
+      env?.DEEPSEEK_API_KEY?.trim() ||
+      process.env.DEEPSEEK_API_KEY?.trim()
+  );
+
+  const hasAlibabaKey = Boolean(
+    settingsMap[APP_SETTING_KEYS.aiAlibabaKey]?.trim() ||
+      settingsMap["ai_key_dashscope"]?.trim() ||
+      env?.ALIBABA_API_KEY?.trim() ||
+      env?.DASHSCOPE_API_KEY?.trim() ||
+      process.env.ALIBABA_API_KEY?.trim() ||
+      process.env.DASHSCOPE_API_KEY?.trim()
+  );
+
   return {
     accentPreset,
     aiProvider,
@@ -207,7 +241,8 @@ export function buildAppSettings(
     aiEnabledModels,
     aiEnabledProviders,
     aiConnections: connections,
-    hasDeepseekKey: Boolean(settingsMap[APP_SETTING_KEYS.aiDeepseekKey]?.trim()),
+    hasDeepseekKey,
+    hasAlibabaKey,
     aiBotName,
     aiBotPersona,
   };

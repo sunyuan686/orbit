@@ -20,6 +20,8 @@ import { useToast } from "../lib/useToast";
 import Link from "@tiptap/extension-link";
 import { CommentHighlight } from "../extensions/CommentHighlight";
 import { OrbitImage } from "../extensions/OrbitImage";
+import { OrbitAudio } from "../extensions/OrbitAudio";
+import { OrbitVideo } from "../extensions/OrbitVideo";
 import { ORBIT_ALLOW_DOC_CHANGE, ReadonlyGuard } from "../extensions/ReadonlyGuard";
 import { SlashCommands } from "../extensions/SlashCommands";
 import { LinkToolbar } from "../extensions/LinkToolbar";
@@ -39,6 +41,8 @@ import {
   type EditorHandoffState,
   type EditorSelection,
 } from "../lib/editor-handoff";
+import { VoiceInputButton } from "./VoiceInputButton";
+import { VoiceNoteRecordButton } from "./VoiceNoteRecordButton";
 
 const INLINE_DRAFT_MARK_ID = "__draft__";
 
@@ -47,6 +51,7 @@ export interface TiptapEditorHandle {
   setEditorState: (json: JSONContent, selection?: EditorSelection | null) => void;
   focusSelection: (selection?: EditorSelection | null) => void;
   getEditor: () => Editor | null;
+  insertTextAtCursor: (text: string) => void;
 }
 
 interface Props {
@@ -184,6 +189,7 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
 
   const [attachments, setAttachments] = useState<MediaAttachmentItem[]>([]);
   const attachmentsRef = useRef(attachments);
+  const speechRangeRef = useRef<{ from: number; to: number } | null>(null);
   useEffect(() => {
     attachmentsRef.current = attachments;
   }, [attachments]);
@@ -257,6 +263,8 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
         allowBase64: false,
         HTMLAttributes: { class: "orbit-prose-img" },
       }),
+      OrbitAudio,
+      OrbitVideo,
       Placeholder.configure({
         placeholder: mode === "note" ? "记录这一刻的随手记与思想…" : "开始写作，或输入 '/' 唤起快捷菜单…",
       }),
@@ -471,6 +479,11 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
           return null;
         }
         return currentEditor;
+      },
+      insertTextAtCursor: (text: string) => {
+        const currentEditor = editorRef.current;
+        if (!currentEditor || currentEditor.isDestroyed) return;
+        currentEditor.chain().focus().insertContent(text).run();
       },
     }),
     [onChange, onJsonChange, readEditorSelection],
@@ -836,7 +849,7 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/*,audio/*"
         multiple
         className="hidden"
         onChange={(e) => {
@@ -868,8 +881,8 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
               type="button"
               className="orbit-editor-tool-btn"
               onClick={() => fileInputRef.current?.click()}
-              title="上传图片"
-              aria-label="上传图片"
+              title="上传媒体/图片"
+              aria-label="上传媒体/图片"
             >
               <svg className="orbit-editor-tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
@@ -877,6 +890,56 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
                 <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
               </svg>
             </button>
+
+            <VoiceInputButton
+              className="orbit-editor-tool-btn"
+              compact
+              onStreamStart={() => {
+                const currentEditor = editorRef.current;
+                if (currentEditor && !currentEditor.isDestroyed) {
+                  const from = currentEditor.state.selection.from;
+                  speechRangeRef.current = { from, to: from };
+                }
+              }}
+              onTextUpdate={(text) => {
+                const currentEditor = editorRef.current;
+                if (!currentEditor || currentEditor.isDestroyed || !text) return;
+
+                if (!speechRangeRef.current) {
+                  const from = currentEditor.state.selection.from;
+                  currentEditor.chain().focus().insertContent(text).run();
+                  speechRangeRef.current = { from, to: from + text.length };
+                } else {
+                  const { from, to } = speechRangeRef.current;
+                  currentEditor
+                    .chain()
+                    .focus()
+                    .deleteRange({ from, to })
+                    .insertContentAt(from, text)
+                    .run();
+                  speechRangeRef.current = { from, to: from + text.length };
+                }
+              }}
+              onStreamEnd={() => {
+                speechRangeRef.current = null;
+              }}
+            />
+
+            <VoiceNoteRecordButton
+              className="orbit-editor-tool-btn"
+              compact
+              entryId={entryId}
+              onVoiceNoteCreated={(res) => {
+                const newItem: MediaAttachmentItem = {
+                  id: `audio_${Date.now()}`,
+                  url: res.url,
+                  mimeType: res.mimeType,
+                  duration: res.duration,
+                  transcript: res.transcript,
+                };
+                setAttachments((prev) => [...prev, newItem]);
+              }}
+            />
 
             {onToggleTitle && (
               <button

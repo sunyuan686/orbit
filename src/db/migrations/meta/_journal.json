@@ -155,6 +155,13 @@
       "when": 1785664130565,
       "tag": "0021_tan_microchip",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1785800000000,
+      "tag": "0022_asset_duration_transcript",
+      "breakpoints": true
     }
   ]
 }

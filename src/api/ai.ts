@@ -1,6 +1,11 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { type UIMessage } from "ai";
+import { generateText, streamText, type UIMessage } from "ai";
+import { createWorkersAI } from "workers-ai-provider";
+import { transcribeAudioWithWorkersAi } from "../services/workers-ai-whisper.js";
+import { transcribeAudioWithDashScope } from "../services/dashscope-voice.js";
+import { readProviderKey, resolveAlibabaApiKey, resolveModel } from "../services/ai-model.js";
+import { APP_SETTING_KEYS } from "../app-settings.js";
 import type { AiContextMode } from "../services/ai-chat-store.js";
 import {
   createAiChatStore,
@@ -580,6 +585,176 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
       }
       log.error("chat failed", err);
       return c.json({ error: "模型服务暂时不可用，请稍后重试" }, 502);
+    }
+  });
+
+  ai.post("/voice-transcribe", async (c) => {
+    try {
+      const authorRes = await requireSessionAuthor(c, options.getSessionAuthor);
+      if (authorRes instanceof Response) return authorRes;
+
+      const env = options.getEnv ? options.getEnv(c) : (process.env as AiRuntimeEnv);
+      const body = await c.req.parseBody();
+      const file = body["file"];
+      const mode = (body["mode"] as string) || "smooth";
+      const contextText = (body["contextText"] as string) || "";
+
+      if (!file || !(file instanceof File)) {
+        return c.json({ error: "请上传语音音频文件" }, 400);
+      }
+
+      const startTime = Date.now();
+      const buffer = await file.arrayBuffer();
+
+      const dbInstance = await getDb(c);
+      const settingsMap = await readSettingsMap(dbInstance);
+      const dashscopeApiKey = await resolveAlibabaApiKey(settingsMap, env);
+      
+      // 1. 调用阿里 SenseVoice / qwen3-asr-flash 模型转写语音
+      const sttStartTime = Date.now();
+      const { text: rawText, provider } = await transcribeAudioWithDashScope(
+        buffer,
+        file.name,
+        env,
+        dashscopeApiKey || undefined
+      );
+      const sttDurationMs = Date.now() - sttStartTime;
+
+      log.info(`[Voice Performance Diagnostic] 语音识别 (${provider}) 耗时: ${sttDurationMs}ms`, {
+        sttDurationMs,
+        provider,
+        audioSizeBytes: buffer.byteLength,
+        rawText,
+      });
+
+      if (!rawText || !rawText.trim()) {
+        return c.json({ error: "未能从语音中识别出文字，请清晰录音后再试" }, 422);
+      }
+
+      // 如果选择“保持原文”，直接以 JSON 返回
+      if (mode === "raw") {
+        return c.json({ rawText, refinedText: rawText, text: rawText });
+      }
+
+      // 2. 强制使用 DeepSeek v4-flash 模型进行文本润色（禁止退回到 Cloudflare Workers AI）
+      const deepseekKey =
+        (await resolveDeepseekApiKey(settingsMap, env)) ||
+        env.DEEPSEEK_API_KEY ||
+        process.env.DEEPSEEK_API_KEY ||
+        "";
+
+      if (!deepseekKey || !deepseekKey.trim()) {
+        return c.json({ error: "未配置 DEEPSEEK_API_KEY，请在系统设置中填入 DeepSeek API Key" }, 422);
+      }
+
+      const { createDeepSeek } = await import("@ai-sdk/deepseek");
+      const deepseek = createDeepSeek({ apiKey: deepseekKey.trim() });
+      const modelToUse = deepseek("deepseek-v4-flash");
+
+      let systemPrompt = `你是一位专业的语言表达与编辑专家。请修饰用户的口语表述：\n1. 剔除所有口头禅（如“额”、“然后”、“那个”、“就是”）、无意义停顿与重复词。\n2. 自动识别口语中的自我修正（如“不对”、“更正为”、“我是说”、“不是...”），用后文正确说法直接替换修正前文。\n3. 修复语病、错别字，补齐正确标点符号，保持作者实际意图。\n4. 必须强制使用简体中文 (Simplified Chinese) 输出，绝不要出现任何繁体字。\n5. 直接输出润色后的文本，绝不要包含“好的”、“这是润色后的结果：”等任何解释性套话。`;
+
+      if (contextText.trim()) {
+        systemPrompt += `\n6. [上下文专有名词参考] 用户当前文章/编辑框的上下文如下:\n"""\n${contextText.trim().slice(0, 500)}\n"""\n请结合上述上下文中的专有名词（如人名“小圆子”、“小麟子”、专业术语、文章标题），自动纠正口语转写中的同音错别字。`;
+      }
+
+      const polishStartTime = Date.now();
+      log.info(`[Voice Refine Started] 开始调用 DeepSeek v4-flash 流式润色...`, {
+        mode,
+        rawTextLength: rawText.length,
+      });
+
+      const result = streamText({
+        model: modelToUse,
+        system: systemPrompt,
+        prompt: rawText,
+        onFinish: ({ text: refinedText }) => {
+          const polishDurationMs = Date.now() - polishStartTime;
+          log.info(`[Voice Refine Finished] DeepSeek v4-flash 润色完成，耗时: ${polishDurationMs}ms`, {
+            polishDurationMs,
+            refinedText,
+          });
+        },
+      });
+
+      return result.toTextStreamResponse({
+        headers: {
+          "X-Raw-Text": encodeURIComponent(rawText),
+        },
+      });
+    } catch (err: any) {
+      log.error("voice-transcribe failed", { error: err?.message || String(err) });
+      return c.json({ error: err.message || "语音识别与润色失败" }, 500);
+    }
+  });
+
+  ai.post("/deepseek-test", async (c) => {
+    try {
+      const authorRes = await requireSessionAuthor(c, options.getSessionAuthor);
+      if (authorRes instanceof Response) return authorRes;
+
+      const env = options.getEnv ? options.getEnv(c) : (process.env as AiRuntimeEnv);
+      const dbInstance = await getDb(c);
+      const settingsMap = await readSettingsMap(dbInstance);
+      const body = await c.req.json<{ deepseekKey?: string }>().catch((): { deepseekKey?: string } => ({}));
+      
+      const apiKey =
+        body.deepseekKey?.trim() ||
+        (await resolveDeepseekApiKey(settingsMap, env)) ||
+        env.DEEPSEEK_API_KEY ||
+        process.env.DEEPSEEK_API_KEY ||
+        "";
+
+      if (!apiKey) {
+        return c.json({ error: "未提供 API Key" }, 400);
+      }
+
+      const { createDeepSeek } = await import("@ai-sdk/deepseek");
+      const deepseek = createDeepSeek({ apiKey });
+      await generateText({
+        model: deepseek("deepseek-v4-flash"),
+        prompt: "hi",
+      });
+
+      return c.json({ ok: true });
+    } catch (err: any) {
+      log.error("deepseek-test failed", err);
+      return c.json({ error: err?.message || "连接 DeepSeek 失败" }, 422);
+    }
+  });
+
+  ai.post("/alibaba-test", async (c) => {
+    try {
+      const authorRes = await requireSessionAuthor(c, options.getSessionAuthor);
+      if (authorRes instanceof Response) return authorRes;
+
+      const env = options.getEnv ? options.getEnv(c) : (process.env as AiRuntimeEnv);
+      const dbInstance = await getDb(c);
+      const settingsMap = await readSettingsMap(dbInstance);
+      const body = await c.req.json<{ alibabaKey?: string }>().catch((): { alibabaKey?: string } => ({}));
+
+      const apiKey =
+        body.alibabaKey?.trim() ||
+        (await resolveAlibabaApiKey(settingsMap, env)) ||
+        "";
+
+      if (!apiKey) {
+        return c.json({ error: "未提供 API Key" }, 400);
+      }
+
+      const { createAlibaba } = await import("@ai-sdk/alibaba");
+      const alibaba = createAlibaba({
+        apiKey,
+        baseURL: process.env.DASHSCOPE_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      });
+      await generateText({
+        model: alibaba("qwen-turbo"),
+        prompt: "hi",
+      });
+
+      return c.json({ ok: true });
+    } catch (err: any) {
+      log.error("alibaba-test failed", err);
+      return c.json({ error: err?.message || "连接阿里百炼失败" }, 422);
     }
   });
 

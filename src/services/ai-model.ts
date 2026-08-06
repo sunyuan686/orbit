@@ -4,6 +4,7 @@ import { createWorkersAI } from "workers-ai-provider";
 import {
   APP_SETTING_KEYS,
   buildAppSettings,
+  DEFAULT_ALIBABA_MODEL,
   DEFAULT_DEEPSEEK_MODEL,
   DEFAULT_WORKERS_AI_MODEL,
   resolveAiModelRef,
@@ -14,6 +15,7 @@ import { decryptSettingSecret } from "../lib/secret-crypto.js";
 import {
   createOpenAiCompatibleModel,
   findConnection,
+  formatAlibabaModelRef,
   formatDeepseekModelRef,
   formatWorkersAiModelRef,
   parseModelRef,
@@ -24,6 +26,8 @@ import { wrapReasoningLanguageModel } from "./ai-model-reasoning-wrapper.js";
 export interface AiRuntimeEnv {
   BETTER_AUTH_SECRET?: string;
   DEEPSEEK_API_KEY?: string;
+  ALIBABA_API_KEY?: string;
+  DASHSCOPE_API_KEY?: string;
   CF_ACCOUNT_ID?: string;
   CF_API_TOKEN?: string;
   TAVILY_API_KEY?: string;
@@ -52,7 +56,7 @@ export class AiModelConfigError extends Error {
   }
 }
 
-async function readProviderKey(
+export async function readProviderKey(
   settingsMap: Record<string, string>,
   key: string,
   secret?: string
@@ -65,12 +69,36 @@ async function readProviderKey(
   return decryptSettingSecret(encrypted, secret);
 }
 
+export async function resolveAlibabaApiKey(
+  settingsMap: Record<string, string>,
+  env: AiRuntimeEnv = process.env as AiRuntimeEnv
+): Promise<string | null> {
+  const secret = env.BETTER_AUTH_SECRET ?? process.env.BETTER_AUTH_SECRET;
+  const keyFromDb =
+    (await readProviderKey(settingsMap, APP_SETTING_KEYS.aiAlibabaKey, secret)) ??
+    (await readProviderKey(settingsMap, "ai_key_dashscope", secret));
+
+  if (keyFromDb?.trim()) {
+    return keyFromDb.trim();
+  }
+
+  const envKey = (
+    env.ALIBABA_API_KEY ??
+    env.DASHSCOPE_API_KEY ??
+    process.env.ALIBABA_API_KEY ??
+    process.env.DASHSCOPE_API_KEY ??
+    ""
+  ).trim();
+
+  return envKey || null;
+}
+
 export async function resolveModel(
   db: any,
   env: AiRuntimeEnv = process.env as AiRuntimeEnv
 ): Promise<ResolvedModel> {
   const settingsMap = await readSettingsMap(db);
-  const settings = buildAppSettings(settingsMap);
+  const settings = buildAppSettings(settingsMap, env);
   const modelRef = resolveAiModelRef(settings.aiProvider, settings.aiModel);
   const parsed = parseModelRef(modelRef);
   const secret = env.BETTER_AUTH_SECRET;
@@ -128,6 +156,25 @@ export async function resolveModel(
       model: wrapReasoningLanguageModel(rawModel, parsed.modelId, "workers-ai"),
       provider: "workers-ai",
       modelId: formatWorkersAiModelRef(parsed.modelId),
+    };
+  }
+
+  if (parsed?.kind === "alibaba") {
+    const alibabaModelId = parsed.modelId || DEFAULT_ALIBABA_MODEL;
+    const apiKey = await resolveAlibabaApiKey(settingsMap, env);
+    if (!apiKey) {
+      throw new AiModelConfigError("已选择 阿里云百炼 (通义千问)，但未配置 API Key");
+    }
+    const { createAlibaba } = await import("@ai-sdk/alibaba");
+    const alibaba = createAlibaba({
+      apiKey,
+      baseURL: process.env.DASHSCOPE_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    });
+    const rawModel = alibaba(alibabaModelId);
+    return {
+      model: wrapReasoningLanguageModel(rawModel, alibabaModelId, "alibaba"),
+      provider: "alibaba",
+      modelId: formatAlibabaModelRef(alibabaModelId),
     };
   }
 

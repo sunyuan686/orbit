@@ -18,7 +18,7 @@ export interface EditorFullscreenOverlayProps {
   saving?: boolean;
   onClose: (detail: EditorFullscreenCloseDetail) => void;
   onSave?: (detail: EditorFullscreenCloseDetail) => void;
-  onDismiss?: () => void;
+  onDismiss?: (detail: EditorFullscreenCloseDetail) => void;
 }
 
 const ESCAPE_OVERLAY_SELECTOR =
@@ -163,7 +163,7 @@ export function EditorFullscreenOverlay({
           {onDismiss && (
             <button
               type="button"
-              onClick={onDismiss}
+              onClick={() => onDismiss(buildCloseDetail())}
               className="orbit-btn mr-2"
               aria-label="关闭"
               title="关闭"

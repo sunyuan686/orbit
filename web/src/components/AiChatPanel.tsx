@@ -32,6 +32,7 @@ import { useToast } from "../lib/useToast";
 import { AiConversationList } from "./AiConversationList";
 import { AiLayoutMenu, type AiPanelLayout } from "./AiLayoutMenu";
 import { AiModelPicker } from "./AiModelPicker";
+import { VoiceInputButton } from "./VoiceInputButton";
 import {
   AiIcon,
   ArrowUpIcon,
@@ -1497,26 +1498,33 @@ export function AiChatPanel({
                 />
                 <div className="orbit-ai-composer-toolbar">
                   <AiModelPicker disabled={isBusy} onNavigateAway={onClose} />
-                  {status === "streaming" ? (
-                    <button
-                      type="button"
-                      className="orbit-ai-stop-btn"
-                      aria-label="停止生成"
-                      title="停止生成"
-                      onClick={() => stop()}
-                    >
-                      <StopIcon size="sm" />
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      className="orbit-ai-send-btn"
-                      aria-label="发送"
-                      disabled={isBusy || !input.trim()}
-                    >
-                      <ArrowUpIcon size="sm" />
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <VoiceInputButton
+                      compact
+                      onTextUpdate={(val) => setInput(val)}
+                      onStreamStart={() => inputRef.current?.focus()}
+                    />
+                    {status === "streaming" ? (
+                      <button
+                        type="button"
+                        className="orbit-ai-stop-btn"
+                        aria-label="停止生成"
+                        title="停止生成"
+                        onClick={() => stop()}
+                      >
+                        <StopIcon size="sm" />
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        className="orbit-ai-send-btn"
+                        aria-label="发送"
+                        disabled={isBusy || !input.trim()}
+                      >
+                        <ArrowUpIcon size="sm" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </form>

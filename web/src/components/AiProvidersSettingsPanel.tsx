@@ -12,6 +12,7 @@ import {
   getApiErrorMessage,
   shouldToastApiError,
   testAiConnection,
+  testAlibabaConnection,
   testDeepseekConnection,
   updateAppSettings,
   type AiCustomConnection,
@@ -104,6 +105,14 @@ export function AiProvidersSettingsPanel() {
   const [botName, setBotName] = useState("");
   const [botPersona, setBotPersona] = useState("");
   const [savingBotInfo, setSavingBotInfo] = useState(false);
+  const [collapsedGroupIds, setCollapsedGroupIds] = useState<Record<string, boolean>>({});
+
+  const toggleGroupCollapse = (groupId: string) => {
+    setCollapsedGroupIds((prev) => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }));
+  };
 
   useEffect(() => {
     if (!settings) return;
@@ -133,8 +142,11 @@ export function AiProvidersSettingsPanel() {
   const [modelSearch, setModelSearch] = useState("");
   const [deepseekKey, setDeepseekKey] = useState("");
   const [editingDeepseekKey, setEditingDeepseekKey] = useState(false);
+  const [alibabaKey, setAlibabaKey] = useState("");
+  const [editingAlibabaKey, setEditingAlibabaKey] = useState(false);
   const [savingAi, setSavingAi] = useState(false);
   const [testingDeepseek, setTestingDeepseek] = useState(false);
+  const [testingAlibaba, setTestingAlibaba] = useState(false);
   const [togglingModelId, setTogglingModelId] = useState<string | null>(null);
   const [togglingGroupId, setTogglingGroupId] = useState<string | null>(null);
   const [workersModels, setWorkersModels] = useState<
@@ -168,9 +180,20 @@ export function AiProvidersSettingsPanel() {
     }
   }, [settings?.hasDeepseekKey]);
 
+  useEffect(() => {
+    if (settings?.hasAlibabaKey) {
+      setAlibabaKey("");
+      setEditingAlibabaKey(false);
+    }
+  }, [settings?.hasAlibabaKey]);
+
   const isKeyDirty = Boolean(deepseekKey.trim());
   const showDeepseekKeyInput =
     !settings?.hasDeepseekKey || editingDeepseekKey || isKeyDirty;
+
+  const isAlibabaKeyDirty = Boolean(alibabaKey.trim());
+  const showAlibabaKeyInput =
+    !settings?.hasAlibabaKey || editingAlibabaKey || isAlibabaKeyDirty;
 
   const catalog = useMemo(
     () =>
@@ -183,7 +206,10 @@ export function AiProvidersSettingsPanel() {
   );
 
   const enabledProviderIds = useMemo(
-    () => settings?.aiEnabledProviders ?? [...DEFAULT_ENABLED_AI_PROVIDERS],
+    () =>
+      settings?.aiEnabledProviders ?? [
+        ...DEFAULT_ENABLED_AI_PROVIDERS,
+      ],
     [settings?.aiEnabledProviders]
   );
 
@@ -198,6 +224,7 @@ export function AiProvidersSettingsPanel() {
       settings?.aiConnections ?? [],
       {
         hasDeepseekKey: Boolean(settings?.hasDeepseekKey),
+        hasAlibabaKey: Boolean(settings?.hasAlibabaKey),
         enabledProviders: enabledProviderIds,
       }
     );
@@ -213,7 +240,14 @@ export function AiProvidersSettingsPanel() {
         ),
       }))
       .filter((group) => group.models.length > 0);
-  }, [catalog, modelSearch, settings?.aiConnections, settings?.hasDeepseekKey, enabledProviderIds]);
+  }, [
+    catalog,
+    modelSearch,
+    settings?.aiConnections,
+    settings?.hasDeepseekKey,
+    settings?.hasAlibabaKey,
+    enabledProviderIds,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -300,7 +334,7 @@ export function AiProvidersSettingsPanel() {
   }
 
   async function handleToggleBuiltinProvider(
-    providerId: "workers-ai" | "deepseek",
+    providerId: "workers-ai" | "deepseek" | "alibaba",
     enabled: boolean
   ) {
     if (!settings || togglingGroupId) return;
@@ -315,23 +349,51 @@ export function AiProvidersSettingsPanel() {
       return;
     }
 
-    const current = settings.aiEnabledProviders;
-    let next: AiProvider[];
+    if (
+      providerId === "alibaba" &&
+      enabled &&
+      !settings.hasAlibabaKey &&
+      !alibabaKey.trim()
+    ) {
+      toast.error("请先在上方「供应商」中配置并保存 阿里百炼 API Key");
+      return;
+    }
+
+    const currentProviders = settings.aiEnabledProviders;
+    let nextProviders: AiProvider[];
 
     if (enabled) {
-      if (current.includes(providerId)) return;
-      next = [...current, providerId];
+      if (!currentProviders.includes(providerId)) {
+        nextProviders = [...currentProviders, providerId];
+      } else {
+        nextProviders = currentProviders;
+      }
     } else {
-      if (current.length <= 1) {
+      if (currentProviders.length <= 1) {
         toast.error("至少保留一个内置供应商");
         return;
       }
-      next = current.filter((id) => id !== providerId);
+      nextProviders = currentProviders.filter((id) => id !== providerId);
+    }
+
+    let nextModels = settings.aiEnabledModels;
+    if (enabled && providerId === "alibaba") {
+      const hasAlibabaModels = nextModels.some((id) => id.startsWith("alibaba:"));
+      if (!hasAlibabaModels) {
+        nextModels = [
+          ...nextModels,
+          "alibaba:qwen3.7-plus",
+          "alibaba:qwen3.8-max",
+        ];
+      }
     }
 
     setTogglingGroupId(providerId);
     try {
-      const updated = await updateAppSettings({ aiEnabledProviders: next });
+      const updated = await updateAppSettings({
+        aiEnabledProviders: nextProviders,
+        aiEnabledModels: nextModels,
+      });
       setSettings(updated);
     } catch (err) {
       if (shouldToastApiError(err)) {
@@ -409,6 +471,77 @@ export function AiProvidersSettingsPanel() {
       setSettings(next);
       setDeepseekKey("");
       toast.success("DeepSeek Key 已清除");
+    } catch (err) {
+      if (shouldToastApiError(err)) {
+        toast.error(getApiErrorMessage(err, "清除失败，请稍后重试"));
+      }
+    } finally {
+      setSavingAi(false);
+    }
+  }
+
+  async function handleTestAlibaba() {
+    if (testingAlibaba) return;
+    const key = alibabaKey.trim();
+    if (!key && !settings?.hasAlibabaKey) {
+      toast.error("请先填写 阿里百炼 API Key");
+      return;
+    }
+
+    setTestingAlibaba(true);
+    try {
+      await testAlibabaConnection(key || undefined);
+      toast.success("连接正常");
+    } catch (err) {
+      if (shouldToastApiError(err)) {
+        toast.error(getApiErrorMessage(err, "连接失败"));
+      }
+    } finally {
+      setTestingAlibaba(false);
+    }
+  }
+
+  async function handleSaveAlibabaKey() {
+    if (savingAi || !alibabaKey.trim() || !settings) return;
+
+    setSavingAi(true);
+    try {
+      const currentProviders = (settings.aiEnabledProviders ?? []) as AiProvider[];
+      const nextProviders: AiProvider[] = currentProviders.includes("alibaba")
+        ? currentProviders
+        : [...currentProviders, "alibaba"];
+
+      const currentModels = settings.aiEnabledModels ?? [];
+      const hasAlibabaModel = currentModels.some((id) => id.startsWith("alibaba:"));
+      const nextModels = hasAlibabaModel
+        ? currentModels
+        : [...currentModels, "alibaba:qwen3.7-plus", "alibaba:qwen3.8-max"];
+
+      const next = await updateAppSettings({
+        alibabaKey: alibabaKey.trim(),
+        aiEnabledProviders: nextProviders,
+        aiEnabledModels: nextModels,
+      });
+      setSettings(next);
+      setAlibabaKey("");
+      toast.success("阿里百炼 Key 已保存，通义千问模型已自动启用开启！");
+    } catch (err) {
+      if (shouldToastApiError(err)) {
+        toast.error(getApiErrorMessage(err, "保存失败，请稍后重试"));
+      }
+    } finally {
+      setSavingAi(false);
+    }
+  }
+
+  async function handleClearAlibabaKey() {
+    if (savingAi) return;
+    setSavingAi(true);
+    try {
+      const next = await updateAppSettings({ alibabaKey: null });
+      setSettings(next);
+      setAlibabaKey("");
+      toast.success("阿里百炼 Key 已清除");
     } catch (err) {
       if (shouldToastApiError(err)) {
         toast.error(getApiErrorMessage(err, "清除失败，请稍后重试"));
@@ -848,6 +981,125 @@ export function AiProvidersSettingsPanel() {
                   )}
                 </div>
               </article>
+
+              <article className="orbit-settings-supplier-card">
+                <div className="orbit-settings-supplier-header">
+                  <div>
+                    <span className="orbit-settings-supplier-title">
+                      阿里百炼 (通义千问 Qwen)
+                    </span>
+                    <p className="orbit-settings-supplier-meta">
+                      官方 阿里百炼 / DashScope API ·{" "}
+                      <a
+                        href="https://bailian.console.aliyun.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="orbit-text-link"
+                      >
+                        bailian.console.aliyun.com
+                      </a>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="orbit-settings-supplier-credential">
+                  <span className="orbit-settings-supplier-credential-label">
+                    API Key
+                  </span>
+                  {showAlibabaKeyInput ? (
+                    <div className="orbit-settings-supplier-credential-edit">
+                      <div className="orbit-settings-key-row">
+                        <input
+                          type="password"
+                          value={alibabaKey}
+                          autoComplete="off"
+                          placeholder={
+                            settings?.hasAlibabaKey
+                              ? "粘贴新 Key"
+                              : "sk-..."
+                          }
+                          className="orbit-input orbit-settings-key-input"
+                          onChange={(event) =>
+                            setAlibabaKey(event.target.value)
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="orbit-btn orbit-btn-sm orbit-settings-key-test"
+                          disabled={
+                            testingAlibaba ||
+                            (!alibabaKey.trim() && !settings?.hasAlibabaKey)
+                          }
+                          onClick={() => void handleTestAlibaba()}
+                        >
+                          {testingAlibaba ? "检测中…" : "检测"}
+                        </button>
+                        {isAlibabaKeyDirty ? (
+                          <button
+                            type="button"
+                            className="orbit-btn orbit-btn-sm"
+                            disabled={savingAi}
+                            onClick={() => void handleSaveAlibabaKey()}
+                          >
+                            {savingAi ? "保存中…" : "保存"}
+                          </button>
+                        ) : null}
+                        {settings?.hasAlibabaKey ? (
+                          <button
+                            type="button"
+                            className="orbit-btn-ghost orbit-btn-sm"
+                            disabled={savingAi}
+                            onClick={() => {
+                              setEditingAlibabaKey(false);
+                              setAlibabaKey("");
+                            }}
+                          >
+                            取消
+                          </button>
+                        ) : null}
+                      </div>
+                      {!settings?.hasAlibabaKey ? (
+                        <p className="orbit-settings-supplier-credential-hint">
+                          未配置 · 填写 Key 后点保存
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="orbit-settings-supplier-credential-summary">
+                      <span
+                        className="orbit-settings-key-dot orbit-settings-key-dot--on"
+                        aria-hidden="true"
+                      />
+                      <span>已配置</span>
+                      <div className="orbit-settings-supplier-credential-actions">
+                        <button
+                          type="button"
+                          className="orbit-text-link"
+                          onClick={() => setEditingAlibabaKey(true)}
+                        >
+                          更换
+                        </button>
+                        <button
+                          type="button"
+                          className="orbit-text-link"
+                          disabled={testingAlibaba}
+                          onClick={() => void handleTestAlibaba()}
+                        >
+                          {testingAlibaba ? "检测中…" : "检测"}
+                        </button>
+                        <button
+                          type="button"
+                          className="orbit-text-link orbit-settings-key-clear"
+                          disabled={savingAi}
+                          onClick={() => void handleClearAlibabaKey()}
+                        >
+                          清除
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </article>
             </div>
           </SettingsField>
 
@@ -1162,6 +1414,8 @@ export function AiProvidersSettingsPanel() {
                     const enabledCount = group.models.filter((model) =>
                       enabledModelIds.includes(model.id)
                     ).length;
+                    const isSearching = modelSearch.trim().length > 0;
+                    const isCollapsed = !isSearching && Boolean(collapsedGroupIds[group.id]);
 
                     return (
                       <section
@@ -1171,9 +1425,21 @@ export function AiProvidersSettingsPanel() {
                       >
                         <div className="orbit-settings-model-group-head">
                           <div className="orbit-settings-model-group-copy">
-                            <span className="orbit-settings-provider-name">
-                              {group.label}
-                            </span>
+                            <button
+                              type="button"
+                              className="orbit-settings-model-group-toggle-btn"
+                              aria-expanded={!isCollapsed}
+                              aria-label={`${isCollapsed ? "展开" : "折叠"}供应商 ${group.label}`}
+                              onClick={() => toggleGroupCollapse(group.id)}
+                            >
+                              <ChevronDownIcon
+                                size="sm"
+                                className={`orbit-settings-model-group-chevron${isCollapsed ? " orbit-settings-model-group-chevron--collapsed" : ""}`}
+                              />
+                              <span className="orbit-settings-provider-name">
+                                {group.label}
+                              </span>
+                            </button>
                             <span className="orbit-settings-model-group-meta orbit-muted">
                               {!groupEnabled
                                 ? "供应商已关闭"
@@ -1196,7 +1462,8 @@ export function AiProvidersSettingsPanel() {
                               onClick={() => {
                                 if (
                                   group.provider === "workers-ai" ||
-                                  group.provider === "deepseek"
+                                  group.provider === "deepseek" ||
+                                  group.provider === "alibaba"
                                 ) {
                                   void handleToggleBuiltinProvider(
                                     group.provider,
@@ -1219,46 +1486,48 @@ export function AiProvidersSettingsPanel() {
                           ) : null}
                         </div>
 
-                        <ul className="orbit-settings-model-provider-models">
-                          {group.models.map((model) => {
-                            const enabled = enabledModelIds.includes(model.id);
-                            const blocked =
-                              !groupEnabled ||
-                              (group.requiresKey && !group.hasApiKey);
-                            return (
-                              <li
-                                key={model.id}
-                                className="orbit-settings-model-toggle-row"
-                              >
-                                <span className="orbit-settings-model-toggle-label">
-                                  {model.label}
-                                  {blocked ? (
-                                    <span className="orbit-settings-model-toggle-hint">
-                                      {!groupEnabled
-                                        ? "供应商已关闭"
-                                        : "需配置 Key"}
-                                    </span>
-                                  ) : null}
-                                </span>
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={enabled}
-                                  aria-label={`${enabled ? "关闭" : "开启"}模型 ${model.label}`}
-                                  className={`orbit-toggle${enabled ? " orbit-toggle--on" : ""}`}
-                                  disabled={
-                                    togglingModelId === model.id || blocked
-                                  }
-                                  onClick={() =>
-                                    void handleToggleModel(model, !enabled)
-                                  }
+                        {!isCollapsed ? (
+                          <ul className="orbit-settings-model-provider-models">
+                            {group.models.map((model) => {
+                              const enabled = enabledModelIds.includes(model.id);
+                              const blocked =
+                                !groupEnabled ||
+                                (group.requiresKey && !group.hasApiKey);
+                              return (
+                                <li
+                                  key={model.id}
+                                  className="orbit-settings-model-toggle-row"
                                 >
-                                  <span className="orbit-toggle-thumb" />
-                                </button>
-                              </li>
-                            );
-                          })}
-                        </ul>
+                                  <span className="orbit-settings-model-toggle-label">
+                                    {model.label}
+                                    {blocked ? (
+                                      <span className="orbit-settings-model-toggle-hint">
+                                        {!groupEnabled
+                                          ? "供应商已关闭"
+                                          : "需配置 Key"}
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={enabled}
+                                    aria-label={`${enabled ? "关闭" : "开启"}模型 ${model.label}`}
+                                    className={`orbit-toggle${enabled ? " orbit-toggle--on" : ""}`}
+                                    disabled={
+                                      togglingModelId === model.id || blocked
+                                    }
+                                    onClick={() =>
+                                      void handleToggleModel(model, !enabled)
+                                    }
+                                  >
+                                    <span className="orbit-toggle-thumb" />
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : null}
                       </section>
                     );
                   })}

@@ -150,6 +150,8 @@ export const asset = sqliteTable(
     width: integer("width"),
     height: integer("height"),
     blurhash: text("blurhash"),
+    duration: integer("duration"),
+    transcript: text("transcript"),
     size: integer("size"),
     position: text("position").notNull().default("a0"),
     createdAt: integer("created_at")

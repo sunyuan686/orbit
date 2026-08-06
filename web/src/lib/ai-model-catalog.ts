@@ -1,4 +1,5 @@
 import {
+  DEFAULT_ALIBABA_MODEL,
   DEFAULT_DEEPSEEK_MODEL,
   DEFAULT_ENABLED_AI_MODELS,
   DEFAULT_WORKERS_AI_MODEL,
@@ -37,14 +38,23 @@ export function formatWorkersAiModelRef(modelId: string): string {
 export function formatDeepseekModelRef(modelId: string): string {
   const trimmed = modelId.trim();
   if (trimmed.startsWith("deepseek:")) return trimmed;
-  if (trimmed.startsWith("custom:") || trimmed.startsWith("workers-ai:")) {
+  if (trimmed.startsWith("custom:") || trimmed.startsWith("workers-ai:") || trimmed.startsWith("alibaba:")) {
     return trimmed;
   }
   return `deepseek:${trimmed}`;
 }
 
+export function formatAlibabaModelRef(modelId: string): string {
+  const trimmed = modelId.trim();
+  if (trimmed.startsWith("alibaba:")) return trimmed;
+  if (trimmed.startsWith("custom:") || trimmed.startsWith("workers-ai:") || trimmed.startsWith("deepseek:")) {
+    return trimmed;
+  }
+  return `alibaba:${trimmed}`;
+}
+
 export function parseModelRef(raw: string): {
-  kind: "custom" | "workers-ai" | "deepseek";
+  kind: "custom" | "workers-ai" | "deepseek" | "alibaba";
   connectionId?: string;
   modelId: string;
 } | null {
@@ -66,6 +76,11 @@ export function parseModelRef(raw: string): {
     return modelId ? { kind: "deepseek", modelId } : null;
   }
 
+  if (trimmed.startsWith("alibaba:")) {
+    const modelId = trimmed.slice("alibaba:".length).trim();
+    return modelId ? { kind: "alibaba", modelId } : null;
+  }
+
   if (trimmed.startsWith("workers-ai:")) {
     const modelId = trimmed.slice("workers-ai:".length).trim();
     return modelId.startsWith("@cf/") ? { kind: "workers-ai", modelId } : null;
@@ -75,12 +90,66 @@ export function parseModelRef(raw: string): {
     return { kind: "workers-ai", modelId: trimmed };
   }
 
+  if (trimmed.toLowerCase().includes("qwen")) {
+    return { kind: "alibaba", modelId: trimmed };
+  }
+
   if (trimmed.toLowerCase().includes("deepseek")) {
     return { kind: "deepseek", modelId: trimmed };
   }
 
   return null;
 }
+
+export const BUILTIN_ALIBABA_MODELS: UnifiedChatModel[] = [
+  {
+    id: formatAlibabaModelRef("qwen3.8-max"),
+    label: "qwen3.8-max",
+    description: "通义千问 Qwen3.8-Max 旗舰 · 2.4万亿参数 MoE 架构，强逻辑、自主编程与超大上下文",
+    provider: "alibaba",
+    contextWindow: 1000000,
+    capabilities: ["2.4万亿MoE", "超长文本", "深度思考"],
+    supportsToolCalling: true,
+    recommended: true,
+  },
+  {
+    id: formatAlibabaModelRef("qwen3.7-plus"),
+    label: "qwen3.7-plus",
+    description: "通义千问 Qwen3.7-Plus 高性能 · 深度思考与复杂工具调用能力",
+    provider: "alibaba",
+    contextWindow: 131072,
+    capabilities: ["深度思考", "工具调用", "视觉理解"],
+    supportsToolCalling: true,
+    recommended: true,
+  },
+  {
+    id: formatAlibabaModelRef("qwen3.7-flash"),
+    label: "qwen3.7-flash",
+    description: "通义千问 Qwen3.7-Flash 极速版 · 高并发、低延时敏捷响应",
+    provider: "alibaba",
+    contextWindow: 131072,
+    capabilities: ["极速推流", "高并发", "多模态"],
+    supportsToolCalling: true,
+  },
+  {
+    id: formatAlibabaModelRef("qwen3.5-plus"),
+    label: "qwen3.5-plus",
+    description: "通义千问 Qwen3.5-Plus 稳态大模型 · 通用对话与长文润色",
+    provider: "alibaba",
+    contextWindow: 131072,
+    capabilities: ["通用对话", "稳态生成"],
+    supportsToolCalling: true,
+  },
+  {
+    id: formatAlibabaModelRef("qwen3-coder-plus"),
+    label: "qwen3-coder-plus",
+    description: "通义千问 Qwen3-Coder-Plus 代码大模型 · 专属编程与代码生成",
+    provider: "alibaba",
+    contextWindow: 131072,
+    capabilities: ["代码专属", "自动编程"],
+    supportsToolCalling: true,
+  },
+];
 
 export function buildUnifiedChatModels(
   workersModels: WorkersAiModelOption[],
@@ -114,6 +183,11 @@ export function buildUnifiedChatModels(
       supportsToolCalling: model.supportsToolCalling,
       recommended: model.recommended,
     });
+  }
+
+  // 挂载阿里百炼原生模型
+  for (const model of BUILTIN_ALIBABA_MODELS) {
+    unified.push(model);
   }
 
   for (const connection of connections) {
@@ -157,13 +231,17 @@ export function groupCatalogForSettings(
   connections: AiCustomConnectionPublic[],
   opts: {
     hasDeepseekKey: boolean;
+    hasAlibabaKey?: boolean;
     enabledProviders: AiProvider[];
   }
 ): ProviderModelGroup[] {
   const workersModels = catalog.filter((model) => model.provider === "workers-ai");
   const deepseekModels = catalog.filter((model) => model.provider === "deepseek");
+  const alibabaModels = catalog.filter((model) => model.provider === "alibaba");
+
   const workersEnabled = opts.enabledProviders.includes("workers-ai");
   const deepseekEnabled = opts.enabledProviders.includes("deepseek");
+  const alibabaEnabled = opts.enabledProviders.includes("alibaba");
 
   const groups: ProviderModelGroup[] = [
     {
@@ -184,6 +262,16 @@ export function groupCatalogForSettings(
       enabled: deepseekEnabled,
       requiresKey: true,
       hasApiKey: opts.hasDeepseekKey,
+      canToggle: true,
+    },
+    {
+      id: "alibaba",
+      label: "阿里百炼 (通义千问)",
+      provider: "alibaba",
+      models: alibabaModels,
+      enabled: alibabaEnabled,
+      requiresKey: true,
+      hasApiKey: Boolean(opts.hasAlibabaKey),
       canToggle: true,
     },
   ];
@@ -210,6 +298,7 @@ export function filterChatSelectableModels(
   enabledIds: string[],
   opts?: {
     hasDeepseekKey?: boolean;
+    hasAlibabaKey?: boolean;
     enabledProviders?: AiProvider[];
     connections?: AiCustomConnectionPublic[];
   }
@@ -231,6 +320,10 @@ export function filterChatSelectableModels(
       if (providers && !providers.has("deepseek")) return false;
       return Boolean(opts?.hasDeepseekKey);
     }
+    if (model.provider === "alibaba") {
+      if (providers && !providers.has("alibaba")) return false;
+      return Boolean(opts?.hasAlibabaKey);
+    }
     if (model.provider === "custom" && model.connectionId) {
       const connection = connectionMap.get(model.connectionId);
       if (!connection || !connection.enabled || !connection.hasApiKey) {
@@ -251,6 +344,7 @@ export function resolveModelDisplayLabel(
   if (parsed?.kind === "custom") return parsed.modelId;
   if (parsed?.kind === "workers-ai") return parsed.modelId;
   if (parsed?.kind === "deepseek") return parsed.modelId;
+  if (parsed?.kind === "alibaba") return parsed.modelId;
   return modelRef;
 }
 
@@ -269,7 +363,13 @@ export function resolveEffectiveModelRef(
   if (parsed?.kind === "deepseek") {
     return formatDeepseekModelRef(parsed.modelId);
   }
+  if (parsed?.kind === "alibaba") {
+    return formatAlibabaModelRef(parsed.modelId);
+  }
   if (provider === "custom" && trimmed) return trimmed;
+  if (provider === "alibaba") {
+    return formatAlibabaModelRef(DEFAULT_ALIBABA_MODEL);
+  }
   if (provider === "deepseek") {
     return formatDeepseekModelRef(DEFAULT_DEEPSEEK_MODEL);
   }
