@@ -1,21 +1,6 @@
 import { useCallback } from "react";
-import { useRealtimeVoiceStream, type VoiceTranscribeMode } from "../hooks/useRealtimeVoiceStream";
-
-export const VOICE_MODE_STORAGE_KEY = "orbit_voice_transcribe_mode";
-
-export function getStoredVoiceMode(): VoiceTranscribeMode {
-  try {
-    const val = localStorage.getItem(VOICE_MODE_STORAGE_KEY);
-    if (val === "raw" || val === "bullets" || val === "formal") return val;
-  } catch {}
-  return "smooth";
-}
-
-export function setStoredVoiceMode(mode: VoiceTranscribeMode) {
-  try {
-    localStorage.setItem(VOICE_MODE_STORAGE_KEY, mode);
-  } catch {}
-}
+import { useRealtimeVoiceStream } from "../hooks/useRealtimeVoiceStream";
+import { useAppSettings } from "../lib/appSettingsContext";
 
 export interface VoiceInputButtonProps {
   /** 实时打字回调：收到最新的全量识别文本时传给编辑器覆盖写入 */
@@ -37,7 +22,8 @@ export function VoiceInputButton({
   title = "语音打字 (点击说话)",
   compact = false,
 }: VoiceInputButtonProps) {
-  const currentMode = getStoredVoiceMode();
+  const { settings } = useAppSettings();
+  const currentMode = settings?.voiceTranscribeMode ?? "smooth";
 
   const handleTextUpdate = useCallback(
     (text: string) => {

@@ -285,11 +285,10 @@ export function useRealtimeVoiceStream(
                     onTextUpdate?.(accumulated);
                   }
                 }
-              } else {
-                const data = await response.json();
-                const text = data.refinedText || data.rawText || data.text || "";
-                if (text) onTextUpdate?.(text);
               }
+            } else {
+              const data = await response.json().catch(() => null);
+              onError?.(data?.error || "语音转写失败，请重试");
             }
           } catch (err) {
             console.error("Backend transcribe failed", err);

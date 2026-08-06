@@ -725,6 +725,8 @@ export function inferAiProviderFromModelId(modelId: string): AiProvider {
   return "deepseek";
 }
 
+export type VoiceTranscribeMode = "smooth" | "raw" | "bullets" | "formal";
+
 export interface AppSettings {
   accentPreset: AccentPreset;
   aiProvider: AiProvider;
@@ -736,6 +738,7 @@ export interface AppSettings {
   hasAlibabaKey: boolean;
   aiBotName: string;
   aiBotPersona: string;
+  voiceTranscribeMode: VoiceTranscribeMode;
 }
 
 export async function fetchAppSettings(): Promise<AppSettings> {
@@ -756,6 +759,7 @@ export async function updateAppSettings(data: {
   alibabaKey?: string | null;
   aiBotName?: string;
   aiBotPersona?: string;
+  voiceTranscribeMode?: VoiceTranscribeMode;
 }): Promise<AppSettings> {
   const res = await fetch(`${BASE}/api/settings`, {
     method: "PUT",

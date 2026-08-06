@@ -20,10 +20,14 @@ export const APP_SETTING_KEYS = {
   aiAlibabaKey: "ai_alibaba_key",
   aiBotName: "ai_bot_name",
   aiBotPersona: "ai_bot_persona",
+  voiceTranscribeMode: "voice_transcribe_mode",
 } as const;
 
 export const ACCENT_PRESETS = ["stone", "rose", "sage", "dusk"] as const;
 export type AccentPreset = (typeof ACCENT_PRESETS)[number];
+
+export const VOICE_TRANSCRIBE_MODES = ["smooth", "raw", "bullets", "formal"] as const;
+export type VoiceTranscribeMode = (typeof VOICE_TRANSCRIBE_MODES)[number];
 
 export const AI_PROVIDERS = ["workers-ai", "deepseek", "alibaba", "custom"] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
@@ -66,6 +70,7 @@ export interface AppSettings {
   hasAlibabaKey: boolean;
   aiBotName: string;
   aiBotPersona: string;
+  voiceTranscribeMode: VoiceTranscribeMode;
 }
 
 const DEFAULT_ACCENT_PRESET: AccentPreset = "stone";
@@ -234,6 +239,12 @@ export function buildAppSettings(
       process.env.DASHSCOPE_API_KEY?.trim()
   );
 
+  const rawVoiceMode = settingsMap[APP_SETTING_KEYS.voiceTranscribeMode]?.trim();
+  const voiceTranscribeMode: VoiceTranscribeMode =
+    rawVoiceMode === "raw" || rawVoiceMode === "bullets" || rawVoiceMode === "formal"
+      ? rawVoiceMode
+      : "smooth";
+
   return {
     accentPreset,
     aiProvider,
@@ -245,6 +256,7 @@ export function buildAppSettings(
     hasAlibabaKey,
     aiBotName,
     aiBotPersona,
+    voiceTranscribeMode,
   };
 }
 

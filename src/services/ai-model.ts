@@ -28,6 +28,7 @@ export interface AiRuntimeEnv {
   DEEPSEEK_API_KEY?: string;
   ALIBABA_API_KEY?: string;
   DASHSCOPE_API_KEY?: string;
+  DASHSCOPE_BASE_URL?: string;
   CF_ACCOUNT_ID?: string;
   CF_API_TOKEN?: string;
   TAVILY_API_KEY?: string;
@@ -168,7 +169,10 @@ export async function resolveModel(
     const { createAlibaba } = await import("@ai-sdk/alibaba");
     const alibaba = createAlibaba({
       apiKey,
-      baseURL: process.env.DASHSCOPE_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      baseURL:
+        env.DASHSCOPE_BASE_URL ||
+        process.env.DASHSCOPE_BASE_URL ||
+        "https://dashscope.aliyuncs.com/compatible-mode/v1",
     });
     const rawModel = alibaba(alibabaModelId);
     return {

@@ -48,39 +48,54 @@ export async function transcribeAudioWithDashScope(
   const audioMimeType = fileName.endsWith(".wav") ? "audio/wav" : "audio/webm";
   const dataUri = `data:${audioMimeType};base64,${base64Audio}`;
 
+  const configuredUrl =
+    env?.DASHSCOPE_BASE_URL ||
+    process.env.DASHSCOPE_BASE_URL ||
+    "https://dashscope.aliyuncs.com";
+  let origin = "https://dashscope.aliyuncs.com";
+  try {
+    const urlObj = new URL(configuredUrl);
+    origin = urlObj.origin;
+  } catch {
+    origin = "https://dashscope.aliyuncs.com";
+  }
+
+  const endpoint = `${origin}/api/v1/services/aigc/multimodal-generation/generation`;
+
   // 1. 优先使用阿里云百炼 2026 官方最新规范指定模型：qwen3-asr-flash (同步调用，支持 <5分钟 音频 Data URI)
   try {
-    const response = await fetch(
-      "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey.trim()}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "qwen3-asr-flash",
-          input: {
-            messages: [
-              {
-                role: "user",
-                content: [
-                  {
-                    audio: dataUri,
-                  },
-                ],
-              },
-            ],
-          },
-          parameters: {
-            asr_options: {
-              enable_itn: false,
-              language: "zh",
+    const stepStart = Date.now();
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey.trim()}`,
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(15000),
+      body: JSON.stringify({
+        model: "qwen3-asr-flash",
+        input: {
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  audio: dataUri,
+                },
+              ],
             },
+          ],
+        },
+        parameters: {
+          asr_options: {
+            enable_itn: false,
+            language: "zh",
           },
-        }),
-      }
-    );
+        },
+      }),
+    });
+
+    const stepDurationMs = Date.now() - stepStart;
 
     if (response.ok) {
       const data = (await response.json()) as any;
@@ -91,55 +106,61 @@ export async function transcribeAudioWithDashScope(
       const text = (choicesText || sentenceText || topOutputText || "").trim();
 
       if (text) {
-        const durationMs = Date.now() - startTime;
-        log.info(`[DashScope qwen3-asr-flash STT] 识别成功，耗时: ${durationMs}ms`, {
-          durationMs,
+        const totalDurationMs = Date.now() - startTime;
+        log.info(`[DashScope qwen3-asr-flash STT] 识别成功，耗时: ${totalDurationMs}ms (HTTP: ${stepDurationMs}ms)`, {
+          totalDurationMs,
+          stepDurationMs,
+          endpoint,
           text,
         });
         return { text, provider: "dashscope" };
       }
     } else {
       const errText = await response.text().catch(() => "");
-      log.warn(`[DashScope qwen3-asr-flash Alert] (${response.status}): ${errText}`);
+      log.warn(`[DashScope qwen3-asr-flash Alert] (${response.status}, HTTP: ${stepDurationMs}ms): ${errText}`);
     }
   } catch (err: any) {
-    log.warn("DashScope qwen3-asr-flash exception", { error: err?.message || String(err) });
+    log.warn("DashScope qwen3-asr-flash exception", {
+      error: err?.message || String(err),
+      endpoint,
+    });
   }
 
   // 2. 备选方案：qwen-audio-3.0-asr-flash (同步 Multimodal Generation 接口)
   try {
-    const response = await fetch(
-      "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey.trim()}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "qwen-audio-3.0-asr-flash",
-          input: {
-            messages: [
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "input_audio",
-                    input_audio: {
-                      data: dataUri,
-                    },
+    const stepStart = Date.now();
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey.trim()}`,
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(15000),
+      body: JSON.stringify({
+        model: "qwen-audio-3.0-asr-flash",
+        input: {
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "input_audio",
+                  input_audio: {
+                    data: dataUri,
                   },
-                ],
-              },
-            ],
-          },
-          parameters: {
-            format: fileName.endsWith(".wav") ? "wav" : "opus",
-            sample_rate: "16000",
-          },
-        }),
-      }
-    );
+                },
+              ],
+            },
+          ],
+        },
+        parameters: {
+          format: fileName.endsWith(".wav") ? "wav" : "opus",
+          sample_rate: "16000",
+        },
+      }),
+    });
+
+    const stepDurationMs = Date.now() - stepStart;
 
     if (response.ok) {
       const data = (await response.json()) as any;
@@ -150,11 +171,21 @@ export async function transcribeAudioWithDashScope(
         ""
       ).trim();
       if (text) {
+        const totalDurationMs = Date.now() - startTime;
+        log.info(`[DashScope qwen-audio-3.0-asr-flash STT] 识别成功，耗时: ${totalDurationMs}ms (HTTP: ${stepDurationMs}ms)`, {
+          totalDurationMs,
+          stepDurationMs,
+          endpoint,
+          text,
+        });
         return { text, provider: "dashscope" };
       }
     }
   } catch (err: any) {
-    log.warn("DashScope qwen-audio-3.0-asr-flash exception", { error: err?.message });
+    log.warn("DashScope qwen-audio-3.0-asr-flash exception", {
+      error: err?.message || String(err),
+      endpoint,
+    });
   }
 
   throw new DashScopeVoiceError(

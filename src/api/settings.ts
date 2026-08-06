@@ -14,6 +14,7 @@ import {
   serializeAiEnabledProviders,
   type AiProvider,
   type AppSettings,
+  type VoiceTranscribeMode,
 } from "../app-settings.js";
 import {
   connectionKeySettingId,
@@ -74,6 +75,7 @@ interface SettingsPutBody {
   alibabaKey?: string | null;
   aiBotName?: string;
   aiBotPersona?: string;
+  voiceTranscribeMode?: VoiceTranscribeMode;
 }
 
 async function persistSettings(
@@ -356,6 +358,14 @@ export function createSettingsRoutes(
         const persona = body.aiBotPersona.trim();
         await upsertSetting(db, APP_SETTING_KEYS.aiBotPersona, persona);
         auditMetadata.aiBotPersona = persona;
+      }
+
+      if (body.voiceTranscribeMode !== undefined) {
+        const vMode = body.voiceTranscribeMode;
+        if (vMode === "smooth" || vMode === "raw" || vMode === "bullets" || vMode === "formal") {
+          await upsertSetting(db, APP_SETTING_KEYS.voiceTranscribeMode, vMode);
+          auditMetadata.voiceTranscribeMode = vMode;
+        }
       }
 
       const settings = await persistSettings(db, session, c, auditMetadata);

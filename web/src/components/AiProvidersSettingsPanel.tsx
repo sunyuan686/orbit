@@ -18,6 +18,7 @@ import {
   type AiCustomConnection,
   type AiCustomConnectionPublic,
   type AiProvider,
+  type VoiceTranscribeMode,
 } from "../lib/api";
 import {
   buildUnifiedChatModels,
@@ -38,12 +39,9 @@ function SettingsSection({
   title: string;
   children: React.ReactNode;
 }) {
-  const headingId = `settings-section-${title}`;
   return (
-    <section className="orbit-settings-section" aria-labelledby={headingId}>
-      <h3 id={headingId} className="orbit-settings-heading">
-        {title}
-      </h3>
+    <section className="orbit-settings-section">
+      <h3 className="orbit-settings-section-title">{title}</h3>
       {children}
     </section>
   );
@@ -53,27 +51,26 @@ function SettingsField({
   label,
   hint,
   children,
-  stacked,
+  stacked = false,
 }: {
   label: string;
   hint?: React.ReactNode;
   children: React.ReactNode;
   stacked?: boolean;
 }) {
-  if (stacked) {
-    return (
-      <div className="orbit-settings-field orbit-settings-field--stacked">
-        <div className="orbit-settings-field-copy">
-          <span className="orbit-settings-field-label">{label}</span>
-          {hint ? <p className="orbit-settings-field-hint">{hint}</p> : null}
-        </div>
-        <div className="orbit-settings-field-control orbit-settings-field-control--block">
-          {children}
-        </div>
+  return (
+    <div
+      className={`orbit-settings-field ${
+        stacked ? "orbit-settings-field--stacked" : ""
+      }`}
+    >
+      <div className="orbit-settings-field-copy">
+        <label className="orbit-settings-field-label">{label}</label>
+        {hint && <p className="orbit-settings-field-hint">{hint}</p>}
       </div>
-    );
-  }
-  return null;
+      <div className="orbit-settings-field-control">{children}</div>
+    </div>
+  );
 }
 
 interface ConnectionDraft {
@@ -81,6 +78,7 @@ interface ConnectionDraft {
   name: string;
   baseUrl: string;
   apiKey: string;
+  hasStoredApiKey?: boolean;
   models: Array<{ id: string; label?: string }>;
   enabled: boolean;
   isNew: boolean;
@@ -92,6 +90,7 @@ function emptyConnectionDraft(): ConnectionDraft {
     name: "",
     baseUrl: "",
     apiKey: "",
+    hasStoredApiKey: false,
     models: [],
     enabled: true,
     isNew: true,
@@ -101,6 +100,8 @@ function emptyConnectionDraft(): ConnectionDraft {
 export function AiProvidersSettingsPanel() {
   const toast = useToast();
   const { settings, setSettings } = useAppSettings();
+
+  const voiceMode = settings?.voiceTranscribeMode ?? "smooth";
 
   const [botName, setBotName] = useState("");
   const [botPersona, setBotPersona] = useState("");
@@ -830,6 +831,63 @@ export function AiProvidersSettingsPanel() {
             >
               重置为默认
             </button>
+          </div>
+        </div>
+      </SettingsSection>
+
+      <SettingsSection title="语音打字设置">
+        <div className="orbit-settings-fields">
+          <div className="orbit-settings-field orbit-settings-field--stacked">
+            <div className="orbit-settings-field-copy">
+              <label className="orbit-settings-field-label">
+                默认转写与润色模式
+              </label>
+              <p className="orbit-settings-field-hint">
+                设置全局默认的语音打字处理方式。改动后将在所有编辑框中全局生效。
+              </p>
+            </div>
+            <div className="orbit-settings-field-control orbit-settings-field-control--block" style={{ paddingTop: "0.5rem" }}>
+              <div className="orbit-voice-mode-grid">
+                {[
+                  { mode: "smooth", icon: "✨", label: "智能润色 (推荐)", desc: "自动去口癖词、自动改口替换与补充标点" },
+                  { mode: "raw", icon: "🎙️", label: "保持原文", desc: "100% 还原真实口语转写，不使用 AI 润色" },
+                  { mode: "bullets", icon: "📝", label: "要点列表", desc: "自动整理为 Markdown 结构要点清单" },
+                  { mode: "formal", icon: "💼", label: "正式书面", desc: "重构为严密专业的公文与邮件正文体" },
+                ].map((item) => {
+                  const isSelected = (voiceMode || "smooth") === item.mode;
+                  return (
+                    <button
+                      key={item.mode}
+                      type="button"
+                      onClick={async () => {
+                        const newMode = item.mode as VoiceTranscribeMode;
+                        try {
+                          const updated = await updateAppSettings({
+                            voiceTranscribeMode: newMode,
+                          });
+                          setSettings(updated);
+                          toast.success(`语音模式已切为：${item.label}`);
+                        } catch (err: any) {
+                          if (shouldToastApiError(err)) {
+                            toast.error(getApiErrorMessage(err, "保存语音模式失败"));
+                          }
+                        }
+                      }}
+                      className={`orbit-voice-mode-card ${isSelected ? "orbit-voice-mode-card--active" : ""}`}
+                    >
+                      <div className="orbit-voice-mode-title">
+                        <span>{item.icon}</span>
+                        <span>{item.label}</span>
+                        {isSelected && <span style={{ marginLeft: "auto", color: "#10b981", fontWeight: "bold" }}>✓</span>}
+                      </div>
+                      <p className="orbit-voice-mode-desc">
+                        {item.desc}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       </SettingsSection>

@@ -631,9 +631,12 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
         return c.json({ error: "未能从语音中识别出文字，请清晰录音后再试" }, 422);
       }
 
-      // 如果选择“保持原文”，直接以 JSON 返回
+      // 如果选择“保持原文”，直接以 Plain Text 返回纯文本，保持 API 协议的一致性
       if (mode === "raw") {
-        return c.json({ rawText, refinedText: rawText, text: rawText });
+        return c.text(rawText, 200, {
+          "Content-Type": "text/plain; charset=utf-8",
+          "X-Raw-Text": encodeURIComponent(rawText),
+        });
       }
 
       // 2. 强制使用 DeepSeek v4-flash 模型进行文本润色（禁止退回到 Cloudflare Workers AI）
@@ -651,10 +654,18 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
       const deepseek = createDeepSeek({ apiKey: deepseekKey.trim() });
       const modelToUse = deepseek("deepseek-v4-flash");
 
-      let systemPrompt = `你是一位专业的语言表达与编辑专家。请修饰用户的口语表述：\n1. 剔除所有口头禅（如“额”、“然后”、“那个”、“就是”）、无意义停顿与重复词。\n2. 自动识别口语中的自我修正（如“不对”、“更正为”、“我是说”、“不是...”），用后文正确说法直接替换修正前文。\n3. 修复语病、错别字，补齐正确标点符号，保持作者实际意图。\n4. 必须强制使用简体中文 (Simplified Chinese) 输出，绝不要出现任何繁体字。\n5. 直接输出润色后的文本，绝不要包含“好的”、“这是润色后的结果：”等任何解释性套话。`;
+      let systemPrompt = "";
+      if (mode === "bullets") {
+        systemPrompt = `你是一位高效的信息整理专家。请将用户的口语表述重构为结构清晰的 Markdown 要点列表：\n1. 提炼核心观点与事项，使用 Markdown 无序列表（- ）展示。\n2. 剔除所有口头禅（如“额”、“然后”、“那个”、“就是”）、废话与重复内容。\n3. 自动识别口语中的自我修正（如“不对”、“更正为”），用后文正确说法替换前文。\n4. 修复语病、同音错别字，补齐正确标点符号。\n5. 必须强制使用简体中文 (Simplified Chinese) 输出，绝不要出现任何繁体字。\n6. 直接输出 Markdown 列表，绝不要包含“好的”、“以下是要点：”等任何解释性套话。`;
+      } else if (mode === "formal") {
+        systemPrompt = `你是一位资深的公文与商务写作专家。请将用户的口语表述重构为严密、专业的正式书面语（适合邮件、报告或公文）：\n1. 用词严谨专业，表述完整得体，具有良好的逻辑结构。\n2. 剔除所有口语化词汇、口头禅、废话、自我修正痕迹与口语化修饰。\n3. 修复所有语病和同音错别字，补齐标准标点符号。\n4. 必须强制使用简体中文 (Simplified Chinese) 输出，绝不要出现任何繁体字。\n5. 直接输出重构后的正式书面文本，绝不要包含“好的”、“这是修改后的结果：”等任何解释性套话。`;
+      } else {
+        // 默认 smooth 智能润色
+        systemPrompt = `你是一位专业的语言表达与编辑专家。请修饰用户的口语表述：\n1. 剔除所有口头禅（如“额”、“然后”、“那个”、“就是”）、无意义停顿与重复词。\n2. 自动识别口语中的自我修正（如“不对”、“更正为”、“我是说”、“不是...”），用后文正确说法直接替换修正前文。\n3. 修复语病、错别字，补齐正确标点符号，保持作者实际意图。\n4. 必须强制使用简体中文 (Simplified Chinese) 输出，绝不要出现任何繁体字。\n5. 直接输出润色后的文本，绝不要包含“好的”、“这是润色后的结果：”等任何解释性套话。`;
+      }
 
       if (contextText.trim()) {
-        systemPrompt += `\n6. [上下文专有名词参考] 用户当前文章/编辑框的上下文如下:\n"""\n${contextText.trim().slice(0, 500)}\n"""\n请结合上述上下文中的专有名词（如人名“小圆子”、“小麟子”、专业术语、文章标题），自动纠正口语转写中的同音错别字。`;
+        systemPrompt += `\n\n[上下文专有名词参考] 用户当前文章/编辑框的上下文如下:\n"""\n${contextText.trim().slice(0, 500)}\n"""\n请结合上述上下文中的专有名词（如人名“小圆子”、“小麟子”、专业术语、文章标题），自动纠正口语转写中的同音错别字。`;
       }
 
       const polishStartTime = Date.now();
@@ -742,16 +753,30 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
       }
 
       const { createAlibaba } = await import("@ai-sdk/alibaba");
+      const baseURL =
+        env?.DASHSCOPE_BASE_URL ||
+        process.env.DASHSCOPE_BASE_URL ||
+        "https://dashscope.aliyuncs.com/compatible-mode/v1";
       const alibaba = createAlibaba({
         apiKey,
-        baseURL: process.env.DASHSCOPE_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        baseURL,
       });
+
+      const startTime = Date.now();
       await generateText({
         model: alibaba("qwen-turbo"),
         prompt: "hi",
+        maxTokens: 5,
+        abortSignal: AbortSignal.timeout(10000),
       });
 
-      return c.json({ ok: true });
+      const durationMs = Date.now() - startTime;
+      log.info(`[alibaba-test] 阿里百炼 Key 连通性测试成功，耗时: ${durationMs}ms`, {
+        durationMs,
+        baseURL,
+      });
+
+      return c.json({ ok: true, durationMs });
     } catch (err: any) {
       log.error("alibaba-test failed", err);
       return c.json({ error: err?.message || "连接阿里百炼失败" }, 422);
