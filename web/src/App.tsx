@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { RequireAuth } from "./components/RequireAuth";
+import { AppBootScreen } from "./components/AppBootScreen";
 
 const Login = lazy(() =>
   import("./pages/Login").then((m) => ({ default: m.Login }))
@@ -40,17 +41,9 @@ const ArticleEdit = lazy(() =>
   import("./pages/ArticleEdit").then((m) => ({ default: m.ArticleEdit }))
 );
 
-function PageFallback() {
-  return (
-    <div className="min-h-screen flex items-center justify-center orbit-muted">
-      加载中…
-    </div>
-  );
-}
-
 export default function App() {
   return (
-    <Suspense fallback={<PageFallback />}>
+    <Suspense fallback={<AppBootScreen />}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/join" element={<Join />} />

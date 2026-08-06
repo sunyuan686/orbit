@@ -14,9 +14,92 @@
     <meta name="apple-mobile-web-app-title" content="Orbit" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- App shell 启动屏：JS 执行前的品牌化首屏，与 AppBootScreen 组件共用样式 -->
+    <style>
+      .orbit-boot {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 22px;
+        background: #fafaf9;
+        opacity: 0;
+        animation: orbit-boot-in 0.5s ease 0.15s both;
+      }
+      .orbit-boot-orbit {
+        position: relative;
+        width: 46px;
+        height: 46px;
+        border: 1px solid #e7e5e4;
+        border-radius: 50%;
+        animation: orbit-boot-spin 1.6s linear infinite;
+      }
+      .orbit-boot-dot {
+        position: absolute;
+        top: -3.5px;
+        left: 50%;
+        width: 7px;
+        height: 7px;
+        margin-left: -3.5px;
+        border-radius: 50%;
+        background: #292524;
+      }
+      .orbit-boot-name {
+        margin: 0;
+        font-family: "New York Small", "New York", "Iowan Old Style", Charter,
+          "Bitstream Charter", "Source Serif 4", Georgia, "Songti SC", STSong,
+          SimSun, ui-serif, serif;
+        font-size: 15px;
+        letter-spacing: 0.32em;
+        text-indent: 0.32em;
+        color: #a8a29e;
+      }
+      @keyframes orbit-boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes orbit-boot-in {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      @media (prefers-color-scheme: dark) {
+        .orbit-boot {
+          background: #1c1917;
+        }
+        .orbit-boot-orbit {
+          border-color: #44403c;
+        }
+        .orbit-boot-dot {
+          background: #e7e5e4;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .orbit-boot {
+          animation: none;
+          opacity: 1;
+        }
+        .orbit-boot-orbit {
+          animation: none;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="orbit-boot" role="status" aria-label="加载中">
+        <div class="orbit-boot-orbit" aria-hidden="true">
+          <span class="orbit-boot-dot"></span>
+        </div>
+        <p class="orbit-boot-name">Orbit</p>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

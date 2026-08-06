@@ -1,16 +1,13 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { authClient } from "../lib/api";
+import { AppBootScreen } from "./AppBootScreen";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = authClient.useSession();
   const location = useLocation();
 
   if (isPending) {
-    return (
-      <div className="min-h-screen flex items-center justify-center orbit-muted">
-        加载中…
-      </div>
-    );
+    return <AppBootScreen />;
   }
 
   if (!session) {
