@@ -441,12 +441,13 @@ function TimelineCard({ entry }: { entry: EntrySummary }) {
 }
 
 function MemoCard({ entry }: { entry: EntrySummary }) {
+  const isCustomKey = Boolean(entry.key && !entry.key.startsWith("memo-"));
+  const title = entry.title?.trim() || null;
+
   return (
     <Link to={`/memo/${entry.id}`} className="orbit-memo-card">
-      {entry.key && <div className="orbit-memo-card-key">{entry.key}</div>}
-      <h3 className="orbit-memo-card-title">
-        {entry.title || entry.key || "无标题"}
-      </h3>
+      {isCustomKey && <div className="orbit-memo-card-key">{entry.key}</div>}
+      {title && <h3 className="orbit-memo-card-title">{title}</h3>}
       <Snippet text={entry.snippet} />
       <div className="orbit-memo-card-foot">
         {entry.author && (

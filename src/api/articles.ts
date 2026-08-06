@@ -218,7 +218,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
         })
         .from(memo)
         .where(where)
-        .orderBy(asc(memo.title));
+        .orderBy(desc(memo.updatedAt));
 
       const listQuery = page.paginate
         ? baseQuery.limit(page.limit).offset(page.offset)
@@ -247,7 +247,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
             id: m.id,
             type: "memo",
             key: m.key,
-            title: m.title,
+            title: m.title?.trim() || null,
             userId: m.userId,
             author: authorName,
             authorName,
@@ -401,7 +401,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       await db.insert(memo).values({
         id,
         key,
-        title: title ?? key,
+        title: title?.trim() || "",
         body: bodyValue,
         ...authorWriteFields(sessionAuthor),
         updatedAt: now(),

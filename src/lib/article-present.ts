@@ -74,6 +74,7 @@ export async function presentMemoDetail(
   db: any,
   row: {
     id: string;
+    key?: string;
     title: string;
     author: string;
     userId: string | null;
@@ -94,7 +95,8 @@ export async function presentMemoDetail(
   return {
     id: row.id,
     type: "memo" as const,
-    title: row.title,
+    key: row.key,
+    title: row.title?.trim() || null,
     userId: row.userId,
     author: authorName,
     authorName,
