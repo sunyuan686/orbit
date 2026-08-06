@@ -2069,6 +2069,13 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--color-text-secondary);
 }
 
+.orbit-icon-btn--sm {
+  min-width: 32px;
+  min-height: 32px;
+  width: 32px;
+  height: 32px;
+}
+
 .orbit-search-icon {
   color: var(--color-text-muted);
   flex-shrink: 0;
@@ -10755,13 +10762,19 @@ button.orbit-activity-cell:hover {
 /* overlay 角标形式的 badge（右上角） */
 .orbit-draft-count-badge--overlay {
   position: absolute;
-  top: -4px;
-  right: -4px;
+  top: -3px;
+  right: -3px;
   margin-left: 0;
-  min-width: 16px;
-  height: 16px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
   font-size: 10px;
+  line-height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
+  box-shadow: 0 0 0 2px var(--color-surface, #fff);
 }
 
 .tiptap-image-container {

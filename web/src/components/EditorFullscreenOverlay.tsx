@@ -140,7 +140,7 @@ export function EditorFullscreenOverlay({
         <div className="orbit-fullscreen-toolbar-inner">
           <button
             type="button"
-            className="orbit-editor-tool-btn mr-2"
+            className="orbit-icon-btn orbit-icon-btn--sm mr-1.5"
             onClick={finishClose}
             title="退出全屏文章模式"
             aria-label="退出全屏文章模式"
@@ -164,12 +164,11 @@ export function EditorFullscreenOverlay({
             <button
               type="button"
               onClick={() => onDismiss(buildCloseDetail())}
-              className="orbit-btn mr-2"
+              className="orbit-icon-btn orbit-icon-btn--sm mr-1.5"
               aria-label="关闭"
               title="关闭"
             >
-              <CloseIcon />
-              关闭
+              <CloseIcon size="sm" />
             </button>
           )}
           {onSave && (
@@ -177,7 +176,7 @@ export function EditorFullscreenOverlay({
               type="button"
               onClick={handleSaveClick}
               disabled={saving}
-              className="orbit-btn orbit-btn-primary"
+              className="orbit-btn orbit-btn-sm orbit-btn-primary"
             >
               {saving ? "保存中…" : "保存"}
             </button>

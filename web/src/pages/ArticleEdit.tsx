@@ -505,19 +505,18 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
             <button
               type="button"
               onClick={handleClose}
-              className="orbit-btn orbit-btn-sm orbit-btn-ghost"
+              className="orbit-icon-btn orbit-icon-btn--sm"
               aria-label="关闭"
               title="关闭"
             >
               <CloseIcon size="sm" />
-              <span className="hidden sm:inline">关闭</span>
             </button>
-            {/* 1:1 复刻 Jant：点击图标在有内容时存草稿+清空+开草稿箱，无内容时直接开草稿箱 */}
+            {/* 点击图标在有内容时存草稿+清空+开草稿箱，无内容时直接开草稿箱 */}
             <button
               type="button"
               onClick={() => void handleDraftIconClick()}
               disabled={savingDraft}
-              className="orbit-draft-icon-btn orbit-btn orbit-btn-sm orbit-btn-ghost"
+              className="orbit-icon-btn orbit-icon-btn--sm relative"
               aria-label="草稿箱"
               title={hasContent || isDraft ? "保存草稿并打开草稿箱" : "查看草稿箱"}
             >
