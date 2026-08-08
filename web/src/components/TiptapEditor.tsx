@@ -881,7 +881,8 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
               type="button"
               className="orbit-editor-tool-btn"
               onClick={() => fileInputRef.current?.click()}
-              title="上传媒体/图片"
+              title="图片/媒体"
+              data-tooltip="图片"
               aria-label="上传媒体/图片"
             >
               <svg className="orbit-editor-tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -947,10 +948,13 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
                 className={`orbit-editor-tool-btn ${showTitle ? "active" : ""}`}
                 onClick={onToggleTitle}
                 title={showTitle ? "隐藏标题" : "添加标题"}
+                data-tooltip={showTitle ? "隐藏标题" : "添加标题"}
                 aria-label={showTitle ? "隐藏标题" : "添加标题"}
               >
                 <svg className="orbit-editor-tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 12h16M4 6h16M4 18h10" />
+                  <path d="M4 7V5h16v2" />
+                  <path d="M12 5v14" />
+                  <path d="M9 19h6" />
                 </svg>
               </button>
             )}
@@ -963,6 +967,7 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
                 className="orbit-editor-tool-btn orbit-editor-fullscreen-btn"
                 onClick={onToggleMode}
                 title="展开全屏文章模式"
+                data-tooltip="全屏编辑"
                 aria-label="切换全屏文章模式"
               >
                 <svg className="orbit-editor-tool-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.48" strokeLinecap="round" strokeLinejoin="round">

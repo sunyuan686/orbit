@@ -274,6 +274,14 @@ export function CloseIcon(props: OrbitIconProps) {
   );
 }
 
+export function BackIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M19 12H5M12 19l-7-7 7-7" />
+    </OrbitIcon>
+  );
+}
+
 export function TrashIcon(props: OrbitIconProps) {
   return (
     <OrbitIcon {...props}>
@@ -613,5 +621,35 @@ export function ReloadIcon(props: OrbitIconProps) {
     </OrbitIcon>
   );
 }
+
+export function SparklesIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M12 3c0 4.5-2.5 7-7 7 4.5 0 7 2.5 7 7 0-4.5 2.5-7 7-7-4.5 0-7-2.5-7-7z" />
+    </OrbitIcon>
+  );
+}
+
+export function WrenchIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+    </OrbitIcon>
+  );
+}
+
+export function NotFoundIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v15.5" />
+      <path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20" />
+      <path d="M8 8h5" strokeDasharray="2 2" />
+      <path d="M8 12h3" strokeDasharray="2 2" />
+      <circle cx="17.5" cy="5.5" r="1.25" fill="currentColor" stroke="none" />
+      <ellipse cx="12" cy="12" rx="9.5" ry="3.8" transform="rotate(-18 12 12)" strokeDasharray="3 3" />
+    </OrbitIcon>
+  );
+}
+
 
 

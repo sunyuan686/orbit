@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useRealtimeVoiceStream } from "../hooks/useRealtimeVoiceStream";
 import { useAppSettings } from "../lib/appSettingsContext";
+import { useToast } from "../lib/useToast";
 
 export interface VoiceInputButtonProps {
   /** 实时打字回调：收到最新的全量识别文本时传给编辑器覆盖写入 */
@@ -22,6 +23,7 @@ export function VoiceInputButton({
   title = "语音打字 (点击说话)",
   compact = false,
 }: VoiceInputButtonProps) {
+  const toast = useToast();
   const { settings } = useAppSettings();
   const currentMode = settings?.voiceTranscribeMode ?? "smooth";
 
@@ -38,7 +40,10 @@ export function VoiceInputButton({
     useRealtimeVoiceStream({
       mode: currentMode,
       onTextUpdate: handleTextUpdate,
-      onError: (err) => console.error("Realtime voice stream notice", err),
+      onError: (err) => {
+        console.error("Realtime voice stream notice", err);
+        toast.error(err);
+      },
     });
 
   const handleClick = async () => {
@@ -57,10 +62,11 @@ export function VoiceInputButton({
       <button
         type="button"
         onClick={() => void handleClick()}
-        className={`orbit-compose-tool-btn transition-all duration-200 hover:text-white shrink-0 relative ${
-          isStreaming ? "text-red-400 font-bold" : ""
+        className={`orbit-ai-action-icon-btn ${
+          isStreaming ? "is-streaming" : ""
         } ${className}`}
         title={isStreaming ? "点击完成语音打字" : title}
+        data-tooltip={isStreaming ? "完成打字" : "语音打字"}
         aria-label={title}
       >
         {isStreaming ? (

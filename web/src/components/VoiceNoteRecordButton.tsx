@@ -1,5 +1,11 @@
 import { useState, useRef, useCallback } from "react";
 import { uploadAsset, type UploadAssetResult } from "../lib/api";
+import { useToast } from "../lib/useToast";
+import {
+  checkMicrophoneSupport,
+  formatMicrophoneError,
+  getSupportedAudioType,
+} from "../lib/audioUtils";
 
 export interface VoiceNoteRecordButtonProps {
   entryId?: string;
@@ -16,6 +22,7 @@ export function VoiceNoteRecordButton({
   compact = false,
   className = "",
 }: VoiceNoteRecordButtonProps) {
+  const toast = useToast();
   const [isRecording, setIsRecording] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -27,7 +34,10 @@ export function VoiceNoteRecordButton({
 
   const stopHardware = useCallback(() => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current.getTracks().forEach((t) => {
+        t.stop();
+        t.enabled = false;
+      });
       streamRef.current = null;
     }
     if (timerRef.current) {
@@ -37,23 +47,28 @@ export function VoiceNoteRecordButton({
   }, []);
 
   const startRecording = async () => {
+    const check = checkMicrophoneSupport();
+    if (!check.supported) {
+      toast.error(check.errorMessage || "当前环境不支持录音功能");
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       audioChunksRef.current = [];
 
+      const { mimeType } = getSupportedAudioType();
       let options: MediaRecorderOptions = {};
-      if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
-        options.mimeType = "audio/webm;codecs=opus";
-      } else if (MediaRecorder.isTypeSupported("audio/webm")) {
-        options.mimeType = "audio/webm";
+      if (mimeType) {
+        options.mimeType = mimeType;
       }
 
       const recorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = recorder;
 
       recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
+        if (event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
@@ -67,8 +82,9 @@ export function VoiceNoteRecordButton({
       }, 1000);
     } catch (err) {
       console.error("Microphone access error:", err);
-      alert("无法访问麦克风，请检查浏览器权限。");
       stopHardware();
+      const userMessage = formatMicrophoneError(err);
+      toast.error(userMessage);
     }
   };
 
@@ -78,12 +94,19 @@ export function VoiceNoteRecordButton({
     setIsRecording(false);
     setIsUploading(true);
 
-    const mimeType = mediaRecorderRef.current.mimeType || "audio/webm";
+    const recorderMime = mediaRecorderRef.current.mimeType || "";
+    const effectiveMime = recorderMime || getSupportedAudioType().mimeType || "audio/mp4";
+
+    let ext = ".webm";
+    if (effectiveMime.includes("mp4")) ext = ".mp4";
+    else if (effectiveMime.includes("aac")) ext = ".aac";
+    else if (effectiveMime.includes("wav")) ext = ".wav";
+    else if (effectiveMime.includes("ogg")) ext = ".ogg";
 
     const blobPromise = new Promise<Blob>((resolve) => {
-      if (!mediaRecorderRef.current) return resolve(new Blob([], { type: mimeType }));
+      if (!mediaRecorderRef.current) return resolve(new Blob([], { type: effectiveMime }));
       mediaRecorderRef.current.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        const blob = new Blob(audioChunksRef.current, { type: effectiveMime });
         resolve(blob);
       };
     });
@@ -93,15 +116,14 @@ export function VoiceNoteRecordButton({
 
     try {
       const audioBlob = await blobPromise;
-      if (audioBlob && audioBlob.size > 500) {
-        const ext = mimeType.includes("webm") ? ".webm" : ".wav";
-        const file = new File([audioBlob], `voice_${Date.now()}${ext}`, { type: mimeType });
+      if (audioBlob && audioBlob.size > 200) {
+        const file = new File([audioBlob], `voice_${Date.now()}${ext}`, { type: effectiveMime });
         const result = await uploadAsset(file, entryId);
         onVoiceNoteCreated(result);
       }
     } catch (err) {
       console.error("Failed to upload voice note:", err);
-      alert("语音录制保存失败，请重试");
+      toast.error("语音录制保存失败，请重试");
     } finally {
       setIsUploading(false);
       setRecordingSeconds(0);
@@ -151,8 +173,9 @@ export function VoiceNoteRecordButton({
       onClick={() => void startRecording()}
       disabled={disabled}
       className={`orbit-compose-tool-btn text-stone-600 dark:text-stone-300 hover:text-amber-600 dark:hover:text-amber-400 transition-colors shrink-0 ${className}`}
-      title="录音随想附件 (录制语音 + 自动转写)"
-      aria-label="录音随想附件"
+      title="录音随想 (录制音频附件)"
+      data-tooltip="录音"
+      aria-label="录音随想"
     >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M2 10v4" />

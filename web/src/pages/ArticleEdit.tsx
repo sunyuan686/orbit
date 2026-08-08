@@ -13,7 +13,7 @@ import { useToast } from "../lib/useToast";
 import { TiptapEditor, type TiptapEditorHandle } from "../components/TiptapEditor";
 import { EditorFullscreenOverlay } from "../components/EditorFullscreenOverlay";
 import { DatePicker } from "../components/DatePicker";
-import { CloseIcon, DraftBoxIcon } from "../components/OrbitIcons";
+import { BackIcon, DraftBoxIcon } from "../components/OrbitIcons";
 import { fromDateInput, toDateInput } from "../lib/dateInput";
 import { anchorLogger } from "../lib/logger";
 import { queryKeys } from "../lib/queryKeys";
@@ -462,55 +462,20 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
   return (
     <>
       <div className="orbit-editor-layout">
-        <div className="flex items-center justify-between mb-4 gap-4">
-          <div className="flex items-center flex-wrap gap-2 text-xs orbit-editor-meta-bar">
-            {!isNew && (
-              <span className="orbit-page-title-badge">
-                {isDraft ? "编辑草稿" : "编辑"}
-              </span>
-            )}
-            {isLetterReply && replyContext && (
-              <span className="orbit-letter-reply-context">
-                回复 {replyContext.author ?? "对方"} 的信
-                {replyContext.entryDate
-                  ? ` · ${formatDate(replyContext.entryDate)}`
-                  : ""}
-              </span>
-            )}
-            {displayAuthor && (
-              <span className="orbit-entry-author">
-                作者：{displayAuthor}
-              </span>
-            )}
-            {!isMemo && (
-              <>
-                <span className="orbit-meta-divider">•</span>
-                <DatePicker
-                  id="entry-date"
-                  value={toDateInput(entryDate)}
-                  onChange={(value) => setEntryDate(fromDateInput(value))}
-                  variant="inline"
-                  aria-label="选择日期"
-                />
-              </>
-            )}
-            {isDraft && (
-              <>
-                <span className="orbit-meta-divider">•</span>
-                <span className="orbit-draft-label">草稿</span>
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
+        {/* 顶部导航控制栏：只保留关闭按钮以及草稿箱与保存主操作 */}
+        <div className="orbit-editor-header flex items-center justify-between mb-3 gap-3">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleClose}
               className="orbit-icon-btn orbit-icon-btn--sm"
-              aria-label="关闭"
-              title="关闭"
+              aria-label="返回"
+              title="返回"
             >
-              <CloseIcon size="sm" />
+              <BackIcon size="sm" />
             </button>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
             {/* 点击图标在有内容时存草稿+清空+开草稿箱，无内容时直接开草稿箱 */}
             <button
               type="button"
@@ -534,6 +499,41 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
               {saving ? "保存中…" : isDraft ? "发布" : "保存"}
             </button>
           </div>
+        </div>
+
+        {/* 内联元信息栏：作者、日期、回复上下文下沉至正文头部展示，解决顶栏拥挤重叠 */}
+        <div className="flex items-center flex-wrap gap-2 text-xs orbit-editor-meta-bar mb-3">
+          {isLetterReply && replyContext && (
+            <span className="orbit-letter-reply-context">
+              回复 {replyContext.author ?? "对方"} 的信
+              {replyContext.entryDate
+                ? ` · ${formatDate(replyContext.entryDate)}`
+                : ""}
+            </span>
+          )}
+          {displayAuthor && (
+            <span className="orbit-entry-author">
+              作者：{displayAuthor}
+            </span>
+          )}
+          {!isMemo && (
+            <>
+              {displayAuthor && <span className="orbit-meta-divider">•</span>}
+              <DatePicker
+                id="entry-date"
+                value={toDateInput(entryDate)}
+                onChange={(value) => setEntryDate(fromDateInput(value))}
+                variant="inline"
+                aria-label="选择日期"
+              />
+            </>
+          )}
+          {isDraft && (
+            <>
+              <span className="orbit-meta-divider">•</span>
+              <span className="orbit-draft-label">草稿</span>
+            </>
+          )}
         </div>
 
         {showTitle && (
