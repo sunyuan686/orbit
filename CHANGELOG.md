@@ -8,6 +8,18 @@
 
 ---
 
+## [0.2.0](https://github.com/sunyuan686/orbit/compare/v0.1.0...v0.2.0) (2026-08-08)
+
+
+### 新功能
+
+* **ai:** refactor model specifications, provider settings, and voice tools ([c2ef1d2](https://github.com/sunyuan686/orbit/commit/c2ef1d293df6f2bc210e69676b6c63d74ac663d5))
+
+
+### 重构
+
+* **editor:** optimize mobile pwa native editor experience and layout ([ed24b6c](https://github.com/sunyuan686/orbit/commit/ed24b6c8a8d7da606a3f2bedc0fd4d3f531401e2))
+
 ## [0.1.0](https://github.com/sunyuan686/orbit/compare/v0.0.1...v0.1.0) (2026-08-06)
 
 
