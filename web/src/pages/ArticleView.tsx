@@ -29,7 +29,9 @@ import { extractToc } from "../lib/toc";
 import { getCommentCapabilities } from "../lib/commentCapabilities";
 import { canEditContent, canDeleteContent } from "../lib/contentPolicies";
 import { LetterThreadPanel } from "../components/LetterThreadPanel";
+import { NotFoundState } from "../components/NotFoundState";
 import { useAiArticleMeta } from "../lib/aiArticleContext";
+
 import { formatAiArticleContextLabel } from "../lib/aiArticleLabel";
 
 const EMPTY_COMMENTS: CommentGroups = { bottom: [], inline: [] };
@@ -121,7 +123,7 @@ export function ArticleView() {
     });
   }
 
-  if (entryQuery.isError) return <p className="orbit-danger-text">文章不存在</p>;
+  if (entryQuery.isError) return <NotFoundState type={type} />;
   if (!entry) return <p className="orbit-muted">加载中…</p>;
 
   async function handleCreateBottom(body: string, parentId?: string | null) {

@@ -1,5 +1,6 @@
 import { createAuthClient } from "better-auth/react";
 import { apiLogger } from "./logger";
+import type { ModelSpec } from "./ai-model-specs";
 
 const BASE = "";
 
@@ -727,6 +728,25 @@ export function inferAiProviderFromModelId(modelId: string): AiProvider {
 
 export type VoiceTranscribeMode = "smooth" | "raw" | "bullets" | "formal";
 
+export interface BuiltinModelCatalogItem {
+  id: string;
+  label: string;
+  description: string;
+  contextWindow: number;
+  reasoning: boolean;
+  defaultReasoning?: string;
+  maxOutputTokens: number;
+  capabilities: string[];
+  supportsToolCalling: boolean;
+  supportsVision?: boolean;
+  recommended?: boolean;
+}
+
+export type BuiltinProviderCatalog = Record<
+  "workers-ai" | "deepseek" | "alibaba",
+  BuiltinModelCatalogItem[]
+>;
+
 export interface AppSettings {
   accentPreset: AccentPreset;
   aiProvider: AiProvider;
@@ -734,6 +754,12 @@ export interface AppSettings {
   aiEnabledModels: string[];
   aiEnabledProviders: AiProvider[];
   aiConnections: AiCustomConnectionPublic[];
+  /** 用户维护的模型规格覆盖（按 provider 分组），空对象 = 全部走内置默认 */
+  aiModelSpecs: Record<string, Record<string, ModelSpec>>;
+  /** 内置模型默认规格（服务端下发，前端不维护副本） */
+  aiBuiltinModelSpecs: Record<string, Record<string, ModelSpec>>;
+  /** 按 Provider 分组的内置模型目录（服务端统一下发） */
+  aiBuiltinCatalog?: BuiltinProviderCatalog;
   hasDeepseekKey: boolean;
   hasAlibabaKey: boolean;
   aiBotName: string;
@@ -754,6 +780,7 @@ export async function updateAppSettings(data: {
   aiEnabledModels?: string[];
   aiEnabledProviders?: AiProvider[];
   aiConnections?: AiCustomConnection[];
+  aiModelSpecs?: Record<string, Record<string, ModelSpec>> | null;
   connectionKey?: { id: string; key: string | null };
   deepseekKey?: string | null;
   alibabaKey?: string | null;

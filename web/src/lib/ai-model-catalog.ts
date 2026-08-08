@@ -6,9 +6,9 @@ import {
   inferAiProviderFromModelId,
   type AiCustomConnectionPublic,
   type AiProvider,
-  type DeepseekModelOption,
-  type WorkersAiModelOption,
+  type BuiltinProviderCatalog,
 } from "./api";
+import { resolveSpecKey, type ModelSpec } from "./ai-model-specs";
 
 export interface UnifiedChatModel {
   id: string;
@@ -19,7 +19,14 @@ export interface UnifiedChatModel {
   contextWindow?: number;
   capabilities: string[];
   supportsToolCalling: boolean;
+  supportsVision?: boolean;
+  supportsFileInput?: boolean;
+  supportsImageOutput?: boolean;
+  supportsVideoOutput?: boolean;
+  supportsWebSearch?: boolean;
   recommended?: boolean;
+  /** 是否为非内置的自定义添加模型 */
+  isCustom?: boolean;
 }
 
 export function formatCustomModelRef(
@@ -101,106 +108,124 @@ export function parseModelRef(raw: string): {
   return null;
 }
 
-export const BUILTIN_ALIBABA_MODELS: UnifiedChatModel[] = [
-  {
-    id: formatAlibabaModelRef("qwen3.8-max"),
-    label: "qwen3.8-max",
-    description: "通义千问 Qwen3.8-Max 旗舰 · 2.4万亿参数 MoE 架构，强逻辑、自主编程与超大上下文",
-    provider: "alibaba",
-    contextWindow: 1000000,
-    capabilities: ["2.4万亿MoE", "超长文本", "深度思考"],
-    supportsToolCalling: true,
-    recommended: true,
-  },
-  {
-    id: formatAlibabaModelRef("qwen3.7-plus"),
-    label: "qwen3.7-plus",
-    description: "通义千问 Qwen3.7-Plus 高性能 · 深度思考与复杂工具调用能力",
-    provider: "alibaba",
-    contextWindow: 131072,
-    capabilities: ["深度思考", "工具调用", "视觉理解"],
-    supportsToolCalling: true,
-    recommended: true,
-  },
-  {
-    id: formatAlibabaModelRef("qwen3.7-flash"),
-    label: "qwen3.7-flash",
-    description: "通义千问 Qwen3.7-Flash 极速版 · 高并发、低延时敏捷响应",
-    provider: "alibaba",
-    contextWindow: 131072,
-    capabilities: ["极速推流", "高并发", "多模态"],
-    supportsToolCalling: true,
-  },
-  {
-    id: formatAlibabaModelRef("qwen3.5-plus"),
-    label: "qwen3.5-plus",
-    description: "通义千问 Qwen3.5-Plus 稳态大模型 · 通用对话与长文润色",
-    provider: "alibaba",
-    contextWindow: 131072,
-    capabilities: ["通用对话", "稳态生成"],
-    supportsToolCalling: true,
-  },
-  {
-    id: formatAlibabaModelRef("qwen3-coder-plus"),
-    label: "qwen3-coder-plus",
-    description: "通义千问 Qwen3-Coder-Plus 代码大模型 · 专属编程与代码生成",
-    provider: "alibaba",
-    contextWindow: 131072,
-    capabilities: ["代码专属", "自动编程"],
-    supportsToolCalling: true,
-  },
-];
-
 export function buildUnifiedChatModels(
-  workersModels: WorkersAiModelOption[],
-  deepseekModels: DeepseekModelOption[],
-  connections: AiCustomConnectionPublic[]
+  builtinCatalog?: BuiltinProviderCatalog,
+  connections?: AiCustomConnectionPublic[],
+  userSpecs?: Record<string, Record<string, Partial<ModelSpec>>>
 ): UnifiedChatModel[] {
   const unified: UnifiedChatModel[] = [];
+  const seenIds = new Set<string>();
 
-  for (const model of workersModels) {
-    if (model.task !== "Text Generation") continue;
-    unified.push({
-      id: formatWorkersAiModelRef(model.id),
-      label: model.label,
-      description: model.description,
-      provider: "workers-ai",
-      contextWindow: model.contextWindow,
-      capabilities: model.capabilities,
-      supportsToolCalling: model.supportsToolCalling,
-      recommended: model.recommended,
-    });
+  // 1. 处理来自服务端的 Provider 分组 Builtin Catalog
+  if (builtinCatalog) {
+    for (const [provider, models] of Object.entries(builtinCatalog)) {
+      if (!Array.isArray(models)) continue;
+      for (const model of models) {
+        let ref = model.id;
+        if (provider === "workers-ai") ref = formatWorkersAiModelRef(model.id);
+        else if (provider === "deepseek") ref = formatDeepseekModelRef(model.id);
+        else if (provider === "alibaba") ref = formatAlibabaModelRef(model.id);
+
+        if (!seenIds.has(ref)) {
+          seenIds.add(ref);
+          unified.push({
+            id: ref,
+            label: model.label,
+            description: model.description,
+            provider: provider as AiProvider,
+            contextWindow: model.contextWindow,
+            capabilities: model.capabilities,
+            supportsToolCalling: model.supportsToolCalling,
+            supportsVision: model.supportsVision,
+            recommended: model.recommended,
+            isCustom: false,
+          });
+        }
+      }
+    }
   }
 
-  for (const model of deepseekModels) {
-    unified.push({
-      id: formatDeepseekModelRef(model.id),
-      label: model.label,
-      description: model.description,
-      provider: "deepseek",
-      contextWindow: model.contextWindow,
-      capabilities: model.capabilities,
-      supportsToolCalling: model.supportsToolCalling,
-      recommended: model.recommended,
-    });
+  // 2. 自定义连接 (Custom Connections)
+  if (connections) {
+    for (const connection of connections) {
+      for (const model of connection.models) {
+        const ref = formatCustomModelRef(connection.id, model.id);
+        if (!seenIds.has(ref)) {
+          seenIds.add(ref);
+          unified.push({
+            id: ref,
+            label: model.label?.trim() || model.id,
+            description: connection.name,
+            provider: "custom",
+            connectionId: connection.id,
+            capabilities: ["OpenAI 兼容"],
+            supportsToolCalling: true,
+            isCustom: true,
+          });
+        }
+      }
+    }
   }
 
-  // 挂载阿里百炼原生模型
-  for (const model of BUILTIN_ALIBABA_MODELS) {
-    unified.push(model);
-  }
+  // 3. 用户在 Spec 中添加的额外自定义模型
+  if (userSpecs) {
+    for (const [provider, group] of Object.entries(userSpecs)) {
+      if (!group) continue;
+      for (const [key, spec] of Object.entries(group)) {
+        let ref = key;
+        if (provider === "workers-ai") ref = formatWorkersAiModelRef(key);
+        else if (provider === "deepseek") ref = formatDeepseekModelRef(key);
+        else if (provider === "alibaba") ref = formatAlibabaModelRef(key);
+        else if (provider === "custom" && key.includes(":")) {
+          const sep = key.indexOf(":");
+          ref = formatCustomModelRef(key.slice(0, sep), key.slice(sep + 1));
+        }
+        if (!seenIds.has(ref)) {
+          seenIds.add(ref);
+          unified.push({
+            id: ref,
+            label: spec.name?.trim() || key,
+            description: `${provider} 自定义配置`,
+            provider: (provider === "connection" ? "custom" : provider) as AiProvider,
+            contextWindow: spec.contextWindow || 128000,
+            capabilities: [spec.reasoning ? "深度思考" : "通用对话", "自定义"],
+            supportsToolCalling: spec.supportsToolCalling !== undefined ? spec.supportsToolCalling : true,
+            supportsVision: spec.supportsVision ?? false,
+            supportsFileInput: spec.supportsFileInput !== undefined ? spec.supportsFileInput : true,
+            supportsImageOutput: spec.supportsImageOutput ?? false,
+            supportsVideoOutput: spec.supportsVideoOutput ?? false,
+            supportsWebSearch: spec.supportsWebSearch ?? false,
+            isCustom: true,
+          });
+        }
+      }
+    }
 
-  for (const connection of connections) {
-    for (const model of connection.models) {
-      unified.push({
-        id: formatCustomModelRef(connection.id, model.id),
-        label: model.label?.trim() || model.id,
-        description: connection.name,
-        provider: "custom",
-        connectionId: connection.id,
-        capabilities: ["OpenAI 兼容"],
-        supportsToolCalling: true,
-      });
+    // 应用用户 spec 覆盖的 capabilities (Tool Calling, Vision, File, Image Gen, Video Gen, Web Search)
+    for (const model of unified) {
+      const resolved = resolveSpecKey(model.id);
+      if (!resolved) continue;
+      const userOverride = userSpecs[resolved.provider]?.[resolved.key];
+      if (userOverride) {
+        if (typeof userOverride.supportsToolCalling === "boolean") {
+          model.supportsToolCalling = userOverride.supportsToolCalling;
+        }
+        if (typeof userOverride.supportsVision === "boolean") {
+          model.supportsVision = userOverride.supportsVision;
+        }
+        if (typeof userOverride.supportsFileInput === "boolean") {
+          model.supportsFileInput = userOverride.supportsFileInput;
+        }
+        if (typeof userOverride.supportsImageOutput === "boolean") {
+          model.supportsImageOutput = userOverride.supportsImageOutput;
+        }
+        if (typeof userOverride.supportsVideoOutput === "boolean") {
+          model.supportsVideoOutput = userOverride.supportsVideoOutput;
+        }
+        if (typeof userOverride.supportsWebSearch === "boolean") {
+          model.supportsWebSearch = userOverride.supportsWebSearch;
+        }
+      }
     }
   }
 

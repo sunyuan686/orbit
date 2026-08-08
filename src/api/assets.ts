@@ -94,12 +94,21 @@ export function createAssetsRoutes(
     let transcript = (formData.get("transcript") as string | null) || undefined;
 
     // 如果是语音文件且前端未提供转写文本，尝试自动打字转写
-    if (mimeType.startsWith("audio/") && !transcript) {
+    const isAudio =
+      mimeType.startsWith("audio/") ||
+      ext === ".webm" ||
+      ext === ".m4a" ||
+      ext === ".wav" ||
+      ext === ".aac" ||
+      ext === ".mp3" ||
+      ext === ".ogg";
+
+    if (isAudio && !transcript) {
       try {
         const env = getEnv ? getEnv(c) : ((c.env as any) || process.env);
         const dbInstance = await getDb(c);
         try {
-          const res = await transcribeAudioWithDashScope(body, file.name || "recording.wav", env, undefined, dbInstance);
+          const res = await transcribeAudioWithDashScope(body, file.name || "recording.webm", env, undefined, dbInstance);
           if (res?.text) transcript = res.text.trim();
         } catch {
           const resText = await transcribeAudioWithWorkersAi(body, env);

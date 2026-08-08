@@ -15,6 +15,17 @@ export class DashScopeVoiceError extends Error {
   }
 }
 
+function parseAudioMetadata(fileName: string): { mimeType: string; format: string } {
+  const lower = (fileName || "").toLowerCase();
+  if (lower.endsWith(".wav")) return { mimeType: "audio/wav", format: "wav" };
+  if (lower.endsWith(".mp4") || lower.endsWith(".m4a")) return { mimeType: "audio/mp4", format: "mp4" };
+  if (lower.endsWith(".aac")) return { mimeType: "audio/aac", format: "aac" };
+  if (lower.endsWith(".mp3")) return { mimeType: "audio/mpeg", format: "mp3" };
+  if (lower.endsWith(".ogg")) return { mimeType: "audio/ogg", format: "ogg" };
+  if (lower.endsWith(".flac")) return { mimeType: "audio/flac", format: "flac" };
+  return { mimeType: "audio/webm", format: "opus" };
+}
+
 export async function transcribeAudioWithDashScope(
   audioBuffer: ArrayBuffer,
   fileName: string = "recording.wav",
@@ -45,7 +56,7 @@ export async function transcribeAudioWithDashScope(
 
   const startTime = Date.now();
   const base64Audio = Buffer.from(audioBuffer).toString("base64");
-  const audioMimeType = fileName.endsWith(".wav") ? "audio/wav" : "audio/webm";
+  const { mimeType: audioMimeType, format: audioFormat } = parseAudioMetadata(fileName);
   const dataUri = `data:${audioMimeType};base64,${base64Audio}`;
 
   const configuredUrl =
@@ -154,7 +165,7 @@ export async function transcribeAudioWithDashScope(
           ],
         },
         parameters: {
-          format: fileName.endsWith(".wav") ? "wav" : "opus",
+          format: audioFormat,
           sample_rate: "16000",
         },
       }),

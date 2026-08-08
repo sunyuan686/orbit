@@ -22,6 +22,11 @@ import {
   validateAiConnections,
 } from "../services/ai-connections.js";
 import {
+  parseModelSpecs,
+  serializeModelSpecs,
+  type ModelSpec,
+} from "../services/ai-model-specs.js";
+import {
   deleteSetting,
   readSettingsMap,
   upsertSetting,
@@ -70,6 +75,8 @@ interface SettingsPutBody {
     models: Array<{ id: string; label?: string }>;
     enabled?: boolean;
   }>;
+  /** 模型规格覆盖（按 provider 分组），null 清除全部覆盖 */
+  aiModelSpecs?: Record<string, Record<string, ModelSpec>> | null;
   connectionKey?: { id: string; key: string | null };
   deepseekKey?: string | null;
   alibabaKey?: string | null;
@@ -135,11 +142,13 @@ export function createSettingsRoutes(
       body.aiEnabledModels !== undefined ||
       body.aiEnabledProviders !== undefined ||
       body.aiConnections !== undefined ||
+      body.aiModelSpecs !== undefined ||
       body.connectionKey !== undefined ||
       body.deepseekKey !== undefined ||
       body.alibabaKey !== undefined ||
       body.aiBotName !== undefined ||
-      body.aiBotPersona !== undefined;
+      body.aiBotPersona !== undefined ||
+      body.voiceTranscribeMode !== undefined;
 
     if (!hasUpdates) {
       try {
@@ -288,6 +297,27 @@ export function createSettingsRoutes(
         auditMetadata.aiConnections = connections.map((connection) => connection.id);
         settingsMap[APP_SETTING_KEYS.aiConnections] =
           serializeAiConnections(connections);
+      }
+
+      if (body.aiModelSpecs !== undefined) {
+        if (body.aiModelSpecs === null) {
+          await deleteSetting(db, APP_SETTING_KEYS.aiModelSpecs);
+          auditMetadata.aiModelSpecs = "cleared";
+        } else {
+          if (typeof body.aiModelSpecs !== "object" || Array.isArray(body.aiModelSpecs)) {
+            return c.json({ error: "aiModelSpecs 必须是按供应商分组的对象" }, 400);
+          }
+          const specs = parseModelSpecs(JSON.stringify(body.aiModelSpecs));
+          const serialized = serializeModelSpecs(specs);
+          await upsertSetting(db, APP_SETTING_KEYS.aiModelSpecs, serialized);
+          auditMetadata.aiModelSpecs = Object.fromEntries(
+            Object.entries(specs).map(([provider, models]) => [
+              provider,
+              Object.keys(models ?? {}),
+            ])
+          );
+          settingsMap[APP_SETTING_KEYS.aiModelSpecs] = serialized;
+        }
       }
 
       const secret = options.getSecret?.(c);

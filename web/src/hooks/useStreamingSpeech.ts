@@ -1,4 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import {
+  checkMicrophoneSupport,
+  formatMicrophoneError,
+} from "../lib/audioUtils";
 
 export interface UseStreamingSpeechOptions {
   lang?: string;
@@ -30,6 +34,7 @@ export function useStreamingSpeech(
   const recognitionRef = useRef<any>(null);
   const isListeningRef = useRef(false);
   const finalTextRef = useRef("");
+  const consecutiveErrorsRef = useRef(0);
 
   useEffect(() => {
     const SpeechRecognition =
@@ -47,6 +52,7 @@ export function useStreamingSpeech(
     recognition.lang = lang;
 
     recognition.onresult = (event: any) => {
+      consecutiveErrorsRef.current = 0;
       let currentFinal = "";
       let currentInterim = "";
 
@@ -71,17 +77,25 @@ export function useStreamingSpeech(
     };
 
     recognition.onerror = (event: any) => {
-      console.error("Streaming speech recognition error", event.error);
-      if (event.error === "not-allowed") {
-        onError?.("麦克风权限被拒绝，请在浏览器地址栏旁允许使用麦克风");
-      } else if (event.error !== "no-speech") {
-        onError?.(`语音识别错误: ${event.error}`);
+      console.error("Streaming speech recognition error", event?.error);
+      consecutiveErrorsRef.current += 1;
+
+      if (event?.error === "not-allowed" || event?.error === "service-not-allowed") {
+        isListeningRef.current = false;
+        setIsListening(false);
+        onError?.(formatMicrophoneError({ name: "NotAllowedError" }));
+      } else if (event?.error !== "no-speech") {
+        onError?.(`语音识别错误: ${event?.error || "未知错误"}`);
+      }
+
+      if (consecutiveErrorsRef.current >= 3) {
+        isListeningRef.current = false;
+        setIsListening(false);
       }
     };
 
     recognition.onend = () => {
-      // 如果还在录音状态中（防止自动断开），自动尝试续连
-      if (isListeningRef.current) {
+      if (isListeningRef.current && consecutiveErrorsRef.current < 3) {
         try {
           recognition.start();
         } catch {
@@ -108,8 +122,15 @@ export function useStreamingSpeech(
   }, [lang, onTranscriptChange, onError]);
 
   const startListening = useCallback(() => {
+    const check = checkMicrophoneSupport();
+    if (!check.supported) {
+      onError?.(check.errorMessage || "当前环境不支持语音识别");
+      return;
+    }
+
     if (!recognitionRef.current) return;
     try {
+      consecutiveErrorsRef.current = 0;
       finalTextRef.current = "";
       setFinalText("");
       setInterimText("");
@@ -119,7 +140,7 @@ export function useStreamingSpeech(
     } catch (err) {
       console.error("Start listening error", err);
     }
-  }, []);
+  }, [onError]);
 
   const stopListening = useCallback(() => {
     isListeningRef.current = false;

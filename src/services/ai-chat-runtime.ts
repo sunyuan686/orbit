@@ -1,5 +1,6 @@
 import {
   convertToModelMessages,
+  isStepCount,
   streamText,
   type ModelMessage,
   type UIMessage,
@@ -34,6 +35,11 @@ import {
   type ActiveTrace,
   type LangfuseEnv,
 } from "./langfuse.js";
+import {
+  resolveMessageTokenBudget,
+  type ModelSpec,
+  type ReasoningLevel,
+} from "./ai-model-specs.js";
 
 const defaultLog = createLogger("ai-chat-runtime");
 
@@ -49,6 +55,8 @@ export interface PrepareAiChatAgentOptions {
   actor?: ContentWriteActor;
   /** When set, records compression / handoff / prompt spans on the trace. */
   trace?: ActiveTrace | null;
+  /** User-selected reasoning level; defaults to the model spec default. */
+  reasoning?: ReasoningLevel;
 }
 
 export interface PreparedAiChatAgent {
@@ -59,6 +67,10 @@ export interface PreparedAiChatAgent {
   tools: ReturnType<typeof createAiTools>;
   modelMessages: ModelMessage[];
   settingsMap: Record<string, string>;
+  /** Effective model spec (user override merged over built-in defaults). */
+  spec: ModelSpec;
+  /** Effective reasoning level for this request (clamped to model ability). */
+  reasoning: ReasoningLevel;
 }
 
 export interface BeginAiChatTraceOptions {
@@ -85,6 +97,10 @@ export interface StreamAiChatOptions {
   conversationId: string;
   provider: string;
   modelId: string;
+  /** Effective reasoning level (clamped to model ability). */
+  reasoning?: ReasoningLevel;
+  /** Output token cap from the model spec. */
+  maxOutputTokens?: number;
   env?: AiRuntimeEnv;
   log?: ReturnType<typeof createLogger>;
   trace?: ActiveTrace | null;
@@ -120,9 +136,18 @@ export async function prepareAiChatAgent(
     options.settingsMap ?? (await readSettingsMap(options.db));
   const resolved = await resolveModel(options.db, options.env);
 
+  const spec = resolved.spec;
+  const tokenBudget = resolveMessageTokenBudget(spec.contextWindow);
+
+  // Reasoning level: model without reasoning ability is always "none".
+  const reasoning: ReasoningLevel = spec.reasoning
+    ? options.reasoning ?? spec.defaultReasoning ?? "low"
+    : "none";
+
   const originalMessageCount = options.uiMessages.length;
   const { finalMessages, droppedTurns } = compressMessagesForModel(
-    options.uiMessages
+    options.uiMessages,
+    tokenBudget
   );
   let effectiveMessages = finalMessages;
   let handoffSummary: string | null = null;
@@ -190,6 +215,8 @@ export async function prepareAiChatAgent(
     tools,
     modelMessages,
     settingsMap,
+    spec,
+    reasoning,
   };
 }
 
@@ -238,6 +265,21 @@ export function streamAiChat(options: StreamAiChatOptions) {
     (options.env ?? process.env) as Record<string, string | undefined>
   );
 
+  // workers-ai 不消费顶层 reasoning：薄映射到 providerOptions（OpenCode
+  // ProviderTransform 同思路）。其余 provider（deepseek/alibaba/custom）
+  // 原生消费顶层 reasoning，零适配。
+  const reasoning = options.reasoning ?? "none";
+  const workersAiOptions =
+    options.provider === "workers-ai"
+      ? {
+          // reasoning_effort 值域仅 low/medium/high，none 档由 enable_thinking 控制
+          ...(reasoning !== "none" ? { reasoning_effort: reasoning } : {}),
+          chat_template_kwargs: {
+            enable_thinking: reasoning !== "none",
+          },
+        }
+      : undefined;
+
   return streamText({
     model: options.model,
     system: options.system,
@@ -245,6 +287,13 @@ export function streamAiChat(options: StreamAiChatOptions) {
     tools: options.tools,
     maxRetries: 2,
     ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
+    ...(options.reasoning ? { reasoning: options.reasoning } : {}),
+    ...(options.maxOutputTokens
+      ? { maxOutputTokens: options.maxOutputTokens }
+      : {}),
+    ...(workersAiOptions
+      ? { providerOptions: { "workers-ai": workersAiOptions } }
+      : {}),
     include: {
       requestBody: true,
       requestMessages: true,
@@ -255,7 +304,7 @@ export function streamAiChat(options: StreamAiChatOptions) {
     ...(toolApprovalSecret
       ? { experimental_toolApprovalSecret: toolApprovalSecret }
       : {}),
-    stopWhen: () => false,
+    stopWhen: isStepCount(5),
     onStepFinish: async (step) => {
       stepCount += 1;
       await recorder?.onStepEnd({

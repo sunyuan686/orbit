@@ -1,4 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import {
+  checkMicrophoneSupport,
+  formatMicrophoneError,
+  getSupportedAudioType,
+} from "../lib/audioUtils";
 
 export type VoiceTranscribeMode = "smooth" | "raw" | "bullets" | "formal";
 
@@ -38,6 +43,8 @@ export function useRealtimeVoiceStream(
   // 本地 0 延迟 SpeechRecognition 有限状态机引擎与历史文本持久化 Ref
   const recognitionRef = useRef<any>(null);
   const accumulatedHistoryRef = useRef<string>("");
+  const consecutiveSpeechErrorsRef = useRef<number>(0);
+  const speechRecognitionDisabledRef = useRef<boolean>(false);
 
   // 彻底停止麦克风音轨与硬件，释放浏览器地址栏图标
   const closeMicrophoneHardware = useCallback(() => {
@@ -70,8 +77,14 @@ export function useRealtimeVoiceStream(
   const startAudioAnalyser = useCallback((stream: MediaStream) => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
       const audioCtx = new AudioCtx();
       audioContextRef.current = audioCtx;
+
+      // 移动端 Safari/PWA 激活 AudioContext
+      if (audioCtx.state === "suspended") {
+        void audioCtx.resume().catch(() => {});
+      }
 
       const source = audioCtx.createMediaStreamSource(stream);
       const analyser = audioCtx.createAnalyser();
@@ -110,8 +123,10 @@ export function useRealtimeVoiceStream(
     }
   }, []);
 
-  // 第一性原理：状态机维持无限长语音连续实时吐字
+  // 第一性原理：状态机维持无限长语音连续实时吐字（iOS/PWA 遇到权限或兼容限制时防死循环）
   const createAndStartSpeechRecognition = useCallback(() => {
+    if (speechRecognitionDisabledRef.current) return;
+
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
@@ -128,6 +143,7 @@ export function useRealtimeVoiceStream(
 
       recognition.onresult = (event: any) => {
         if (!isStreamingRef.current) return;
+        consecutiveSpeechErrorsRef.current = 0;
 
         let finalAccumulated = "";
         let interimAccumulated = "";
@@ -163,10 +179,20 @@ export function useRealtimeVoiceStream(
 
       recognition.onerror = (err: any) => {
         console.warn("Local SpeechRecognition notice", err?.error);
+        consecutiveSpeechErrorsRef.current += 1;
+        if (
+          err?.error === "not-allowed" ||
+          err?.error === "service-not-allowed" ||
+          err?.error === "language-not-supported" ||
+          consecutiveSpeechErrorsRef.current >= 3
+        ) {
+          // 在 PWA / iOS 不支持 Web Speech 引擎时降级为单纯依赖 MediaRecorder + 离线高清转写
+          speechRecognitionDisabledRef.current = true;
+        }
       };
 
       recognition.onend = () => {
-        if (isStreamingRef.current) {
+        if (isStreamingRef.current && !speechRecognitionDisabledRef.current) {
           if (sessionFinalText.trim()) {
             accumulatedHistoryRef.current = (
               accumulatedHistoryRef.current +
@@ -178,10 +204,10 @@ export function useRealtimeVoiceStream(
           }
           recognitionRef.current = null;
           setTimeout(() => {
-            if (isStreamingRef.current) {
+            if (isStreamingRef.current && !speechRecognitionDisabledRef.current) {
               createAndStartSpeechRecognition();
             }
-          }, 50);
+          }, 100);
         }
       };
 
@@ -189,12 +215,21 @@ export function useRealtimeVoiceStream(
       recognitionRef.current = recognition;
     } catch (err) {
       console.warn("SpeechRecognition create failed", err);
+      speechRecognitionDisabledRef.current = true;
     }
   }, [onTextUpdate]);
 
   const startStreaming = useCallback(async () => {
+    const check = checkMicrophoneSupport();
+    if (!check.supported) {
+      onError?.(check.errorMessage || "当前环境不支持麦克风");
+      return;
+    }
+
     audioChunksRef.current = [];
     accumulatedHistoryRef.current = "";
+    consecutiveSpeechErrorsRef.current = 0;
+    speechRecognitionDisabledRef.current = false;
     isStreamingRef.current = true;
     setIsStreaming(true);
 
@@ -205,15 +240,14 @@ export function useRealtimeVoiceStream(
       // 1. 启动 Web Audio API 动态分贝波形
       startAudioAnalyser(stream);
 
-      // 2. 启动 0 延迟有限状态机 Web Speech 引擎
+      // 2. 尝试启动 Web Speech 实时预显引擎
       createAndStartSpeechRecognition();
 
       // 3. 启动高清录音，用于结束时发送给 DashScope + DeepSeek 进行精修
+      const { mimeType } = getSupportedAudioType();
       let options: MediaRecorderOptions = { audioBitsPerSecond: 24000 };
-      if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
-        options.mimeType = "audio/webm;codecs=opus";
-      } else if (MediaRecorder.isTypeSupported("audio/webm")) {
-        options.mimeType = "audio/webm";
+      if (mimeType) {
+        options.mimeType = mimeType;
       }
 
       const mediaRecorder = new MediaRecorder(stream, options);
@@ -228,10 +262,12 @@ export function useRealtimeVoiceStream(
       mediaRecorder.start(200);
     } catch (err: any) {
       console.error("Microphone access error", err);
-      onError?.(err.message || "获取麦克风失败，请检查浏览器权限");
       setIsStreaming(false);
       isStreamingRef.current = false;
       closeMicrophoneHardware();
+
+      const userMsg = formatMicrophoneError(err);
+      onError?.(userMsg);
     }
   }, [closeMicrophoneHardware, createAndStartSpeechRecognition, onError, startAudioAnalyser]);
 
@@ -244,12 +280,19 @@ export function useRealtimeVoiceStream(
 
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
         setIsProcessing(true);
-        const mimeType = mediaRecorderRef.current.mimeType || "audio/webm";
+        const recorderMime = mediaRecorderRef.current.mimeType || "";
+        const effectiveMime = recorderMime || getSupportedAudioType().mimeType || "audio/mp4";
+
+        let ext = ".webm";
+        if (effectiveMime.includes("mp4")) ext = ".mp4";
+        else if (effectiveMime.includes("aac")) ext = ".aac";
+        else if (effectiveMime.includes("wav")) ext = ".wav";
+        else if (effectiveMime.includes("ogg")) ext = ".ogg";
 
         const blobPromise = new Promise<Blob>((resolve) => {
-          if (!mediaRecorderRef.current) return resolve(new Blob([], { type: mimeType }));
+          if (!mediaRecorderRef.current) return resolve(new Blob([], { type: effectiveMime }));
           mediaRecorderRef.current.onstop = () => {
-            const blob = new Blob(audioChunksRef.current, { type: mimeType });
+            const blob = new Blob(audioChunksRef.current, { type: effectiveMime });
             resolve(blob);
           };
         });
@@ -259,10 +302,10 @@ export function useRealtimeVoiceStream(
         closeMicrophoneHardware();
 
         const audioBlob = await blobPromise;
-        if (audioBlob && audioBlob.size > 1000) {
+        if (audioBlob && audioBlob.size > 500) {
           try {
             const formData = new FormData();
-            formData.append("file", audioBlob, "voice.webm");
+            formData.append("file", audioBlob, `voice_${Date.now()}${ext}`);
             formData.append("mode", targetMode);
 
             const response = await fetch("/api/ai/voice-transcribe", {

@@ -24,6 +24,7 @@ import {
 } from "../services/ai-tool-approval.js";
 import { prepareApprovalContinuationMessages } from "../services/write-content-approval-completion.js";
 import { AiModelConfigError, type AiRuntimeEnv } from "../services/ai-model.js";
+import { isReasoningLevel } from "../services/ai-model-specs.js";
 import { checkAiRateLimit } from "../services/ai-rate-limit.js";
 import {
   listDeepseekModels,
@@ -62,6 +63,8 @@ interface AiChatBody {
   conversationId?: string;
   id?: string;
   context?: AiChatContext;
+  /** 用户选择的思考档位（不传则用模型规格默认） */
+  reasoning?: string;
 }
 
 function normalizeConversationId(raw?: string): string {
@@ -402,6 +405,10 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
       return c.json({ error: "缺少用户消息" }, 400);
     }
 
+    const reasoning = isReasoningLevel(body.reasoning)
+      ? body.reasoning
+      : undefined;
+
     const context = normalizeContext(body.context);
     if (context.mode === "article" && !context.articleId) {
       return c.json({ error: "文章上下文缺少 articleId" }, 400);
@@ -498,6 +505,7 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
           userId: session.userId,
           author: session.author,
         },
+        reasoning,
         trace: handles.trace,
       });
 
@@ -526,6 +534,8 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
         conversationId,
         provider: agent.provider,
         modelId: agent.modelId,
+        reasoning: agent.reasoning,
+        maxOutputTokens: agent.spec.maxOutputTokens,
         env,
         log,
         trace: handles.trace,
@@ -766,7 +776,7 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
       await generateText({
         model: alibaba("qwen-turbo"),
         prompt: "hi",
-        maxTokens: 5,
+        maxOutputTokens: 5,
         abortSignal: AbortSignal.timeout(10000),
       });
 

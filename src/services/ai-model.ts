@@ -22,6 +22,10 @@ import {
   readConnectionApiKey,
 } from "./ai-connections.js";
 import { wrapReasoningLanguageModel } from "./ai-model-reasoning-wrapper.js";
+import {
+  resolveModelSpec,
+  type ModelSpec,
+} from "./ai-model-specs.js";
 
 export interface AiRuntimeEnv {
   BETTER_AUTH_SECRET?: string;
@@ -45,6 +49,8 @@ export interface ResolvedModel {
   model: LanguageModel;
   provider: AiProvider;
   modelId: string;
+  /** 模型规格（内置默认 + 用户覆盖合并后） */
+  spec: ModelSpec;
 }
 
 export class AiModelConfigError extends Error {
@@ -103,6 +109,11 @@ export async function resolveModel(
   const modelRef = resolveAiModelRef(settings.aiProvider, settings.aiModel);
   const parsed = parseModelRef(modelRef);
   const secret = env.BETTER_AUTH_SECRET;
+  const userSpecs = settings.aiModelSpecs;
+
+  const spec = parsed
+    ? resolveModelSpec(userSpecs, parsed.kind, parsed.modelId)
+    : undefined;
 
   if (parsed?.kind === "custom") {
     const connection = findConnection(settings.aiConnections, parsed.connectionId);
@@ -130,6 +141,7 @@ export async function resolveModel(
       model: wrapReasoningLanguageModel(rawModel, parsed.modelId, "custom"),
       provider: "custom",
       modelId: modelRef,
+      spec: spec!,
     };
   }
 
@@ -147,16 +159,14 @@ export async function resolveModel(
       );
     }
 
-    const rawModel = workersai(parsed.modelId, {
-      max_tokens: 4096,
-      chat_template_kwargs: {
-        enable_thinking: true,
-      },
-    });
+    // enable_thinking 不在构造层设置：由 streamAiChat 的 providerOptions
+    // 按每次请求的 reasoning 档位统一覆盖（见 ai-chat-runtime.ts）
+    const rawModel = workersai(parsed.modelId);
     return {
       model: wrapReasoningLanguageModel(rawModel, parsed.modelId, "workers-ai"),
       provider: "workers-ai",
       modelId: formatWorkersAiModelRef(parsed.modelId),
+      spec: spec!,
     };
   }
 
@@ -179,6 +189,7 @@ export async function resolveModel(
       model: wrapReasoningLanguageModel(rawModel, alibabaModelId, "alibaba"),
       provider: "alibaba",
       modelId: formatAlibabaModelRef(alibabaModelId),
+      spec: spec!,
     };
   }
 
@@ -198,5 +209,6 @@ export async function resolveModel(
     model: wrapReasoningLanguageModel(rawModel, deepseekModelId, "deepseek"),
     provider: "deepseek",
     modelId: formatDeepseekModelRef(deepseekModelId),
+    spec: spec!,
   };
 }

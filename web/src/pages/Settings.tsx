@@ -460,9 +460,6 @@ export function SettingsPage() {
       {!(isMobile && showMobileDetail) ? (
         <header className="orbit-settings-page-header">
           <h1 className="orbit-page-title">设置</h1>
-          <p className="orbit-muted orbit-settings-page-desc">
-            管理账户、界面、空间档案、外部连接、Orbit AI 与主动触达。
-          </p>
         </header>
       ) : null}
 
@@ -706,7 +703,6 @@ export function SettingsPage() {
             <>
               <header className="orbit-settings-panel-header">
                 <h2 className="orbit-settings-panel-title">登录与安全</h2>
-                <p className="orbit-settings-panel-desc">管理登录邮箱与密码。</p>
               </header>
 
               <div className="orbit-settings-fields">

@@ -34,6 +34,10 @@ import { AiLayoutMenu, type AiPanelLayout } from "./AiLayoutMenu";
 import { AiModelPicker } from "./AiModelPicker";
 import { VoiceInputButton } from "./VoiceInputButton";
 import {
+  REASONING_LEVELS,
+  type ReasoningLevel,
+} from "../lib/ai-model-specs";
+import {
   AiIcon,
   ArrowUpIcon,
   ChevronDownIcon,
@@ -66,6 +70,7 @@ interface AiChatPanelProps {
 const AI_PANEL_WIDTH_KEY = "orbit-ai-panel-width";
 const AI_PANEL_LAYOUT_KEY = "orbit-ai-panel-layout";
 const AI_FLOATING_POS_KEY = "orbit-ai-panel-floating-pos";
+const AI_REASONING_PREF_KEY = "orbit-ai-reasoning-pref";
 const AI_PANEL_DEFAULT_WIDTH = 360;
 const AI_PANEL_MIN_WIDTH = 300;
 const AI_PANEL_MAX_WIDTH = 640;
@@ -779,6 +784,22 @@ export function AiChatPanel({
   const [chatSession, setChatSession] = useState<ChatSessionState>(() =>
     createChatSession()
   );
+
+  /** 思考档位（localStorage 记忆，随请求体传参，不存服务器） */
+  const [reasoningPref] = useState<ReasoningLevel>(() => {
+    const saved = localStorage.getItem(AI_REASONING_PREF_KEY);
+    return (REASONING_LEVELS as readonly string[]).includes(saved ?? "")
+      ? (saved as ReasoningLevel)
+      : "low";
+  });
+
+  const reasoningPrefRef = useRef(reasoningPref);
+  reasoningPrefRef.current = reasoningPref;
+
+  useEffect(() => {
+    localStorage.setItem(AI_REASONING_PREF_KEY, reasoningPref);
+  }, [reasoningPref]);
+
   const chatSessionRef = useRef(chatSession);
   const openSessionRef = useRef<string | null>(null);
   const assignConversationIdRef = useRef<(id: string | undefined) => void>(() => {});
@@ -811,6 +832,7 @@ export function AiChatPanel({
         body: () => ({
           conversationId: chatSessionRef.current.conversationId,
           context: effectiveContextRef.current,
+          ...(reasoningPrefRef.current ? { reasoning: reasoningPrefRef.current } : {}),
         }),
         fetch: async (url, init) => {
           const res = await fetch(url, init);
@@ -1498,6 +1520,7 @@ export function AiChatPanel({
                 />
                 <div className="orbit-ai-composer-toolbar">
                   <AiModelPicker disabled={isBusy} onNavigateAway={onClose} />
+
                   <div className="flex items-center gap-1.5 shrink-0">
                     <VoiceInputButton
                       compact

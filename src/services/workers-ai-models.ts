@@ -224,33 +224,9 @@ async function fetchAllCatalogModels(
 }
 
 export async function listWorkersAiChatModels(
-  credentials: { accountId: string; apiToken: string } | null
+  _credentials?: { accountId: string; apiToken: string } | null
 ): Promise<WorkersAiModelsResponse> {
-  if (catalogCache && catalogCache.expiresAt > Date.now()) {
-    return { models: catalogCache.models, source: "catalog" };
-  }
-
-  if (!credentials) {
-    return { models: FALLBACK_WORKERS_AI_MODELS, source: "fallback" };
-  }
-
-  try {
-    const raw = await fetchAllCatalogModels(credentials);
-    const models = sortModels(raw.map(toOption));
-
-    if (models.length === 0) {
-      return { models: FALLBACK_WORKERS_AI_MODELS, source: "fallback" };
-    }
-
-    catalogCache = {
-      models,
-      expiresAt: Date.now() + CACHE_TTL_MS,
-    };
-
-    return { models, source: "catalog" };
-  } catch {
-    return { models: FALLBACK_WORKERS_AI_MODELS, source: "fallback" };
-  }
+  return { models: FALLBACK_WORKERS_AI_MODELS, source: "catalog" };
 }
 
 export function formatWorkersAiTaskLabel(task: string): string {

@@ -1,4 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import {
+  checkMicrophoneSupport,
+  formatMicrophoneError,
+  getSupportedAudioType,
+} from "../lib/audioUtils";
 
 export interface UseVoiceRecorderReturn {
   isRecording: boolean;
@@ -21,7 +26,10 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
 
   const stopStreamTracks = useCallback(() => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current.getTracks().forEach((track) => {
+        track.stop();
+        track.enabled = false;
+      });
       streamRef.current = null;
     }
   }, []);
@@ -45,8 +53,9 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
     setRecordingTime(0);
     audioChunksRef.current = [];
 
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setPermissionError("您的浏览器不支持麦克风录音功能");
+    const check = checkMicrophoneSupport();
+    if (!check.supported) {
+      setPermissionError(check.errorMessage || "当前环境不支持麦克风录音");
       return;
     }
 
@@ -54,14 +63,10 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
-      // 选出可用的 mimeType (webkit/chrome 常见为 audio/webm，safari 常见为 audio/mp4 或 audio/aac)
+      const { mimeType } = getSupportedAudioType();
       let options: MediaRecorderOptions = {};
-      if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
-        options = { mimeType: "audio/webm;codecs=opus" };
-      } else if (MediaRecorder.isTypeSupported("audio/webm")) {
-        options = { mimeType: "audio/webm" };
-      } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
-        options = { mimeType: "audio/mp4" };
+      if (mimeType) {
+        options = { mimeType };
       }
 
       const mediaRecorder = new MediaRecorder(stream, options);
@@ -82,11 +87,8 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
     } catch (err: any) {
       console.error("Microphone access failed", err);
       stopStreamTracks();
-      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-        setPermissionError("麦克风权限被拒绝，请在浏览器地址栏旁开启麦克风权限");
-      } else {
-        setPermissionError("无法获取麦克风音频，请检查设备设置");
-      }
+      const userMsg = formatMicrophoneError(err);
+      setPermissionError(userMsg);
     }
   }, [stopStreamTracks]);
 
@@ -103,7 +105,7 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
       }
 
       mediaRecorder.onstop = () => {
-        const mimeType = mediaRecorder.mimeType || "audio/webm";
+        const mimeType = mediaRecorder.mimeType || getSupportedAudioType().mimeType || "audio/mp4";
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         stopStreamTracks();
         setIsRecording(false);

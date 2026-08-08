@@ -8,6 +8,11 @@ import {
   type AiCustomConnection,
   type AiCustomConnectionPublic,
 } from "./services/ai-connections.js";
+import {
+  BUILTIN_MODEL_SPECS,
+  parseModelSpecs,
+  type ModelSpecMap,
+} from "./services/ai-model-specs.js";
 
 export const APP_SETTING_KEYS = {
   accentPreset: "accent_preset",
@@ -16,6 +21,7 @@ export const APP_SETTING_KEYS = {
   aiEnabledModels: "ai_enabled_models",
   aiEnabledProviders: "ai_enabled_providers",
   aiConnections: "ai_connections",
+  aiModelSpecs: "ai_model_specs",
   aiDeepseekKey: "ai_deepseek_key",
   aiAlibabaKey: "ai_alibaba_key",
   aiBotName: "ai_bot_name",
@@ -59,6 +65,11 @@ export const DEFAULT_ENABLED_AI_PROVIDERS: readonly AiProvider[] = [
   "alibaba",
 ];
 
+import {
+  BUILTIN_PROVIDER_CATALOG,
+  type BuiltinProviderCatalog,
+} from "./services/ai-model-catalog-builtin.js";
+
 export interface AppSettings {
   accentPreset: AccentPreset;
   aiProvider: AiProvider;
@@ -66,6 +77,12 @@ export interface AppSettings {
   aiEnabledModels: string[];
   aiEnabledProviders: AiProvider[];
   aiConnections: AiCustomConnectionPublic[];
+  /** 用户维护的模型规格覆盖（按 provider 分组），空对象 = 全部走内置默认 */
+  aiModelSpecs: ModelSpecMap;
+  /** 内置模型默认规格（只读，随设置响应下发，前端不再维护副本） */
+  aiBuiltinModelSpecs: ModelSpecMap;
+  /** 按 Provider 分组的内置模型目录（只读） */
+  aiBuiltinCatalog: BuiltinProviderCatalog;
   hasDeepseekKey: boolean;
   hasAlibabaKey: boolean;
   aiBotName: string;
@@ -219,6 +236,8 @@ export function buildAppSettings(
     ),
   }));
 
+  const aiModelSpecs = parseModelSpecs(settingsMap[APP_SETTING_KEYS.aiModelSpecs]);
+
   const aiBotName =
     settingsMap[APP_SETTING_KEYS.aiBotName]?.trim() || DEFAULT_AI_BOT_NAME;
   const aiBotPersona =
@@ -252,6 +271,10 @@ export function buildAppSettings(
     aiEnabledModels,
     aiEnabledProviders,
     aiConnections: connections,
+    aiModelSpecs,
+    // 只读副本，防止调用方误改共享常量
+    aiBuiltinModelSpecs: structuredClone(BUILTIN_MODEL_SPECS),
+    aiBuiltinCatalog: structuredClone(BUILTIN_PROVIDER_CATALOG),
     hasDeepseekKey,
     hasAlibabaKey,
     aiBotName,

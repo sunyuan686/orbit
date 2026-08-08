@@ -2,13 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   DEFAULT_AI_BOT_NAME,
   DEFAULT_AI_BOT_PERSONA,
-  DEFAULT_DEEPSEEK_MODEL,
   DEFAULT_ENABLED_AI_MODELS,
   DEFAULT_ENABLED_AI_PROVIDERS,
   DEFAULT_WORKERS_AI_MODEL,
   discoverAiConnectionModels,
-  fetchDeepseekModels,
-  fetchWorkersAiModels,
   getApiErrorMessage,
   shouldToastApiError,
   testAiConnection,
@@ -22,15 +19,23 @@ import {
 } from "../lib/api";
 import {
   buildUnifiedChatModels,
+  formatAlibabaModelRef,
   formatCustomModelRef,
+  formatDeepseekModelRef,
   formatWorkersAiModelRef,
   groupCatalogForSettings,
+  type ProviderModelGroup,
   type UnifiedChatModel,
 } from "../lib/ai-model-catalog";
+import {
+  mergeModelSpec,
+  resolveSpecKey,
+  type ModelSpec,
+} from "../lib/ai-model-specs";
 import { useAppSettings } from "../lib/appSettingsContext";
 import { useToast } from "../lib/useToast";
 import { safeRandomUUID } from "../lib/uuid";
-import { ChevronDownIcon, CloseIcon, SearchIcon } from "./OrbitIcons";
+import { ChevronDownIcon, CloseIcon, EyeIcon, SearchIcon, SparklesIcon, WrenchIcon } from "./OrbitIcons";
 
 function SettingsSection({
   title,
@@ -45,6 +50,12 @@ function SettingsSection({
       {children}
     </section>
   );
+}
+
+function formatContextWindow(tokens: number): string {
+  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
+  if (tokens >= 1_000) return `${Math.round(tokens / 1_000)}K`;
+  return String(tokens);
 }
 
 function SettingsField({
@@ -101,7 +112,9 @@ export function AiProvidersSettingsPanel() {
   const toast = useToast();
   const { settings, setSettings } = useAppSettings();
 
-  const voiceMode = settings?.voiceTranscribeMode ?? "smooth";
+  const [selectedVoiceMode, setSelectedVoiceMode] = useState<VoiceTranscribeMode>(
+    settings?.voiceTranscribeMode ?? "smooth"
+  );
 
   const [botName, setBotName] = useState("");
   const [botPersona, setBotPersona] = useState("");
@@ -114,6 +127,12 @@ export function AiProvidersSettingsPanel() {
       [groupId]: !prev[groupId],
     }));
   };
+
+  useEffect(() => {
+    if (settings?.voiceTranscribeMode) {
+      setSelectedVoiceMode(settings.voiceTranscribeMode);
+    }
+  }, [settings?.voiceTranscribeMode]);
 
   useEffect(() => {
     if (!settings) return;
@@ -150,12 +169,6 @@ export function AiProvidersSettingsPanel() {
   const [testingAlibaba, setTestingAlibaba] = useState(false);
   const [togglingModelId, setTogglingModelId] = useState<string | null>(null);
   const [togglingGroupId, setTogglingGroupId] = useState<string | null>(null);
-  const [workersModels, setWorkersModels] = useState<
-    Awaited<ReturnType<typeof fetchWorkersAiModels>>["models"]
-  >([]);
-  const [deepseekModels, setDeepseekModels] = useState<
-    Awaited<ReturnType<typeof fetchDeepseekModels>>["models"]
-  >([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [connectionDraft, setConnectionDraft] = useState<ConnectionDraft | null>(
     null
@@ -167,6 +180,10 @@ export function AiProvidersSettingsPanel() {
     string | null
   >(null);
   const [manualModelId, setManualModelId] = useState("");
+  const [editingSpecKey, setEditingSpecKey] = useState<string | null>(null);
+  const [specDraft, setSpecDraft] = useState<ModelSpec | null>(null);
+  const [savingSpec, setSavingSpec] = useState(false);
+  const [savingCustomModel, setSavingCustomModel] = useState(false);
 
   useEffect(() => {
     if ((settings?.aiConnections.length ?? 0) > 0) {
@@ -199,11 +216,11 @@ export function AiProvidersSettingsPanel() {
   const catalog = useMemo(
     () =>
       buildUnifiedChatModels(
-        workersModels,
-        deepseekModels,
-        settings?.aiConnections ?? []
+        settings?.aiBuiltinCatalog,
+        settings?.aiConnections ?? [],
+        settings?.aiModelSpecs ?? {}
       ),
-    [workersModels, deepseekModels, settings?.aiConnections]
+    [settings?.aiBuiltinCatalog, settings?.aiConnections, settings?.aiModelSpecs]
   );
 
   const enabledProviderIds = useMemo(
@@ -250,48 +267,221 @@ export function AiProvidersSettingsPanel() {
     enabledProviderIds,
   ]);
 
-  useEffect(() => {
-    let cancelled = false;
-    setModelsLoading(true);
+  /** 每个模型的合并后规格（服务端下发的内置默认 + 用户覆盖）。 */
+  const modelSpecs = useMemo(() => {
+    const map = new Map<string, ModelSpec>();
+    for (const group of modelGroups) {
+      for (const model of group.models) {
+        const resolved = resolveSpecKey(model.id);
+        if (!resolved) continue;
+        const merged = mergeModelSpec(
+          settings?.aiBuiltinModelSpecs?.[resolved.provider]?.[resolved.key],
+          settings?.aiModelSpecs?.[resolved.provider]?.[resolved.key]
+        );
+        map.set(model.id, merged);
+      }
+    }
+    return map;
+  }, [modelGroups, settings?.aiModelSpecs, settings?.aiBuiltinModelSpecs]);
 
-    void Promise.all([fetchWorkersAiModels(), fetchDeepseekModels()])
-      .then(([workers, deepseek]) => {
-        if (cancelled) return;
-        setWorkersModels(workers.models);
-        setDeepseekModels(deepseek.models);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setWorkersModels([
-          {
-            id: DEFAULT_WORKERS_AI_MODEL,
-            label: DEFAULT_WORKERS_AI_MODEL,
-            description: "加载目录失败，已回退到默认模型。请刷新页面重试。",
-            task: "Text Generation",
-            capabilities: ["工具调用", "推理"],
-            supportsToolCalling: true,
-            recommended: true,
-          },
-        ]);
-        setDeepseekModels([
-          {
-            id: DEFAULT_DEEPSEEK_MODEL,
-            label: DEFAULT_DEEPSEEK_MODEL,
-            description: "加载模型列表失败，已回退到默认模型。请刷新页面重试。",
-            capabilities: ["工具调用", "推理"],
-            supportsToolCalling: true,
-            recommended: true,
-          },
-        ]);
-      })
-      .finally(() => {
-        if (!cancelled) setModelsLoading(false);
-      });
+  function openSpecEditor(modelId: string) {
+    const resolved = resolveSpecKey(modelId);
+    if (!resolved) return;
+    setEditingSpecKey(modelId);
+    setSpecDraft(
+      structuredClone(
+        modelSpecs.get(modelId) ??
+          mergeModelSpec(
+            settings?.aiBuiltinModelSpecs?.[resolved.provider]?.[resolved.key],
+            undefined
+          )
+      )
+    );
+  }
 
-    return () => {
-      cancelled = true;
+  function closeSpecEditor() {
+    setEditingSpecKey(null);
+    setSpecDraft(null);
+  }
+
+  async function handleSaveModelSpec(modelId: string) {
+    if (!settings || !specDraft || savingSpec) return;
+    const resolved = resolveSpecKey(modelId);
+    if (!resolved) return;
+    if (
+      !Number.isFinite(specDraft.contextWindow) ||
+      specDraft.contextWindow <= 0 ||
+      !Number.isFinite(specDraft.maxOutputTokens) ||
+      specDraft.maxOutputTokens <= 0
+    ) {
+      toast.error("上下文窗口与输出上限必须是正整数");
+      return;
+    }
+
+    const next: Record<string, Record<string, ModelSpec>> = structuredClone(
+      settings.aiModelSpecs ?? {}
+    );
+    next[resolved.provider] ??= {};
+    next[resolved.provider][resolved.key] = {
+      ...specDraft,
+      contextWindow: Math.floor(specDraft.contextWindow),
+      maxOutputTokens: Math.floor(specDraft.maxOutputTokens),
+      ...(specDraft.reasoning && specDraft.defaultReasoning
+        ? { defaultReasoning: specDraft.defaultReasoning }
+        : {}),
     };
-  }, [settings?.hasDeepseekKey]);
+
+    setSavingSpec(true);
+    try {
+      const updated = await updateAppSettings({ aiModelSpecs: next });
+      setSettings(updated);
+      closeSpecEditor();
+      toast.success("模型规格已保存");
+    } catch (err) {
+      if (shouldToastApiError(err)) {
+        toast.error(getApiErrorMessage(err, "保存模型规格失败"));
+      }
+    } finally {
+      setSavingSpec(false);
+    }
+  }
+
+  async function handleDeleteCustomModel(model: UnifiedChatModel) {
+    if (!settings) return;
+    if (!window.confirm(`确定要移除自定义模型 ${model.label} 吗？`)) return;
+
+    const resolved = resolveSpecKey(model.id);
+    if (!resolved) return;
+
+    const nextSpecs = structuredClone(settings.aiModelSpecs ?? {});
+    if (nextSpecs[resolved.provider]) {
+      delete nextSpecs[resolved.provider][resolved.key];
+      if (Object.keys(nextSpecs[resolved.provider]).length === 0) {
+        delete nextSpecs[resolved.provider];
+      }
+    }
+
+    const nextEnabled = (settings.aiEnabledModels ?? []).filter(
+      (ref) => ref !== model.id
+    );
+
+    try {
+      const updated = await updateAppSettings({
+        aiModelSpecs: nextSpecs,
+        aiEnabledModels: nextEnabled,
+      });
+      setSettings(updated);
+      toast.success(`已移除模型 ${model.label}`);
+      if (editingSpecKey === model.id) {
+        closeSpecEditor();
+      }
+    } catch (err: any) {
+      if (shouldToastApiError(err)) {
+        toast.error(getApiErrorMessage(err, "移除模型失败"));
+      }
+    }
+  }
+
+  const [addModelModalGroup, setAddModelModalGroup] = useState<ProviderModelGroup | null>(null);
+  const [newModelDraft, setNewModelDraft] = useState<{
+    id: string;
+    label: string;
+    contextWindow: number;
+    reasoning: boolean;
+    supportsToolCalling: boolean;
+    supportsVision: boolean;
+    supportsFileInput: boolean;
+    supportsImageOutput: boolean;
+    supportsVideoOutput: boolean;
+    supportsWebSearch: boolean;
+  }>({
+    id: "",
+    label: "",
+    contextWindow: 128_000,
+    reasoning: false,
+    supportsToolCalling: true,
+    supportsVision: false,
+    supportsFileInput: true,
+    supportsImageOutput: false,
+    supportsVideoOutput: false,
+    supportsWebSearch: false,
+  });
+
+  async function handleCreateCustomModelWithSpecs() {
+    if (!settings || !addModelModalGroup || !newModelDraft.id.trim() || savingCustomModel) return;
+
+    const rawId = newModelDraft.id.trim();
+    let ref = rawId;
+    if (addModelModalGroup.id === "workers-ai") ref = formatWorkersAiModelRef(rawId);
+    else if (addModelModalGroup.id === "deepseek") ref = formatDeepseekModelRef(rawId);
+    else if (addModelModalGroup.id === "alibaba") ref = formatAlibabaModelRef(rawId);
+
+    const resolved = resolveSpecKey(ref);
+    if (!resolved) return;
+
+    const nextSpecs = structuredClone(settings.aiModelSpecs ?? {});
+    nextSpecs[resolved.provider] ??= {};
+    nextSpecs[resolved.provider][resolved.key] = {
+      name: newModelDraft.label.trim() || rawId,
+      contextWindow: newModelDraft.contextWindow || 128_000,
+      maxOutputTokens: 4_096,
+      reasoning: newModelDraft.reasoning,
+      supportsToolCalling: newModelDraft.supportsToolCalling,
+      supportsVision: newModelDraft.supportsVision,
+      supportsFileInput: newModelDraft.supportsFileInput,
+      supportsImageOutput: newModelDraft.supportsImageOutput,
+      supportsVideoOutput: newModelDraft.supportsVideoOutput,
+      supportsWebSearch: newModelDraft.supportsWebSearch,
+    };
+
+    const nextEnabled = Array.from(
+      new Set([...(settings.aiEnabledModels ?? []), ref])
+    );
+
+    setSavingCustomModel(true);
+    try {
+      const updated = await updateAppSettings({
+        aiModelSpecs: nextSpecs,
+        aiEnabledModels: nextEnabled,
+      });
+      setSettings(updated);
+      setAddModelModalGroup(null);
+      toast.success(`成功添加并启用自定义模型 ${newModelDraft.label.trim() || rawId}`);
+    } catch (err: any) {
+      if (shouldToastApiError(err)) {
+        toast.error(getApiErrorMessage(err, "添加自定义模型失败"));
+      }
+    } finally {
+      setSavingCustomModel(false);
+    }
+  }
+
+  async function handleResetModelSpec(modelId: string) {
+    if (!settings || savingSpec) return;
+    const resolved = resolveSpecKey(modelId);
+    if (!resolved) return;
+    const next: Record<string, Record<string, ModelSpec>> = structuredClone(
+      settings.aiModelSpecs ?? {}
+    );
+    delete next[resolved.provider]?.[resolved.key];
+    setSavingSpec(true);
+    try {
+      const updated = await updateAppSettings({ aiModelSpecs: next });
+      setSettings(updated);
+      closeSpecEditor();
+      toast.success("已重置为内置默认");
+    } catch (err) {
+      if (shouldToastApiError(err)) {
+        toast.error(getApiErrorMessage(err, "重置模型规格失败"));
+      }
+    } finally {
+      setSavingSpec(false);
+    }
+  }
+
+  useEffect(() => {
+    setModelsLoading(false);
+  }, []);
 
   async function persistConnections(
     connections: AiCustomConnection[],
@@ -854,20 +1044,23 @@ export function AiProvidersSettingsPanel() {
                   { mode: "bullets", icon: "📝", label: "要点列表", desc: "自动整理为 Markdown 结构要点清单" },
                   { mode: "formal", icon: "💼", label: "正式书面", desc: "重构为严密专业的公文与邮件正文体" },
                 ].map((item) => {
-                  const isSelected = (voiceMode || "smooth") === item.mode;
+                  const isSelected = selectedVoiceMode === item.mode;
                   return (
                     <button
                       key={item.mode}
                       type="button"
                       onClick={async () => {
                         const newMode = item.mode as VoiceTranscribeMode;
+                        const prevMode = selectedVoiceMode;
+                        setSelectedVoiceMode(newMode);
                         try {
                           const updated = await updateAppSettings({
                             voiceTranscribeMode: newMode,
                           });
                           setSettings(updated);
-                          toast.success(`语音模式已切为：${item.label}`);
+                          toast.success(`语音模式已切换为：${item.label}`);
                         } catch (err: any) {
+                          setSelectedVoiceMode(prevMode);
                           if (shouldToastApiError(err)) {
                             toast.error(getApiErrorMessage(err, "保存语音模式失败"));
                           }
@@ -930,7 +1123,7 @@ export function AiProvidersSettingsPanel() {
                   </span>
                 </div>
                 <p className="orbit-settings-connection-block-hint">
-                  官方 DeepSeek API ·{" "}
+                  官方 DeepSeek API 接口服务（
                   <a
                     href="https://platform.deepseek.com"
                     target="_blank"
@@ -939,6 +1132,7 @@ export function AiProvidersSettingsPanel() {
                   >
                     platform.deepseek.com
                   </a>
+                  ）
                 </p>
 
                 <div className="orbit-settings-supplier-credential">
@@ -1041,24 +1235,23 @@ export function AiProvidersSettingsPanel() {
               </article>
 
               <article className="orbit-settings-supplier-card">
-                <div className="orbit-settings-supplier-header">
-                  <div>
-                    <span className="orbit-settings-supplier-title">
-                      阿里百炼 (通义千问 Qwen)
-                    </span>
-                    <p className="orbit-settings-supplier-meta">
-                      官方 阿里百炼 / DashScope API ·{" "}
-                      <a
-                        href="https://bailian.console.aliyun.com"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="orbit-text-link"
-                      >
-                        bailian.console.aliyun.com
-                      </a>
-                    </p>
-                  </div>
+                <div className="orbit-settings-connection-block-head">
+                  <span className="orbit-settings-connection-block-title">
+                    阿里百炼 (通义千问)
+                  </span>
                 </div>
+                <p className="orbit-settings-connection-block-hint">
+                  官方 DashScope API 接口服务（
+                  <a
+                    href="https://bailian.console.aliyun.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="orbit-text-link"
+                  >
+                    bailian.console.aliyun.com
+                  </a>
+                  ）
+                </p>
 
                 <div className="orbit-settings-supplier-credential">
                   <span className="orbit-settings-supplier-credential-label">
@@ -1551,39 +1744,115 @@ export function AiProvidersSettingsPanel() {
                               const blocked =
                                 !groupEnabled ||
                                 (group.requiresKey && !group.hasApiKey);
+                              const spec = modelSpecs.get(model.id);
+                              const isUserAddedCustom = Boolean(model.isCustom);
+
                               return (
                                 <li
                                   key={model.id}
                                   className="orbit-settings-model-toggle-row"
                                 >
-                                  <span className="orbit-settings-model-toggle-label">
-                                    {model.label}
-                                    {blocked ? (
-                                      <span className="orbit-settings-model-toggle-hint">
-                                        {!groupEnabled
-                                          ? "供应商已关闭"
-                                          : "需配置 Key"}
+                                  <div className="orbit-settings-model-toggle-main">
+                                    <div className="orbit-settings-model-title-wrap">
+                                      <span className="orbit-settings-model-toggle-label">
+                                        {model.label}
                                       </span>
+                                      {blocked ? (
+                                        <span className="orbit-settings-model-toggle-hint">
+                                          {!groupEnabled
+                                            ? "供应商已关闭"
+                                            : "需配置 Key"}
+                                        </span>
+                                      ) : null}
+                                    </div>
+
+                                    {spec ? (
+                                      <div className="orbit-settings-model-spec-badges">
+                                        <span className="orbit-spec-badge orbit-spec-badge--context">
+                                          {formatContextWindow(spec.contextWindow)} 窗口
+                                        </span>
+                                        {spec.reasoning ? (
+                                          <span className="orbit-spec-badge orbit-spec-badge--reasoning" title="支持深度思考/推理">
+                                             <SparklesIcon size="sm" /> 思考
+                                          </span>
+                                        ) : null}
+                                        {spec.supportsToolCalling ? (
+                                          <span className="orbit-spec-badge orbit-spec-badge--tool" title="支持工具/函数调用">
+                                            <WrenchIcon size="sm" /> 工具
+                                          </span>
+                                        ) : null}
+                                        {spec.supportsVision ? (
+                                          <span className="orbit-spec-badge orbit-spec-badge--vision" title="支持图片/视觉理解">
+                                             <EyeIcon size="sm" /> 视觉
+                                          </span>
+                                        ) : null}
+                                      </div>
                                     ) : null}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    role="switch"
-                                    aria-checked={enabled}
-                                    aria-label={`${enabled ? "关闭" : "开启"}模型 ${model.label}`}
-                                    className={`orbit-toggle${enabled ? " orbit-toggle--on" : ""}`}
-                                    disabled={
-                                      togglingModelId === model.id || blocked
-                                    }
-                                    onClick={() =>
-                                      void handleToggleModel(model, !enabled)
-                                    }
-                                  >
-                                    <span className="orbit-toggle-thumb" />
-                                  </button>
+                                  </div>
+
+                                  <div className="orbit-settings-model-toggle-actions">
+                                    <button
+                                      type="button"
+                                      className="orbit-btn orbit-btn-sm orbit-btn-ghost"
+                                      style={{ padding: "2px 8px", fontSize: "12px" }}
+                                      onClick={() => openSpecEditor(model.id)}
+                                    >
+                                      规格
+                                    </button>
+
+                                    {isUserAddedCustom ? (
+                                      <button
+                                        type="button"
+                                        className="orbit-text-link orbit-btn-sm orbit-text-danger"
+                                        style={{ fontSize: "12px", color: "var(--color-danger, #ef4444)" }}
+                                        onClick={() => void handleDeleteCustomModel(model)}
+                                      >
+                                        删除
+                                      </button>
+                                    ) : null}
+
+                                    <button
+                                      type="button"
+                                      role="switch"
+                                      aria-checked={enabled}
+                                      aria-label={`${enabled ? "关闭" : "开启"}模型 ${model.label}`}
+                                      className={`orbit-toggle${enabled ? " orbit-toggle--on" : ""}`}
+                                      disabled={
+                                        togglingModelId === model.id || blocked
+                                      }
+                                      onClick={() =>
+                                        void handleToggleModel(model, !enabled)
+                                      }
+                                    >
+                                      <span className="orbit-toggle-thumb" />
+                                    </button>
+                                  </div>
                                 </li>
                               );
                             })}
+                            <li className="orbit-settings-add-model-action-row" style={{ padding: "8px 12px" }}>
+                              <button
+                                type="button"
+                                className="orbit-text-link orbit-btn-sm"
+                                onClick={() => {
+                                  setAddModelModalGroup(group);
+                                  setNewModelDraft({
+                                    id: "",
+                                    label: "",
+                                    contextWindow: 128_000,
+                                    reasoning: false,
+                                    supportsToolCalling: true,
+                                    supportsVision: false,
+                                    supportsFileInput: true,
+                                    supportsImageOutput: false,
+                                    supportsVideoOutput: false,
+                                    supportsWebSearch: false,
+                                  });
+                                }}
+                              >
+                                + 在 {group.label} 下添加自定义模型
+                              </button>
+                            </li>
                           </ul>
                         ) : null}
                       </section>
@@ -1591,6 +1860,431 @@ export function AiProvidersSettingsPanel() {
                   })}
                 </div>
               )}
+
+              {/* Add Custom Model Modal */}
+              {addModelModalGroup ? (
+                <div className="orbit-spec-modal-backdrop" onClick={() => setAddModelModalGroup(null)}>
+                  <div
+                    className="orbit-spec-modal-dialog"
+                    style={{ maxWidth: "32rem" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="orbit-spec-modal-header">
+                      <div>
+                        <h4 className="orbit-spec-modal-title">添加自定义模型</h4>
+                        <p className="orbit-spec-modal-subtitle">
+                          在 {addModelModalGroup.label} 供应商下配置并登记新模型
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="orbit-icon-btn orbit-btn-sm"
+                        onClick={() => setAddModelModalGroup(null)}
+                      >
+                        <CloseIcon size="sm" />
+                      </button>
+                    </div>
+
+                    <div className="orbit-spec-modal-body" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+                      <div className="orbit-spec-field-group">
+                        <label className="orbit-spec-field-label">模型 ID (Model ID)</label>
+                        <input
+                          type="text"
+                          className="orbit-input"
+                          placeholder="例如: deepseek-v4 或 qwen-vl-max"
+                          value={newModelDraft.id}
+                          onChange={(e) => setNewModelDraft({ ...newModelDraft, id: e.target.value })}
+                          autoFocus
+                        />
+                      </div>
+
+                      <div className="orbit-spec-field-group">
+                        <label className="orbit-spec-field-label">显示名称 (Display Name / 可选)</label>
+                        <input
+                          type="text"
+                          className="orbit-input"
+                          placeholder="留空则直接使用模型 ID"
+                          value={newModelDraft.label}
+                          onChange={(e) => setNewModelDraft({ ...newModelDraft, label: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="orbit-spec-field-group">
+                        <label className="orbit-spec-field-label">上下文窗口 (Tokens)</label>
+                        <input
+                          type="number"
+                          className="orbit-input"
+                          min={1000}
+                          step={1000}
+                          value={newModelDraft.contextWindow}
+                          onChange={(e) =>
+                            setNewModelDraft({
+                              ...newModelDraft,
+                              contextWindow: Number(e.target.value),
+                            })
+                          }
+                        />
+                        <div className="orbit-spec-pills">
+                          {[64_000, 128_000, 256_000, 1_000_000].map((val) => (
+                            <button
+                              key={val}
+                              type="button"
+                              className={`orbit-spec-pill-btn${newModelDraft.contextWindow === val ? " orbit-spec-pill-btn--active" : ""}`}
+                              onClick={() => setNewModelDraft({ ...newModelDraft, contextWindow: val })}
+                            >
+                              {formatContextWindow(val)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Capabilities Categorized */}
+                      <div className="orbit-spec-field-group">
+                        <label className="orbit-spec-field-label" style={{ fontWeight: 600 }}>
+                          模型客观能力声明 (Capabilities)
+                        </label>
+
+                        {/* INPUT */}
+                        <div style={{ marginTop: "6px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-text-muted)", textTransform: "uppercase" }}>INPUT (输入能力)</span>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "4px" }}>
+                            <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
+                              <span>👁️ Vision (Image) - 图片输入</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={newModelDraft.supportsVision}
+                                className={`orbit-toggle${newModelDraft.supportsVision ? " orbit-toggle--on" : ""}`}
+                                onClick={() => setNewModelDraft({ ...newModelDraft, supportsVision: !newModelDraft.supportsVision })}
+                              >
+                                <span className="orbit-toggle-thumb" />
+                              </button>
+                            </div>
+                            <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
+                              <span>☁️ File Input - 文档文件输入</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={newModelDraft.supportsFileInput}
+                                className={`orbit-toggle${newModelDraft.supportsFileInput ? " orbit-toggle--on" : ""}`}
+                                onClick={() => setNewModelDraft({ ...newModelDraft, supportsFileInput: !newModelDraft.supportsFileInput })}
+                              >
+                                <span className="orbit-toggle-thumb" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* OUTPUT */}
+                        <div style={{ marginTop: "12px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-text-muted)", textTransform: "uppercase" }}>OUTPUT (输出能力)</span>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "4px" }}>
+                            <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
+                              <span>🎨 Image Gen - 图片生成输出</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={newModelDraft.supportsImageOutput}
+                                className={`orbit-toggle${newModelDraft.supportsImageOutput ? " orbit-toggle--on" : ""}`}
+                                onClick={() => setNewModelDraft({ ...newModelDraft, supportsImageOutput: !newModelDraft.supportsImageOutput })}
+                              >
+                                <span className="orbit-toggle-thumb" />
+                              </button>
+                            </div>
+                            <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
+                              <span>🎬 Video Gen - 视频生成输出</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={newModelDraft.supportsVideoOutput}
+                                className={`orbit-toggle${newModelDraft.supportsVideoOutput ? " orbit-toggle--on" : ""}`}
+                                onClick={() => setNewModelDraft({ ...newModelDraft, supportsVideoOutput: !newModelDraft.supportsVideoOutput })}
+                              >
+                                <span className="orbit-toggle-thumb" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* FEATURES */}
+                        <div style={{ marginTop: "12px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-text-muted)", textTransform: "uppercase" }}>FEATURES (模型特性)</span>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "4px" }}>
+                            <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
+                              <span>🧠 Reasoning - 深度思考推理</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={newModelDraft.reasoning}
+                                className={`orbit-toggle${newModelDraft.reasoning ? " orbit-toggle--on" : ""}`}
+                                onClick={() => setNewModelDraft({ ...newModelDraft, reasoning: !newModelDraft.reasoning })}
+                              >
+                                <span className="orbit-toggle-thumb" />
+                              </button>
+                            </div>
+                            <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
+                              <span>🛠 Tool Use - 工具/函数调用</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={newModelDraft.supportsToolCalling}
+                                className={`orbit-toggle${newModelDraft.supportsToolCalling ? " orbit-toggle--on" : ""}`}
+                                onClick={() => setNewModelDraft({ ...newModelDraft, supportsToolCalling: !newModelDraft.supportsToolCalling })}
+                              >
+                                <span className="orbit-toggle-thumb" />
+                              </button>
+                            </div>
+                            <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
+                              <span>🔍 Web Search - 联网搜索能力</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={newModelDraft.supportsWebSearch}
+                                className={`orbit-toggle${newModelDraft.supportsWebSearch ? " orbit-toggle--on" : ""}`}
+                                onClick={() => setNewModelDraft({ ...newModelDraft, supportsWebSearch: !newModelDraft.supportsWebSearch })}
+                              >
+                                <span className="orbit-toggle-thumb" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="orbit-spec-modal-footer">
+                      <button
+                        type="button"
+                        className="orbit-btn orbit-btn-sm"
+                        onClick={() => setAddModelModalGroup(null)}
+                      >
+                        取消
+                      </button>
+                      <button
+                        type="button"
+                        className="orbit-btn orbit-btn-sm orbit-btn-primary"
+                        disabled={!newModelDraft.id.trim() || savingCustomModel}
+                        onClick={() => void handleCreateCustomModelWithSpecs()}
+                      >
+                        {savingCustomModel ? "添加中…" : "确认并添加模型"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Spec Editor Modal */}
+              {editingSpecKey && specDraft ? (
+                <div className="orbit-spec-modal-backdrop" onClick={closeSpecEditor}>
+                  <div
+                    className="orbit-spec-modal-dialog"
+                    style={{ maxWidth: "32rem" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="orbit-spec-modal-header">
+                      <div>
+                        <h4 className="orbit-spec-modal-title">模型规格配置</h4>
+                        <p className="orbit-spec-modal-subtitle">
+                          {catalog.find((m) => m.id === editingSpecKey)?.label ?? editingSpecKey}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="orbit-icon-btn orbit-btn-sm"
+                        onClick={closeSpecEditor}
+                      >
+                        <CloseIcon size="sm" />
+                      </button>
+                    </div>
+
+                    <div className="orbit-spec-modal-body" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+                      <div className="orbit-spec-field-group">
+                        <label className="orbit-spec-field-label">上下文窗口 (Tokens)</label>
+                        <input
+                          type="number"
+                          className="orbit-input"
+                          min={1000}
+                          step={1000}
+                          value={specDraft.contextWindow}
+                          onChange={(e) =>
+                            setSpecDraft({
+                              ...specDraft,
+                              contextWindow: Number(e.target.value),
+                            })
+                          }
+                        />
+                        <div className="orbit-spec-pills">
+                          {[64_000, 128_000, 256_000, 1_000_000].map((val) => (
+                            <button
+                              key={val}
+                              type="button"
+                              className={`orbit-spec-pill-btn${specDraft.contextWindow === val ? " orbit-spec-pill-btn--active" : ""}`}
+                              onClick={() => setSpecDraft({ ...specDraft, contextWindow: val })}
+                            >
+                              {formatContextWindow(val)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Capabilities Categorized */}
+                      <div className="orbit-spec-field-group">
+                        <label className="orbit-spec-field-label" style={{ fontWeight: 600 }}>
+                          模型客观能力声明 (Capabilities)
+                        </label>
+
+                        {/* INPUT */}
+                        <div style={{ marginTop: "6px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-text-muted)", textTransform: "uppercase" }}>INPUT (输入能力)</span>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "4px" }}>
+                            <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
+                              <span>👁️ Vision (Image) - 图片输入</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={specDraft.supportsVision ?? false}
+                                className={`orbit-toggle${(specDraft.supportsVision ?? false) ? " orbit-toggle--on" : ""}`}
+                                onClick={() => setSpecDraft({ ...specDraft, supportsVision: !(specDraft.supportsVision ?? false) })}
+                              >
+                                <span className="orbit-toggle-thumb" />
+                              </button>
+                            </div>
+                            <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
+                              <span>☁️ File Input - 文档文件输入</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={specDraft.supportsFileInput ?? true}
+                                className={`orbit-toggle${(specDraft.supportsFileInput ?? true) ? " orbit-toggle--on" : ""}`}
+                                onClick={() => setSpecDraft({ ...specDraft, supportsFileInput: !(specDraft.supportsFileInput ?? true) })}
+                              >
+                                <span className="orbit-toggle-thumb" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* OUTPUT */}
+                        <div style={{ marginTop: "12px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-text-muted)", textTransform: "uppercase" }}>OUTPUT (输出能力)</span>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "4px" }}>
+                            <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
+                              <span>🎨 Image Gen - 图片生成输出</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={specDraft.supportsImageOutput ?? false}
+                                className={`orbit-toggle${(specDraft.supportsImageOutput ?? false) ? " orbit-toggle--on" : ""}`}
+                                onClick={() => setSpecDraft({ ...specDraft, supportsImageOutput: !(specDraft.supportsImageOutput ?? false) })}
+                              >
+                                <span className="orbit-toggle-thumb" />
+                              </button>
+                            </div>
+                            <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
+                              <span>🎬 Video Gen - 视频生成输出</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={specDraft.supportsVideoOutput ?? false}
+                                className={`orbit-toggle${(specDraft.supportsVideoOutput ?? false) ? " orbit-toggle--on" : ""}`}
+                                onClick={() => setSpecDraft({ ...specDraft, supportsVideoOutput: !(specDraft.supportsVideoOutput ?? false) })}
+                              >
+                                <span className="orbit-toggle-thumb" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* FEATURES */}
+                        <div style={{ marginTop: "12px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--color-text-muted)", textTransform: "uppercase" }}>FEATURES (模型特性)</span>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "4px" }}>
+                            <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
+                              <span>🧠 Reasoning - 深度思考推理</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={specDraft.reasoning}
+                                className={`orbit-toggle${specDraft.reasoning ? " orbit-toggle--on" : ""}`}
+                                onClick={() => setSpecDraft({ ...specDraft, reasoning: !specDraft.reasoning })}
+                              >
+                                <span className="orbit-toggle-thumb" />
+                              </button>
+                            </div>
+                            <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
+                              <span>🛠 Tool Use - 工具/函数调用</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={specDraft.supportsToolCalling ?? true}
+                                className={`orbit-toggle${(specDraft.supportsToolCalling ?? true) ? " orbit-toggle--on" : ""}`}
+                                onClick={() => setSpecDraft({ ...specDraft, supportsToolCalling: !(specDraft.supportsToolCalling ?? true) })}
+                              >
+                                <span className="orbit-toggle-thumb" />
+                              </button>
+                            </div>
+                            <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
+                              <span>🔍 Web Search - 联网搜索能力</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={specDraft.supportsWebSearch ?? false}
+                                className={`orbit-toggle${(specDraft.supportsWebSearch ?? false) ? " orbit-toggle--on" : ""}`}
+                                onClick={() => setSpecDraft({ ...specDraft, supportsWebSearch: !(specDraft.supportsWebSearch ?? false) })}
+                              >
+                                <span className="orbit-toggle-thumb" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="orbit-spec-modal-footer">
+                      {editingSpecKey && Boolean(catalog.find((m) => m.id === editingSpecKey)?.isCustom) ? (
+                        <button
+                          type="button"
+                          className="orbit-text-link orbit-btn-sm orbit-text-danger"
+                          style={{ color: "var(--color-danger, #ef4444)" }}
+                          disabled={savingSpec}
+                          onClick={() => {
+                            const found = catalog.find((m) => m.id === editingSpecKey);
+                            if (found) void handleDeleteCustomModel(found);
+                          }}
+                        >
+                          删除此自定义模型
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="orbit-text-link orbit-btn-sm"
+                          disabled={savingSpec}
+                          onClick={() => void handleResetModelSpec(editingSpecKey)}
+                        >
+                          重置为内置默认
+                        </button>
+                      )}
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button
+                          type="button"
+                          className="orbit-btn orbit-btn-sm"
+                          disabled={savingSpec}
+                          onClick={closeSpecEditor}
+                        >
+                          取消
+                        </button>
+                        <button
+                          type="button"
+                          className="orbit-btn orbit-btn-sm orbit-btn-primary"
+                          disabled={savingSpec}
+                          onClick={() => void handleSaveModelSpec(editingSpecKey)}
+                        >
+                          {savingSpec ? "保存中…" : "保存规格"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </SettingsField>
         </div>

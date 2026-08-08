@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useMemo, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { AiConversationListItem } from "../lib/api";
-import { ShareIcon, TrashIcon } from "./OrbitIcons";
+import { ShareIcon, TrashIcon, MessageIcon } from "./OrbitIcons";
 
 const LONG_PRESS_MS = 480;
 const MOVE_THRESHOLD_PX = 10;
@@ -14,6 +14,24 @@ function secondaryPreview(title: string, preview: string): string | null {
   if (!p.startsWith(t)) return p;
   const rest = p.slice(t.length).replace(/^[\s，。！？、.…—\-—.!?,:：]+/u, "");
   return rest || null;
+}
+
+function formatRelativeTime(updatedAt?: number | string): string {
+  if (!updatedAt) return "";
+  const date = typeof updatedAt === "number" ? new Date(updatedAt) : new Date(updatedAt);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const now = new Date();
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+
+  if (isToday) {
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
 interface AiConversationListProps {
@@ -101,78 +119,127 @@ export function AiConversationList({
     onSelect(id);
   }
 
+  const timeGroups = useMemo(() => {
+    const todayItems: AiConversationListItem[] = [];
+    const earlierItems: AiConversationListItem[] = [];
+
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    items.forEach((item) => {
+      const t = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+      if (t >= todayStart) {
+        todayItems.push(item);
+      } else {
+        earlierItems.push(item);
+      }
+    });
+
+    const groups = [];
+    if (todayItems.length > 0) {
+      groups.push({ title: "Today 今天", items: todayItems });
+    }
+    if (earlierItems.length > 0) {
+      groups.push({ title: "Earlier 更早", items: earlierItems });
+    }
+    if (groups.length === 0 && items.length > 0) {
+      groups.push({ title: "Recently 最近", items });
+    }
+
+    return groups;
+  }, [items]);
+
   return (
     <div className="orbit-ai-conversation-list">
       <div className="orbit-ai-conversation-list-header">
-        <span className="orbit-ai-conversation-list-title">最近</span>
+        <span className="orbit-ai-conversation-list-title">历史聊天记录</span>
       </div>
 
       {loading ? <p className="orbit-muted orbit-ai-conversation-status">加载中…</p> : null}
 
       {!loading && items.length === 0 ? (
-        <p className="orbit-muted orbit-ai-conversation-status">还没有聊天</p>
+        <p className="orbit-muted orbit-ai-conversation-status">还没有历史聊天记录</p>
       ) : null}
 
-      <ul className="orbit-ai-conversation-items">
-        {items.map((item) => {
-          const showActions = actionsId === item.id;
-          const preview = secondaryPreview(item.title, item.preview);
-          return (
-            <li
-              key={item.id}
-              data-conversation-id={item.id}
-              className={[
-                item.isOwner ? "orbit-ai-conversation-row--deletable" : null,
-                showActions ? "orbit-ai-conversation-row--actions" : null,
-              ]
-                .filter(Boolean)
-                .join(" ") || undefined}
-            >
-              <button
-                type="button"
-                className={`orbit-ai-conversation-item${activeId === item.id ? " orbit-ai-conversation-item--active" : ""}`}
-                onClick={() => handleSelect(item.id)}
-                onPointerDown={(event) => handlePointerDown(event, item.id, item.isOwner)}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerEnd}
-                onPointerCancel={handlePointerEnd}
-                onContextMenu={(event) => {
-                  if (item.isOwner) event.preventDefault();
-                }}
-              >
-                <span className="orbit-ai-conversation-item-title">
-                  <span className="orbit-ai-conversation-item-title-text">{item.title}</span>
-                  {item.isOwner && item.shared ? (
-                    <ShareIcon size="sm" className="orbit-ai-conversation-item-shared" />
-                  ) : null}
-                </span>
-                {!item.isOwner ? (
-                  <span className="orbit-ai-conversation-item-badge">
-                    {item.ownerAuthor} 共享
-                  </span>
-                ) : null}
-                {preview ? (
-                  <span className="orbit-ai-conversation-item-preview">{preview}</span>
-                ) : null}
-              </button>
-              {item.isOwner ? (
-                <button
-                  type="button"
-                  className="orbit-icon-btn inline-flex orbit-ai-conversation-delete"
-                  aria-label="删除对话"
-                  title="删除对话"
-                  onClick={() => {
-                    setActionsId(null);
-                    onDelete(item.id);
-                  }}
-                >
-                  <TrashIcon size="sm" />
-                </button>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
+      <div className="orbit-ai-conversation-groups">
+        {timeGroups.map((group) => (
+          <div key={group.title} className="orbit-ai-conversation-group">
+            <div className="orbit-ai-conversation-group-title">{group.title}</div>
+            <ul className="orbit-ai-conversation-items">
+              {group.items.map((item) => {
+                const showActions = actionsId === item.id;
+                const preview = secondaryPreview(item.title, item.preview);
+                const timeText = formatRelativeTime(item.updatedAt);
+                return (
+                  <li
+                    key={item.id}
+                    data-conversation-id={item.id}
+                    className={[
+                      item.isOwner ? "orbit-ai-conversation-row--deletable" : null,
+                      showActions ? "orbit-ai-conversation-row--actions" : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" ") || undefined}
+                  >
+                    <button
+                      type="button"
+                      className={`orbit-ai-conversation-item${activeId === item.id ? " orbit-ai-conversation-item--active" : ""}`}
+                      onClick={() => handleSelect(item.id)}
+                      onPointerDown={(event) => handlePointerDown(event, item.id, item.isOwner)}
+                      onPointerMove={handlePointerMove}
+                      onPointerUp={handlePointerEnd}
+                      onPointerCancel={handlePointerEnd}
+                      onContextMenu={(event) => {
+                        if (item.isOwner) event.preventDefault();
+                      }}
+                    >
+                      <div className="orbit-ai-conversation-item-header">
+                        <span className="orbit-ai-conversation-item-icon" aria-hidden="true">
+                          <MessageIcon size="sm" />
+                        </span>
+                        <span className="orbit-ai-conversation-item-title-text">
+                          {item.title}
+                        </span>
+                        {item.isOwner && item.shared ? (
+                          <ShareIcon size="sm" className="orbit-ai-conversation-item-shared" />
+                        ) : null}
+                        {!item.isOwner ? (
+                          <span className="orbit-ai-conversation-item-badge">
+                            {item.ownerAuthor} 共享
+                          </span>
+                        ) : null}
+                        {timeText ? (
+                          <span className="orbit-ai-conversation-item-time">{timeText}</span>
+                        ) : null}
+                      </div>
+
+                      {preview ? (
+                        <div className="orbit-ai-conversation-item-preview">{preview}</div>
+                      ) : null}
+                    </button>
+
+                    {item.isOwner ? (
+                      <button
+                        type="button"
+                        className="orbit-icon-btn inline-flex orbit-ai-conversation-delete"
+                        aria-label="删除对话"
+                        title="删除对话"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActionsId(null);
+                          onDelete(item.id);
+                        }}
+                      >
+                        <TrashIcon size="sm" />
+                      </button>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

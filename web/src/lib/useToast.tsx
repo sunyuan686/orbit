@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { MOTION_SLOW_MS } from "./motion";
-import { CheckIcon, AlertIcon } from "../components/OrbitIcons";
+import { CheckIcon, AlertIcon, CloseIcon } from "../components/OrbitIcons";
 
 type ToastKind = "success" | "error";
 
@@ -26,8 +26,8 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 const AUTO_DISMISS_MS: Record<ToastKind, number> = {
-  success: 2600,
-  error: 3800,
+  success: 2800,
+  error: 4200,
 };
 
 function ToastStack({ items, onDismiss }: { items: ToastItem[]; onDismiss: (id: number) => void }) {
@@ -44,28 +44,47 @@ function ToastStack({ items, onDismiss }: { items: ToastItem[]; onDismiss: (id: 
 
 function Toast({ item, onDismiss }: { item: ToastItem; onDismiss: (id: number) => void }) {
   const [visible, setVisible] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const dismiss = useCallback(() => {
+    setVisible(false);
+    window.setTimeout(() => onDismiss(item.id), MOTION_SLOW_MS);
+  }, [item.id, onDismiss]);
 
   useEffect(() => {
     const enter = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(enter);
+  }, []);
+
+  useEffect(() => {
+    if (isHovered) return;
+
     const timer = window.setTimeout(() => {
-      setVisible(false);
-      window.setTimeout(() => onDismiss(item.id), MOTION_SLOW_MS);
+      dismiss();
     }, AUTO_DISMISS_MS[item.kind]);
-    return () => {
-      cancelAnimationFrame(enter);
-      window.clearTimeout(timer);
-    };
-  }, [item.id, item.kind, onDismiss]);
+
+    return () => window.clearTimeout(timer);
+  }, [item.kind, isHovered, dismiss]);
 
   return (
     <div
       className={`orbit-toast orbit-toast--${item.kind}${visible ? " orbit-toast--visible" : ""}`}
       role="status"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <span className="orbit-toast-icon" aria-hidden>
         {item.kind === "success" ? <CheckIcon size="sm" /> : <AlertIcon size="sm" />}
       </span>
       <span className="orbit-toast-message">{item.message}</span>
+      <button
+        type="button"
+        className="orbit-toast-dismiss"
+        onClick={dismiss}
+        aria-label="关闭通知"
+      >
+        <CloseIcon size="sm" />
+      </button>
     </div>
   );
 }

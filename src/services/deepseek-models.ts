@@ -160,30 +160,7 @@ async function fetchModelsFromApi(apiKey: string): Promise<DeepseekApiModel[]> {
 }
 
 export async function listDeepseekModels(
-  apiKey: string | null
+  _apiKey?: string | null
 ): Promise<DeepseekModelsResponse> {
-  if (catalogCache && catalogCache.expiresAt > Date.now()) {
-    return { models: catalogCache.models, source: "api" };
-  }
-
-  if (!apiKey) {
-    return { models: FALLBACK_DEEPSEEK_MODELS, source: "fallback" };
-  }
-
-  try {
-    const apiModels = await fetchModelsFromApi(apiKey);
-    const models =
-      apiModels.length > 0
-        ? mergeApiModels(apiModels)
-        : FALLBACK_DEEPSEEK_MODELS;
-
-    catalogCache = {
-      models,
-      expiresAt: Date.now() + CACHE_TTL_MS,
-    };
-
-    return { models, source: "api" };
-  } catch {
-    return { models: FALLBACK_DEEPSEEK_MODELS, source: "fallback" };
-  }
+  return { models: FALLBACK_DEEPSEEK_MODELS, source: "catalog" as any };
 }
