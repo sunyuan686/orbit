@@ -1,6 +1,7 @@
 # 短随想 (`note`) 与记录感谢 (`appreciation`) 设计稿
 
-> 架构归属：产品能力方案 · 归档于 `docs/specs/thought-appreciation.md`
+> 架构归属：产品能力方案 · 归档于 `docs/features/014-thought-appreciation.md`
+> 创建：2026-08-02
 
 ---
 

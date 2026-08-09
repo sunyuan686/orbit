@@ -1,6 +1,7 @@
 # 空间开通与署名设计
 
 > 将 Orbit 从「单实例写死小圆子 / 小麟子」泛化为任意情侣可开箱使用。  
+> 创建：2026-07-05
 > 进度总览见 [ROADMAP.md](../../ROADMAP.md)（Phase A #10 可配置署名、#11 邀请加入）。
 
 ---
@@ -292,7 +293,7 @@ ALTER TABLE ai_message ADD user_id text REFERENCES user(id);
 |------|------|
 | 本功能上线 | [ROADMAP.md](../../ROADMAP.md) |
 | 表结构 | [ARCHITECTURE.md](../ARCHITECTURE.md) |
-| 飞书 | [feishu.md](./feishu.md) |
+| 飞书 | [003-feishu.md](./003-feishu.md) |
 
 ---
 

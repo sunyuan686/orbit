@@ -48,8 +48,8 @@
 | 日记 / 时间线 / 留言板 | ✅   | `entry` 多类型，富文本 + 图片 |
 | 信箱 / 信件        | ✅   | 主信 + 回信树，列表折叠往来      |
 | 备忘录            | ✅   | 按 `key` 长期维护         |
-| 随想 / 短动态        | ✅   | 轻量随想、九宫格媒体拼图，方案见 [thought-appreciation.md](docs/specs/thought-appreciation.md) |
-| 记录感谢           | ✅   | 专属暖心感谢卡与情感微徽章，方案见 [thought-appreciation.md](docs/specs/thought-appreciation.md) |
+| 随想 / 短动态        | ✅   | 轻量随想、九宫格媒体拼图，方案见 [014-thought-appreciation.md](docs/features/014-thought-appreciation.md) |
+| 记录感谢           | ✅   | 专属暖心感谢卡与情感微徽章，方案见 [014-thought-appreciation.md](docs/features/014-thought-appreciation.md) |
 | 内容模板           | 📋  | 按类型复用模板，新建快速填充       |
 | 信件仪式感呈现        | 🚧  | 列表信封探出卡片已上；信纸/信封阅读态仍待 |
 | 留言板仪式感呈现       | ✅   | 便签卡列表；日记/时间线/信箱/备忘录分形态列表 |
@@ -72,7 +72,7 @@
 
 | 功能                  | 状态  | 说明                                                                               |
 | ------------------- | --- | -------------------------------------------------------------------------------- |
-| 空间开通与身份             | ✅   | 一人注册 → 邀请加入，≤2 账号，可配置爱称；详见 [space-onboarding.md](docs/specs/space-onboarding.md) |
+| 空间开通与身份             | ✅   | 一人注册 → 邀请加入，≤2 账号，可配置爱称；详见 [009-space-onboarding.md](docs/features/009-space-onboarding.md) |
 | 邀请邮件                | 📋  | MVP 仅复制链接                                                                        |
 | 空间档案                | ✅   | 纪念日、slogan 等，`/settings?tab=space`                                               |
 | 首页                  | 🚧  | MVP + 记忆摘要已落地；封面图、统计卡待做                                                           |
@@ -81,7 +81,7 @@
 | 部署                  | ✅   | Node 本地 + Cloudflare 生产，push main 自动部署                                           |
 | 响应式 + 暗色主题          | ✅   | 移动端布局、主题切换                                                                       |
 | PWA                 | ✅   | 可安装 + 离线壳                                                                        |
-| 文章目录 TOC            | ✅   | 见 [marginalia-layout.md](docs/specs/marginalia-layout.md)                        |
+| 文章目录 TOC            | ✅   | 见 [001-marginalia-layout.md](docs/features/001-marginalia-layout.md)                        |
 | 国际化                 | 📋  | 界面 i18n，策略待定                                                                     |
 | Design Tokens / 主题色 | ✅   | 见 [DESIGN.md](DESIGN.md)                                                         |
 | 主题 / 字体切换        | 📋  | 设置页统一配置明暗、强调色与字体方案（正文 / 标题），偏好持久化                         |
@@ -104,7 +104,7 @@
 
 | 功能          | 状态  | 说明                                                  |
 | ----------- | --- | --------------------------------------------------- |
-| API Token   | ✅   | Bearer 鉴权，见 [api-token.md](docs/specs/api-token.md) |
+| API Token   | ✅   | Bearer 鉴权，见 [007-api-token.md](docs/features/007-api-token.md) |
 | GitHub 双向同步 | 📋  | 写入 commit `.md`，Webhook 反向同步                        |
 | MCP 端点      | 📋  | 优先级低；Claude / Cursor 直接操作                           |
 
@@ -118,9 +118,9 @@
 
 | 功能       | 状态  | 说明                                                                    |
 | -------- | --- | --------------------------------------------------------------------- |
-| 飞书 Bot   | ✅   | 入站写日记/图片、指令查询、出站通知；见 [feishu.md](docs/specs/feishu.md)                |
-| 飞书第二期    | ✅   | `留言：` / `信：` 前缀、`/` 指令写入、AI `/summary` 月报等；见 [feishu.md](docs/specs/feishu.md) |
-| 飞书陪伴与对话 | 🚧  | 飞书内 AI 多轮聊天（CardKit 流式打字机 + Thread 会话）已落地；主动陪伴 MVP 已接入 DO Alarm、飞书卡片与设置页；见 [feishu-companion.md](docs/specs/feishu-companion.md)、[proactive-companion.md](docs/specs/proactive-companion.md) |
+| 飞书 Bot   | ✅   | 入站写日记/图片、指令查询、出站通知；见 [003-feishu.md](docs/features/003-feishu.md)                |
+| 飞书第二期    | ✅   | `留言：` / `信：` 前缀、`/` 指令写入、AI `/summary` 月报等；见 [003-feishu.md](docs/features/003-feishu.md) |
+| 飞书陪伴与对话 | 🚧  | 飞书内 AI 多轮聊天（CardKit 流式打字机 + Thread 会话）已落地；主动陪伴 MVP 已接入 DO Alarm、飞书卡片与设置页；见 [011-feishu-companion.md](docs/features/011-feishu-companion.md)、[012-proactive-companion.md](docs/features/012-proactive-companion.md) |
 | Telegram | 📋  | 优先级低；与飞书同类连接器                                                         |
 | 更多平台     | 📋  | 微信、Discord 等                                                          |
 
@@ -138,10 +138,10 @@
 | --------- | --- | ------------------------------------- |
 | 站内通知      | ✅   | 顶栏铃铛、未读角标、跳转详情                        |
 | 飞书出站通知    | ✅   | 关键事件推送（纯文本），复用飞书凭证                    |
-| 飞书通知卡片    | 🚧  | 恋爱记忆里程碑已用 interactive card；通用出站事件仍待改卡片；统一方案见 [feishu-companion.md](docs/specs/feishu-companion.md) |
+| 飞书通知卡片    | 🚧  | 恋爱记忆里程碑已用 interactive card；通用出站事件仍待改卡片；统一方案见 [011-feishu-companion.md](docs/features/011-feishu-companion.md) |
 | 通知偏好      | ✅   | 按事件类型开关，`/settings?tab=notifications` |
-| 主动触达飞书卡片  | 🚧  | DO Alarm 动态调度陪伴/回顾类卡片，支持设置页配置触达窗口与安静时段；见 [proactive-companion.md](docs/specs/proactive-companion.md) |
-| 飞书 AI 对话   | 🚧  | Bot 内多轮流式聊天，基于 CardKit 卡片与空间记录；见 [feishu-companion.md](docs/specs/feishu-companion.md) |
+| 主动触达飞书卡片  | 🚧  | DO Alarm 动态调度陪伴/回顾类卡片，支持设置页配置触达窗口与安静时段；见 [012-proactive-companion.md](docs/features/012-proactive-companion.md) |
+| 飞书 AI 对话   | 🚧  | Bot 内多轮流式聊天，基于 CardKit 卡片与空间记录；见 [011-feishu-companion.md](docs/features/011-feishu-companion.md) |
 | AI 摘要就绪通知 | 📋  | 智能总结完成后触达；可复用飞书卡片通道                   |
 | 节日提醒      | 📋  | 生日、纪念日、周年纪念、自定义特殊日；临近提醒，可并入定时卡片推送   |
 
@@ -155,7 +155,7 @@
 
 | 功能      | 状态  | 说明                                                        |
 | ------- | --- | --------------------------------------------------------- |
-| 聊天助手    | ✅   | 侧栏流式聊天、会话持久化、全局/文章上下文、Tool 检索与 `write_content` 写入审批；**无步数上限**（跑到模型收尾为止）；见 [ai.md](docs/specs/ai.md) |
+| 聊天助手    | ✅   | 侧栏流式聊天、会话持久化、全局/文章上下文、Tool 检索与 `write_content` 写入审批；**无步数上限**（跑到模型收尾为止）；见 [002-ai.md](docs/features/002-ai.md) |
 | 模型与密钥配置 | ✅   | Workers AI / DeepSeek / 阿里 DashScope / 自定义 OpenAI 兼容     |
 | 语音转写 (STT)| ✅   | 语音录制与音频附件转文字，支持 Workers AI Whisper 与 DashScope；支持智能润色 / 保持原文 / 要点列表 / 正式书面四种转写模式，全局可配置 |
 | 智能总结    | 📋  | 日/周/月/年恋爱日记式回顾                                            |
@@ -171,9 +171,9 @@
 
 | 功能      | 状态  | 说明                                                  |
 | ------- | --- | --------------------------------------------------- |
-| 写作热力图   | ✅   | `/activity`，见 [activity.md](docs/specs/activity.md) |
-| 电子相册    | ✅   | `/gallery`，见 [gallery.md](docs/specs/gallery.md)    |
-| 恋爱记忆星图  | ✅   | `/memories` 按日星图；见 [love-memories.md](docs/specs/love-memories.md) |
+| 写作热力图   | ✅   | `/activity`，见 [006-activity.md](docs/features/006-activity.md) |
+| 电子相册    | ✅   | `/gallery`，见 [005-gallery.md](docs/features/005-gallery.md)    |
+| 恋爱记忆星图  | ✅   | `/memories` 按日星图；见 [010-love-memories.md](docs/features/010-love-memories.md) |
 | 恋爱记忆图鉴  | ✅   | `/memories/atlas`；主题分册 + 星座；地图/爱好待模块接入             |
 | 记忆里程碑   | ✅   | `milestone_unlock` + 庆祝动效 + 飞书卡片；含星座彩蛋               |
 | 恋爱地图    | 📋  | 地点实体 + 地图可视化；星图节点可挂坐标                                   |

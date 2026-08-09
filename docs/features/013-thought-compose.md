@@ -1,6 +1,7 @@
 # 随想 / 短动态编辑与发布功能设计稿 (Thought & Microblog Spec)
 
-> 架构归属：产品能力方案 · 归档于 `docs/specs/thought-compose.md`
+> 架构归属：产品能力方案 · 归档于 `docs/features/013-thought-compose.md`
+> 创建：2026-08-01
 
 ## 1. 背景与目标
 

@@ -1,6 +1,7 @@
 # 电子相册
 
 > 从对象存储浏览全部图片，反查关联内容，支持筛选与安全删除。  
+> 创建：2026-07-04
 > 进度总览见 [ROADMAP.md](../../ROADMAP.md)（Phase E · 电子相册）。  
 > 架构背景见 [ARCHITECTURE.md](../ARCHITECTURE.md)（`asset` 表、R2 / 本地 `data/assets/`）。
 

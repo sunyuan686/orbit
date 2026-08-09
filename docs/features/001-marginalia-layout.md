@@ -1,6 +1,7 @@
 # Orbit 边注与评论布局设计方案
 
 > v0.4 · 已定稿 · **本期仅改阅读页** `ArticleView`（不含 `ArticleEdit`）
+> 创建：2026-06-26
 
 参考：[飞书文档目录/评论](https://www.feishu.cn/hc/en-US/articles/178968744708-use-headings-and-table-of-contents-in-docs)、[Notion 浮动目录](https://www.notion.com/en-gb/help/columns-headings-and-dividers)
 

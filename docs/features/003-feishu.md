@@ -1,6 +1,7 @@
 # 飞书接入方案
 
 > 飞书 Bot 作为 Orbit 的**移动端输入端 + 查询入口 + 通知通道**。
+> 创建：2026-07-01
 >
 > 内容仍落在 Orbit 的 `entry` / `asset` / 评论体系，不替代网站编辑体验。  
 > 进度总览见 [ROADMAP.md](../../ROADMAP.md)（Phase B IM 连接、Phase C 消息通知）。
@@ -110,8 +111,8 @@
 | **B-2** | `/month`、FTS 搜索、补记/类型前缀、群 @ 门控                                       |
 | **C-1** | 站内通知（铃铛），可与 B 并行                                                     |
 | **C-2** | 飞书出站通知 + 偏好 + 节流                                                     |
-| **可选**  | `/summary` 等单次指令已部分落地；主动陪伴推送与飞书 AI 多轮对话见 [feishu-companion.md](./feishu-companion.md) |
-| **已落地** | 恋爱记忆里程碑解锁 → interactive card（见 [love-memories.md](./love-memories.md)） |
+| **可选**  | `/summary` 等单次指令已部分落地；主动陪伴推送与飞书 AI 多轮对话见 [011-feishu-companion.md](./011-feishu-companion.md) |
+| **已落地** | 恋爱记忆里程碑解锁 → interactive card（见 [010-love-memories.md](./010-love-memories.md)） |
 
 
 ---
@@ -157,7 +158,7 @@
 | --- | --- |
 | `{userId}` → open_id | 飞书用户 open_id |
 
-实现见 [space-onboarding.md](./space-onboarding.md)。
+实现见 [009-space-onboarding.md](./009-space-onboarding.md)。
 
 
 **写入行为**（可折叠「高级」）：
@@ -208,8 +209,8 @@
 
 ## 参考
 
-- [恋爱记忆](./love-memories.md) — 里程碑飞书卡片出站
-- [飞书接入调试备忘](./feishu-dev.md) — 联调排障、本地隧道、常见 401/无日志/图片/日期问题
+- [恋爱记忆](./010-love-memories.md) — 里程碑飞书卡片出站
+- [飞书接入调试备忘](./004-feishu-dev.md) — 联调排障、本地隧道、常见 401/无日志/图片/日期问题
 - [飞书机器人概述](https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/bot-v3/bot-overview)
 - [事件订阅 / 验签](https://open.feishu.cn/document/server-docs/event-subscription-guide/event-subscription-configure-/encrypt-key-encryption-configuration-case)
 - 开源实现：`larksuite/openclaw-lark`、`NousResearch/hermes-agent`（dedup、post 解析、@ 门控、Webhook 安全可借鉴）

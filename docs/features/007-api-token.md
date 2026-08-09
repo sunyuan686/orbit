@@ -1,6 +1,7 @@
 # API Token 设计
 
 > 供脚本、Cursor、后续 MCP 客户端以 Bearer 方式调用 Orbit 内容 API。  
+> 创建：2026-07-05
 > 进度见 [ROADMAP.md](../../ROADMAP.md) Phase B。
 
 ---

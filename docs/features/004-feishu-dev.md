@@ -1,6 +1,7 @@
 # 飞书接入调试备忘
 
-> 联调与排障经验，补充 [feishu.md](./feishu.md) 方案文档。本地开发见 `npm run tunnel` + `ORBIT_PUBLIC_URL`。
+> 联调与排障经验，补充 [003-feishu.md](./003-feishu.md) 方案文档。本地开发见 `npm run tunnel` + `ORBIT_PUBLIC_URL`。
+> 创建：2026-07-03
 
 ---
 

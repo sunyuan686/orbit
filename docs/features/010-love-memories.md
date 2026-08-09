@@ -1,6 +1,7 @@
 # 恋爱记忆（星图 + 图鉴）
 
 > 把已有内容织成「我们的回忆」：点点滴滴都是成就，好玩可爱向。  
+> 创建：2026-07-13
 > 进度见 [ROADMAP.md](../../ROADMAP.md)（Phase E · 恋爱记忆）。  
 > 数据来自 `entry`、相册关联图、空间档案纪念日；不新增写作类型。
 
@@ -91,7 +92,7 @@
 
 ## 首页摘要
 
-见 [home.md](./home.md)：恋爱记忆区块（瞬间数、里程碑数、最近点亮、最近一篇）；链到 `/memories`。
+见 [008-home.md](./008-home.md)：恋爱记忆区块（瞬间数、里程碑数、最近点亮、最近一篇）；链到 `/memories`。
 
 ---
 
@@ -164,8 +165,8 @@
 
 ## 关联文档
 
-- [activity.md](./activity.md) — streak、热力图
-- [gallery.md](./gallery.md) — 照片来源
-- [home.md](./home.md) — 首页摘要
-- [feishu.md](./feishu.md) — 出站通道；里程碑用 interactive card
+- [006-activity.md](./006-activity.md) — streak、热力图
+- [005-gallery.md](./005-gallery.md) — 照片来源
+- [008-home.md](./008-home.md) — 首页摘要
+- [003-feishu.md](./003-feishu.md) — 出站通道；里程碑用 interactive card
 - [ARCHITECTURE.md](../ARCHITECTURE.md) — `milestone_unlock` 表

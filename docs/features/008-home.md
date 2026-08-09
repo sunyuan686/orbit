@@ -1,8 +1,9 @@
 # 首页
 
 > 登录后的默认落地页（`/`），聚合空间身份与近期内容，不承担完整列表或编辑职责。  
+> 创建：2026-07-05
 > 视觉规范见 [DESIGN.md](../../DESIGN.md)；进度见 [ROADMAP.md](../../ROADMAP.md)「平台 · 首页」。  
-> 记录节奏热力图详见 [activity.md](./activity.md)；恋爱记忆详见 [love-memories.md](./love-memories.md)。
+> 记录节奏热力图详见 [006-activity.md](./006-activity.md)；恋爱记忆详见 [010-love-memories.md](./010-love-memories.md)。
 
 ---
 
