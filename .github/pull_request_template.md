@@ -15,7 +15,7 @@
 
 - [ ] commit message 符合 [Conventional Commits](docs/CONTRIBUTING.md#commit-规范conventional-commits)
 - [ ] 若涉及功能增减，已更新 [ROADMAP.md](ROADMAP.md) 对应状态
-- [ ] 若涉及架构 / 表结构，已更新 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [ ] 若涉及架构 / 表结构，已更新 [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ## Test plan
 

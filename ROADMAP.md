@@ -1,8 +1,8 @@
 # Orbit 功能路线图
 
-> 版本记录 [CHANGELOG.md](./CHANGELOG.md) · 架构 [ARCHITECTURE.md](docs/ARCHITECTURE.md)
+> 版本记录 [CHANGELOG.md](./CHANGELOG.md) · 架构 [ARCHITECTURE.md](ARCHITECTURE.md)
 >
-> 最后更新：2026-07-14
+> 最后更新：2026-08-09
 
 ## 状态说明
 
@@ -45,10 +45,10 @@
 
 | 功能             | 状态  | 说明                   |
 | -------------- | --- | -------------------- |
-| 日记 / 时间线 / 留言板 | ✅   | `entry` 多类型，富文本 + 图片 |
+| 日记 / 时间线 / 留言板 | ✅   | `entry` 7 类条目类型（含日记、时间线、留言板、信件、备忘录、随想、感谢），富文本 + 图片 |
 | 信箱 / 信件        | ✅   | 主信 + 回信树，列表折叠往来      |
 | 备忘录            | ✅   | 按 `key` 长期维护         |
-| 随想 / 短动态        | ✅   | 轻量随想、九宫格媒体拼图，方案见 [014-thought-appreciation.md](docs/features/014-thought-appreciation.md) |
+| 随想 / 短动态        | ✅   | 轻量随想、九宫格媒体拼图与拍立得视图，方案见 [013-thought-compose.md](docs/features/013-thought-compose.md) 与 [014-thought-appreciation.md](docs/features/014-thought-appreciation.md) |
 | 记录感谢           | ✅   | 专属暖心感谢卡与情感微徽章，方案见 [014-thought-appreciation.md](docs/features/014-thought-appreciation.md) |
 | 内容模板           | 📋  | 按类型复用模板，新建快速填充       |
 | 信件仪式感呈现        | 🚧  | 列表信封探出卡片已上；信纸/信封阅读态仍待 |
@@ -59,7 +59,7 @@
 
 图片增强 📋（远期）：解析原始信息（EXIF 拍摄时间 / 设备 / 方位等）、HEIC 转换与展示、Live Photo（静图 + 短视频）支持。
 
-评论：底部嵌套回复、选中文字边注（桌面轨 + 移动 Sheet）、作者编辑 ✅。矩阵见 [ARCHITECTURE.md#评论能力矩阵](docs/ARCHITECTURE.md#评论能力矩阵)。
+评论：底部嵌套回复、选中文字边注（桌面轨 + 移动 Sheet）、作者编辑 ✅。矩阵见 [ARCHITECTURE.md#评论能力矩阵](ARCHITECTURE.md#评论能力矩阵)。
 
 搜索：FTS5 + trigram、`/search` ✅；高级中文分词 📋（远期，当前 trigram 够用）。
 

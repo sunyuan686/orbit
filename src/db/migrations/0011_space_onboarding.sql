@@ -22,56 +22,56 @@ ALTER TABLE `notification` ADD `actor_user_id` text REFERENCES user(id);
 --> statement-breakpoint
 ALTER TABLE `ai_message` ADD `user_id` text REFERENCES user(id);
 --> statement-breakpoint
-UPDATE `entry` SET `user_id` = (SELECT `id` FROM `user` WHERE `name` = '小圆子' LIMIT 1)
-WHERE `user_id` IS NULL AND `author` IN ('小圆子', 'sunyuan', '孙远', 'yuan');
+UPDATE `entry` SET `user_id` = (SELECT `id` FROM `user` WHERE `name` = 'User A' LIMIT 1)
+WHERE `user_id` IS NULL AND `author` IN ('User A', 'yuan');
 --> statement-breakpoint
-UPDATE `entry` SET `user_id` = (SELECT `id` FROM `user` WHERE `name` = '小麟子' LIMIT 1)
-WHERE `user_id` IS NULL AND `author` IN ('小麟子', 'linzhi', '麟宝', '辛麟芝', 'zhi');
+UPDATE `entry` SET `user_id` = (SELECT `id` FROM `user` WHERE `name` = 'User B' LIMIT 1)
+WHERE `user_id` IS NULL AND `author` IN ('User B', 'zhi');
 --> statement-breakpoint
-UPDATE `entry` SET `modified_by_user_id` = (SELECT `id` FROM `user` WHERE `name` = '小圆子' LIMIT 1)
-WHERE `modified_by_user_id` IS NULL AND COALESCE(NULLIF(`modified_by`, ''), `author`) IN ('小圆子', 'sunyuan', '孙远', 'yuan');
+UPDATE `entry` SET `modified_by_user_id` = (SELECT `id` FROM `user` WHERE `name` = 'User A' LIMIT 1)
+WHERE `modified_by_user_id` IS NULL AND COALESCE(NULLIF(`modified_by`, ''), `author`) IN ('User A', 'yuan');
 --> statement-breakpoint
-UPDATE `entry` SET `modified_by_user_id` = (SELECT `id` FROM `user` WHERE `name` = '小麟子' LIMIT 1)
-WHERE `modified_by_user_id` IS NULL AND COALESCE(NULLIF(`modified_by`, ''), `author`) IN ('小麟子', 'linzhi', '麟宝', '辛麟芝', 'zhi');
+UPDATE `entry` SET `modified_by_user_id` = (SELECT `id` FROM `user` WHERE `name` = 'User B' LIMIT 1)
+WHERE `modified_by_user_id` IS NULL AND COALESCE(NULLIF(`modified_by`, ''), `author`) IN ('User B', 'zhi');
 --> statement-breakpoint
 UPDATE `entry` SET `modified_by_user_id` = `user_id`
 WHERE `modified_by_user_id` IS NULL AND `user_id` IS NOT NULL;
 --> statement-breakpoint
-UPDATE `memo` SET `user_id` = (SELECT `id` FROM `user` WHERE `name` = '小圆子' LIMIT 1)
-WHERE `user_id` IS NULL AND `author` IN ('小圆子', 'sunyuan', '孙远', 'yuan');
+UPDATE `memo` SET `user_id` = (SELECT `id` FROM `user` WHERE `name` = 'User A' LIMIT 1)
+WHERE `user_id` IS NULL AND `author` IN ('User A', 'yuan');
 --> statement-breakpoint
-UPDATE `memo` SET `user_id` = (SELECT `id` FROM `user` WHERE `name` = '小麟子' LIMIT 1)
-WHERE `user_id` IS NULL AND `author` IN ('小麟子', 'linzhi', '麟宝', '辛麟芝', 'zhi');
+UPDATE `memo` SET `user_id` = (SELECT `id` FROM `user` WHERE `name` = 'User B' LIMIT 1)
+WHERE `user_id` IS NULL AND `author` IN ('User B', 'zhi');
 --> statement-breakpoint
-UPDATE `memo` SET `modified_by_user_id` = (SELECT `id` FROM `user` WHERE `name` = '小圆子' LIMIT 1)
-WHERE `modified_by_user_id` IS NULL AND COALESCE(NULLIF(`modified_by`, ''), `author`) IN ('小圆子', 'sunyuan', '孙远', 'yuan');
+UPDATE `memo` SET `modified_by_user_id` = (SELECT `id` FROM `user` WHERE `name` = 'User A' LIMIT 1)
+WHERE `modified_by_user_id` IS NULL AND COALESCE(NULLIF(`modified_by`, ''), `author`) IN ('User A', 'yuan');
 --> statement-breakpoint
-UPDATE `memo` SET `modified_by_user_id` = (SELECT `id` FROM `user` WHERE `name` = '小麟子' LIMIT 1)
-WHERE `modified_by_user_id` IS NULL AND COALESCE(NULLIF(`modified_by`, ''), `author`) IN ('小麟子', 'linzhi', '麟宝', '辛麟芝', 'zhi');
+UPDATE `memo` SET `modified_by_user_id` = (SELECT `id` FROM `user` WHERE `name` = 'User B' LIMIT 1)
+WHERE `modified_by_user_id` IS NULL AND COALESCE(NULLIF(`modified_by`, ''), `author`) IN ('User B', 'zhi');
 --> statement-breakpoint
 UPDATE `memo` SET `modified_by_user_id` = `user_id`
 WHERE `modified_by_user_id` IS NULL AND `user_id` IS NOT NULL;
 --> statement-breakpoint
-UPDATE `comment` SET `user_id` = (SELECT `id` FROM `user` WHERE `name` = '小圆子' LIMIT 1)
-WHERE `user_id` IS NULL AND `author` IN ('小圆子', 'sunyuan', '孙远', 'yuan');
+UPDATE `comment` SET `user_id` = (SELECT `id` FROM `user` WHERE `name` = 'User A' LIMIT 1)
+WHERE `user_id` IS NULL AND `author` IN ('User A', 'yuan');
 --> statement-breakpoint
-UPDATE `comment` SET `user_id` = (SELECT `id` FROM `user` WHERE `name` = '小麟子' LIMIT 1)
-WHERE `user_id` IS NULL AND `author` IN ('小麟子', 'linzhi', '麟宝', '辛麟芝', 'zhi');
+UPDATE `comment` SET `user_id` = (SELECT `id` FROM `user` WHERE `name` = 'User B' LIMIT 1)
+WHERE `user_id` IS NULL AND `author` IN ('User B', 'zhi');
 --> statement-breakpoint
-UPDATE `notification` SET `recipient_user_id` = (SELECT `id` FROM `user` WHERE `name` = '小圆子' LIMIT 1)
-WHERE `recipient_user_id` IS NULL AND `recipient` IN ('小圆子', 'sunyuan', '孙远', 'yuan');
+UPDATE `notification` SET `recipient_user_id` = (SELECT `id` FROM `user` WHERE `name` = 'User A' LIMIT 1)
+WHERE `recipient_user_id` IS NULL AND `recipient` IN ('User A', 'yuan');
 --> statement-breakpoint
-UPDATE `notification` SET `recipient_user_id` = (SELECT `id` FROM `user` WHERE `name` = '小麟子' LIMIT 1)
-WHERE `recipient_user_id` IS NULL AND `recipient` IN ('小麟子', 'linzhi', '麟宝', '辛麟芝', 'zhi');
+UPDATE `notification` SET `recipient_user_id` = (SELECT `id` FROM `user` WHERE `name` = 'User B' LIMIT 1)
+WHERE `recipient_user_id` IS NULL AND `recipient` IN ('User B', 'zhi');
 --> statement-breakpoint
-UPDATE `notification` SET `actor_user_id` = (SELECT `id` FROM `user` WHERE `name` = '小圆子' LIMIT 1)
-WHERE `actor_user_id` IS NULL AND `actor` IN ('小圆子', 'sunyuan', '孙远', 'yuan');
+UPDATE `notification` SET `actor_user_id` = (SELECT `id` FROM `user` WHERE `name` = 'User A' LIMIT 1)
+WHERE `actor_user_id` IS NULL AND `actor` IN ('User A', 'yuan');
 --> statement-breakpoint
-UPDATE `notification` SET `actor_user_id` = (SELECT `id` FROM `user` WHERE `name` = '小麟子' LIMIT 1)
-WHERE `actor_user_id` IS NULL AND `actor` IN ('小麟子', 'linzhi', '麟宝', '辛麟芝', 'zhi');
+UPDATE `notification` SET `actor_user_id` = (SELECT `id` FROM `user` WHERE `name` = 'User B' LIMIT 1)
+WHERE `actor_user_id` IS NULL AND `actor` IN ('User B', 'zhi');
 --> statement-breakpoint
-UPDATE `ai_message` SET `user_id` = (SELECT `id` FROM `user` WHERE `name` = '小圆子' LIMIT 1)
-WHERE `user_id` IS NULL AND `role` = 'user' AND `author` IN ('小圆子', 'sunyuan', '孙远', 'yuan');
+UPDATE `ai_message` SET `user_id` = (SELECT `id` FROM `user` WHERE `name` = 'User A' LIMIT 1)
+WHERE `user_id` IS NULL AND `role` = 'user' AND `author` IN ('User A', 'yuan');
 --> statement-breakpoint
-UPDATE `ai_message` SET `user_id` = (SELECT `id` FROM `user` WHERE `name` = '小麟子' LIMIT 1)
-WHERE `user_id` IS NULL AND `role` = 'user' AND `author` IN ('小麟子', 'linzhi', '麟宝', '辛麟芝', 'zhi');
+UPDATE `ai_message` SET `user_id` = (SELECT `id` FROM `user` WHERE `name` = 'User B' LIMIT 1)
+WHERE `user_id` IS NULL AND `role` = 'user' AND `author` IN ('User B', 'zhi');

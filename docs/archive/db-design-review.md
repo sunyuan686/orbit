@@ -66,7 +66,7 @@ deleted_at   INTEGER
 ### 4. `author` 字段是裸字符串，未关联用户表
 
 ```sql
-author  TEXT NOT NULL,  -- sunyuan | 辛麟芝（仅署名，不做权限控制）
+author  TEXT NOT NULL,  -- User A | User B（仅署名，不做权限控制）
 ```
 
 **问题**：`better-auth` 会创建 `user` 表，但 `entry.author` 只存名字字符串，无法和 session 里的登录用户关联，会导致"谁写的这条？"只能靠 hardcode 判断。

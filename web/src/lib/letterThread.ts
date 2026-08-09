@@ -63,7 +63,7 @@ export function entryDisplayLabel(entry: EntrySummary): string | null {
   return entry.title;
 }
 
-/** 火漆封印上的字：去掉昵称常见前缀后取首字（小麟子 → 麟，小圆子 → 圆） */
+/** 火漆封印上的字：去掉昵称常见前缀后取首字（例如：Alex → A） */
 export function authorSealChar(author?: string | null): string {
   const trimmed = author?.trim();
   if (!trimmed) return "信";

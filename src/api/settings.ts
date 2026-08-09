@@ -57,7 +57,7 @@ async function requireSessionAuthor(
   if (!getSessionAuthor) return c.json({ error: "Unauthorized" }, 401);
   const sessionAuthor = await getSessionAuthor(c);
   if (!sessionAuthor) {
-    return c.json({ error: "账号身份无效，请使用「小圆子」或「小麟子」注册/登录" }, 400);
+    return c.json({ error: "账号身份无效，请使用有效账号注册/登录" }, 400);
   }
   return sessionAuthor;
 }

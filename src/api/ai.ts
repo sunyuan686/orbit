@@ -80,7 +80,7 @@ async function requireSessionAuthor(
   if (!getSessionAuthor) return c.json({ error: "Unauthorized" }, 401);
   const sessionAuthor = await getSessionAuthor(c);
   if (!sessionAuthor) {
-    return c.json({ error: "账号身份无效，请使用「小圆子」或「小麟子」注册/登录" }, 400);
+    return c.json({ error: "账号身份无效，请使用有效账号注册/登录" }, 400);
   }
   return sessionAuthor;
 }
@@ -675,7 +675,7 @@ export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) 
       }
 
       if (contextText.trim()) {
-        systemPrompt += `\n\n[上下文专有名词参考] 用户当前文章/编辑框的上下文如下:\n"""\n${contextText.trim().slice(0, 500)}\n"""\n请结合上述上下文中的专有名词（如人名“小圆子”、“小麟子”、专业术语、文章标题），自动纠正口语转写中的同音错别字。`;
+        systemPrompt += `\n\n[上下文专有名词参考] 用户当前文章/编辑框的上下文如下:\n"""\n${contextText.trim().slice(0, 500)}\n"""\n请结合上述上下文中的专有名词（如人名、专业术语、文章标题），自动纠正口语转写中的同音错别字。`;
       }
 
       const polishStartTime = Date.now();

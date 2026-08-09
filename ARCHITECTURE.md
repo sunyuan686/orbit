@@ -177,7 +177,7 @@ API：`/api/memories/*`（summary / nodes / milestones / themes 等），见 [01
 
 空间内作者以 `user.id` + `user.name`（爱称）为准；各业务表 `user_id` 与 `author` **双写**。开通、邀请、改爱称见 [009-space-onboarding.md](./features/009-space-onboarding.md)。
 
-存量实例规范名「小圆子 / 小麟子」及别名映射见 `src/authors.ts`（迁移回填用）。
+存量实例别名映射见 `src/authors.ts`（迁移回填用）。
 
 ---
 

@@ -184,7 +184,7 @@ export const assetReference = sqliteTable(
 );
 
 /**
- * 备忘录表（长期维护的活文档，如关于辛芝芝、恋爱原则等）
+ * 备忘录表（长期维护的活文档，如恋爱原则等）
  * 通过 key 直接访问，不按日期列表
  */
 export const memo = sqliteTable("memo", {
