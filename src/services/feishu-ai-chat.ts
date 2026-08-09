@@ -564,6 +564,8 @@ async function runFeishuAgentTurn(options: {
   });
 
   const toolLogs: ToolCallLog[] = [];
+  // 最后一步的 finishReason：步数耗尽时仍为 "tool-calls"，正常收尾为 "stop"。
+  let lastFinishReason: string | undefined;
   const streamResult = streamAiChat({
     model: agent.model,
     system: agent.system,
@@ -577,6 +579,7 @@ async function runFeishuAgentTurn(options: {
     trace: options.handles.trace,
     agentRecorder: options.handles.agentRecorder ?? undefined,
     onStepFinish: async (step) => {
+      lastFinishReason = step.finishReason;
       if (step.toolCalls && step.toolCalls.length > 0) {
         for (const tc of step.toolCalls) {
           const res = step.toolResults?.find((tr) => tr.toolCallId === tc.toolCallId);
@@ -605,13 +608,14 @@ async function runFeishuAgentTurn(options: {
     abortSignal: options.abortSignal,
   });
 
-  const { assistantMessage, fullResponse } = await collectFeishuAgentStream({
-    streamResult,
-    uiMessages: options.uiMessages,
-    cardSession: options.cardSession,
-    toolLogs,
-    abortSignal: options.abortSignal,
-  });
+  const { assistantMessage, fullResponse: collectedResponse } =
+    await collectFeishuAgentStream({
+      streamResult,
+      uiMessages: options.uiMessages,
+      cardSession: options.cardSession,
+      toolLogs,
+      abortSignal: options.abortSignal,
+    });
 
   if (options.abortSignal?.aborted) {
     return {
@@ -619,6 +623,15 @@ async function runFeishuAgentTurn(options: {
       fullResponse: "",
       pendingApproval: null,
     };
+  }
+
+  // 兜底：模型未遵守最后一步收尾指令仍调工具被截断时，追加可见提示。
+  let fullResponse = collectedResponse;
+  if (lastFinishReason === "tool-calls") {
+    const stepLimitTip =
+      "\n\n⚠️ 已达本轮工具调用上限，任务可能未完成，可继续追问。";
+    fullResponse = `${fullResponse}${stepLimitTip}`;
+    assistantMessage.parts.push({ type: "text", text: stepLimitTip });
   }
 
   await store.upsertMessage({

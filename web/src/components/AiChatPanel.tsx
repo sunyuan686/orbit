@@ -850,6 +850,25 @@ export function AiChatPanel({
     id: chatSession.id,
     messages: chatSession.messages,
     transport,
+    onFinish: ({ finishReason, isAbort }) => {
+      // 步数耗尽时最后一步仍是工具调用，finishReason 为 "tool-calls"；
+      // 正常收尾（模型输出文本）为 "stop"。兜底提示，防模型未遵守收尾指令。
+      if (finishReason === "tool-calls" && !isAbort) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: safeRandomUUID(),
+            role: "assistant",
+            parts: [
+              {
+                type: "text",
+                text: "⚠️ 已达本轮工具调用上限，任务可能未完成，可继续追问。",
+              },
+            ],
+          },
+        ]);
+      }
+    },
   });
 
   const handleToolApproval = useCallback(

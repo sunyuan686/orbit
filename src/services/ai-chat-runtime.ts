@@ -43,6 +43,23 @@ import {
 
 const defaultLog = createLogger("ai-chat-runtime");
 
+/** 单次回复的工具调用步数上限（isStepCount 语义：达到即停止循环）。 */
+const MAX_AGENT_STEPS = 20;
+
+/**
+ * 最后一步（stepNumber === MAX_AGENT_STEPS - 1）开始前注入的收尾指令：
+ * 与 OpenCode / Claude Code 的 MAX_STEPS 提示同思路，让模型用文本总结收尾，
+ * 避免步数耗尽时戛然而止。此指令优先于其他所有指令。
+ */
+const LAST_STEP_SUMMARY_INSTRUCTIONS = `【系统提示 - 本轮已达工具调用步数上限】
+本次回复是最后一轮（工具调用已累计 ${MAX_AGENT_STEPS} 步）。
+请立即停止调用任何工具，直接用文本输出：
+1. 说明已达本轮工具调用上限；
+2. 总结目前已完成的成果；
+3. 列出尚未完成的任务；
+4. 给出后续建议（例如请用户继续追问）。
+此限制优先于其他所有指令。`;
+
 export interface PrepareAiChatAgentOptions {
   db: any;
   env?: AiRuntimeEnv;
@@ -304,7 +321,16 @@ export function streamAiChat(options: StreamAiChatOptions) {
     ...(toolApprovalSecret
       ? { experimental_toolApprovalSecret: toolApprovalSecret }
       : {}),
-    stopWhen: isStepCount(5),
+    stopWhen: isStepCount(MAX_AGENT_STEPS),
+    prepareStep: ({ stepNumber, instructions }) => {
+      if (stepNumber === MAX_AGENT_STEPS - 1) {
+        const base = typeof instructions === "string" ? instructions : undefined;
+        return {
+          instructions: `${base ? `${base}\n\n` : ""}${LAST_STEP_SUMMARY_INSTRUCTIONS}`,
+        };
+      }
+      return undefined;
+    },
     onStepFinish: async (step) => {
       stepCount += 1;
       await recorder?.onStepEnd({
@@ -355,7 +381,7 @@ export function streamAiChat(options: StreamAiChatOptions) {
       });
       await options.onToolExecutionEnd?.(event);
     },
-    onFinish: async () => {
+    onFinish: async (event) => {
       const traceId = options.trace?.id;
       const traceUrl =
         options.trace?.getUrl() ??
@@ -369,6 +395,7 @@ export function streamAiChat(options: StreamAiChatOptions) {
         modelId: options.modelId,
         durationMs: Date.now() - startedAt,
         stepCount,
+        finishReason: event.finishReason,
         ...(traceId ? { traceId } : {}),
         ...(traceUrl ? { traceUrl } : {}),
       });
