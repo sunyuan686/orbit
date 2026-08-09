@@ -14,7 +14,6 @@ export const queryKeys = {
   memoryNodes: (params?: Record<string, unknown>) =>
     ["memory-nodes", params ?? {}] as const,
   memoryMilestones: ["memory-milestones"] as const,
-  memoryThemes: ["memory-themes"] as const,
   drafts: (type: string) => ["drafts", type] as const,
   search: (q: string) => ["search", q] as const,
 };

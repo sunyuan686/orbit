@@ -1426,6 +1426,7 @@ export interface MemoryNode {
 export interface MemorySummary {
   totalNodes: number;
   byType: Record<string, number>;
+  photoCount?: number;
   milestoneCount: number;
   constellationCount?: number;
   recent: MemoryNode | null;
@@ -1456,12 +1457,7 @@ export interface MemoryNodesPage {
   offset: number;
 }
 
-export interface MemoryThemeAlbum {
-  key: string;
-  title: string;
-  count: number;
-  nodes: MemoryNode[];
-}
+
 
 export async function fetchMemorySummary(): Promise<MemorySummary> {
   const res = await fetch(`${BASE}/api/memories/summary`, {
@@ -1529,15 +1525,5 @@ export async function celebrateMemoryMilestones(
     body: JSON.stringify({ keys }),
   });
   await assertOk(res, "标记里程碑失败");
-  return res.json();
-}
-
-export async function fetchMemoryThemes(): Promise<{
-  albums: MemoryThemeAlbum[];
-}> {
-  const res = await fetch(`${BASE}/api/memories/themes`, {
-    credentials: "include",
-  });
-  await assertOk(res, "加载主题分册失败");
   return res.json();
 }

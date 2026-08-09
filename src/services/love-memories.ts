@@ -377,8 +377,20 @@ export async function listMemoryNodes(
   };
 }
 
+export interface MemorySummary {
+  totalNodes: number;
+  byType: Record<string, number>;
+  photoCount: number;
+  milestoneCount: number;
+  constellationCount: number;
+  recent: MemoryNode | null;
+  latestMilestone: MilestoneUnlockView | null;
+  daysTogether: number | null;
+  anniversaryDate: string | null;
+}
+
 export async function getMemorySummary(db: any): Promise<MemorySummary> {
-  const [typeRows, recentResult, { milestones }, settingsMap] = await Promise.all([
+  const [typeRows, photoRow, recentResult, { milestones }, settingsMap] = await Promise.all([
     db
       .select({
         type: entry.type,
@@ -392,6 +404,10 @@ export async function getMemorySummary(db: any): Promise<MemorySummary> {
         )
       )
       .groupBy(entry.type),
+    db
+      .select({ value: count() })
+      .from(asset)
+      .where(isNull(asset.deletedAt)),
     listMemoryNodes(db, { limit: 1, offset: 0 }),
     syncMilestoneUnlocks(db),
     readSettingsMap(db),
@@ -402,6 +418,8 @@ export async function getMemorySummary(db: any): Promise<MemorySummary> {
     timeline: 0,
     message: 0,
     letter: 0,
+    note: 0,
+    appreciation: 0,
   };
   let totalNodes = 0;
   for (const row of typeRows) {
@@ -423,6 +441,7 @@ export async function getMemorySummary(db: any): Promise<MemorySummary> {
   return {
     totalNodes,
     byType,
+    photoCount: Number(photoRow[0]?.value ?? 0),
     milestoneCount: milestones.length,
     constellationCount,
     recent: recentResult.nodes[0] ?? null,
@@ -810,68 +829,4 @@ export function layoutTimeline(
   return { width, height, nodes: laidOut };
 }
 
-/** 规则主题分册（M3 轻量版，非 LLM） */
-export const THEME_ALBUM_DEFS = [
-  {
-    key: "travel",
-    title: "旅行与见面",
-    keywords: ["见面", "旅行", "出去玩", "高铁", "飞机", "火车", "酒店", "景区", "演唱会"],
-  },
-  {
-    key: "food",
-    title: "一起吃过",
-    keywords: ["吃", "美食", "火锅", "蛋糕", "晚饭", "午饭", "早餐", "外卖"],
-  },
-  {
-    key: "miss",
-    title: "想你的时候",
-    keywords: ["想你", "想臭宝", "思念", "异地", "视频", "电话"],
-  },
-  {
-    key: "letter_mood",
-    title: "信里的话",
-    keywords: [],
-    types: ["letter"] as string[],
-  },
-  {
-    key: "timeline_moments",
-    title: "时间线高光",
-    keywords: [],
-    types: ["timeline"] as string[],
-  },
-] as const;
 
-export interface ThemeAlbum {
-  key: string;
-  title: string;
-  count: number;
-  nodes: MemoryNode[];
-}
-
-export async function listThemeAlbums(
-  db: any,
-  options: { limitPerAlbum?: number } = {}
-): Promise<ThemeAlbum[]> {
-  const limitPerAlbum = Math.min(Math.max(options.limitPerAlbum ?? 12, 1), 40);
-  const page = await listMemoryNodes(db, { limit: 400, offset: 0 });
-  const albums: ThemeAlbum[] = [];
-
-  for (const def of THEME_ALBUM_DEFS) {
-    const matched = page.nodes.filter((node) => {
-      if ("types" in def && def.types?.length) {
-        return def.types.includes(node.contentType);
-      }
-      const hay = `${node.title ?? ""} ${node.snippet}`.toLowerCase();
-      return def.keywords.some((kw) => hay.includes(kw.toLowerCase()));
-    });
-    if (matched.length === 0) continue;
-    albums.push({
-      key: def.key,
-      title: def.title,
-      count: matched.length,
-      nodes: matched.slice(0, limitPerAlbum),
-    });
-  }
-
-  return albums;
-}

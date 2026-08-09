@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   TYPE_LABEL,
   celebrateMemoryMilestones,
+  fetchActivityStats,
   fetchMemoryMilestones,
   fetchMemoryNodes,
   fetchMemorySummary,
-  fetchMemoryThemes,
   formatDate,
   getApiErrorMessage,
   shouldToastApiError,
@@ -19,6 +19,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../lib/useToast";
 import { MilestoneCelebrate } from "../components/MilestoneCelebrate";
+import { ActivityHeatmap } from "../components/ActivityHeatmap";
 
 const TYPE_TABS = [
   { key: "all", label: "全部" },
@@ -26,7 +27,6 @@ const TYPE_TABS = [
   { key: "diary", label: TYPE_LABEL.diary },
   { key: "message", label: TYPE_LABEL.message },
   { key: "timeline", label: TYPE_LABEL.timeline },
-  { key: "photo", label: "有图" },
 ] as const;
 
 interface DayCluster {
@@ -197,46 +197,15 @@ function DayStarButton({
   );
 }
 
-function MemoriesTabs() {
-  return (
-    <div className="orbit-memory-tabs" role="tablist" aria-label="记忆视图">
-      <NavLink
-        to="/memories"
-        end
-        className={({ isActive }) =>
-          `orbit-memory-tab${isActive ? " is-active" : ""}`
-        }
-      >
-        星图
-      </NavLink>
-      <NavLink
-        to="/memories/atlas"
-        className={({ isActive }) =>
-          `orbit-memory-tab${isActive ? " is-active" : ""}`
-        }
-      >
-        图鉴
-      </NavLink>
-    </div>
-  );
-}
-
-function MemoryHeader({
-  title,
-  subtitle,
-  summary,
-}: {
-  title: string;
-  subtitle: string;
-  summary: MemorySummary | null;
-}) {
+function MemoryHeader({ summary }: { summary: MemorySummary | null }) {
   return (
     <header className="orbit-memory-header">
       <div>
-        <h1 className="orbit-page-title">{title}</h1>
-        <p className="orbit-muted orbit-memory-subtitle">{subtitle}</p>
+        <h1 className="orbit-page-title">恋爱记忆</h1>
+        <p className="orbit-muted orbit-memory-subtitle">
+          我们一起记下的光点，点一点就能回到那天
+        </p>
       </div>
-      <MemoriesTabs />
       {summary ? (
         <section className="orbit-memory-summary" aria-label="记忆概览">
           <div className="orbit-memory-stat">
@@ -270,37 +239,64 @@ export function MemoriesPage() {
   const [celebrateItems, setCelebrateItems] = useState<MilestoneUnlock[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
+  const [typeKey, setTypeKey] = useState<(typeof TYPE_TABS)[number]["key"]>("all");
+  const [year, setYear] = useState<number | "all">("all");
+
+  const years = useMemo(() => {
+    const current = new Date().getFullYear();
+    return [current, current - 1, current - 2, current - 3];
+  }, []);
+
   const dismissCelebrate = useCallback(() => {
     setCelebrateItems([]);
   }, []);
 
   useEffect(() => {
-    setPageTitle("记忆 · 星图");
+    setPageTitle("恋爱记忆");
   }, []);
+
+  const nodeType = typeKey === "all" ? undefined : typeKey;
+  const archiveParams = useMemo(
+    () => ({
+      limit: 60,
+      offset: 0,
+      type: nodeType,
+      year: year === "all" ? undefined : year,
+    }),
+    [nodeType, year]
+  );
 
   const summaryQuery = useQuery({
     queryKey: queryKeys.memorySummary,
     queryFn: fetchMemorySummary,
   });
-  const nodesQuery = useQuery({
+  const skyNodesQuery = useQuery({
     queryKey: queryKeys.memoryNodes({ limit: 400, offset: 0 }),
     queryFn: () => fetchMemoryNodes({ limit: 400, offset: 0 }),
+  });
+  const archiveQuery = useQuery({
+    queryKey: queryKeys.memoryNodes(archiveParams),
+    queryFn: () => fetchMemoryNodes(archiveParams),
   });
   const milestonesQuery = useQuery({
     queryKey: queryKeys.memoryMilestones,
     queryFn: fetchMemoryMilestones,
   });
+  const activityQuery = useQuery({
+    queryKey: queryKeys.activityStats(365),
+    queryFn: () => fetchActivityStats(365),
+  });
 
   const loading =
-    summaryQuery.isPending || nodesQuery.isPending || milestonesQuery.isPending;
+    summaryQuery.isPending || skyNodesQuery.isPending || milestonesQuery.isPending;
   const error =
-    summaryQuery.error || nodesQuery.error || milestonesQuery.error;
+    summaryQuery.error || skyNodesQuery.error || milestonesQuery.error;
 
   useEffect(() => {
     if (!error || toastedError.current === error) return;
     toastedError.current = error;
     if (shouldToastApiError(error)) {
-      toast.error(getApiErrorMessage(error, "加载星图失败"));
+      toast.error(getApiErrorMessage(error, "加载记忆失败"));
     }
   }, [error, toast]);
 
@@ -318,23 +314,20 @@ export function MemoriesPage() {
   }, [milestonesQuery.data, queryClient]);
 
   const summary = summaryQuery.data ?? null;
-  const nodes = nodesQuery.data?.nodes ?? [];
-  const total = nodesQuery.data?.total ?? 0;
+  const skyNodes = skyNodesQuery.data?.nodes ?? [];
+  const total = skyNodesQuery.data?.total ?? 0;
+
+  const archiveNodes = archiveQuery.data?.nodes ?? [];
+  const archiveTotal = archiveQuery.data?.total ?? 0;
+  const archiveLoading = archiveQuery.isPending;
+
   const milestones = milestonesQuery.data?.milestones ?? [];
 
-  const sky = useMemo(() => buildSky(nodes), [nodes]);
+  const sky = useMemo(() => buildSky(skyNodes), [skyNodes]);
   const litDays = sky.days.length;
   const selectedDay = useMemo(
     () => sky.days.find((day) => day.date === selectedDate) ?? null,
     [sky, selectedDate]
-  );
-  const regularMilestones = useMemo(
-    () => milestones.filter((item) => item.category !== "constellation"),
-    [milestones]
-  );
-  const constellations = useMemo(
-    () => milestones.filter((item) => item.category === "constellation"),
-    [milestones]
   );
 
   return (
@@ -342,24 +335,21 @@ export function MemoriesPage() {
       {celebrateItems.length > 0 ? (
         <MilestoneCelebrate items={celebrateItems} onDone={dismissCelebrate} />
       ) : null}
-      <MemoryHeader
-        title="恋爱记忆"
-        subtitle="我们一起记下的光点，点一点就能回到那天"
-        summary={summary}
-      />
+      <MemoryHeader summary={summary} />
 
       {loading ? (
         <p className="orbit-muted">点亮星图中…</p>
-      ) : nodes.length === 0 ? (
+      ) : skyNodes.length === 0 ? (
         <p className="orbit-muted">
           还没有瞬间。去写一篇日记或一封信，第一颗星就亮了。
         </p>
       ) : (
         <>
+          {/* 1. 浪漫天幕星空 */}
           <p className="orbit-memory-caption">
             我们一起点亮了 {litDays} 个日子
-            {total > nodes.length
-              ? `（展示最近 ${nodes.length} / 共 ${total} 篇）`
+            {total > skyNodes.length
+              ? `（展示最近 ${skyNodes.length} / 共 ${total} 篇）`
               : null}
           </p>
 
@@ -435,37 +425,125 @@ export function MemoriesPage() {
             )}
           </div>
 
-          {constellations.length > 0 ? (
-            <section className="orbit-memory-milestones" aria-label="星座彩蛋">
-              <h2 className="orbit-section-title">星座彩蛋</h2>
+          {/* 2. 记忆档案馆 */}
+          <section aria-label="记忆档案" style={{ marginTop: "2.5rem" }}>
+            <div className="orbit-memory-filters">
+              <div className="orbit-memory-filter-row" role="tablist" aria-label="类型">
+                {TYPE_TABS.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    className={`orbit-memory-chip${typeKey === tab.key ? " is-active" : ""}`}
+                    onClick={() => setTypeKey(tab.key)}
+                  >
+                    {tab.label}
+                    {tab.key !== "all" && summary?.byType[tab.key] != null
+                      ? ` ${summary.byType[tab.key]}`
+                      : ""}
+                  </button>
+                ))}
+              </div>
+              <div className="orbit-memory-filter-row" role="tablist" aria-label="年份">
+                <button
+                  type="button"
+                  className={`orbit-memory-chip${year === "all" ? " is-active" : ""}`}
+                  onClick={() => setYear("all")}
+                >
+                  全部年份
+                </button>
+                {years.map((y) => (
+                  <button
+                    key={y}
+                    type="button"
+                    className={`orbit-memory-chip${year === y ? " is-active" : ""}`}
+                    onClick={() => setYear(y)}
+                  >
+                    {y}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <h2 className="orbit-section-title" style={{ marginTop: "2.25rem", marginBottom: "0.75rem" }}>
+              回忆档案{archiveLoading ? "" : ` · ${archiveTotal}`}
+            </h2>
+            {archiveLoading ? (
+              <p className="orbit-muted">加载档案中…</p>
+            ) : archiveNodes.length === 0 ? (
+              <p className="orbit-muted">这个分类下还没有内容</p>
+            ) : (
+              <ul className="orbit-memory-card-grid">
+                {archiveNodes.map((node) => (
+                  <li key={node.id}>
+                    <Link
+                      to={node.link}
+                      className={`orbit-memory-card${node.coverImage ? " has-cover" : " is-text-card"}`}
+                      data-type={node.contentType}
+                    >
+                      {node.coverImage ? (
+                        <img
+                          src={node.coverImage}
+                          alt=""
+                          className="orbit-memory-card-cover"
+                          loading="lazy"
+                        />
+                      ) : null}
+                      <div className="orbit-memory-card-body">
+                        <div className="orbit-memory-card-header">
+                          <span className="orbit-home-recent-type">
+                            {TYPE_LABEL[node.contentType] ?? node.contentType}
+                          </span>
+                          {node.author && (
+                            <span className="orbit-memory-card-author">@{node.author}</span>
+                          )}
+                        </div>
+                        <strong className="orbit-memory-card-title">
+                          {nodeLabel(node)}
+                        </strong>
+                        {node.snippet && node.snippet !== node.title && (
+                          <p className="orbit-memory-card-snippet">“{node.snippet}”</p>
+                        )}
+                        <span className="orbit-muted orbit-memory-card-date">
+                          {formatDate(node.occurredAt)}
+                        </span>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* 3. 相伴成就与里程碑 */}
+          {milestones.length > 0 ? (
+            <section className="orbit-memory-milestones" aria-label="里程碑图鉴" style={{ marginTop: "3rem" }}>
+              <h2 className="orbit-section-title">相伴成就与里程碑 · {milestones.length}</h2>
               <ul className="orbit-memory-milestone-list">
-                {constellations.map((item) => (
+                {milestones.map((item) => (
                   <li
                     key={item.key}
-                    className="orbit-memory-milestone-card orbit-memory-milestone-card--constellation"
+                    className={`orbit-memory-milestone-card orbit-memory-milestone-card--lg${
+                      item.category === "constellation" ? " orbit-memory-milestone-card--constellation" : ""
+                    }`}
                   >
                     <strong>{item.title}</strong>
                     <span className="orbit-muted">{item.description}</span>
+                    <span className="orbit-muted">
+                      {formatDate(item.unlockedAt)} 点亮
+                    </span>
                   </li>
                 ))}
               </ul>
             </section>
           ) : null}
 
-          {regularMilestones.length > 0 ? (
-            <section className="orbit-memory-milestones" aria-label="里程碑">
-              <h2 className="orbit-section-title">已点亮的里程碑</h2>
-              <ul className="orbit-memory-milestone-list">
-                {regularMilestones.slice(0, 8).map((item) => (
-                  <li key={item.key} className="orbit-memory-milestone-card">
-                    <strong>{item.title}</strong>
-                    <span className="orbit-muted">{item.description}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link className="orbit-text-link" to="/memories/atlas">
-                去图鉴看全部
-              </Link>
+          {/* 4. 总体记录热力图 */}
+          {activityQuery.data?.days ? (
+            <section className="orbit-memory-milestones" aria-label="总体热力" style={{ marginTop: "3rem" }}>
+              <h2 className="orbit-section-title">总体记录热力</h2>
+              <div style={{ paddingTop: "0.5rem" }}>
+                <ActivityHeatmap days={activityQuery.data.days} />
+              </div>
             </section>
           ) : null}
         </>
@@ -475,266 +553,6 @@ export function MemoriesPage() {
 }
 
 export function MemoryAtlasPage() {
-  const toast = useToast();
-  const toastedError = useRef<unknown>(null);
-  const [typeKey, setTypeKey] = useState<(typeof TYPE_TABS)[number]["key"]>("all");
-  const [year, setYear] = useState<number | "all">("all");
-
-  const years = useMemo(() => {
-    const current = new Date().getFullYear();
-    return [current, current - 1, current - 2, current - 3];
-  }, []);
-
-  useEffect(() => {
-    setPageTitle("记忆 · 图鉴");
-  }, []);
-
-  const nodeType =
-    typeKey === "all" || typeKey === "photo" ? undefined : typeKey;
-  const nodesParams = {
-    limit: 60,
-    offset: 0,
-    type: nodeType,
-    year: year === "all" ? undefined : year,
-    hasCover: typeKey === "photo",
-  };
-
-  const summaryQuery = useQuery({
-    queryKey: queryKeys.memorySummary,
-    queryFn: fetchMemorySummary,
-  });
-  const nodesQuery = useQuery({
-    queryKey: queryKeys.memoryNodes(nodesParams),
-    queryFn: () => fetchMemoryNodes(nodesParams),
-  });
-  const milestonesQuery = useQuery({
-    queryKey: queryKeys.memoryMilestones,
-    queryFn: fetchMemoryMilestones,
-  });
-  const themesQuery = useQuery({
-    queryKey: queryKeys.memoryThemes,
-    queryFn: fetchMemoryThemes,
-  });
-
-  const loading =
-    summaryQuery.isPending ||
-    nodesQuery.isPending ||
-    milestonesQuery.isPending ||
-    themesQuery.isPending;
-  const error =
-    summaryQuery.error ||
-    nodesQuery.error ||
-    milestonesQuery.error ||
-    themesQuery.error;
-
-  useEffect(() => {
-    if (!error || toastedError.current === error) return;
-    toastedError.current = error;
-    if (shouldToastApiError(error)) {
-      toast.error(getApiErrorMessage(error, "加载图鉴失败"));
-    }
-  }, [error, toast]);
-
-  const summary = summaryQuery.data ?? null;
-  const nodes = nodesQuery.data?.nodes ?? [];
-  const total = nodesQuery.data?.total ?? 0;
-  const milestones = milestonesQuery.data?.milestones ?? [];
-  const themes = themesQuery.data?.albums ?? [];
-
-  const constellations = useMemo(
-    () => milestones.filter((item) => item.category === "constellation"),
-    [milestones]
-  );
-  const regularMilestones = useMemo(
-    () => milestones.filter((item) => item.category !== "constellation"),
-    [milestones]
-  );
-
-  return (
-    <div className="orbit-content orbit-memory" data-page="memories-atlas">
-      <MemoryHeader
-        title="恋爱图鉴"
-        subtitle="按类型和年份翻一翻，点点滴滴都是收藏"
-        summary={summary}
-      />
-
-      <div className="orbit-memory-filters">
-        <div className="orbit-memory-filter-row" role="tablist" aria-label="类型">
-          {TYPE_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              className={`orbit-memory-chip${typeKey === tab.key ? " is-active" : ""}`}
-              onClick={() => setTypeKey(tab.key)}
-            >
-              {tab.label}
-              {tab.key !== "all" &&
-              tab.key !== "photo" &&
-              summary?.byType[tab.key] != null
-                ? ` ${summary.byType[tab.key]}`
-                : ""}
-            </button>
-          ))}
-        </div>
-        <div className="orbit-memory-filter-row" role="tablist" aria-label="年份">
-          <button
-            type="button"
-            className={`orbit-memory-chip${year === "all" ? " is-active" : ""}`}
-            onClick={() => setYear("all")}
-          >
-            全部年份
-          </button>
-          {years.map((y) => (
-            <button
-              key={y}
-              type="button"
-              className={`orbit-memory-chip${year === y ? " is-active" : ""}`}
-              onClick={() => setYear(y)}
-            >
-              {y}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {constellations.length > 0 ? (
-        <section className="orbit-memory-milestones" aria-label="星座图鉴">
-          <h2 className="orbit-section-title">星座彩蛋</h2>
-          <ul className="orbit-memory-milestone-list">
-            {constellations.map((item) => (
-              <li
-                key={item.key}
-                className="orbit-memory-milestone-card orbit-memory-milestone-card--lg orbit-memory-milestone-card--constellation"
-              >
-                <strong>{item.title}</strong>
-                <span className="orbit-muted">{item.description}</span>
-                <span className="orbit-muted">
-                  {formatDate(item.unlockedAt)} 点亮
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {regularMilestones.length > 0 ? (
-        <section className="orbit-memory-milestones" aria-label="里程碑图鉴">
-          <h2 className="orbit-section-title">里程碑</h2>
-          <ul className="orbit-memory-milestone-list">
-            {regularMilestones.map((item) => (
-              <li
-                key={item.key}
-                className="orbit-memory-milestone-card orbit-memory-milestone-card--lg"
-              >
-                <strong>{item.title}</strong>
-                <span className="orbit-muted">{item.description}</span>
-                <span className="orbit-muted">
-                  {formatDate(item.unlockedAt)} 点亮
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {themes.length > 0 ? (
-        <section className="orbit-memory-themes" aria-label="主题分册">
-          <h2 className="orbit-section-title">主题分册</h2>
-          <p className="orbit-muted orbit-memory-caption">
-            按关键词从现有回忆里归类（规则版，非 AI）
-          </p>
-          {themes.map((album) => (
-            <div key={album.key} className="orbit-memory-theme-album">
-              <h3 className="orbit-memory-theme-title">
-                {album.title}
-                <span className="orbit-muted"> · {album.count}</span>
-              </h3>
-              <ul className="orbit-memory-card-grid">
-                {album.nodes.map((node) => (
-                  <li key={`${album.key}-${node.id}`}>
-                    <Link to={node.link} className="orbit-memory-card">
-                      {node.coverImage ? (
-                        <img
-                          src={node.coverImage}
-                          alt=""
-                          className="orbit-memory-card-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div
-                          className={`orbit-memory-card-cover orbit-memory-card-cover--empty orbit-memory-day-star--${node.contentType}`}
-                        />
-                      )}
-                      <div className="orbit-memory-card-body">
-                        <span className="orbit-home-recent-type">
-                          {TYPE_LABEL[node.contentType] ?? node.contentType}
-                        </span>
-                        <strong className="orbit-memory-card-title">
-                          {nodeLabel(node)}
-                        </strong>
-                        <span className="orbit-muted">
-                          {formatDate(node.occurredAt)}
-                        </span>
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </section>
-      ) : null}
-
-      <section className="orbit-memory-upcoming" aria-label="后续分册">
-        <h2 className="orbit-section-title">后续分册</h2>
-        <p className="orbit-muted">
-          恋爱地图坐标、共同爱好册将在对应模块落地后接入；当前可先逛星座与主题分册。
-        </p>
-      </section>
-
-      <section aria-label="记忆卡片">
-        <h2 className="orbit-section-title">
-          卡片{loading ? "" : ` · ${total}`}
-        </h2>
-        {loading ? (
-          <p className="orbit-muted">翻图鉴中…</p>
-        ) : nodes.length === 0 ? (
-          <p className="orbit-muted">这个分册还是空的</p>
-        ) : (
-          <ul className="orbit-memory-card-grid">
-            {nodes.map((node) => (
-              <li key={node.id}>
-                <Link to={node.link} className="orbit-memory-card">
-                  {node.coverImage ? (
-                    <img
-                      src={node.coverImage}
-                      alt=""
-                      className="orbit-memory-card-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div
-                      className={`orbit-memory-card-cover orbit-memory-card-cover--empty orbit-memory-day-star--${node.contentType}`}
-                    />
-                  )}
-                  <div className="orbit-memory-card-body">
-                    <span className="orbit-home-recent-type">
-                      {TYPE_LABEL[node.contentType] ?? node.contentType}
-                    </span>
-                    <strong className="orbit-memory-card-title">
-                      {nodeLabel(node)}
-                    </strong>
-                    <span className="orbit-muted">
-                      {formatDate(node.occurredAt)}
-                    </span>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
-  );
+  return <Navigate to="/memories" replace />;
 }
 

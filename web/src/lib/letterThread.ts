@@ -60,7 +60,11 @@ export function buildThreadTimeline(
 }
 
 export function entryDisplayLabel(entry: EntrySummary): string | null {
-  return entry.title;
+  const title = entry.title?.trim();
+  if (title) return title;
+  const snippet = entry.snippet?.trim();
+  if (snippet) return `“${snippet}”`;
+  return null;
 }
 
 /** 火漆封印上的字：去掉昵称常见前缀后取首字（例如：Alex → A） */

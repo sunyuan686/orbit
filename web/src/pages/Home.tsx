@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { FEED_ENTRY_TYPES } from "../lib/entry-types";
 import {
   TYPE_LABEL,
-  fetchActivityStats,
   fetchEntries,
   fetchGallery,
   fetchMemorySummary,
@@ -23,8 +22,8 @@ import { useSpace } from "../lib/spaceContext";
 import { queryKeys } from "../lib/queryKeys";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../lib/useToast";
-import { ActivityHeatmap } from "../components/ActivityHeatmap";
 import { GalleryImage } from "../components/GalleryImage";
+import { ScratchCard } from "../components/ScratchCard";
 import {
   DiaryIcon,
   TimelineIcon,
@@ -90,7 +89,7 @@ const QUICK_ACTIONS = [
 ] as const;
 
 function entryLabel(entry: EntrySummary): string {
-  return entryDisplayLabel(entry) ?? (entry.entryDate ? formatDate(entry.entryDate) : "无标题");
+  return entryDisplayLabel(entry) ?? "无标题";
 }
 
 function formatCoupleNames(authors: SpaceAuthor[]): string | null {
@@ -125,10 +124,6 @@ export function HomePage() {
     queryKey: queryKeys.gallery("all", homeEntryParams),
     queryFn: () => fetchGallery({ filter: "all", ...homeEntryParams }),
   });
-  const activityQuery = useQuery({
-    queryKey: queryKeys.activityStats(365),
-    queryFn: () => fetchActivityStats(365),
-  });
   const memoriesQuery = useQuery({
     queryKey: queryKeys.memorySummary,
     queryFn: fetchMemorySummary,
@@ -138,7 +133,6 @@ export function HomePage() {
     ...entryQueries,
     statusQuery,
     galleryQuery,
-    activityQuery,
     memoriesQuery,
   ];
   const loadingFeed = feedQueries.some((q) => q.isPending);
@@ -153,7 +147,6 @@ export function HomePage() {
   }, [feedError, toast]);
 
   const authors: SpaceAuthor[] = statusQuery.data?.authors ?? [];
-  const activity = activityQuery.data ?? null;
   const memories = memoriesQuery.data ?? null;
   const photos = galleryQuery.data?.items ?? [];
 
@@ -165,7 +158,81 @@ export function HomePage() {
     });
     merged.sort((a, b) => (b.entryDate ?? 0) - (a.entryDate ?? 0));
     return merged.slice(0, 6);
-  }, [entryQueries]);
+  }, [entryQueries, feedTypes]);
+
+  const [cardIndex, setCardIndex] = useState(0);
+
+  const memoryDeck = useMemo(() => {
+    const deck = [];
+
+    if (recent.length > 0) {
+      for (const item of recent) {
+        deck.push({
+          id: `entry-${item.id}`,
+          badge: `✨ 回忆闪回 · ${TYPE_LABEL[item.contentType] ?? item.contentType}`,
+          title: entryLabel(item),
+          meta: `${item.author ? `@${item.author} ` : ""}${item.entryDate ? formatDate(item.entryDate) : ""}`,
+          quote: item.snippet?.trim() || item.title?.trim() || "翻开那一天，看看我们当时的心情...",
+          link: `/${item.contentType}/${item.id}`,
+          linkText: "穿越回到那一天 ➔",
+          type: item.contentType,
+        });
+      }
+    }
+
+    if (photos.length > 0) {
+      deck.push({
+        id: "photo-memories",
+        badge: "📸 珍藏光影 · 相册",
+        title: `相册里已定格了 ${memories?.photoCount ?? photos.length} 个瞬间`,
+        meta: "属于两人的记忆影集",
+        quote: "无论日子流转多久，照片里的笑容依然清晰如昨。",
+        link: "/gallery",
+        linkText: "去相册翻看全景 ➔",
+        type: "gallery",
+      });
+    }
+
+    if (profile?.daysTogether) {
+      deck.push({
+        id: "days-milestone",
+        badge: "💖 相伴里程碑",
+        title: `在一起的第 ${profile.daysTogether} 天`,
+        meta: "漫漫星河里的同频相伴",
+        quote: "谢谢你陪我走过的每一个日日夜夜，每一刻都是值得珍藏的奇迹。",
+        link: "/memories/atlas",
+        linkText: "查看恋爱图鉴 ➔",
+        type: "memories",
+      });
+    }
+
+    deck.push({
+      id: "quiz-prompt",
+      badge: "🎲 恋爱默契拷问",
+      title: "【心动记忆提问】",
+      meta: "双人互动小话题",
+      quote: "还记得对方为你做过的哪件微小的事情，最让你心头一暖吗？今晚不妨聊聊看。",
+      link: "/message",
+      linkText: "在留言板写下回答 ➔",
+      type: "message",
+    });
+
+    return deck;
+  }, [recent, photos, memories, profile]);
+
+  const currentCard = memoryDeck[cardIndex % Math.max(memoryDeck.length, 1)] ?? memoryDeck[0];
+
+  const handleDrawRandomCard = () => {
+    setCardIndex((prev) => {
+      const len = memoryDeck.length;
+      if (len <= 1) return prev + 1;
+      let nextIndex;
+      do {
+        nextIndex = Math.floor(Math.random() * len);
+      } while (nextIndex === prev % len);
+      return nextIndex;
+    });
+  };
 
   const coupleNames = useMemo(() => formatCoupleNames(authors), [authors]);
   const tagline = formatSpaceTagline(profile);
@@ -241,42 +308,39 @@ export function HomePage() {
         </div>
       </section>
 
-      {!loadingFeed && memories && memories.totalNodes > 0 && (
-        <section className="orbit-home-section" aria-labelledby="home-memories-title">
-          <Link
-            to="/memories"
-            className="orbit-home-memories-card"
-            aria-labelledby="home-memories-title"
-          >
-            <span className="orbit-home-memories-stars" aria-hidden>
-              <i /><i /><i /><i /><i /><i />
-            </span>
-            <span className="orbit-home-memories-body">
-              <span className="orbit-home-memories-title" id="home-memories-title">
-                恋爱星图
-              </span>
-              <span className="orbit-home-memories-meta">
-                {memories.totalNodes} 个瞬间 · {memories.milestoneCount} 个里程碑
-                {memories.latestMilestone
-                  ? ` · 最近点亮「${memories.latestMilestone.title}」`
-                  : ""}
-              </span>
-              {memories.recent ? (
-                <span className="orbit-home-memories-recent">
-                  {TYPE_LABEL[memories.recent.contentType] ??
-                    memories.recent.contentType}
-                  ：
-                  {memories.recent.title?.trim() ||
-                    memories.recent.snippet ||
-                    "最近一个瞬间"}
-                </span>
-              ) : null}
-            </span>
-            <ChevronRightIcon size="sm" className="orbit-home-memories-chevron" />
-          </Link>
+      {/* 🎟️ 真实手感 HTML5 刮刮彩票卡 */}
+      {!loadingFeed && currentCard && (
+        <section className="orbit-home-section" aria-label="时光刮刮乐">
+          <div className="orbit-scratch-wrapper" data-type={currentCard.type}>
+            <div className="orbit-scratch-header">
+              <span className="orbit-scratch-badge">{currentCard.badge}</span>
+              <button
+                type="button"
+                className="orbit-scratch-reset-btn"
+                onClick={handleDrawRandomCard}
+              >
+                🎲 换一张刮刮彩
+              </button>
+            </div>
+            <ScratchCard seed={cardIndex}>
+              <div className="orbit-scratch-card-body">
+                <h3 className="orbit-scratch-title">{currentCard.title}</h3>
+                {currentCard.meta && (
+                  <p className="orbit-scratch-meta">{currentCard.meta}</p>
+                )}
+                <blockquote className="orbit-scratch-quote">
+                  “{currentCard.quote}”
+                </blockquote>
+                <Link to={currentCard.link} className="orbit-scratch-link">
+                  {currentCard.linkText}
+                </Link>
+              </div>
+            </ScratchCard>
+          </div>
         </section>
       )}
 
+      {/* 📷 最近照片流 */}
       {!loadingFeed && photos.length > 0 && (
         <section className="orbit-home-section" aria-labelledby="home-photos-title">
           <div className="orbit-home-section-header">
@@ -308,52 +372,35 @@ export function HomePage() {
         </section>
       )}
 
-      {!loadingFeed && activity && (
-        <section className="orbit-home-section" aria-labelledby="home-activity-title">
-          <div className="orbit-home-section-header">
-            <div>
-              <h2 className="orbit-home-section-title" id="home-activity-title">
-                记录节奏
-              </h2>
-              <p className="orbit-home-activity-meta">
-                连续 {activity.streak.current} 天
-                <span className="orbit-home-activity-meta-sep" aria-hidden>
-                  ·
-                </span>
-                近 {activity.summary.rangeDays} 天活跃 {activity.summary.activeDays} 天
-              </p>
-            </div>
-            <Link to="/activity" className="orbit-text-link orbit-home-section-link">
-              查看详情
-            </Link>
-          </div>
-          <ActivityHeatmap days={activity.days} recentDays={84} compact />
-        </section>
-      )}
-
+      {/* 🎨 探索 Bento Canvas 大棋盘 */}
       <section className="orbit-home-section" aria-labelledby="home-nav-title">
-        <h2 className="orbit-home-section-title" id="home-nav-title">
-          探索
-        </h2>
-        <div className="orbit-home-grid">
+        <div className="orbit-home-section-header">
+          <h2 className="orbit-home-section-title" id="home-nav-title">
+            探索
+          </h2>
+        </div>
+        <div className="orbit-home-bento-grid">
           {NAV_CARDS.map(({ to, label, desc, Icon }) => (
-            <Link key={to} to={to} className="orbit-home-card" data-type={to.slice(1)}>
-              <span className="orbit-home-card-icon-chip">
-                <Icon size="md" className="orbit-home-card-icon" />
-              </span>
-              <span className="orbit-home-card-body">
-                <span className="orbit-home-card-title">{label}</span>
-                <span className="orbit-home-card-desc">{desc}</span>
-              </span>
+            <Link key={to} to={to} className="orbit-home-bento-tile" data-type={to.slice(1)}>
+              <div className="orbit-home-bento-icon-box">
+                <Icon size="md" className="orbit-home-bento-icon" />
+              </div>
+              <div className="orbit-home-bento-content">
+                <span className="orbit-home-bento-title">{label}</span>
+                <span className="orbit-home-bento-desc">{desc}</span>
+              </div>
             </Link>
           ))}
         </div>
       </section>
 
+      {/* 💬 最近动态 Story Stream */}
       <section className="orbit-home-section" aria-labelledby="home-recent-title">
-        <h2 className="orbit-home-section-title" id="home-recent-title">
-          最近动态
-        </h2>
+        <div className="orbit-home-section-header">
+          <h2 className="orbit-home-section-title" id="home-recent-title">
+            最近动态
+          </h2>
+        </div>
         {loadingFeed ? (
           <p className="orbit-muted">加载中…</p>
         ) : recent.length === 0 ? (
@@ -364,30 +411,29 @@ export function HomePage() {
             </Link>
           </div>
         ) : (
-          <ul className="orbit-list-plain orbit-entry-list orbit-home-recent">
+          <div className="orbit-home-story-stream">
             {recent.map((item) => (
-              <li key={`${item.contentType}-${item.id}`}>
-                <Link to={`/${item.contentType}/${item.id}`} className="orbit-entry-card">
-                  <span className="orbit-entry-card-main">
-                    <span className="orbit-home-recent-type">
-                      {TYPE_LABEL[item.contentType] ?? item.contentType}
-                    </span>
-                    <span className="orbit-entry-title orbit-entry-title-truncate">
-                      {entryLabel(item)}
-                    </span>
-                    {item.author && (
-                      <span className="orbit-entry-author">{item.author}</span>
-                    )}
+              <Link
+                key={`${item.contentType}-${item.id}`}
+                to={`/${item.contentType}/${item.id}`}
+                className="orbit-home-story-card"
+                data-type={item.contentType}
+              >
+                <div className="orbit-home-story-header">
+                  <span className="orbit-home-story-badge">
+                    {TYPE_LABEL[item.contentType] ?? item.contentType}
                   </span>
-                  {item.entryDate && (
-                    <time className="orbit-entry-date" dateTime={formatDate(item.entryDate)}>
-                      {formatDate(item.entryDate)}
-                    </time>
+                  {item.author && (
+                    <span className="orbit-home-story-author">@{item.author}</span>
                   )}
-                </Link>
-              </li>
+                  {item.entryDate && (
+                    <span className="orbit-home-story-date">{formatDate(item.entryDate)}</span>
+                  )}
+                </div>
+                <h3 className="orbit-home-story-title">{entryLabel(item)}</h3>
+              </Link>
             ))}
-          </ul>
+          </div>
         )}
       </section>
     </div>

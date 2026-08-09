@@ -9417,9 +9417,293 @@ html.orbit-ai-open body {
   margin-bottom: 0;
 }
 
-.orbit-home-section-link {
-  font-size: var(--type-secondary);
+/* 🎟️ 真实手感 HTML5 刮刮彩票卡 */
+.orbit-scratch-wrapper {
+  position: relative;
+  border-radius: 16px;
+  border: 1px solid var(--color-border-light);
+  background: var(--color-surface);
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 4px 20px -6px color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+.orbit-scratch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.875rem;
+}
+
+.orbit-scratch-badge {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+}
+
+.orbit-scratch-reset-btn {
+  border: 1px solid var(--color-border-light);
+  background: var(--color-surface-raised);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: background var(--motion-fast), transform var(--motion-fast);
+}
+
+.orbit-scratch-reset-btn:hover {
+  background: var(--color-surface);
+  transform: scale(1.04);
+}
+
+.orbit-scratch-container {
+  position: relative;
+  width: 100%;
+  min-height: 140px;
+  border-radius: 12px;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.orbit-scratch-underneath {
+  padding: 1rem 1.125rem;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 6%, var(--color-surface)), var(--color-surface));
+  border-radius: 12px;
+  min-height: 140px;
+  box-sizing: border-box;
+}
+
+.orbit-scratch-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: opacity 0.4s ease;
+}
+
+.orbit-scratch-canvas.is-cleared {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.orbit-scratch-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.orbit-scratch-title {
+  font-family: var(--font-display, var(--font-body));
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.orbit-scratch-meta {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.orbit-scratch-quote {
+  font-family: var(--font-display, var(--font-body));
+  font-style: italic;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  margin: 0.375rem 0;
+  padding-left: 0.75rem;
+  border-left: 2px solid color-mix(in srgb, var(--color-accent) 50%, transparent);
+}
+
+.orbit-scratch-link {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-decoration: none;
+  margin-top: 0.25rem;
+}
+
+.orbit-scratch-link:hover {
+  text-decoration: underline;
+}
+
+/* 🎨 探索 Bento Canvas 大棋盘 */
+.orbit-home-bento-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.875rem;
+}
+
+@media (min-width: 520px) {
+  .orbit-home-bento-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) {
+  .orbit-home-bento-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.orbit-home-bento-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding: 1rem 1.125rem;
+  border-radius: 14px;
+  border: 1px solid var(--bento-border, var(--color-border-light));
+  background: var(--bento-bg, var(--color-surface));
+  text-decoration: none;
+  color: inherit;
+  transition: transform var(--motion-fast), box-shadow var(--motion-fast), border-color var(--motion-fast);
+}
+
+
+
+.orbit-home-bento-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--bento-color, var(--color-text-primary)) 15%, transparent);
+}
+
+.orbit-home-bento-tile[data-type="diary"] {
+  --bento-bg: color-mix(in srgb, oklch(0.65 0.1 75) 5%, var(--color-surface));
+  --bento-border: color-mix(in srgb, oklch(0.65 0.1 75) 20%, var(--color-border-light));
+  --bento-color: oklch(0.6 0.12 75);
+}
+.orbit-home-bento-tile[data-type="letter"] {
+  --bento-bg: color-mix(in srgb, oklch(0.62 0.12 15) 5%, var(--color-surface));
+  --bento-border: color-mix(in srgb, oklch(0.62 0.12 15) 20%, var(--color-border-light));
+  --bento-color: oklch(0.58 0.14 15);
+}
+.orbit-home-bento-tile[data-type="timeline"] {
+  --bento-bg: color-mix(in srgb, oklch(0.58 0.09 300) 5%, var(--color-surface));
+  --bento-border: color-mix(in srgb, oklch(0.58 0.09 300) 20%, var(--color-border-light));
+  --bento-color: oklch(0.55 0.12 300);
+}
+.orbit-home-bento-tile[data-type="message"] {
+  --bento-bg: color-mix(in srgb, oklch(0.6 0.09 240) 5%, var(--color-surface));
+  --bento-border: color-mix(in srgb, oklch(0.6 0.09 240) 20%, var(--color-border-light));
+  --bento-color: oklch(0.55 0.12 240);
+}
+.orbit-home-bento-tile[data-type="memo"] {
+  --bento-bg: color-mix(in srgb, oklch(0.65 0.09 150) 5%, var(--color-surface));
+  --bento-border: color-mix(in srgb, oklch(0.65 0.09 150) 20%, var(--color-border-light));
+  --bento-color: oklch(0.55 0.12 150);
+}
+.orbit-home-bento-tile[data-type="gallery"] {
+  --bento-bg: color-mix(in srgb, oklch(0.68 0.12 60) 5%, var(--color-surface));
+  --bento-border: color-mix(in srgb, oklch(0.68 0.12 60) 20%, var(--color-border-light));
+  --bento-color: oklch(0.6 0.14 60);
+}
+.orbit-home-bento-tile[data-type="memories"] {
+  --bento-bg: color-mix(in srgb, oklch(0.5 0.12 270) 6%, var(--color-surface));
+  --bento-border: color-mix(in srgb, oklch(0.5 0.12 270) 22%, var(--color-border-light));
+  --bento-color: oklch(0.5 0.15 270);
+}
+
+.orbit-home-bento-icon-box {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.375rem;
+  height: 2.375rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bento-color, var(--color-text-muted)) 12%, transparent);
+  color: var(--bento-color, var(--color-text-secondary));
+}
+
+.orbit-home-bento-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.orbit-home-bento-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+}
+
+.orbit-home-bento-desc {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  margin-top: 0.25rem;
+}
+
+/* 💬 双人故事动态流 */
+.orbit-home-story-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.orbit-home-story-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.875rem 1.125rem;
+  border: 1px solid var(--color-border-light);
+  border-left: 3px solid color-mix(in srgb, var(--color-accent) 40%, var(--color-border-light));
+  border-radius: 10px;
+  background: var(--color-surface);
+  text-decoration: none;
+  color: inherit;
+  transition: background var(--motion-fast), border-color var(--motion-fast), transform var(--motion-fast);
+}
+
+.orbit-home-story-card:hover {
+  background: var(--color-surface-raised);
+  border-left-color: var(--color-accent);
+  transform: translateX(3px);
+}
+
+.orbit-home-story-header {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 0.75rem;
+}
+
+.orbit-home-story-badge {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+}
+
+.orbit-home-story-author {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.orbit-home-story-date {
+  margin-left: auto;
+  color: var(--color-text-muted);
+}
+
+.orbit-home-story-title {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin: 0;
+  line-height: 1.4;
 }
 
 .orbit-home-grid {
@@ -9919,30 +10203,6 @@ button.orbit-activity-cell:hover {
 
 .orbit-memory-subtitle {
   margin-top: var(--space-xs);
-}
-
-.orbit-memory-tabs {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px;
-  border-radius: var(--radius-md);
-  background: var(--color-surface-muted, color-mix(in srgb, var(--color-border) 35%, transparent));
-  width: fit-content;
-}
-
-.orbit-memory-tab {
-  padding: 0.4rem 0.9rem;
-  border-radius: var(--radius-sm);
-  font-size: var(--type-sm);
-  color: var(--color-text-muted);
-  text-decoration: none;
-  transition: background 0.2s ease, color 0.2s ease;
-}
-
-.orbit-memory-tab.is-active {
-  background: var(--color-surface, #fff);
-  color: var(--color-text);
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--color-text) 8%, transparent);
 }
 
 .orbit-memory-summary {
@@ -10522,55 +10782,100 @@ button.orbit-activity-cell:hover {
 .orbit-memory-card-grid {
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: 1.25rem 0 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: var(--space-md);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.5rem;
 }
 
 .orbit-memory-card {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 170px;
   text-decoration: none;
   color: inherit;
-  border-radius: var(--radius-md);
+  border-radius: 16px;
   overflow: hidden;
-  border: 1px solid var(--color-border);
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  border: 1px solid var(--color-border-light);
+  background: var(--color-surface);
+  box-shadow: 0 2px 8px -2px color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+  transition: transform var(--motion-fast), box-shadow var(--motion-fast), border-color var(--motion-fast);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .orbit-memory-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px color-mix(in srgb, var(--color-text) 8%, transparent);
-  }
+.orbit-memory-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px -8px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
 }
+
+.orbit-memory-card.is-text-card {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--card-tint, var(--color-accent)) 7%, var(--color-surface)), var(--color-surface));
+  border-left: 4px solid color-mix(in srgb, var(--card-tint, var(--color-accent)) 50%, var(--color-border-light));
+}
+
+.orbit-memory-card.is-text-card[data-type="diary"] { --card-tint: oklch(0.65 0.1 75); }
+.orbit-memory-card.is-text-card[data-type="letter"] { --card-tint: oklch(0.62 0.12 15); }
+.orbit-memory-card.is-text-card[data-type="message"] { --card-tint: oklch(0.6 0.09 240); }
+.orbit-memory-card.is-text-card[data-type="timeline"] { --card-tint: oklch(0.58 0.09 300); }
 
 .orbit-memory-card-cover {
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 10;
   width: 100%;
   object-fit: cover;
   background: var(--color-surface-muted, #eee);
 }
 
-.orbit-memory-card-cover--empty {
-  background: color-mix(in srgb, var(--star-fill, var(--color-accent)) 28%, #2a3344);
-}
-
 .orbit-memory-card-body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: var(--space-sm);
+  flex: 1;
+  gap: 0.75rem;
+  padding: 1.25rem 1.375rem;
+}
+
+.orbit-memory-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  margin-bottom: 0.125rem;
+}
+
+.orbit-memory-card-author {
+  color: var(--color-text-muted);
+  font-weight: 500;
 }
 
 .orbit-memory-card-title {
-  font-size: var(--type-sm);
-  line-height: 1.35;
+  font-family: var(--font-display, var(--font-body));
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--color-text-primary);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.orbit-memory-card-snippet {
+  font-family: var(--font-display, var(--font-body));
+  font-style: italic;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+  margin: 0.25rem 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.orbit-memory-card-date {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: auto;
+  padding-top: 0.5rem;
 }
 
 /* ──────────────────────────────────────────────────────────

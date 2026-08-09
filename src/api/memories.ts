@@ -8,7 +8,6 @@ import {
   getMemorySummary,
   layoutTimeline,
   listMemoryNodes,
-  listThemeAlbums,
   notifyMilestonesViaFeishu,
   syncMilestoneUnlocks,
 } from "../services/love-memories.js";
@@ -158,17 +157,6 @@ export function createMemoriesRoutes(
     } catch (err) {
       log.error("timeline failed", err);
       return c.json({ error: "读取星图失败" }, 500);
-    }
-  });
-
-  memories.get("/themes", async (c) => {
-    const db = await getDb(c);
-    try {
-      const albums = await listThemeAlbums(db);
-      return c.json({ albums });
-    } catch (err) {
-      log.error("themes failed", err);
-      return c.json({ error: "读取主题分册失败" }, 500);
     }
   });
 

@@ -16,9 +16,6 @@ const HomePage = lazy(() =>
 const MemoriesPage = lazy(() =>
   import("./pages/Memories").then((m) => ({ default: m.MemoriesPage }))
 );
-const MemoryAtlasPage = lazy(() =>
-  import("./pages/Memories").then((m) => ({ default: m.MemoryAtlasPage }))
-);
 const ActivityPage = lazy(() =>
   import("./pages/Activity").then((m) => ({ default: m.ActivityPage }))
 );
@@ -56,7 +53,6 @@ export default function App() {
         >
           <Route index element={<HomePage />} />
           <Route path="/memories" element={<MemoriesPage />} />
-          <Route path="/memories/atlas" element={<MemoryAtlasPage />} />
           <Route path="/activity" element={<ActivityPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/gallery" element={<GalleryPage />} />
