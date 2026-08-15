@@ -62,7 +62,7 @@ export interface SearchResult {
 }
 
 export type CommentKind = "bottom" | "inline";
-export type CommentTargetType = "entry" | "memo";
+export type CommentTargetType = "entry";
 
 export interface CommentItem {
   id: string;

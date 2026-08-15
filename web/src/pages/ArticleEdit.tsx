@@ -61,7 +61,7 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
   } = useQuery({
     queryKey: ["entry-edit", id ?? ""],
     queryFn: async () => {
-      const targetType = type === "memo" ? ("memo" as const) : ("entry" as const);
+      const targetType = "entry" as const;
       const [entry, commentGroups] = await Promise.all([
         fetchEntry(id!),
         fetchComments(targetType, id!).catch(() => ({ bottom: [], inline: [] })),
@@ -347,7 +347,7 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["entries"] }),
           queryClient.invalidateQueries({
-            queryKey: queryKeys.comments(isMemo ? "memo" : "entry", id!),
+            queryKey: queryKeys.comments("entry", id!),
           }),
           queryClient.invalidateQueries({ queryKey: ["gallery"] }),
           queryClient.invalidateQueries({ queryKey: queryKeys.memorySummary }),

@@ -51,9 +51,8 @@
 表定义：`src/db/schema.ts`
 
 ```
-entry      — 日记、时间线、留言、信件（软删除）
+entry      — 日记、时间线、留言、信件、备忘录（软删除）
 asset      — 图片 / 文件（关联 entry）
-memo       — 备忘录（长期维护文档）
 comment    — 底部评论 + 行内边注
 settings   — 全局配置（纪念日、主题色 accent 等）；空间档案 `GET/PUT /api/space`，偏好 `GET/PUT /api/settings`
 audit_log  — 操作审计（创建 / 编辑 / 删除 / 评论 / 空间与设置变更 / API Token）；`GET /api/audit`
@@ -69,15 +68,17 @@ user / session / account / verification  — better-auth 标准表
 
 | 字段 | 说明 |
 |------|------|
-| `type` | `diary` \| `timeline` \| `message` \| `letter` |
+| `type` | `diary` \| `timeline` \| `message` \| `letter` \| `memo` |
 | `userId` | **作者身份**（`user.id`）；权限与通知关联以此为准 |
 | `author` | 冗余爱称（写入时同步 `user.name`）；FTS / 兼容用；**展示**由 `userId` → `user.name` resolve，见 [009-space-onboarding.md](./features/009-space-onboarding.md) |
-| `modifiedByUserId` | 最后编辑者身份（**待 migration 补列**） |
+| `modifiedByUserId` | 最后编辑者身份 |
 | `modifiedBy` | 冗余爱称；展示由 `modifiedByUserId` → `user.name` resolve |
-| `body` | TipTap 输出的 HTML |
+| `title` | 标题 |
+| `body` | TipTap 输出的 HTML / Markdown |
 | `bodyText` | 纯文本，供 FTS 索引 |
 | `entryDate` | 记录日期（Unix 时间戳） |
 | `parentId` | 信件回信链 / 留言回复链 |
+| `status` | `draft` \| `published` |
 | `createdAt` / `updatedAt` / `deletedAt` | 时间戳 |
 
 ### asset
@@ -97,7 +98,7 @@ user / session / account / verification  — better-auth 标准表
 | 字段 | 说明 |
 |------|------|
 | `action` | `article.create` \| `article.update` \| `article.delete` \| `comment.*` \| `space.update` \| `settings.update` |
-| `resourceType` | `entry` \| `memo` \| `comment` \| `space` \| `settings` |
+| `resourceType` | `entry` \| `comment` \| `space` \| `settings` |
 | `resourceId` | 目标 ID（空间 / 设置固定为 `space` / `settings`） |
 | `metadata` | JSON 扩展字段（如 `contentType`、`bodyLength`） |
 | `requestId` | 关联 HTTP 请求短 ID |
@@ -115,15 +116,6 @@ user / session / account / verification  — better-auth 标准表
 | `lastUsedAt` / `revokedAt` | 最近使用 / 撤销时间 |
 
 管理：`GET/POST/DELETE /api/api-tokens`（仅 Cookie 会话）。内容 API 支持 `Authorization: Bearer orb_…`（设置、账户、审计、Token 管理仍须会话）。
-
-### memo
-
-| 字段 | 说明 |
-|------|------|
-| `userId` | 创建者身份（**待 migration 补列**） |
-| `author` | 冗余爱称 |
-| `modifiedByUserId` | 最后编辑者身份（**待 migration 补列**） |
-| `modifiedBy` | 冗余爱称 |
 
 ### comment
 

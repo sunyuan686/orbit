@@ -86,65 +86,28 @@ export function createSearchService(db: SearchDb) {
     const limit = options.limit ?? 20;
     const offset = options.offset ?? 0;
     const typeFilter = options.type && options.type !== "all" ? options.type : null;
+    const entryTypeClause = typeFilter ? sql`AND entry.type = ${typeFilter}` : sql``;
 
-    const entryTypeClause =
-      typeFilter && typeFilter !== "memo" ? sql`AND entry.type = ${typeFilter}` : sql``;
-    const includeEntry = !typeFilter || typeFilter !== "memo";
-    const includeMemo = !typeFilter || typeFilter === "memo";
+    const querySql = sql`
+      SELECT
+        entry.id,
+        entry.type,
+        entry.title,
+        entry.author,
+        entry.entry_date,
+        entry.body_text,
+        entry_fts.rank AS rank,
+        snippet(entry_fts, 1, char(2), char(3), '...', 32) AS snippet
+      FROM entry_fts
+      JOIN entry ON entry.rowid = entry_fts.rowid
+      WHERE entry_fts MATCH ${ftsQuery}
+        AND entry.deleted_at IS NULL
+        ${entryTypeClause}
+      ORDER BY rank
+      LIMIT ${limit} OFFSET ${offset}
+    `;
 
-    const parts: ReturnType<typeof sql>[] = [];
-
-    if (includeEntry) {
-      parts.push(sql`
-        SELECT
-          entry.id,
-          entry.type,
-          entry.title,
-          entry.author,
-          entry.entry_date,
-          entry.body_text,
-          entry_fts.rank AS rank,
-          snippet(entry_fts, 1, char(2), char(3), '...', 32) AS snippet
-        FROM entry_fts
-        JOIN entry ON entry.rowid = entry_fts.rowid
-        WHERE entry_fts MATCH ${ftsQuery}
-          AND entry.deleted_at IS NULL
-          ${entryTypeClause}
-      `);
-    }
-
-    if (includeMemo) {
-      parts.push(sql`
-        SELECT
-          memo.id,
-          'memo' AS type,
-          memo.title,
-          memo.author,
-          memo.updated_at AS entry_date,
-          memo.body AS body_text,
-          memo_fts.rank AS rank,
-          snippet(memo_fts, 1, char(2), char(3), '...', 32) AS snippet
-        FROM memo_fts
-        JOIN memo ON memo.rowid = memo_fts.rowid
-        WHERE memo_fts MATCH ${ftsQuery}
-          AND memo.deleted_at IS NULL
-      `);
-    }
-
-    if (parts.length === 0) return [];
-
-    const unionQuery =
-      parts.length === 1
-        ? sql`${parts[0]} ORDER BY rank LIMIT ${limit} OFFSET ${offset}`
-        : sql`
-            SELECT * FROM (
-              ${sql.join(parts, sql` UNION ALL `)}
-            )
-            ORDER BY rank
-            LIMIT ${limit} OFFSET ${offset}
-          `;
-
-    const rows = await runAll<RawSearchRow>(db, unionQuery);
+    const rows = await runAll<RawSearchRow>(db, querySql);
     return withSnippetFallback(rows.map((row) => mapRow(row, query)), query);
   }
 
@@ -153,70 +116,31 @@ export function createSearchService(db: SearchDb) {
     const offset = options.offset ?? 0;
     const like = `%${query}%`;
     const typeFilter = options.type && options.type !== "all" ? options.type : null;
-    const includeEntry = !typeFilter || typeFilter !== "memo";
-    const includeMemo = !typeFilter || typeFilter === "memo";
+    const entryTypeClause = typeFilter ? sql`AND entry.type = ${typeFilter}` : sql``;
 
-    const parts: ReturnType<typeof sql>[] = [];
+    const querySql = sql`
+      SELECT
+        entry.id,
+        entry.type,
+        entry.title,
+        entry.author,
+        entry.entry_date,
+        entry.body_text,
+        0 AS rank,
+        NULL AS snippet
+      FROM entry
+      WHERE entry.deleted_at IS NULL
+        ${entryTypeClause}
+        AND (
+          entry.title LIKE ${like}
+          OR entry.body_text LIKE ${like}
+          OR entry.author LIKE ${like}
+        )
+      ORDER BY entry_date DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
 
-    if (includeEntry) {
-      const entryTypeClause =
-        typeFilter && typeFilter !== "memo" ? sql`AND entry.type = ${typeFilter}` : sql``;
-      parts.push(sql`
-        SELECT
-          entry.id,
-          entry.type,
-          entry.title,
-          entry.author,
-          entry.entry_date,
-          entry.body_text,
-          0 AS rank,
-          NULL AS snippet
-        FROM entry
-        WHERE entry.deleted_at IS NULL
-          ${entryTypeClause}
-          AND (
-            entry.title LIKE ${like}
-            OR entry.body_text LIKE ${like}
-            OR entry.author LIKE ${like}
-          )
-      `);
-    }
-
-    if (includeMemo) {
-      parts.push(sql`
-        SELECT
-          memo.id,
-          'memo' AS type,
-          memo.title,
-          memo.author,
-          memo.updated_at AS entry_date,
-          memo.body AS body_text,
-          0 AS rank,
-          NULL AS snippet
-        FROM memo
-        WHERE memo.deleted_at IS NULL
-          AND (
-            memo.title LIKE ${like}
-            OR memo.body LIKE ${like}
-            OR memo.author LIKE ${like}
-          )
-      `);
-    }
-
-    if (parts.length === 0) return [];
-
-    const unionQuery =
-      parts.length === 1
-        ? sql`${parts[0]} ORDER BY entry_date DESC LIMIT ${limit} OFFSET ${offset}`
-        : sql`
-            SELECT * FROM (
-              ${sql.join(parts, sql` UNION ALL `)}
-            )
-            ORDER BY entry_date DESC
-            LIMIT ${limit} OFFSET ${offset}
-          `;
-
-    const rows = await runAll<RawSearchRow>(db, unionQuery);
+    const rows = await runAll<RawSearchRow>(db, querySql);
     return withSnippetFallback(rows.map((row) => mapRow(row, query)), query);
   }
 
@@ -246,7 +170,6 @@ export interface SearchIndexStatus {
   /** 索引条数与源表一致（可搜索） */
   inSync: boolean;
   entry: { active: number; indexed: number; missingBodyText: number };
-  memo: { active: number; indexed: number };
   /** 同步维护，无后台任务；true 表示当前即可搜索 */
   indexingComplete: boolean;
 }
@@ -264,18 +187,16 @@ async function countRows(db: SearchDb, query: ReturnType<typeof sql>): Promise<n
 export async function getSearchIndexStatus(db: SearchDb): Promise<SearchIndexStatus> {
   let ftsReady = false;
   let entryIndexed = 0;
-  let memoIndexed = 0;
 
   try {
     const ftsTables = await runAll<{ name: string }>(
       db,
-      sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('entry_fts', 'memo_fts')`
+      sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'entry_fts'`
     );
-    ftsReady = ftsTables.length === 2;
+    ftsReady = ftsTables.length === 1;
 
     if (ftsReady) {
       entryIndexed = await countRows(db, sql`SELECT COUNT(*) AS count FROM entry_fts`);
-      memoIndexed = await countRows(db, sql`SELECT COUNT(*) AS count FROM memo_fts`);
     }
   } catch {
     ftsReady = false;
@@ -295,19 +216,13 @@ export async function getSearchIndexStatus(db: SearchDb): Promise<SearchIndexSta
         AND (body_text IS NULL OR body_text = '')
     `
   );
-  const memoActive = await countRows(
-    db,
-    sql`SELECT COUNT(*) AS count FROM memo WHERE deleted_at IS NULL`
-  );
-  const memoTotal = await countRows(db, sql`SELECT COUNT(*) AS count FROM memo`);
 
-  const inSync = ftsReady && entryIndexed === entryTotal && memoIndexed === memoTotal;
+  const inSync = ftsReady && entryIndexed === entryTotal;
 
   return {
     ftsReady,
     inSync,
     entry: { active: entryActive, indexed: entryIndexed, missingBodyText: entryMissingBodyText },
-    memo: { active: memoActive, indexed: memoIndexed },
     indexingComplete: ftsReady && inSync,
   };
 }

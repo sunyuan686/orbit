@@ -17,7 +17,6 @@ export type AuditActionValue = (typeof AuditAction)[keyof typeof AuditAction];
 
 export const AuditResourceType = {
   ENTRY: "entry",
-  MEMO: "memo",
   COMMENT: "comment",
   SPACE: "space",
   SETTINGS: "settings",

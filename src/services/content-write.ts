@@ -6,7 +6,7 @@ import {
   authorWriteFields,
   editorWriteFields,
 } from "../lib/article-present.js";
-import { entry, memo } from "../db/schema.js";
+import { entry } from "../db/schema.js";
 import {
   AuditAction,
   AuditResourceType,
@@ -37,8 +37,6 @@ export interface CreateContentInput {
   body: string;
   entryDate?: number;
   parentId?: string | null;
-  /** Memo unique key; defaults to title or generated key. */
-  key?: string;
 }
 
 export interface UpdateContentInput {
@@ -105,40 +103,6 @@ export async function createContent(
   }
 
   const source = options.source ?? "ai";
-
-  if (input.type === "memo") {
-    const key = input.key?.trim() || input.title?.trim() || `memo-${Date.now()}`;
-    const id = generateId("mem");
-    const bodyValue = input.body;
-    const title = input.title?.trim() || key;
-
-    await db.insert(memo).values({
-      id,
-      key,
-      title,
-      body: bodyValue,
-      ...authorWriteFields(actor),
-      updatedAt: now(),
-    });
-    await syncAssetReferences(db, "memo", id, bodyValue);
-    await auditContentWrite(
-      db,
-      actor,
-      AuditAction.ARTICLE_CREATE,
-      AuditResourceType.MEMO,
-      id,
-      {
-        contentType: input.type,
-        titleLength: title.length,
-        bodyLength: bodyValue.length,
-        source,
-      },
-      options.requestId
-    );
-
-    return { ok: true, action: "create", id, type: input.type, title };
-  }
-
   const id = generateId("ent");
   const bodyValue = input.body;
   const title = input.title?.trim() || null;
@@ -209,54 +173,6 @@ export async function updateContent(
   const source = options.source ?? "ai";
   const spaceUserIds = await getSpaceUserIds(db);
 
-  const memoRow = await db
-    .select({ id: memo.id, userId: memo.userId, title: memo.title })
-    .from(memo)
-    .where(and(eq(memo.id, input.id), isNull(memo.deletedAt)))
-    .get();
-
-  if (memoRow) {
-    if (!canEditContent("memo", memoRow.userId, actor.userId, spaceUserIds)) {
-      return { ok: false, action: "update", id: input.id, error: "无权编辑此内容" };
-    }
-
-    await db
-      .update(memo)
-      .set({
-        title: input.title ?? undefined,
-        body: input.body ?? undefined,
-        ...editorWriteFields(actor),
-        updatedAt: now(),
-      })
-      .where(eq(memo.id, input.id));
-
-    if (input.body !== undefined) {
-      await syncAssetReferences(db, "memo", input.id, input.body);
-    }
-
-    await auditContentWrite(
-      db,
-      actor,
-      AuditAction.ARTICLE_UPDATE,
-      AuditResourceType.MEMO,
-      input.id,
-      {
-        titleLength: input.title?.length ?? null,
-        bodyLength: input.body?.length ?? null,
-        source,
-      },
-      options.requestId
-    );
-
-    return {
-      ok: true,
-      action: "update",
-      id: input.id,
-      type: "memo",
-      title: input.title ?? memoRow.title,
-    };
-  }
-
   const existing = await db
     .select({ type: entry.type, userId: entry.userId, title: entry.title })
     .from(entry)
@@ -272,7 +188,7 @@ export async function updateContent(
   }
 
   const entryUpdates: Record<string, unknown> = {
-    title: input.title ?? undefined,
+    title: input.title !== undefined ? (input.title?.trim() || null) : undefined,
     entryDate: input.entryDate ?? undefined,
     ...editorWriteFields(actor),
     updatedAt: now(),
@@ -319,31 +235,6 @@ export async function deleteContent(
   options: ContentWriteOptions = {}
 ): Promise<ContentWriteResult> {
   const source = options.source ?? "ai";
-
-  const memoRow = await db
-    .select({ id: memo.id, userId: memo.userId, title: memo.title })
-    .from(memo)
-    .where(and(eq(memo.id, id), isNull(memo.deletedAt)))
-    .get();
-
-  if (memoRow) {
-    if (!canDeleteContent(memoRow.userId, actor.userId)) {
-      return { ok: false, action: "delete", id, error: "只能删除自己创建的内容" };
-    }
-
-    await db.update(memo).set({ deletedAt: now() }).where(eq(memo.id, id));
-    await auditContentWrite(
-      db,
-      actor,
-      AuditAction.ARTICLE_DELETE,
-      AuditResourceType.MEMO,
-      id,
-      { source },
-      options.requestId
-    );
-
-    return { ok: true, action: "delete", id, type: "memo", title: memoRow.title };
-  }
 
   const entryRow = await db
     .select({
@@ -436,7 +327,6 @@ export async function executeWriteContentInput(
         body: input.body,
         entryDate: resolvedDate.entryDate,
         parentId: input.parentId,
-        key: input.key,
       },
       options
     );

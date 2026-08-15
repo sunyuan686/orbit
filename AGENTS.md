@@ -53,15 +53,13 @@
 命名与规则：目录复数小写；内容文件 `NNN-slug.md`（序号顺延）；
 写文档按同目录 `xxx-template.md` 结构，不适用的节删除。
 
----
-
-## 施工计划规范
+### 施工计划规范
 文档内容保持简洁，只保留最少的关键核心内容。对应目录下的xxx-template.md仅供参考。及时更新文档的状态
 - 跨多步骤的任务先按模板立计划（`docs/plans/NNN-xxx.md`），完成标准必须可验证。
 - feature功能需要按照（`docs/features/NNN-xxx.md`），记录功能文档。
 - bug修复需要按照（`docs/bugs/NNN-xxx.md`）,记录问题修复文档。
 ---
 
-## 业务规范
+## 业务说明
 ### 数据库 Schema 变更规范
 当修改 `src/db/schema.ts` 的表结构时，**严禁写业务层 `try...catch` 兜底补丁**，必须遵循标准 Drizzle Migration 流程。具体操作步骤详见 [docs/guides/db-migration.md](docs/guides/db-migration.md)。

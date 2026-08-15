@@ -94,7 +94,7 @@ export const spaceInvite = sqliteTable(
 
 /**
  * 核心内容表
- * type: diary（日记事件）| timeline（里程碑）| message（留言板）| letter（信件）
+ * type: diary（日记事件）| timeline（里程碑）| message（留言板）| letter（信件）| memo（备忘录）
  * parentId: letter 用于关联同轮回信（一封可有多条回信）；message 用于链式回复
  * status: draft（草稿，仅作者可见）| published（已发布）
  */
@@ -168,7 +168,7 @@ export const asset = sqliteTable(
 
 /**
  * 内容正文对图片的引用关系（相册 linked/orphan 与删除保护的事实源）
- * sourceType: entry.type（diary/timeline/...）或 memo
+ * sourceType: entry.type（diary/timeline/memo/...）
  */
 export const assetReference = sqliteTable(
   "asset_reference",
@@ -184,31 +184,9 @@ export const assetReference = sqliteTable(
 );
 
 /**
- * 备忘录表（长期维护的活文档，如恋爱原则等）
- * 通过 key 直接访问，不按日期列表
- */
-export const memo = sqliteTable("memo", {
-  id: text("id").primaryKey(),
-  key: text("key").notNull().unique(),
-  title: text("title").notNull(),
-  body: text("body"),
-  userId: text("user_id").references(() => user.id),
-  author: text("author").notNull().default(""),
-  modifiedByUserId: text("modified_by_user_id").references(() => user.id),
-  modifiedBy: text("modified_by").notNull().default(""),
-  createdAt: integer("created_at")
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer("updated_at")
-    .notNull()
-    .default(sql`(unixepoch())`),
-  deletedAt: integer("deleted_at"),
-});
-
-/**
  * 评论表
  * kind: bottom（底部评论）| inline（选中评论 / 文本边注）
- * targetType: entry | memo；targetId 对应 entry.id 或 memo.id
+ * targetType: entry；targetId 对应 entry.id
  */
 export const comment = sqliteTable(
   "comment",
@@ -239,7 +217,7 @@ export const comment = sqliteTable(
     deletedAt: integer("deleted_at"),
   },
   (t) => [
-    check("comment_target_type_check", sql`${t.targetType} IN ('entry', 'memo')`),
+    check("comment_target_type_check", sql`${t.targetType} IN ('entry')`),
     check("comment_kind_check", sql`${t.kind} IN ('bottom', 'inline')`),
     index("idx_comment_target").on(t.targetType, t.targetId, t.kind),
     index("idx_comment_parent").on(t.parentId),

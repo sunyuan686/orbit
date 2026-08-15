@@ -29,7 +29,6 @@ export interface WriteContentToolInput {
   body?: string;
   date?: string;
   parentId?: string;
-  key?: string;
 }
 
 const APPROVAL_BODY_PREVIEW_MAX = 1200;
@@ -380,7 +379,6 @@ export function formatWriteContentApprovalSummary(
 
   if (input.id) lines.push(`条目 ID：\`${input.id}\``);
   if (title) lines.push(`标题：${title}`);
-  if (input.key?.trim()) lines.push(`备忘录 Key：\`${input.key.trim()}\``);
   if (entryDate) lines.push(`日期：${entryDate}`);
   if (input.parentId?.trim()) {
     lines.push(`关联条目：\`${input.parentId.trim()}\``);

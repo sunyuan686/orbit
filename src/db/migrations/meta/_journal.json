@@ -162,6 +162,13 @@
       "when": 1785800000000,
       "tag": "0022_asset_duration_transcript",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1786000000000,
+      "tag": "0023_merge_memo_into_entry",
+      "breakpoints": true
     }
   ]
 }

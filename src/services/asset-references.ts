@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { assetReference, entry, memo } from "../db/schema.js";
+import { assetReference, entry } from "../db/schema.js";
 import { extractStorageKeysFromBody } from "../lib/gallery-keys.js";
 import { readSettingsMap, upsertSetting } from "../db/settings-store.js";
 
@@ -72,13 +72,6 @@ async function backfillAssetReferences(db: any): Promise<void> {
     })
     .from(entry)) as Array<{ id: string; type: string; body: string | null }>;
 
-  const memos = (await db
-    .select({
-      id: memo.id,
-      body: memo.body,
-    })
-    .from(memo)) as Array<{ id: string; body: string | null }>;
-
   await db.delete(assetReference);
 
   const rows: Array<{
@@ -96,19 +89,6 @@ async function backfillAssetReferences(db: any): Promise<void> {
       rows.push({
         storageKey,
         sourceType: row.type,
-        sourceId: row.id,
-      });
-    }
-  }
-
-  for (const row of memos) {
-    for (const storageKey of extractStorageKeysFromBody(row.body)) {
-      const dedupe = `${storageKey}\0memo\0${row.id}`;
-      if (seen.has(dedupe)) continue;
-      seen.add(dedupe);
-      rows.push({
-        storageKey,
-        sourceType: "memo",
         sourceId: row.id,
       });
     }

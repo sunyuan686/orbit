@@ -10,9 +10,8 @@ import {
   authorWriteFields,
   editorWriteFields,
   presentEntryDetail,
-  presentMemoDetail,
 } from "../lib/article-present.js";
-import { entry, memo, comment } from "../db/schema.js";
+import { entry, comment } from "../db/schema.js";
 import { loadCoversForEntries } from "../lib/entry-covers.js";
 import {
   snippetFromBody,
@@ -204,71 +203,6 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       return c.json(items);
     }
 
-    if (type === "memo") {
-      const where = isNull(memo.deletedAt);
-      const baseQuery = db
-        .select({
-          id: memo.id,
-          key: memo.key,
-          title: memo.title,
-          author: memo.author,
-          userId: memo.userId,
-          entryDate: memo.updatedAt,
-          bodyPreview: sql<string>`substr(coalesce(${memo.body}, ''), 1, 500)`,
-        })
-        .from(memo)
-        .where(where)
-        .orderBy(desc(memo.updatedAt));
-
-      const listQuery = page.paginate
-        ? baseQuery.limit(page.limit).offset(page.offset)
-        : baseQuery;
-      const countQuery = page.paginate
-        ? db.select({ count: sql<number>`count(*)` }).from(memo).where(where).get()
-        : null;
-
-      const [memos, countRow] = await Promise.all([
-        listQuery,
-        countQuery ?? Promise.resolve(null),
-      ]);
-      const nameMap = await loadUserNameMap(db, memos.map((m: { userId: string | null }) => m.userId));
-      const items = memos.map(
-        (m: {
-          id: string;
-          key: string;
-          title: string;
-          author: string;
-          userId: string | null;
-          entryDate: number;
-          bodyPreview: string | null;
-        }) => {
-          const authorName = resolveUserName(nameMap, m.userId, m.author);
-          return {
-            id: m.id,
-            type: "memo",
-            key: m.key,
-            title: m.title?.trim() || null,
-            userId: m.userId,
-            author: authorName,
-            authorName,
-            entryDate: m.entryDate,
-            parentId: null as string | null,
-            snippet: snippetFromBody(m.bodyPreview),
-            coverUrl: null as string | null,
-          };
-        }
-      );
-
-      if (!page.paginate) return c.json(items);
-
-      return c.json({
-        items,
-        total: Number(countRow?.count ?? 0),
-        limit: page.limit,
-        offset: page.offset,
-      });
-    }
-
     // 默认只返回 published
     const conditions = [isNull(entry.deletedAt), eq(entry.status, "published")];
     if (type && type !== "all") {
@@ -278,6 +212,11 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       conditions.push(isNull(entry.parentId));
     }
     const where = and(...conditions);
+
+    const orderClause =
+      type === "memo"
+        ? [desc(entry.updatedAt), desc(entry.createdAt)]
+        : [desc(entry.entryDate), desc(entry.createdAt)];
 
     const baseQuery = db
       .select({
@@ -293,7 +232,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       })
       .from(entry)
       .where(where)
-      .orderBy(desc(entry.entryDate), desc(entry.createdAt));
+      .orderBy(...orderClause);
 
     const listQuery = page.paginate
       ? baseQuery.limit(page.limit).offset(page.offset)
@@ -357,12 +296,6 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const db = await getDb(c);
     const id = c.req.param("id");
 
-    const memoRow = await db.select().from(memo).where(and(eq(memo.id, id), isNull(memo.deletedAt))).get();
-
-    if (memoRow) {
-      return c.json(await presentMemoDetail(db, memoRow));
-    }
-
     const row = await db
       .select()
       .from(entry)
@@ -393,28 +326,6 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const effectiveStatus: "draft" | "published" =
       status === "draft" ? "draft" : "published";
 
-    if (type === "memo") {
-      if (isEmptyBody(body)) return bodyRequiredResponse(c);
-      const key = title?.trim() || `memo-${Date.now()}`;
-      const id = generateId("mem");
-      const bodyValue = body ?? "";
-      await db.insert(memo).values({
-        id,
-        key,
-        title: title?.trim() || "",
-        body: bodyValue,
-        ...authorWriteFields(sessionAuthor),
-        updatedAt: now(),
-      });
-      await syncAssetReferences(db, "memo", id, bodyValue);
-      await auditArticleWrite(c, db, sessionAuthor, AuditAction.ARTICLE_CREATE, AuditResourceType.MEMO, id, {
-        contentType: type,
-        titleLength: title?.length ?? 0,
-        bodyLength: bodyValue.length,
-      });
-      return c.json({ id });
-    }
-
     // 草稿允许空 body（先占位），published 必须有内容
     if (effectiveStatus === "published" && isEmptyBody(body)) {
       return bodyRequiredResponse(c);
@@ -425,7 +336,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     await db.insert(entry).values({
       id,
       type,
-      title: title ?? null,
+      title: title?.trim() || null,
       body: bodyValue,
       bodyText: bodyValue ? toPlainText(bodyValue) : "",
       entryDate: entryDate ?? now(),
@@ -493,35 +404,6 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
 
     const spaceUserIds = await getSpaceUserIds(db);
 
-    const memoRow = await db
-      .select({ id: memo.id, userId: memo.userId })
-      .from(memo)
-      .where(and(eq(memo.id, id), isNull(memo.deletedAt)))
-      .get();
-    if (memoRow) {
-      if (!canEditContent("memo", memoRow.userId, sessionAuthor.userId, spaceUserIds)) {
-        return c.json({ error: "无权编辑此内容" }, 403);
-      }
-      await db
-        .update(memo)
-        .set({
-          title: title ?? undefined,
-          body: body ?? undefined,
-          ...editorWriteFields(sessionAuthor),
-          updatedAt: now(),
-        })
-        .where(eq(memo.id, id));
-      if (body !== undefined) {
-        await syncAssetReferences(db, "memo", id, body);
-      }
-      await auditArticleWrite(c, db, sessionAuthor, AuditAction.ARTICLE_UPDATE, AuditResourceType.MEMO, id, {
-        titleLength: title?.length ?? null,
-        bodyLength: body?.length ?? null,
-      });
-      const updatedMemo = await db.select().from(memo).where(eq(memo.id, id)).get();
-      return c.json(await presentMemoDetail(db, updatedMemo!));
-    }
-
     const existing = await db
       .select({ type: entry.type, userId: entry.userId })
       .from(entry)
@@ -537,7 +419,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     }
 
     const entryUpdates: Record<string, unknown> = {
-      title: title ?? undefined,
+      title: title !== undefined ? (title?.trim() || null) : undefined,
       entryDate: entryDate ?? undefined,
       ...editorWriteFields(sessionAuthor),
       updatedAt: now(),
@@ -625,21 +507,6 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const sessionAuthor = sessionResult as SessionAuthor;
 
     const id = c.req.param("id");
-
-    const memoRow = await db
-      .select({ id: memo.id, userId: memo.userId })
-      .from(memo)
-      .where(and(eq(memo.id, id), isNull(memo.deletedAt)))
-      .get();
-
-    if (memoRow) {
-      if (!canDeleteContent(memoRow.userId, sessionAuthor.userId)) {
-        return c.json({ error: "只能删除自己创建的内容" }, 403);
-      }
-      await db.update(memo).set({ deletedAt: now() }).where(eq(memo.id, id));
-      await auditArticleWrite(c, db, sessionAuthor, AuditAction.ARTICLE_DELETE, AuditResourceType.MEMO, id, {});
-      return c.json({ ok: true });
-    }
 
     const entryRow = await db
       .select({ id: entry.id, type: entry.type, userId: entry.userId, parentId: entry.parentId })

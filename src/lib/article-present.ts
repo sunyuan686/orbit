@@ -70,45 +70,6 @@ export async function presentEntryDetail(
   };
 }
 
-export async function presentMemoDetail(
-  db: any,
-  row: {
-    id: string;
-    key?: string;
-    title: string;
-    author: string;
-    userId: string | null;
-    modifiedBy: string;
-    modifiedByUserId: string | null;
-    body: string | null;
-    createdAt: number;
-    updatedAt: number;
-  }
-) {
-  const map = await loadUserNameMap(db, [row.userId, row.modifiedByUserId]);
-  const authorName = resolveUserName(map, row.userId, row.author);
-  const modifiedByName = resolveUserName(
-    map,
-    row.modifiedByUserId,
-    row.modifiedBy || row.author
-  );
-  return {
-    id: row.id,
-    type: "memo" as const,
-    key: row.key,
-    title: row.title?.trim() || null,
-    userId: row.userId,
-    author: authorName,
-    authorName,
-    modifiedByUserId: row.modifiedByUserId,
-    modifiedBy: modifiedByName,
-    modifiedByName,
-    body: row.body ?? "",
-    entryDate: null,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  };
-}
 
 export function authorWriteFields(session: { userId: string; author: string }) {
   return {

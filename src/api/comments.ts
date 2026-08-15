@@ -3,7 +3,7 @@ import type { Context } from "hono";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { INVALID_SESSION_ERROR } from "./session-author.js";
 import { canComment, type CommentKind } from "../comment-capabilities.js";
-import { comment, entry, memo } from "../db/schema.js";
+import { comment, entry } from "../db/schema.js";
 import { getRequestId } from "../lib/request-context.js";
 import { generateId } from "../lib/id.js";
 import {
@@ -18,7 +18,7 @@ import {
 } from "../services/notify.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
-type TargetType = "entry" | "memo";
+type TargetType = "entry";
 
 export interface CommentRouteOptions {
   getSessionAuthor?: (c: Context) => Promise<SessionAuthor | null>;
@@ -78,16 +78,7 @@ function mapComment(row: {
   };
 }
 
-async function resolveContentType(db: any, targetType: TargetType, targetId: string): Promise<string | null> {
-  if (targetType === "memo") {
-    const row = await db
-      .select({ id: memo.id })
-      .from(memo)
-      .where(and(eq(memo.id, targetId), isNull(memo.deletedAt)))
-      .get();
-    return row ? "memo" : null;
-  }
-
+async function resolveContentType(db: any, _targetType: string, targetId: string): Promise<string | null> {
   const row = await db
     .select({ type: entry.type })
     .from(entry)
@@ -97,7 +88,7 @@ async function resolveContentType(db: any, targetType: TargetType, targetId: str
 }
 
 function normalizeTargetType(value: string | undefined | null): TargetType | null {
-  if (value === "entry" || value === "memo") return value;
+  if (value === "entry" || value === "memo") return "entry";
   return null;
 }
 

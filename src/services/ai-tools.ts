@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { entry, memo } from "../db/schema.js";
+import { entry } from "../db/schema.js";
 import { toPlainText } from "../lib/plain-text.js";
 import { createSearchService } from "./search.js";
 import { createLogger } from "../lib/logger.js";
@@ -143,35 +143,6 @@ export function createAiTools(
         id: z.string().min(1),
       }),
       execute: async ({ id }) => {
-        const memoRow = await db
-          .select({
-            id: memo.id,
-            title: memo.title,
-            key: memo.key,
-            author: memo.author,
-            body: memo.body,
-            updatedAt: memo.updatedAt,
-            deletedAt: memo.deletedAt,
-          })
-          .from(memo)
-          .where(eq(memo.id, id))
-          .get();
-
-        if (memoRow && !memoRow.deletedAt) {
-          const rawBody = memoRow.body ?? "";
-          const bodyText = headTailTruncate(rawBody ? toPlainText(rawBody) : rawBody);
-          return {
-            id: memoRow.id,
-            title: memoRow.title,
-            type: "memo",
-            key: memoRow.key,
-            author: memoRow.author,
-            entryDate: memoRow.updatedAt,
-            bodyText,
-            truncated: (rawBody ? toPlainText(rawBody) : rawBody).length > MAX_TOOL_CHARS,
-          };
-        }
-
         const row = await db
           .select({
             id: entry.id,
@@ -213,21 +184,19 @@ export function createAiTools(
       execute: async ({ limit }) => {
         const rows = await db
           .select({
-            id: memo.id,
-            key: memo.key,
-            title: memo.title,
-            updatedAt: memo.updatedAt,
+            id: entry.id,
+            title: entry.title,
+            updatedAt: entry.updatedAt,
           })
-          .from(memo)
-          .where(isNull(memo.deletedAt))
-          .orderBy(desc(memo.updatedAt))
+          .from(entry)
+          .where(and(eq(entry.type, "memo"), isNull(entry.deletedAt)))
+          .orderBy(desc(entry.updatedAt))
           .limit(limit ?? 20);
 
         return rows.map(
-          (row: { id: string; key: string; title: string; updatedAt: number }) => ({
+          (row: { id: string; title: string | null; updatedAt: number }) => ({
             id: row.id,
-            key: row.key,
-            title: row.title,
+            title: row.title ?? "无标题备忘录",
             updatedAt: row.updatedAt,
           })
         );
@@ -255,7 +224,6 @@ export function createAiTools(
           .string()
           .optional()
           .describe("父条目 ID；用于信件回信或留言回复"),
-        key: z.string().optional().describe("备忘录唯一 key；仅 memo 创建时可选"),
       }),
       execute: async (input) => {
         if (!actor) {

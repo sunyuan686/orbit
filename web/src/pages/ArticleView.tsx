@@ -54,7 +54,7 @@ export function ArticleView() {
   const [activeInlineCommentId, setActiveInlineCommentId] = useState<string | null>(null);
   const [marginaliaOpen, setMarginaliaOpen] = useState(false);
 
-  const targetType = type === "memo" ? "memo" : "entry";
+  const targetType = "entry";
 
   const entryQuery = useQuery({
     queryKey: queryKeys.entry(id!),

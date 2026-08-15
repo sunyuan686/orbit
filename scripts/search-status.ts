@@ -25,7 +25,6 @@ console.log(`索引就绪：${status.indexingComplete ? "✅ 是" : "⚠️  否
 console.log(`条数一致：${status.inSync ? "✅ 是" : "⚠️  否"}`);
 console.log("");
 console.log(`entry  活跃 ${status.entry.active} 条 │ FTS 索引 ${status.entry.indexed} 条`);
-console.log(`memo   活跃 ${status.memo.active} 条 │ FTS 索引 ${status.memo.indexed} 条`);
 
 if (status.entry.missingBodyText > 0) {
   console.log("");
@@ -41,7 +40,6 @@ console.log("迁移里的 rebuild 和服务启动时的 migrate 都是同步完�
 
 if (!status.indexingComplete) {
   console.log("修复建议：");
-  console.log("  sqlite3 data/orbit.db \"INSERT INTO entry_fts(entry_fts) VALUES ('rebuild');\"");
-  console.log("  sqlite3 data/orbit.db \"INSERT INTO memo_fts(memo_fts) VALUES ('rebuild');\"\n");
+  console.log("  sqlite3 data/orbit.db \"INSERT INTO entry_fts(entry_fts) VALUES ('rebuild');\"\n");
   process.exit(1);
 }

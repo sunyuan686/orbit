@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { asset, assetReference, entry, memo } from "../db/schema.js";
+import { asset, assetReference, entry } from "../db/schema.js";
 import {
   isImageStorageKey,
   mimeTypeFromKey,
@@ -98,16 +98,7 @@ async function loadSourcesForKeys(
 
   if (refs.length === 0) return result;
 
-  const entryIds = [
-    ...new Set(
-      refs.filter((r) => r.sourceType !== "memo").map((r) => r.sourceId)
-    ),
-  ];
-  const memoIds = [
-    ...new Set(
-      refs.filter((r) => r.sourceType === "memo").map((r) => r.sourceId)
-    ),
-  ];
+  const entryIds = [...new Set(refs.map((r) => r.sourceId))];
 
   const entryRows = (await selectInChunks(entryIds, (chunk) =>
     db
@@ -128,23 +119,7 @@ async function loadSourcesForKeys(
     deletedAt: number | null;
   }>;
 
-  const memoRows = (await selectInChunks(memoIds, (chunk) =>
-    db
-      .select({
-        id: memo.id,
-        title: memo.title,
-        deletedAt: memo.deletedAt,
-      })
-      .from(memo)
-      .where(inArray(memo.id, chunk))
-  )) as Array<{
-    id: string;
-    title: string;
-    deletedAt: number | null;
-  }>;
-
   const entryById = new Map(entryRows.map((row) => [row.id, row]));
-  const memoById = new Map(memoRows.map((row) => [row.id, row]));
 
   for (const ref of refs) {
     const key = normalizeStorageKey(ref.storageKey);
@@ -152,19 +127,6 @@ async function loadSourcesForKeys(
     if (!sources) {
       sources = [];
       result.set(key, sources);
-    }
-
-    if (ref.sourceType === "memo") {
-      const row = memoById.get(ref.sourceId);
-      if (!row) continue;
-      sources.push({
-        type: "memo",
-        id: row.id,
-        title: row.title,
-        entryDate: null,
-        deleted: row.deletedAt != null,
-      });
-      continue;
     }
 
     const row = entryById.get(ref.sourceId);
