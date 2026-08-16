@@ -26,6 +26,7 @@ const navItems: { to: string; label: string; type: NavContentType }[] = [
 
 const galleryNav = { to: "/gallery", label: "相册" };
 const memoriesNav = { to: "/memories", label: "记忆" };
+const searchNav = { to: "/search", label: "搜索" };
 
 const COLLAPSED_KEY = "orbit-sidebar-collapsed";
 const WIDTH_KEY = "orbit-sidebar-width";
@@ -57,6 +58,7 @@ function LayoutShell() {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiMounted, setAiMounted] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
@@ -124,24 +126,43 @@ function LayoutShell() {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "j") return;
+      if (!(event.metaKey || event.ctrlKey)) return;
       if (event.shiftKey || event.altKey) return;
-      const target = event.target as HTMLElement;
-      if (
-        target.closest('input, textarea, [contenteditable="true"]') &&
-        !target.closest(".orbit-ai-panel")
-      ) {
-        return;
+      const key = event.key.toLowerCase();
+      if (key === "j") {
+        const target = event.target as HTMLElement;
+        if (
+          target.closest('input, textarea, [contenteditable="true"]') &&
+          !target.closest(".orbit-ai-panel")
+        ) {
+          return;
+        }
+        event.preventDefault();
+        setAiOpen((current) => {
+          if (!current) setAiMounted(true);
+          return !current;
+        });
+      } else if (key === "k") {
+        const target = event.target as HTMLElement;
+        if (
+          target.closest('input, textarea, [contenteditable="true"]') &&
+          !target.closest(".orbit-header-search")
+        ) {
+          return;
+        }
+        event.preventDefault();
+        const searchInput = searchInputRef.current;
+        if (searchInput && window.innerWidth >= 640) {
+          searchInput.focus();
+          searchInput.select();
+        } else {
+          navigate("/search");
+        }
       }
-      event.preventDefault();
-      setAiOpen((current) => {
-        if (!current) setAiMounted(true);
-        return !current;
-      });
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [navigate]);
 
   const toggleCollapsed = () => {
     const next = !collapsed;
@@ -275,6 +296,22 @@ function LayoutShell() {
             <HomeIcon size="nav" className="orbit-nav-icon" />
             {!collapsed && <span className="orbit-nav-label">首页</span>}
           </NavLink>
+          <NavLink
+            to={searchNav.to}
+            className={({ isActive }) =>
+              `flex items-center rounded-md transition-colors whitespace-nowrap ${
+                collapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2"
+              } ${
+                isActive || location.pathname === "/search"
+                  ? "orbit-nav-item active"
+                  : "orbit-nav-item"
+              }`
+            }
+            title={collapsed ? searchNav.label : undefined}
+          >
+            <SearchIcon size="nav" className="orbit-nav-icon" />
+            {!collapsed && <span className="orbit-nav-label">{searchNav.label}</span>}
+          </NavLink>
           {navItems.map((item) => {
             const NavIcon = NAV_CONTENT_ICONS[item.type];
             return (
@@ -356,6 +393,7 @@ function LayoutShell() {
             >
               <SearchIcon className="orbit-search-icon" />
               <input
+                ref={searchInputRef}
                 type="search"
                 name="q"
                 defaultValue={location.pathname === "/search" ? new URLSearchParams(location.search).get("q") ?? "" : ""}
@@ -367,6 +405,14 @@ function LayoutShell() {
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
+            <Link
+              to="/search"
+              className="orbit-icon-btn inline-flex sm:hidden p-1.5 cursor-pointer"
+              title="搜索"
+              aria-label="搜索"
+            >
+              <SearchIcon size="md" />
+            </Link>
             <NotificationBell />
             <button
             onClick={() => {
@@ -376,6 +422,7 @@ function LayoutShell() {
             }}
             className="orbit-icon-btn inline-flex p-1.5 cursor-pointer"
             title={theme === "light" ? "浅色模式" : theme === "dark" ? "深色模式" : "跟随系统"}
+            aria-label="切换主题"
           >
             {themeIcons[theme]}
           </button>

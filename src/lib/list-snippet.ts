@@ -21,3 +21,4 @@ export function snippetFromBody(
 ): string | null {
   return truncateListSnippet(toPlainText(body ?? ""), max);
 }
+

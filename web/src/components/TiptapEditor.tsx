@@ -204,6 +204,12 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
     );
   }, []);
 
+  const handleUpdateTranscript = useCallback((id: string, transcript: string) => {
+    setAttachments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, transcript } : a))
+    );
+  }, []);
+
   const handleImageUpload = useCallback(
     async (file: File) => {
       if (mode === "note") {
@@ -869,6 +875,7 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
             attachments={attachments}
             onRemove={handleRemoveAttachment}
             onUpdateAlt={handleUpdateAlt}
+            onUpdateTranscript={handleUpdateTranscript}
           />
         )}
       </div>

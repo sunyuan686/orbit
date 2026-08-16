@@ -15,6 +15,7 @@
     "db:search-status": "tsx scripts/search-status.ts",
     "db:backfill-blurhash": "tsx scripts/backfill-blurhash.ts",
     "db:backfill-blurhash:remote": "tsx scripts/backfill-blurhash-remote.ts",
+    "db:backfill-body-text": "tsx scripts/backfill-body-text.ts",
     "tunnel": "bash scripts/dev-tunnel.sh"
   },
   "devDependencies": {

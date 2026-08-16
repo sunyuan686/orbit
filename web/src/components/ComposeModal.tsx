@@ -167,6 +167,12 @@ export function ComposeModal({
     );
   }, []);
 
+  const handleUpdateTranscript = useCallback((id: string, transcript: string) => {
+    setAttachments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, transcript } : a))
+    );
+  }, []);
+
   const handleImageSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -314,6 +320,7 @@ export function ComposeModal({
                 attachments={attachments}
                 onRemove={handleRemoveAttachment}
                 onUpdateAlt={handleUpdateAlt}
+                onUpdateTranscript={handleUpdateTranscript}
               />
             )}
           </div>

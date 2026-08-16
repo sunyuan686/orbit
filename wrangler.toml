@@ -29,11 +29,11 @@ bucket_name = "orbit-media"
 
 # 自定义域名（deploy 时 Cloudflare 自动创建 DNS + 证书）
 [[routes]]
-pattern = "orbit.xixihaha.tech"
+pattern = "orbitspace.top"
 custom_domain = true
 
 [vars]
-BETTER_AUTH_URL = "https://orbit.xixihaha.tech"
+BETTER_AUTH_URL = "https://orbitspace.top"
 # 在 wrangler secret put 中设置：BETTER_AUTH_SECRET
 # Workers AI 模型目录（设置页下拉）：CF_ACCOUNT_ID、CF_API_TOKEN
 
