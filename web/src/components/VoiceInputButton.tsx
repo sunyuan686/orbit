@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useRealtimeVoiceStream } from "../hooks/useRealtimeVoiceStream";
-import { useAppSettings } from "../lib/appSettingsContext";
-import { useToast } from "../lib/useToast";
+import { useAccountProfile } from "../hooks/useAccountProfile";
+import { useToast } from "../hooks/useToast";
 
 export interface VoiceInputButtonProps {
   /** 实时打字回调：收到最新的全量识别文本时传给编辑器覆盖写入 */
@@ -24,8 +24,8 @@ export function VoiceInputButton({
   compact = false,
 }: VoiceInputButtonProps) {
   const toast = useToast();
-  const { settings } = useAppSettings();
-  const currentMode = settings?.voiceTranscribeMode ?? "smooth";
+  const { profile } = useAccountProfile();
+  const currentMode = profile?.voiceTranscribeMode ?? "smooth";
 
   const handleTextUpdate = useCallback(
     (text: string) => {

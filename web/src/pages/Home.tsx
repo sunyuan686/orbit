@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { FEED_ENTRY_TYPES } from "../lib/entry-types";
+import { FEED_ENTRY_TYPES } from "@orbit/shared";
 import {
   TYPE_LABEL,
   fetchEntries,
@@ -18,12 +18,13 @@ import {
   type SpaceAuthor,
 } from "../lib/api";
 import { entryDisplayLabel } from "../lib/letterThread";
-import { useSpace } from "../lib/spaceContext";
+import { useSpace } from "../contexts/spaceContext";
 import { queryKeys } from "../lib/queryKeys";
 import { setPageTitle } from "../lib/pageTitle";
-import { useToast } from "../lib/useToast";
+import { useToast } from "../hooks/useToast";
 import { GalleryImage } from "../components/GalleryImage";
 import { ScratchCard } from "../components/ScratchCard";
+import { Container, Stack } from "../components/ui";
 import {
   DiaryIcon,
   TimelineIcon,
@@ -239,8 +240,9 @@ export function HomePage() {
   const hasAnniversary = profile?.daysTogether != null && profile.daysTogether > 0;
 
   return (
-    <div className="orbit-content orbit-home" data-page="home">
-      <section className="orbit-home-hero" aria-labelledby="home-hero-title">
+    <Container size="standard" className="orbit-home" data-page="home">
+      <Stack gap="2xl">
+        <section className="orbit-home-hero" aria-labelledby="home-hero-title">
         <svg
           className="orbit-home-hero-orbit"
           viewBox="0 0 200 120"
@@ -424,7 +426,10 @@ export function HomePage() {
                     {TYPE_LABEL[item.contentType] ?? item.contentType}
                   </span>
                   {item.author && (
-                    <span className="orbit-home-story-author">@{item.author}</span>
+                    <>
+                      <span className="orbit-muted" aria-hidden="true">·</span>
+                      <span className="orbit-home-story-author">@{item.author}</span>
+                    </>
                   )}
                   {item.entryDate && (
                     <span className="orbit-home-story-date">{formatDate(item.entryDate)}</span>
@@ -436,6 +441,7 @@ export function HomePage() {
           </div>
         )}
       </section>
-    </div>
+      </Stack>
+    </Container>
   );
 }

@@ -6,9 +6,9 @@ import {
   countUsers,
   getSpaceAuthors,
   MAX_SPACE_USERS,
-} from "../services/space-authors.js";
-import { createSpaceUser } from "../services/user-signup.js";
-import { recordAudit } from "../services/audit.js";
+} from "../services/space/space-authors.js";
+import { createSpaceUser } from "../services/space/user-signup.js";
+import { recordAudit } from "../services/space/audit.js";
 import { getRequestId } from "../lib/request-context.js";
 import { generateId } from "../lib/id.js";
 import type { SessionAuthor } from "./session-author.js";

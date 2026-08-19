@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { TYPE_LABEL, formatSpaceTagline } from "../lib/api";
-import { isValidEntryType, getEntryTypeLabel } from "../lib/entry-types";
+import { isValidEntryType, getEntryTypeLabel } from "@orbit/shared";
 import { setPageTitle } from "../lib/pageTitle";
-import { useTheme, type Theme } from "../lib/useTheme";
-import { SpaceProvider, useSpace } from "../lib/spaceContext";
-import { AppSettingsProvider } from "../lib/appSettingsContext";
-import { AiArticleProvider, useAiArticleMeta } from "../lib/aiArticleContext";
+import { useTheme, type Theme } from "../hooks/useTheme";
+import { SpaceProvider, useSpace } from "../contexts/spaceContext";
+import { AppSettingsProvider } from "../contexts/appSettingsContext";
+import { AiArticleProvider, useAiArticleMeta } from "../contexts/aiArticleContext";
 import { UserAccount } from "./UserAccount";
 import { SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, GalleryIcon, MemoriesIcon, HomeIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
 import { NotificationBell } from "./NotificationBell";
@@ -26,7 +26,6 @@ const navItems: { to: string; label: string; type: NavContentType }[] = [
 
 const galleryNav = { to: "/gallery", label: "相册" };
 const memoriesNav = { to: "/memories", label: "记忆" };
-const searchNav = { to: "/search", label: "搜索" };
 
 const COLLAPSED_KEY = "orbit-sidebar-collapsed";
 const WIDTH_KEY = "orbit-sidebar-width";
@@ -295,22 +294,6 @@ function LayoutShell() {
           >
             <HomeIcon size="nav" className="orbit-nav-icon" />
             {!collapsed && <span className="orbit-nav-label">首页</span>}
-          </NavLink>
-          <NavLink
-            to={searchNav.to}
-            className={({ isActive }) =>
-              `flex items-center rounded-md transition-colors whitespace-nowrap ${
-                collapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2"
-              } ${
-                isActive || location.pathname === "/search"
-                  ? "orbit-nav-item active"
-                  : "orbit-nav-item"
-              }`
-            }
-            title={collapsed ? searchNav.label : undefined}
-          >
-            <SearchIcon size="nav" className="orbit-nav-icon" />
-            {!collapsed && <span className="orbit-nav-label">{searchNav.label}</span>}
           </NavLink>
           {navItems.map((item) => {
             const NavIcon = NAV_CONTENT_ICONS[item.type];

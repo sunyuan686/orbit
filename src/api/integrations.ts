@@ -10,29 +10,29 @@ import {
   type FeishuConfigPublic,
   type FeishuConfigStored,
   type FeishuAuthorOpenIds,
-} from "../services/feishu-settings.js";
+} from "../services/feishu/feishu-settings.js";
 import {
   clearTenantAccessTokenCache,
   getFeishuBotOpenId,
   testFeishuConnection,
-} from "../services/feishu-api.js";
+} from "../services/feishu/feishu-api.js";
 import {
   parseFeishuInboundMentions,
   isFeishuBotMentioned,
-} from "../services/feishu-message-content.js";
-import { handleFeishuCallback } from "../services/feishu-callback.js";
+} from "../services/feishu/feishu-message-content.js";
+import { handleFeishuCallback } from "../services/feishu/feishu-callback.js";
 import {
   parseLarkInboundBody,
   tryParseUrlVerification,
   verificationTokenMismatch,
   verifyLarkInboundSignature,
   type LarkInboundPayload,
-} from "../services/feishu-webhook.js";
+} from "../services/feishu/feishu-webhook.js";
 import {
   pruneFeishuMessageDedup,
   tryClaimFeishuMessage,
-} from "../services/feishu-dedup.js";
-import { processFeishuInboundMessage } from "../services/feishu-inbound.js";
+} from "../services/feishu/feishu-dedup.js";
+import { processFeishuInboundMessage } from "../services/feishu/feishu-inbound.js";
 import {
   deleteSetting,
   readSettingsMap,
@@ -42,8 +42,8 @@ import { encryptSettingSecret } from "../lib/secret-crypto.js";
 import { createLogger } from "../lib/logger.js";
 import type { SessionAuthor } from "./session-author.js";
 import { INVALID_SESSION_ERROR } from "./session-author.js";
-import type { AiRuntimeEnv } from "../services/ai-model.js";
-import type { NotifyRuntime } from "../services/notify.js";
+import type { AiRuntimeEnv } from "../services/ai/ai-model.js";
+import type { NotifyRuntime } from "../services/notify/notify.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 

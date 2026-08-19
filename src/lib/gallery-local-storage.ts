@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, statSync, unlinkSync } from "fs";
 import { join } from "path";
-import type { GalleryObjectMeta } from "../services/gallery.js";
+import type { GalleryObjectMeta } from "../services/content/gallery.js";
 import { isImageStorageKey } from "./gallery-keys.js";
 
 const ASSETS_DIR = join(process.cwd(), "data", "assets");

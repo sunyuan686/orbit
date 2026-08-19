@@ -139,6 +139,34 @@ export function DatePicker({
     return Math.floor(y / 12) * 12;
   });
 
+  const [isTouch, setIsTouch] = useState(false);
+
+  useEffect(() => {
+    const updateTouch = () => {
+      setIsTouch(
+        window.matchMedia("(pointer: coarse)").matches ||
+          "ontouchstart" in window ||
+          navigator.maxTouchPoints > 0 ||
+          window.innerWidth <= 640
+      );
+    };
+    updateTouch();
+    window.addEventListener("resize", updateTouch);
+    return () => window.removeEventListener("resize", updateTouch);
+  }, []);
+
+  // Lock body scrolling when open on mobile
+  useEffect(() => {
+    if (!open) return;
+    if (isTouch || window.innerWidth <= 640) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [open, isTouch]);
+
   // Sync inputText and month when value prop changes externally
   useEffect(() => {
     setInputText(value);
@@ -232,6 +260,18 @@ export function DatePicker({
     setViewMode("day");
   }
 
+  function handleTriggerClick() {
+    if (!open) {
+      setOpen(true);
+      if (!isTouch) {
+        inputRef.current?.focus();
+      }
+    } else {
+      setOpen(false);
+      setViewMode("day");
+    }
+  }
+
   const currentYear = month.getFullYear();
   const currentMonthIdx = month.getMonth();
 
@@ -242,18 +282,15 @@ export function DatePicker({
     >
       <div
         className={`orbit-date-picker-trigger ${open ? "orbit-date-picker-trigger--open" : ""}`}
-        onClick={() => {
-          if (!open) {
-            setOpen(true);
-            inputRef.current?.focus();
-          }
-        }}
+        onClick={handleTriggerClick}
       >
         <CalendarIcon size="sm" className="orbit-date-picker-trigger-icon" />
         <input
           ref={inputRef}
           id={triggerId}
           type="text"
+          readOnly={isTouch}
+          inputMode={isTouch ? "none" : "text"}
           className="orbit-date-picker-input"
           value={inputText}
           placeholder={placeholder}
@@ -261,7 +298,9 @@ export function DatePicker({
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-controls={popoverId}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            if (!isTouch) setOpen(true);
+          }}
           onChange={(e) => handleInputChange(e.target.value)}
           onKeyDown={handleInputKeyDown}
         />
@@ -279,14 +318,37 @@ export function DatePicker({
       </div>
 
       {open ? (
-        <div
-          id={popoverId}
-          role="dialog"
-          aria-label={ariaLabel}
-          className="orbit-date-picker-popover"
-        >
-          {/* Header controls depending on viewMode */}
-          <div className="orbit-date-picker-header">
+        <>
+          <div
+            className="orbit-date-picker-backdrop"
+            aria-hidden="true"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              setViewMode("day");
+              if (inputText.trim() === "" && allowClear) {
+                onChange("");
+              } else if (value) {
+                setInputText(value);
+              } else {
+                setInputText("");
+              }
+            }}
+          />
+          <div
+            id={popoverId}
+            role="dialog"
+            aria-modal="true"
+            aria-label={ariaLabel}
+            className="orbit-date-picker-popover"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="orbit-date-picker-drawer-handle"
+              aria-hidden="true"
+            />
+            {/* Header controls depending on viewMode */}
+            <div className="orbit-date-picker-header">
             {viewMode === "day" && (
               <>
                 <button
@@ -506,7 +568,8 @@ export function DatePicker({
             ) : null}
           </div>
         </div>
-      ) : null}
-    </div>
-  );
+      </>
+    ) : null}
+  </div>
+);
 }

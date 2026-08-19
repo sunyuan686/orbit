@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { uploadAsset, type UploadAssetResult } from "../lib/api";
-import { useToast } from "../lib/useToast";
+import { useToast } from "../hooks/useToast";
 import {
   checkMicrophoneSupport,
   formatMicrophoneError,
@@ -141,9 +141,9 @@ export function VoiceNoteRecordButton({
       <button
         type="button"
         disabled
-        className={`orbit-compose-tool-btn opacity-80 cursor-wait text-amber-600 dark:text-amber-400 shrink-0 ${className}`}
+        className={`orbit-compose-tool-btn opacity-80 cursor-wait shrink-0 ${className}`}
+        style={{ width: "auto", color: "var(--color-accent)" }}
         title="保存录音并转写中…"
-        style={{ width: "auto" }}
       >
         <span className="animate-spin inline-block text-xs">⏳</span>
         {!compact && <span className="ml-1 text-xs">保存录音中…</span>}
@@ -172,7 +172,7 @@ export function VoiceNoteRecordButton({
       type="button"
       onClick={() => void startRecording()}
       disabled={disabled}
-      className={`orbit-compose-tool-btn text-stone-600 dark:text-stone-300 hover:text-amber-600 dark:hover:text-amber-400 transition-colors shrink-0 ${className}`}
+      className={`orbit-compose-tool-btn text-stone-600 dark:text-stone-300 hover:text-[var(--color-accent)] transition-colors shrink-0 ${className}`}
       title="录音随想 (录制音频附件)"
       data-tooltip="录音"
       aria-label="录音随想"

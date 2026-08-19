@@ -8,7 +8,8 @@ import {
   triggerCompanionTestPush,
   type CompanionSettings,
 } from "../lib/api";
-import { useToast } from "../lib/useToast";
+import { useToast } from "../hooks/useToast";
+import { Button, Input, Toggle, Field, Section } from "./ui";
 
 const DEFAULT_SETTINGS: CompanionSettings = {
   enabled: true,
@@ -19,24 +20,6 @@ const DEFAULT_SETTINGS: CompanionSettings = {
   preferredTime: "09:00",
   nextAlarmAt: null,
 };
-
-function SettingsSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  const headingId = `settings-section-${title}`;
-  return (
-    <section className="orbit-settings-section" aria-labelledby={headingId}>
-      <h3 id={headingId} className="orbit-settings-heading">
-        {title}
-      </h3>
-      {children}
-    </section>
-  );
-}
 
 function normalizeAlarmTs(value: number): number {
   return value > 10_000_000_000 ? Math.floor(value / 1000) : value;
@@ -137,137 +120,109 @@ export function CompanionSettingsPanel() {
       </header>
 
       <form onSubmit={(event) => void handleSave(event)}>
-        <SettingsSection title="总开关">
-          <div className="orbit-settings-fields">
-            <div className="orbit-settings-field orbit-settings-field--stacked orbit-settings-field--editable">
-              <div className="orbit-settings-field-copy">
-                <span className="orbit-settings-field-label">主动陪伴</span>
-                <p className="orbit-settings-field-hint">
-                  开启后会在合适时间发送回忆、里程碑、温柔摘要与本周回顾。
-                </p>
-              </div>
-              <div className="orbit-settings-field-control orbit-settings-field-control--block">
-                <label className="orbit-settings-toggle">
-                  <input
-                    type="checkbox"
-                    checked={draft.enabled}
-                    onChange={(event) => patchDraft({ enabled: event.target.checked })}
-                  />
-                  <span>{draft.enabled ? "已开启" : "已关闭"}</span>
-                </label>
-              </div>
-            </div>
-          </div>
-        </SettingsSection>
+        <Section title="总开关">
+          <Field
+            label="主动陪伴"
+            hint="开启后会在合适时间发送回忆、里程碑、温柔摘要与本周回顾。"
+          >
+            <Toggle
+              checked={draft.enabled}
+              onChange={(checked) => patchDraft({ enabled: checked })}
+              label={draft.enabled ? "已开启" : "已关闭"}
+            />
+          </Field>
+        </Section>
 
-        <SettingsSection title="触达时间">
+        <Section title="触达时间">
           <div className="orbit-settings-fields">
-            <div className="orbit-settings-field orbit-settings-field--stacked orbit-settings-field--editable">
-              <div className="orbit-settings-field-copy">
-                <span className="orbit-settings-field-label">触达时间范围</span>
-                <p className="orbit-settings-field-hint">
-                  非固定触达会在这个范围内动态发生；超出范围只排程不发送。
-                </p>
-              </div>
+            <Field
+              label="触达时间范围"
+              hint="非固定触达会在这个范围内动态发生；超出范围只排程不发送。"
+            >
               <div className="orbit-settings-time-pair">
                 <label>
                   <span>开始</span>
-                  <input
+                  <Input
                     type="time"
-                    className="orbit-input orbit-settings-compact-input"
+                    mono
                     value={draft.pushStart}
                     onChange={(event) => patchDraft({ pushStart: event.target.value })}
                   />
                 </label>
                 <label>
                   <span>结束</span>
-                  <input
+                  <Input
                     type="time"
-                    className="orbit-input orbit-settings-compact-input"
+                    mono
                     value={draft.pushEnd}
                     onChange={(event) => patchDraft({ pushEnd: event.target.value })}
                   />
                 </label>
               </div>
-            </div>
+            </Field>
 
-            <div className="orbit-settings-field orbit-settings-field--stacked orbit-settings-field--editable">
-              <div className="orbit-settings-field-copy">
-                <label htmlFor="settings-companion-preferred-time" className="orbit-settings-field-label">
-                  偏好时间
-                </label>
-                <p className="orbit-settings-field-hint">
-                  固定型陪伴优先靠近这个时间，非固定型陪伴仍会在触达范围内灵活出现。
-                </p>
-              </div>
-              <div className="orbit-settings-field-control orbit-settings-field-control--block">
-                <input
-                  id="settings-companion-preferred-time"
+            <Field
+              label="偏好时间"
+              htmlFor="settings-companion-preferred-time"
+              hint="固定型陪伴优先靠近这个时间，非固定型陪伴仍会在触达范围内灵活出现。"
+            >
+              <Input
+                id="settings-companion-preferred-time"
+                type="time"
+                mono
+                value={draft.preferredTime}
+                onChange={(event) => patchDraft({ preferredTime: event.target.value })}
+              />
+            </Field>
+          </div>
+        </Section>
+
+        <Section title="安静时段">
+          <Field
+            label="不打扰时间"
+            hint="这段时间内不会主动发送陪伴内容，跨午夜时间段可直接配置。"
+          >
+            <div className="orbit-settings-time-pair">
+              <label>
+                <span>开始</span>
+                <Input
                   type="time"
-                  className="orbit-input orbit-settings-compact-input"
-                  value={draft.preferredTime}
-                  onChange={(event) => patchDraft({ preferredTime: event.target.value })}
+                  mono
+                  value={draft.quietStart}
+                  onChange={(event) => patchDraft({ quietStart: event.target.value })}
                 />
-              </div>
+              </label>
+              <label>
+                <span>结束</span>
+                <Input
+                  type="time"
+                  mono
+                  value={draft.quietEnd}
+                  onChange={(event) => patchDraft({ quietEnd: event.target.value })}
+                />
+              </label>
             </div>
-          </div>
-        </SettingsSection>
+          </Field>
+        </Section>
 
-        <SettingsSection title="安静时段">
-          <div className="orbit-settings-fields">
-            <div className="orbit-settings-field orbit-settings-field--stacked orbit-settings-field--editable">
-              <div className="orbit-settings-field-copy">
-                <span className="orbit-settings-field-label">不打扰时间</span>
-                <p className="orbit-settings-field-hint">
-                  这段时间内不会主动发送陪伴内容，跨午夜时间段可直接配置。
-                </p>
-              </div>
-              <div className="orbit-settings-time-pair">
-                <label>
-                  <span>开始</span>
-                  <input
-                    type="time"
-                    className="orbit-input orbit-settings-compact-input"
-                    value={draft.quietStart}
-                    onChange={(event) => patchDraft({ quietStart: event.target.value })}
-                  />
-                </label>
-                <label>
-                  <span>结束</span>
-                  <input
-                    type="time"
-                    className="orbit-input orbit-settings-compact-input"
-                    value={draft.quietEnd}
-                    onChange={(event) => patchDraft({ quietEnd: event.target.value })}
-                  />
-                </label>
-              </div>
-            </div>
-          </div>
-        </SettingsSection>
-
-        <SettingsSection title="调度状态">
-          <div className="orbit-settings-fields">
-            <div className="orbit-settings-field orbit-settings-field--stacked">
-              <div className="orbit-settings-field-copy">
-                <span className="orbit-settings-field-label">下次检查时间</span>
-                <p className="orbit-settings-field-hint">
-                  保存后会重新计算；部署后第一次需要调用 bootstrap 才会有排程。
-                </p>
-              </div>
-              <p className="orbit-settings-readonly-value">{nextAlarmText}</p>
-            </div>
-          </div>
-        </SettingsSection>
+        <Section title="调度状态">
+          <Field
+            label="下次检查时间"
+            hint="保存后会重新计算；部署后第一次需要调用 bootstrap 才会有排程。"
+          >
+            <p className="orbit-settings-readonly-value">{nextAlarmText}</p>
+          </Field>
+        </Section>
 
         <div className="orbit-settings-actions">
           {dirty ? (
             <p className="orbit-settings-actions-hint orbit-muted">有未保存的更改</p>
           ) : null}
-          <button
+          <Button
             type="button"
-            className="orbit-btn orbit-btn-secondary"
+            variant="secondary"
             disabled={testing}
+            loading={testing}
             onClick={async () => {
               setTesting(true);
               try {
@@ -282,15 +237,16 @@ export function CompanionSettingsPanel() {
               }
             }}
           >
-            {testing ? "推送中…" : "发送测试推送"}
-          </button>
-          <button
+            发送测试推送
+          </Button>
+          <Button
             type="submit"
-            className="orbit-btn orbit-btn-primary"
+            variant="primary"
             disabled={saving || !dirty}
+            loading={saving}
           >
-            {saving ? "保存中…" : "保存设置"}
-          </button>
+            保存设置
+          </Button>
         </div>
       </form>
     </>

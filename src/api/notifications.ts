@@ -1,14 +1,12 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
-import { notification } from "../db/schema.js";
+import { notification, user } from "../db/schema.js";
 import {
-  NOTIFICATION_SETTING_KEY,
   parseNotificationPreferences,
   serializeNotificationPreferences,
   type NotificationPreferences,
-} from "../services/notification-settings.js";
-import { readSettingsMap, upsertSetting } from "../db/settings-store.js";
+} from "../services/notify/notification-settings.js";
 import type { SessionAuthor } from "./session-author.js";
 import { INVALID_SESSION_ERROR } from "./session-author.js";
 
@@ -72,9 +70,13 @@ export function createNotificationsRoutes(
     const session = await requireSessionAuthor(c, options.getSessionAuthor);
     if (session instanceof Response) return session;
     const db = await getDb(c);
-    const map = await readSettingsMap(db);
+    const userRow = await db
+      .select({ notificationPreferences: user.notificationPreferences })
+      .from(user)
+      .where(eq(user.id, session.userId))
+      .get();
     return c.json(
-      parseNotificationPreferences(map[NOTIFICATION_SETTING_KEY])
+      parseNotificationPreferences(userRow?.notificationPreferences)
     );
   });
 
@@ -90,9 +92,12 @@ export function createNotificationsRoutes(
     }
 
     const db = await getDb(c);
-    const current = parseNotificationPreferences(
-      (await readSettingsMap(db))[NOTIFICATION_SETTING_KEY]
-    );
+    const userRow = await db
+      .select({ notificationPreferences: user.notificationPreferences })
+      .from(user)
+      .where(eq(user.id, session.userId))
+      .get();
+    const current = parseNotificationPreferences(userRow?.notificationPreferences);
     const next = parseNotificationPreferences(
       JSON.stringify({
         ...current,
@@ -103,11 +108,13 @@ export function createNotificationsRoutes(
         },
       })
     );
-    await upsertSetting(
-      db,
-      NOTIFICATION_SETTING_KEY,
-      serializeNotificationPreferences(next)
-    );
+    await db
+      .update(user)
+      .set({
+        notificationPreferences: serializeNotificationPreferences(next),
+        updatedAt: new Date(),
+      })
+      .where(eq(user.id, session.userId));
     return c.json(next);
   });
 

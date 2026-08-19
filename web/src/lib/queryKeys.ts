@@ -1,6 +1,7 @@
 export const queryKeys = {
   space: ["space"] as const,
   spaceStatus: ["space-status"] as const,
+  accountProfile: ["account-profile"] as const,
   appSettings: ["app-settings"] as const,
   entries: (type: string, params?: Record<string, unknown>) =>
     ["entries", type, params ?? {}] as const,

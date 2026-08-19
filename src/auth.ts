@@ -8,7 +8,7 @@ import {
   MAX_SPACE_USERS,
   countUsers,
   getSpaceAuthors,
-} from "./services/space-authors.js";
+} from "./services/space/space-authors.js";
 import {
   normalizeDisplayName,
   validateDisplayName,

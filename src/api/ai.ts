@@ -2,44 +2,44 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { generateText, streamText, type UIMessage } from "ai";
 import { createWorkersAI } from "workers-ai-provider";
-import { transcribeAudioWithWorkersAi } from "../services/workers-ai-whisper.js";
-import { transcribeAudioWithDashScope } from "../services/dashscope-voice.js";
-import { readProviderKey, resolveAlibabaApiKey, resolveModel } from "../services/ai-model.js";
+import { transcribeAudioWithWorkersAi } from "../services/ai/workers-ai-whisper.js";
+import { transcribeAudioWithDashScope } from "../services/ai/dashscope-voice.js";
+import { readProviderKey, resolveAlibabaApiKey, resolveModel } from "../services/ai/ai-model.js";
 import { APP_SETTING_KEYS } from "../app-settings.js";
-import type { AiContextMode } from "../services/ai-chat-store.js";
+import type { AiContextMode } from "../services/ai/ai-chat-store.js";
 import {
   createAiChatStore,
   extractTextFromParts,
-} from "../services/ai-chat-store.js";
+} from "../services/ai/ai-chat-store.js";
 import {
   attachAgentLangfuseRecorder,
   beginAiChatTrace,
   finalizeAiChatTrace,
   prepareAiChatAgent,
   streamAiChat,
-} from "../services/ai-chat-runtime.js";
+} from "../services/ai/ai-chat-runtime.js";
 import {
   getLatestUserMessage,
   isApprovalContinuation,
-} from "../services/ai-tool-approval.js";
-import { prepareApprovalContinuationMessages } from "../services/write-content-approval-completion.js";
-import { AiModelConfigError, type AiRuntimeEnv } from "../services/ai-model.js";
-import { isReasoningLevel } from "../services/ai-model-specs.js";
-import { checkAiRateLimit } from "../services/ai-rate-limit.js";
+} from "../services/ai/ai-tool-approval.js";
+import { prepareApprovalContinuationMessages } from "../services/content/write-content-approval-completion.js";
+import { AiModelConfigError, type AiRuntimeEnv } from "../services/ai/ai-model.js";
+import { isReasoningLevel } from "../services/ai/ai-model-specs.js";
+import { checkAiRateLimit } from "../services/ai/ai-rate-limit.js";
 import {
   listDeepseekModels,
   resolveDeepseekApiKey,
   testDeepseekConnection,
-} from "../services/deepseek-models.js";
+} from "../services/ai/deepseek-models.js";
 import {
   listOpenAiCompatibleModels,
   readConnectionApiKey,
   testOpenAiCompatibleConnection,
-} from "../services/ai-connections.js";
+} from "../services/ai/ai-connections.js";
 import {
   getWorkersAiModelCredentials,
   listWorkersAiChatModels,
-} from "../services/workers-ai-models.js";
+} from "../services/ai/workers-ai-models.js";
 import { readSettingsMap } from "../db/settings-store.js";
 import { createLogger } from "../lib/logger.js";
 import type { SessionAuthor } from "./session-author.js";

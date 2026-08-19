@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import type { Auth } from "../auth.js";
 import { resolveSessionAuthor } from "../lib/request-auth.js";
-import { INVALID_SESSION_ERROR } from "../services/space-authors.js";
+import { INVALID_SESSION_ERROR } from "../services/space/space-authors.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 

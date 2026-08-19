@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { getRequestId } from "../lib/request-context.js";
-import { recordAudit } from "../services/audit.js";
+import { recordAudit } from "../services/space/audit.js";
 import {
   createApiToken,
   getApiTokenForRevoke,
   listApiTokens,
   MAX_API_TOKENS,
   revokeApiToken,
-} from "../services/api-token.js";
+} from "../services/space/api-token.js";
 import type { SessionAuthor } from "./session-author.js";
 import { INVALID_SESSION_ERROR } from "./session-author.js";
 

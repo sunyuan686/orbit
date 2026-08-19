@@ -19,8 +19,9 @@ import {
   type BirthdayProfile,
   type LunarBirthday,
   type SolarBirthday,
-} from "../lib/birthday";
-import { useToast } from "../lib/useToast";
+} from "@orbit/shared";
+import { useToast } from "../hooks/useToast";
+import { Button, Select } from "./ui";
 
 function toDraft(birthday: AccountBirthday | null): BirthdayProfile | null {
   if (!birthday) return null;
@@ -56,18 +57,18 @@ function DaySelect({
     [dayMax]
   );
   return (
-    <select
-      className="orbit-input orbit-birthday-select"
+    <Select
       aria-label="日"
       value={day}
       onChange={(event) => onChange(Number(event.target.value))}
+      className="orbit-birthday-select"
     >
       {dayOptions.map((value) => (
         <option key={value} value={value}>
           {calendar === "lunar" ? lunarDayLabel(value) : `${value} 日`}
         </option>
       ))}
-    </select>
+    </Select>
   );
 }
 
@@ -81,18 +82,18 @@ function MonthSelect({
   onChange: (month: number) => void;
 }) {
   return (
-    <select
-      className="orbit-input orbit-birthday-select"
+    <Select
       aria-label="月"
       value={month}
       onChange={(event) => onChange(Number(event.target.value))}
+      className="orbit-birthday-select"
     >
       {Array.from({ length: 12 }, (_, i) => i + 1).map((value) => (
         <option key={value} value={value}>
           {calendar === "lunar" ? lunarMonthLabel(value) : `${value} 月`}
         </option>
       ))}
-    </select>
+    </Select>
   );
 }
 
@@ -255,43 +256,41 @@ export function BirthdaySettingsField() {
       className="orbit-settings-stacked-form"
       onSubmit={(e) => void handleSave(e)}
     >
-      <div className="orbit-settings-field-copy">
-        <span className="orbit-settings-field-label">生日</span>
-        <p className="orbit-settings-field-hint">
-          公历、农历可分别填写；提醒只按其中一种历法触发。仅自己可改。
-        </p>
-      </div>
       <div className="orbit-settings-field-control">
         {draft == null ? (
           dirty ? (
             <div className="orbit-birthday-editor">
               <p className="orbit-muted">将清除已保存的生日</p>
               <div className="orbit-settings-inline-form">
-                <button
+                <Button
                   type="submit"
-                  className="orbit-btn orbit-btn-sm orbit-settings-form-submit"
+                  variant="danger"
+                  size="sm"
                   disabled={saving}
+                  loading={saving}
                 >
-                  {saving ? "保存中…" : "确认清除"}
-                </button>
-                <button
+                  确认清除
+                </Button>
+                <Button
                   type="button"
-                  className="orbit-btn orbit-btn-sm orbit-btn-ghost"
+                  variant="ghost"
+                  size="sm"
                   disabled={saving}
                   onClick={() => setDraft(saved)}
                 >
                   取消
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
-            <button
+            <Button
               type="button"
-              className="orbit-btn orbit-btn-sm"
+              variant="primary"
+              size="sm"
               onClick={enableBirthday}
             >
               设置生日
-            </button>
+            </Button>
           )
         ) : (
           <div className="orbit-birthday-editor">
@@ -310,24 +309,24 @@ export function BirthdaySettingsField() {
                     day={draft.solar.day}
                     onChange={setSolarDay}
                   />
-                  <button
-                    type="button"
-                    className="orbit-btn orbit-btn-sm orbit-btn-ghost"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     disabled={saving}
                     onClick={() => setSolar(null)}
                   >
                     清除
-                  </button>
+                  </Button>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  className="orbit-btn orbit-btn-sm orbit-btn-ghost"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   disabled={saving}
                   onClick={() => setSolar(defaultSolarDraft())}
                 >
-                  添加
-                </button>
+                  + 添加公历
+                </Button>
               )}
             </div>
 
@@ -354,24 +353,24 @@ export function BirthdaySettingsField() {
                     />
                     <span>闰月</span>
                   </label>
-                  <button
-                    type="button"
-                    className="orbit-btn orbit-btn-sm orbit-btn-ghost"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     disabled={saving}
                     onClick={() => setLunar(null)}
                   >
                     清除
-                  </button>
+                  </Button>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  className="orbit-btn orbit-btn-sm orbit-btn-ghost"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   disabled={saving}
                   onClick={() => setLunar(defaultLunarDraft())}
                 >
-                  添加
-                </button>
+                  + 添加农历
+                </Button>
               )}
             </div>
 
@@ -409,22 +408,25 @@ export function BirthdaySettingsField() {
               </div>
             ) : null}
 
-            <div className="orbit-settings-inline-form">
-              <button
+            <div className="orbit-settings-inline-form" style={{ marginTop: "0.5rem" }}>
+              <Button
                 type="submit"
-                className="orbit-btn orbit-btn-sm orbit-settings-form-submit"
+                variant="primary"
+                size="sm"
                 disabled={saving || !dirty}
+                loading={saving}
               >
-                {saving ? "保存中…" : "保存"}
-              </button>
-              <button
+                保存生日
+              </Button>
+              <Button
                 type="button"
-                className="orbit-btn orbit-btn-sm orbit-btn-ghost"
+                variant="ghost"
+                size="sm"
                 disabled={saving}
                 onClick={clearAll}
               >
                 全部清除
-              </button>
+              </Button>
             </div>
           </div>
         )}

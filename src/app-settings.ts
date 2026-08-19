@@ -7,15 +7,14 @@ import {
   serializeAiConnections,
   type AiCustomConnection,
   type AiCustomConnectionPublic,
-} from "./services/ai-connections.js";
+} from "./services/ai/ai-connections.js";
 import {
   BUILTIN_MODEL_SPECS,
   parseModelSpecs,
   type ModelSpecMap,
-} from "./services/ai-model-specs.js";
+} from "./services/ai/ai-model-specs.js";
 
 export const APP_SETTING_KEYS = {
-  accentPreset: "accent_preset",
   aiProvider: "ai_provider",
   aiModel: "ai_model",
   aiEnabledModels: "ai_enabled_models",
@@ -26,11 +25,7 @@ export const APP_SETTING_KEYS = {
   aiAlibabaKey: "ai_alibaba_key",
   aiBotName: "ai_bot_name",
   aiBotPersona: "ai_bot_persona",
-  voiceTranscribeMode: "voice_transcribe_mode",
 } as const;
-
-export const ACCENT_PRESETS = ["stone", "rose", "sage", "dusk"] as const;
-export type AccentPreset = (typeof ACCENT_PRESETS)[number];
 
 export const VOICE_TRANSCRIBE_MODES = ["smooth", "raw", "bullets", "formal"] as const;
 export type VoiceTranscribeMode = (typeof VOICE_TRANSCRIBE_MODES)[number];
@@ -68,10 +63,9 @@ export const DEFAULT_ENABLED_AI_PROVIDERS: readonly AiProvider[] = [
 import {
   BUILTIN_PROVIDER_CATALOG,
   type BuiltinProviderCatalog,
-} from "./services/ai-model-catalog-builtin.js";
+} from "./services/ai/ai-model-catalog-builtin.js";
 
 export interface AppSettings {
-  accentPreset: AccentPreset;
   aiProvider: AiProvider;
   aiModel: string;
   aiEnabledModels: string[];
@@ -87,15 +81,9 @@ export interface AppSettings {
   hasAlibabaKey: boolean;
   aiBotName: string;
   aiBotPersona: string;
-  voiceTranscribeMode: VoiceTranscribeMode;
 }
 
-const DEFAULT_ACCENT_PRESET: AccentPreset = "stone";
 const DEFAULT_AI_PROVIDER: AiProvider = "workers-ai";
-
-export function isAccentPreset(value: string): value is AccentPreset {
-  return (ACCENT_PRESETS as readonly string[]).includes(value);
-}
 
 export function isAiProvider(value: string): value is AiProvider {
   return (AI_PROVIDERS as readonly string[]).includes(value);
@@ -209,10 +197,6 @@ export function buildAppSettings(
   settingsMap: Record<string, string>,
   env?: { DEEPSEEK_API_KEY?: string; ALIBABA_API_KEY?: string; DASHSCOPE_API_KEY?: string }
 ): AppSettings {
-  const rawAccent = settingsMap[APP_SETTING_KEYS.accentPreset]?.trim();
-  const accentPreset =
-    rawAccent && isAccentPreset(rawAccent) ? rawAccent : DEFAULT_ACCENT_PRESET;
-
   const rawProvider = settingsMap[APP_SETTING_KEYS.aiProvider]?.trim();
   let aiProvider =
     rawProvider && isAiProvider(rawProvider) ? rawProvider : DEFAULT_AI_PROVIDER;
@@ -258,14 +242,7 @@ export function buildAppSettings(
       process.env.DASHSCOPE_API_KEY?.trim()
   );
 
-  const rawVoiceMode = settingsMap[APP_SETTING_KEYS.voiceTranscribeMode]?.trim();
-  const voiceTranscribeMode: VoiceTranscribeMode =
-    rawVoiceMode === "raw" || rawVoiceMode === "bullets" || rawVoiceMode === "formal"
-      ? rawVoiceMode
-      : "smooth";
-
   return {
-    accentPreset,
     aiProvider,
     aiModel,
     aiEnabledModels,
@@ -279,7 +256,6 @@ export function buildAppSettings(
     hasAlibabaKey,
     aiBotName,
     aiBotPersona,
-    voiceTranscribeMode,
   };
 }
 

@@ -11,54 +11,8 @@ import {
   type FeishuConfigPublic,
   type SpaceAuthor,
 } from "../lib/api";
-import { useToast } from "../lib/useToast";
-
-function SettingsSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  const headingId = `settings-section-${title}`;
-  return (
-    <section className="orbit-settings-section" aria-labelledby={headingId}>
-      <h3 id={headingId} className="orbit-settings-heading">
-        {title}
-      </h3>
-      {children}
-    </section>
-  );
-}
-
-function SettingsField({
-  label,
-  hint,
-  children,
-  stacked,
-  readonly,
-}: {
-  label: string;
-  hint?: React.ReactNode;
-  children: React.ReactNode;
-  stacked?: boolean;
-  readonly?: boolean;
-}) {
-  if (!stacked) return null;
-  return (
-    <div
-      className={`orbit-settings-field orbit-settings-field--stacked${readonly ? " orbit-settings-field--readonly" : ""}`}
-    >
-      <div className="orbit-settings-field-copy">
-        <span className="orbit-settings-field-label">{label}</span>
-        {hint ? <p className="orbit-settings-field-hint">{hint}</p> : null}
-      </div>
-      <div className="orbit-settings-field-control orbit-settings-field-control--block">
-        {children}
-      </div>
-    </div>
-  );
-}
+import { useToast } from "../hooks/useToast";
+import { Button, Input, Textarea, Toggle, Badge, Card, Field, Section, Stack } from "./ui";
 
 const STATUS_LABEL: Record<FeishuConfigPublic["connectionStatus"], string> = {
   connected: "已连接",
@@ -79,28 +33,25 @@ function CopyUrlRow({
   onCopy: () => void;
 }) {
   return (
-    <div className="orbit-settings-feishu-url-item">
-      <div className="orbit-settings-field-copy">
-        <span className="orbit-settings-feishu-url-label">{label}</span>
-        <p className="orbit-settings-field-hint">{hint}</p>
-      </div>
+    <Field label={label} hint={hint}>
       <div className="orbit-settings-inline-form orbit-settings-inline-form--wide">
-        <input
-          className="orbit-input orbit-settings-input-mono"
+        <Input
+          mono
           readOnly
           value={value}
           aria-label={label}
         />
-        <button
+        <Button
           type="button"
-          className="orbit-btn orbit-btn-sm"
+          variant="secondary"
+          size="sm"
           disabled={!value}
           onClick={onCopy}
         >
-          复制
-        </button>
+          复制地址
+        </Button>
       </div>
-    </div>
+    </Field>
   );
 }
 
@@ -120,31 +71,30 @@ function SecretField({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="orbit-settings-supplier-credential orbit-settings-supplier-credential--compact">
-      <span className="orbit-settings-supplier-credential-label">{label}</span>
-      <div className="orbit-settings-supplier-credential-edit">
-        <div className="orbit-settings-key-row">
-          <input
-            type="password"
-            className="orbit-input orbit-settings-key-input"
-            value={value}
-            placeholder={placeholder}
-            onChange={(e) => onChange(e.target.value)}
-            autoComplete="new-password"
-            aria-describedby={hint ? `${label}-hint` : undefined}
-          />
-        </div>
-        <div className="orbit-settings-supplier-credential-summary">
+    <Field
+      label={
+        <span className="inline-flex items-center gap-2">
+          <span>{label}</span>
           <span
-            className={`orbit-settings-key-dot${configured ? " orbit-settings-key-dot--on" : ""}`}
+            className={`orbit-settings-key-dot${
+              configured ? " orbit-settings-key-dot--on" : ""
+            }`}
+            title={configured ? "已配置" : "未配置"}
             aria-hidden="true"
           />
-          <span id={`${label}-hint`} className="orbit-settings-supplier-credential-hint">
-            {hint}
-          </span>
-        </div>
-      </div>
-    </div>
+        </span>
+      }
+      hint={hint}
+    >
+      <Input
+        type="password"
+        mono
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete="new-password"
+      />
+    </Field>
   );
 }
 
@@ -281,14 +231,14 @@ export function FeishuIntegrationPanel() {
         </p>
       </header>
 
-      <SettingsSection title="连接">
-        <article className="orbit-settings-feishu-hero" aria-live="polite">
+      <Section title="连接状态">
+        <Card className="orbit-settings-feishu-hero" aria-live="polite">
           <div className="orbit-settings-feishu-hero-head">
             <div className="orbit-settings-feishu-hero-copy">
               <span className="orbit-settings-connection-block-title">飞书 Bot</span>
-              <span className={`orbit-feishu-status orbit-feishu-status--${status}`}>
+              <Badge mono variant={status === "connected" ? "active" : "default"}>
                 {STATUS_LABEL[status]}
-              </span>
+              </Badge>
               {config?.lastConnectedAt ? (
                 <p className="orbit-settings-feishu-meta">
                   上次测试 {formatDateTime(config.lastConnectedAt)}
@@ -298,143 +248,139 @@ export function FeishuIntegrationPanel() {
                 <p className="orbit-danger-text">{config.lastError}</p>
               ) : null}
             </div>
-            <label className="orbit-settings-toggle">
-              <input
-                type="checkbox"
-                checked={enabled}
-                onChange={(e) => setEnabled(e.target.checked)}
-              />
-              <span>启用接入</span>
-            </label>
+            <Toggle
+              label="启用接入"
+              checked={enabled}
+              onChange={setEnabled}
+            />
           </div>
           <p className="orbit-settings-connection-block-hint">
             关闭后忽略入站消息，出站通知与 Webhook 验签仍可用。保存后生效。
           </p>
           <div className="orbit-settings-actions-row">
-            <button
-              type="button"
-              className="orbit-btn orbit-btn-sm"
+            <Button
+              variant="secondary"
+              size="sm"
               disabled={testing || !config?.hasAppSecret}
+              loading={testing}
               onClick={() => void handleTest()}
             >
-              {testing ? "测试中…" : "测试连接"}
-            </button>
+              测试连接
+            </Button>
           </div>
-        </article>
-      </SettingsSection>
+        </Card>
+      </Section>
 
-      <SettingsSection title="飞书后台">
-        <p className="orbit-settings-feishu-setup-note">
-          将下列地址填入开放平台，加密策略与 Orbit 保持一致，并发布应用版本。
-        </p>
-        <div className="orbit-settings-feishu-url-list">
+      <Section title="飞书后台配置">
+        <Stack gap="md">
           <CopyUrlRow
-            label="事件订阅"
-            hint="事件配置 → 请求地址；订阅 im.message.receive_v1。"
+            label="事件订阅请求地址"
+            hint="开放平台「事件配置」→ 请求地址；订阅 im.message.receive_v1。"
             value={config?.webhookUrl ?? ""}
             onCopy={() => copyUrl(config?.webhookUrl, "事件订阅地址")}
           />
           <CopyUrlRow
-            label="回调配置"
-            hint="回调配置 → 请求地址；订阅卡片回传交互、拉取链接预览数据。"
+            label="回调配置请求地址"
+            hint="开放平台「回调配置」→ 请求地址；订阅卡片回传交互与链接预览。"
             value={config?.callbackUrl ?? ""}
             onCopy={() => copyUrl(config?.callbackUrl, "回调地址")}
           />
-        </div>
-        <ol className="orbit-settings-feishu-setup-steps">
-          <li>复制地址并在飞书后台保存（challenge 校验通过）</li>
-          <li>订阅事件与回调，开通 im:message 等权限</li>
-          <li>创建并发布应用版本</li>
-        </ol>
-      </SettingsSection>
 
-      <SettingsSection title="应用凭证">
-        <article className="orbit-settings-supplier-card">
-          <div className="orbit-settings-fields">
-            <SettingsField label="App ID" stacked>
-            <input
-              className="orbit-input orbit-settings-input-block"
+          <div className="orbit-settings-guide-card">
+            <h4 className="orbit-settings-guide-title">
+              开放平台配置步骤：
+            </h4>
+            <ol className="orbit-settings-guide-list list-decimal list-inside">
+              <li>复制上方地址并在飞书后台保存（challenge 校验通过）</li>
+              <li>在「权限管理」中开通 <code className="orbit-settings-guide-code">im:message</code> 等所需权限</li>
+              <li>在「版本管理与发布」中创建并发布应用版本</li>
+            </ol>
+          </div>
+        </Stack>
+      </Section>
+
+      <Section title="应用凭证">
+        <Stack gap="md">
+          <Field label="App ID" hint="飞书开放平台应用的唯一标识（以 cli_ 开头）。">
+            <Input
+              mono
               value={appId}
               onChange={(e) => setAppId(e.target.value)}
               autoComplete="off"
               placeholder="cli_..."
             />
-          </SettingsField>
+          </Field>
           <SecretField
             label="App Secret"
             configured={Boolean(config?.hasAppSecret)}
-            hint={config?.hasAppSecret ? "已配置；留空则不修改" : "必填，保存后加密存储"}
+            hint={config?.hasAppSecret ? "已加密保存；留空则不修改" : "必填，用于换取飞书凭证与调用 API"}
             value={appSecret}
-            placeholder={config?.hasAppSecret ? "粘贴新 Secret" : ""}
+            placeholder={config?.hasAppSecret ? "粘贴新 Secret" : "请输入 App Secret"}
             onChange={setAppSecret}
           />
           <SecretField
             label="Encrypt Key"
             configured={Boolean(config?.hasEncryptKey)}
-            hint={config?.hasEncryptKey ? "已配置；留空则不修改" : "推荐配置，用于验签与解密"}
+            hint={config?.hasEncryptKey ? "已配置；留空则不修改" : "推荐配置，用于 Webhook 验签与解密"}
             value={encryptKey}
-            placeholder={config?.hasEncryptKey ? "粘贴新 Key" : ""}
+            placeholder={config?.hasEncryptKey ? "粘贴新 Key" : "请输入 Encrypt Key（选填）"}
             onChange={setEncryptKey}
           />
-          <SettingsField
+          <Field
             label="Verification Token"
-            hint="与飞书加密策略一致，用于校验请求来源。"
-            stacked
+            hint="飞书事件订阅的验证令牌，用于校验请求来源真实性。"
           >
-            <input
-              className="orbit-input orbit-settings-input-block"
+            <Input
+              mono
               value={verificationToken}
               onChange={(e) => setVerificationToken(e.target.value)}
               autoComplete="off"
+              placeholder="请输入 Verification Token"
             />
-          </SettingsField>
-          </div>
-        </article>
-      </SettingsSection>
+          </Field>
+        </Stack>
+      </Section>
 
-      <SettingsSection title="身份与投递">
-        <div className="orbit-settings-feishu-identity-grid">
+      <Section title="身份与投递">
+        <Stack gap="md">
           {authors.map((author) => (
-            <SettingsField
+            <Field
               key={author.id}
               label={`${author.name} open_id`}
-              hint="飞书用户 open_id，用于识别作者。"
-              stacked
+              hint="飞书用户 open_id，用于识别日记作者与投递提醒。"
             >
-              <input
-                className="orbit-input orbit-settings-input-block"
+              <Input
+                mono
                 value={openIds[author.id] ?? ""}
                 onChange={(e) =>
                   setOpenIds((prev) => ({ ...prev, [author.id]: e.target.value }))
                 }
                 autoComplete="off"
+                placeholder="ou_..."
               />
-            </SettingsField>
+            </Field>
           ))}
-          <SettingsField
-            label="Home Chat"
+          <Field
+            label="Home Chat ID"
             hint="通知与测试的默认群/单聊 chat_id；留空则发到当前操作者单聊。"
-            stacked
           >
-            <input
-              className="orbit-input orbit-settings-input-block"
+            <Input
+              mono
               value={homeChatId}
               onChange={(e) => setHomeChatId(e.target.value)}
               autoComplete="off"
               placeholder="oc_..."
             />
-          </SettingsField>
-          <SettingsField
+          </Field>
+          <Field
             label="AI 响应超时"
-            hint="飞书 AI 超过该时间无完整回复时，自动结束并更新卡片（秒）。范围 30–900 秒，默认 180 秒。"
-            stacked
+            hint="飞书 AI 超过该时间无完整回复时自动结束（秒，范围 30–900）。"
           >
-            <input
+            <Input
               type="number"
               min={30}
               max={900}
               step={30}
-              className="orbit-input orbit-settings-input-block"
               value={aiResponseTimeoutSec}
               onChange={(e) =>
                 setAiResponseTimeoutSec(
@@ -442,75 +388,72 @@ export function FeishuIntegrationPanel() {
                 )
               }
             />
-          </SettingsField>
-          <SettingsField
+          </Field>
+          <Field
             label="回复方式"
-            hint="开启后回复会显示在独立话题中，不影响 AI 对话记忆（单聊主窗口与话题共用同一 session）。"
-            stacked
+            hint="开启后 Bot 会以话题（Thread）形式在群/单聊中跟帖回复。"
           >
-            <label style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", cursor: "pointer", paddingTop: "0.4rem" }}>
-              <input
-                type="checkbox"
-                style={{ width: "1.1rem", height: "1.1rem", cursor: "pointer", accentColor: "var(--orbit-accent, #6366f1)" }}
+            <div style={{ paddingTop: "0.25rem" }}>
+              <Toggle
+                label="默认创建话题回复 (Reply in Thread)"
                 checked={replyInThread}
-                onChange={(e) => setReplyInThread(e.target.checked)}
+                onChange={setReplyInThread}
               />
-              <span style={{ fontSize: "0.9rem", fontWeight: 500 }}>默认创建话题回复 (Reply in Thread)</span>
-            </label>
-          </SettingsField>
-        </div>
-      </SettingsSection>
+            </div>
+          </Field>
+        </Stack>
+      </Section>
 
-      <SettingsSection title="高级">
+      <Section title="高级设置">
         <details className="orbit-settings-disclosure">
           <summary className="orbit-settings-disclosure-summary">
-            群聊与消息合并
+            群聊白名单与消息合并窗口
           </summary>
-          <div className="orbit-settings-disclosure-body orbit-settings-fields">
-            <SettingsField
-              label="允许群 chat_id"
-              hint="每行一个；留空表示仅单聊可写。群聊须 @Bot。"
-              stacked
-            >
-              <textarea
-                className="orbit-input orbit-settings-input-block"
-                rows={3}
-                value={allowedGroups}
-                onChange={(e) => setAllowedGroups(e.target.value)}
-              />
-            </SettingsField>
-            <SettingsField
-              label="消息合并窗口"
-              hint="短时间连发多条时，合并进同一条日记（毫秒）。"
-              stacked
-            >
-              <input
-                type="number"
-                min={0}
-                step={500}
-                className="orbit-input orbit-settings-input-block"
-                value={mergeWindowMs}
-                onChange={(e) => setMergeWindowMs(Number(e.target.value) || 0)}
-              />
-            </SettingsField>
+          <div className="orbit-settings-disclosure-body">
+            <Stack gap="md">
+              <Field
+                label="允许的群 chat_id"
+                hint="每行一个；留空表示仅单聊可写。群聊中需 @Bot 触发。"
+              >
+                <Textarea
+                  mono
+                  rows={3}
+                  value={allowedGroups}
+                  onChange={(e) => setAllowedGroups(e.target.value)}
+                  placeholder="oc_xxx&#10;oc_yyy"
+                />
+              </Field>
+              <Field
+                label="消息合并窗口 (毫秒)"
+                hint="短时间内连续发送的多条消息自动合并为同一条日记。"
+              >
+                <Input
+                  type="number"
+                  min={0}
+                  step={500}
+                  value={mergeWindowMs}
+                  onChange={(e) => setMergeWindowMs(Number(e.target.value) || 0)}
+                />
+              </Field>
+            </Stack>
           </div>
         </details>
-      </SettingsSection>
+      </Section>
 
       <div className="orbit-settings-actions">
         <div className="orbit-settings-actions-row">
-          <button
-            type="button"
-            className="orbit-btn orbit-btn-primary"
+          <Button
+            variant="primary"
             disabled={saving}
+            loading={saving}
             onClick={() => void handleSave()}
           >
-            {saving ? "保存中…" : "保存配置"}
-          </button>
+            保存配置
+          </Button>
         </div>
         {session?.user?.name ? (
           <p className="orbit-settings-actions-hint orbit-muted">
-            当前登录：{session.user.name}
+            当前操作者：{session.user.name}
           </p>
         ) : null}
       </div>

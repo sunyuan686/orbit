@@ -1,4 +1,36 @@
-import { formatWriteContentDateLabel } from "./beijing-date";
+import { isToolUIPart, type UIMessage } from "ai";
+import { formatWriteContentDateLabel } from "@orbit/shared";
+
+export function applyToolApprovalResponse(
+  messages: UIMessage[],
+  approvalId: string,
+  approved: boolean,
+  reason?: string
+): UIMessage[] {
+  return messages.map((message) => {
+    if (message.role !== "assistant") return message;
+
+    let changed = false;
+    const parts = (message.parts ?? []).map((part) => {
+      if (!isToolUIPart(part)) return part;
+      if (part.state !== "approval-requested") return part;
+      if (part.approval?.id !== approvalId) return part;
+
+      changed = true;
+      return {
+        ...part,
+        state: "approval-responded" as const,
+        approval: {
+          ...part.approval,
+          approved,
+          reason,
+        },
+      };
+    });
+
+    return changed ? { ...message, parts } : message;
+  });
+}
 
 const CONTENT_TYPE_LABEL: Record<string, string> = {
   diary: "日记",

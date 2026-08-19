@@ -7,31 +7,14 @@ import {
   type NotificationPreferences,
   type NotificationEventKind,
 } from "../lib/api";
-import { useToast } from "../lib/useToast";
+import { useToast } from "../hooks/useToast";
+import { Button, Input, Toggle, Field, Section } from "./ui";
 
 const EVENT_LABELS: Record<NotificationEventKind, string> = {
   entry: "新日记 / 时间线 / 留言",
   comment: "新评论 / 边注",
   letter: "新回信",
 };
-
-function SettingsSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  const headingId = `settings-section-${title}`;
-  return (
-    <section className="orbit-settings-section" aria-labelledby={headingId}>
-      <h3 id={headingId} className="orbit-settings-heading">
-        {title}
-      </h3>
-      {children}
-    </section>
-  );
-}
 
 export function NotificationsSettingsPanel() {
   const toast = useToast();
@@ -108,73 +91,58 @@ export function NotificationsSettingsPanel() {
         </p>
       </header>
 
-      <SettingsSection title="事件开关">
+      <Section title="事件开关">
         <div className="orbit-settings-fields">
           {(Object.keys(EVENT_LABELS) as NotificationEventKind[]).map((event) => (
-            <div key={event} className="orbit-settings-field orbit-settings-field--stacked">
-              <div className="orbit-settings-field-copy">
-                <span className="orbit-settings-field-label">{EVENT_LABELS[event]}</span>
+            <Field key={event} label={EVENT_LABELS[event]}>
+              <div className="flex items-center gap-6">
+                <Toggle
+                  checked={prefs.events[event].inApp}
+                  onChange={(checked) => updateChannel(event, "inApp", checked)}
+                  label="站内通知"
+                />
+                <Toggle
+                  checked={prefs.events[event].feishu}
+                  onChange={(checked) => updateChannel(event, "feishu", checked)}
+                  label="飞书推送"
+                />
               </div>
-              <div className="orbit-settings-field-control orbit-settings-field-control--block">
-                <label className="orbit-settings-toggle">
-                  <input
-                    type="checkbox"
-                    checked={prefs.events[event].inApp}
-                    onChange={(e) => updateChannel(event, "inApp", e.target.checked)}
-                  />
-                  <span>站内通知</span>
-                </label>
-                <label className="orbit-settings-toggle">
-                  <input
-                    type="checkbox"
-                    checked={prefs.events[event].feishu}
-                    onChange={(e) => updateChannel(event, "feishu", e.target.checked)}
-                  />
-                  <span>飞书推送</span>
-                </label>
-              </div>
-            </div>
+            </Field>
           ))}
         </div>
-      </SettingsSection>
+      </Section>
 
-      <SettingsSection title="节流">
-        <div className="orbit-settings-fields">
-          <div className="orbit-settings-field orbit-settings-field--stacked">
-            <div className="orbit-settings-field-copy">
-              <span className="orbit-settings-field-label">评论合并窗口（分钟）</span>
-              <p className="orbit-settings-field-hint">
-                同篇文章在窗口内的多条评论合并为一条站内/飞书通知。
-              </p>
-            </div>
-            <div className="orbit-settings-field-control orbit-settings-field-control--block">
-              <input
-                type="number"
-                min={0}
-                max={60}
-                className="orbit-input orbit-settings-input-block"
-                value={prefs.commentMergeMinutes}
-                onChange={(e) =>
-                  setPrefs({
-                    ...prefs,
-                    commentMergeMinutes: Number(e.target.value) || 0,
-                  })
-                }
-              />
-            </div>
-          </div>
-        </div>
-      </SettingsSection>
+      <Section title="节流">
+        <Field
+          label="评论合并窗口（分钟）"
+          hint="同篇文章在窗口内的多条评论合并为一条站内/飞书通知。"
+        >
+          <Input
+            type="number"
+            mono
+            min={0}
+            max={60}
+            value={prefs.commentMergeMinutes}
+            onChange={(e) =>
+              setPrefs({
+                ...prefs,
+                commentMergeMinutes: Number(e.target.value) || 0,
+              })
+            }
+          />
+        </Field>
+      </Section>
 
       <div className="orbit-settings-actions">
-        <button
+        <Button
           type="button"
-          className="orbit-btn orbit-btn-primary"
+          variant="primary"
           disabled={saving}
+          loading={saving}
           onClick={() => void handleSave()}
         >
-          {saving ? "保存中…" : "保存偏好"}
-        </button>
+          保存通知偏好
+        </Button>
       </div>
     </>
   );

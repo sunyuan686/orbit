@@ -24,11 +24,10 @@ import {
 } from "../lib/api";
 import { parseAssistantContent } from "../lib/ai-message-content";
 import { safeRandomUUID } from "../lib/uuid";
-import { formatWriteContentApprovalSummary } from "../lib/ai-write-approval";
-import { applyToolApprovalResponse } from "../../../src/services/ai-tool-approval";
-import { useMaxWidthMd } from "../lib/useBreakpoint";
-import { useConfirm } from "../lib/useConfirm";
-import { useToast } from "../lib/useToast";
+import { formatWriteContentApprovalSummary, applyToolApprovalResponse } from "../lib/ai-write-approval";
+import { useMaxWidthMd } from "../hooks/useBreakpoint";
+import { useConfirm } from "../hooks/useConfirm";
+import { useToast } from "../hooks/useToast";
 import { AiConversationList } from "./AiConversationList";
 import { AiLayoutMenu, type AiPanelLayout } from "./AiLayoutMenu";
 import { AiModelPicker } from "./AiModelPicker";
@@ -36,7 +35,7 @@ import { VoiceInputButton } from "./VoiceInputButton";
 import {
   REASONING_LEVELS,
   type ReasoningLevel,
-} from "../lib/ai-model-specs";
+} from "@orbit/shared";
 import {
   AiIcon,
   ArrowUpIcon,
@@ -254,7 +253,7 @@ function ToolCallBody({
 
   if (toolName === "write_content" && part.state === "output-denied") {
     return (
-      <p className="orbit-ai-tool-snippet" style={{ color: "var(--color-red-600, #dc2626)" }}>
+      <p className="orbit-ai-tool-snippet" style={{ color: "var(--color-danger)" }}>
         已取消写入
         {part.approval?.reason ? `：${part.approval.reason}` : ""}
       </p>
@@ -351,7 +350,7 @@ function ToolCallBody({
     };
     if (output.error) {
       return (
-        <p className="orbit-ai-tool-snippet" style={{ color: "var(--color-red-600, #dc2626)" }}>
+        <p className="orbit-ai-tool-snippet" style={{ color: "var(--color-danger)" }}>
           {output.error}
         </p>
       );
@@ -391,7 +390,7 @@ function ToolCallBody({
     };
     if (output.error) {
       return (
-        <p className="orbit-ai-tool-snippet" style={{ color: "var(--color-red-600, #dc2626)" }}>
+        <p className="orbit-ai-tool-snippet" style={{ color: "var(--color-danger)" }}>
           {output.error}
         </p>
       );

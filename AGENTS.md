@@ -20,6 +20,19 @@
 - 文档克制：仅编写必要文档，不添加无价值说明。
 - UI 优先级：先解决信息层级、可读性和交互效率，再考虑视觉表现。
 
+### UI 与设计
+遵循 [DESIGN.md](DESIGN.md) 与 [docs/guides/palette-and-typography.md](docs/guides/palette-and-typography.md)，追求纸质刊物的温度与克制美：
+- **60-30-10 黄金色彩法则**：
+  - 60% 画布与负空间（月石清白 `--bg` + 5% 纸质微颗粒 + 纯白 `--surface` 卡片）；
+  - 30% 墨水排版骨架（标题与正文 `--text-primary`/`--text-secondary` + 1px 中性分割线 `--border` + 单色中性图标）；
+  - 10% 焦点主题高光（唯一实心 CTA 按钮 + 金句引线 + 状态呼吸圆点）。
+- **经典三元字体架构 (The Classic Trio)**：
+  - 标题（Serif）：`Source Serif 4` / 思源宋体，字重 500，刊物文学温度；
+  - 正文（Sans）：`Inter` / 系统苹方 / 思源黑体，15px 搭配 1.72 黄金行高，长篇夜读舒适清晰；
+  - 时间（Mono）：`JetBrains Mono`，12px 物理等宽网格对齐，老钟表与日历秩序感。
+- **组件开发铁律**：严禁硬编码颜色、字体与零散尺寸，一律使用 CSS Variables Token 驱动。
+- **真诚文案**：动词+名词按钮，温和客观反馈。
+
 ### 验证
 - 涉及代码、配置、数据变更时，明确完成标准并验证闭环。
 

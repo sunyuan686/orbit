@@ -1,12 +1,10 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import {
-  ACCENT_PRESETS,
   AI_PROVIDERS,
   APP_SETTING_KEYS,
   buildAppSettings,
   inferAiProviderFromModelId,
-  isAccentPreset,
   isAiProvider,
   parseAiConnections,
   serializeAiConnections,
@@ -14,18 +12,17 @@ import {
   serializeAiEnabledProviders,
   type AiProvider,
   type AppSettings,
-  type VoiceTranscribeMode,
 } from "../app-settings.js";
 import {
   connectionKeySettingId,
   normalizeEnabledModelRef,
   validateAiConnections,
-} from "../services/ai-connections.js";
+} from "../services/ai/ai-connections.js";
 import {
   parseModelSpecs,
   serializeModelSpecs,
   type ModelSpec,
-} from "../services/ai-model-specs.js";
+} from "../services/ai/ai-model-specs.js";
 import {
   deleteSetting,
   readSettingsMap,
@@ -38,7 +35,7 @@ import {
   AuditAction,
   AuditResourceType,
   recordAudit,
-} from "../services/audit.js";
+} from "../services/space/audit.js";
 import type { SessionAuthor } from "./session-author.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
@@ -63,7 +60,6 @@ async function requireSessionAuthor(
 }
 
 interface SettingsPutBody {
-  accentPreset?: string;
   aiProvider?: string;
   aiModel?: string | null;
   aiEnabledModels?: string[];
@@ -82,7 +78,6 @@ interface SettingsPutBody {
   alibabaKey?: string | null;
   aiBotName?: string;
   aiBotPersona?: string;
-  voiceTranscribeMode?: VoiceTranscribeMode;
 }
 
 async function persistSettings(
@@ -136,7 +131,6 @@ export function createSettingsRoutes(
     }
 
     const hasUpdates =
-      body.accentPreset !== undefined ||
       body.aiProvider !== undefined ||
       body.aiModel !== undefined ||
       body.aiEnabledModels !== undefined ||
@@ -147,8 +141,7 @@ export function createSettingsRoutes(
       body.deepseekKey !== undefined ||
       body.alibabaKey !== undefined ||
       body.aiBotName !== undefined ||
-      body.aiBotPersona !== undefined ||
-      body.voiceTranscribeMode !== undefined;
+      body.aiBotPersona !== undefined;
 
     if (!hasUpdates) {
       try {
@@ -166,16 +159,6 @@ export function createSettingsRoutes(
     let settingsMap = await readSettingsMap(db);
 
     try {
-      if (body.accentPreset !== undefined) {
-        if (!isAccentPreset(body.accentPreset)) {
-          return c.json(
-            { error: `主题色无效，可选：${ACCENT_PRESETS.join("、")}` },
-            400
-          );
-        }
-        await upsertSetting(db, APP_SETTING_KEYS.accentPreset, body.accentPreset);
-        auditMetadata.accentPreset = body.accentPreset;
-      }
 
       if (body.aiProvider !== undefined) {
         if (!isAiProvider(body.aiProvider)) {
@@ -388,14 +371,6 @@ export function createSettingsRoutes(
         const persona = body.aiBotPersona.trim();
         await upsertSetting(db, APP_SETTING_KEYS.aiBotPersona, persona);
         auditMetadata.aiBotPersona = persona;
-      }
-
-      if (body.voiceTranscribeMode !== undefined) {
-        const vMode = body.voiceTranscribeMode;
-        if (vMode === "smooth" || vMode === "raw" || vMode === "bullets" || vMode === "formal") {
-          await upsertSetting(db, APP_SETTING_KEYS.voiceTranscribeMode, vMode);
-          auditMetadata.voiceTranscribeMode = vMode;
-        }
       }
 
       const settings = await persistSettings(db, session, c, auditMetadata);

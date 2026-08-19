@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { INVALID_SESSION_ERROR } from "./session-author.js";
-import { canComment, type CommentKind } from "../comment-capabilities.js";
+import { canComment, type CommentKind } from "../shared/index.js";
 import { comment, entry } from "../db/schema.js";
 import { getRequestId } from "../lib/request-context.js";
 import { generateId } from "../lib/id.js";
@@ -10,12 +10,12 @@ import {
   AuditAction,
   AuditResourceType,
   recordAudit,
-} from "../services/audit.js";
+} from "../services/space/audit.js";
 import type { SessionAuthor } from "./session-author.js";
 import {
   notifyCommentCreated,
   type NotifyRuntime,
-} from "../services/notify.js";
+} from "../services/notify/notify.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 type TargetType = "entry";

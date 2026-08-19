@@ -3,8 +3,8 @@ import type { Context } from "hono";
 import { eq } from "drizzle-orm";
 import { asset } from "../db/schema.js";
 import { generateId } from "../lib/id.js";
-import { transcribeAudioWithDashScope } from "../services/dashscope-voice.js";
-import { transcribeAudioWithWorkersAi } from "../services/workers-ai-whisper.js";
+import { transcribeAudioWithDashScope } from "../services/ai/dashscope-voice.js";
+import { transcribeAudioWithWorkersAi } from "../services/ai/workers-ai-whisper.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 

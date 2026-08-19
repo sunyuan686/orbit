@@ -8,7 +8,7 @@ import {
   shouldToastApiError,
   type SearchResult,
 } from "../lib/api";
-import { useToast } from "../lib/useToast";
+import { useToast } from "../hooks/useToast";
 import { setPageTitle } from "../lib/pageTitle";
 
 function resultHref(result: SearchResult): string {

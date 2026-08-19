@@ -8,7 +8,7 @@ import {
   shouldToastApiError,
 } from "../lib/api";
 import { setPageTitle } from "../lib/pageTitle";
-import { useToast } from "../lib/useToast";
+import { useToast } from "../hooks/useToast";
 import { EyeIcon, EyeOffIcon } from "../components/OrbitIcons";
 
 export function Join() {

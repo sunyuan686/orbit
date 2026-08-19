@@ -3,7 +3,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { TurnstileWidget } from "../components/TurnstileWidget";
 import { authClient, fetchSpaceStatus, type SpaceStatus } from "../lib/api";
 import { setPageTitle } from "../lib/pageTitle";
-import { useToast } from "../lib/useToast";
+import { useToast } from "../hooks/useToast";
 
 import { EyeIcon, EyeOffIcon } from "../components/OrbitIcons";
 

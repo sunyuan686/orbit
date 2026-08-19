@@ -73,10 +73,10 @@ export function setupVoiceCardEvents() {
         const isHidden = transcriptBlock.classList.contains("hidden");
         if (isHidden) {
           transcriptBlock.classList.remove("hidden");
-          transcriptToggleBtn.classList.add("bg-amber-500/20", "text-amber-600", "dark:text-amber-400");
+          transcriptToggleBtn.classList.add("is-active");
         } else {
           transcriptBlock.classList.add("hidden");
-          transcriptToggleBtn.classList.remove("bg-amber-500/20", "text-amber-600", "dark:text-amber-400");
+          transcriptToggleBtn.classList.remove("is-active");
         }
       }
       return;
@@ -118,13 +118,7 @@ export function setupVoiceCardEvents() {
       const progressRatio = current / total;
       const activeCount = Math.round(progressRatio * bars.length);
       bars.forEach((bar, idx) => {
-        if (idx < activeCount) {
-          bar.classList.add("bg-amber-500");
-          bar.classList.remove("bg-stone-300", "dark:bg-stone-700");
-        } else {
-          bar.classList.remove("bg-amber-500");
-          bar.classList.add("bg-stone-300", "dark:bg-stone-700");
-        }
+        bar.classList.toggle("is-played", idx < activeCount);
       });
     }
   };

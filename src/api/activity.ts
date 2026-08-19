@@ -4,7 +4,7 @@ import { createLogger } from "../lib/logger.js";
 import {
   getActivityDayEntries,
   getActivityStats,
-} from "../services/activity.js";
+} from "../services/space/activity.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { queryAuditLogs } from "../services/audit.js";
+import { queryAuditLogs } from "../services/space/audit.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 

@@ -1,7 +1,7 @@
 import type { Context, Next } from "hono";
 import type { Auth } from "../auth.js";
 import type { SessionAuthor } from "../api/session-author.js";
-import { verifyApiToken } from "../services/api-token.js";
+import { verifyApiToken } from "../services/space/api-token.js";
 
 declare module "hono" {
   interface ContextVariableMap {

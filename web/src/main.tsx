@@ -3,13 +3,14 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
-import { ConfirmProvider } from "./lib/useConfirm";
-import { ToastProvider } from "./lib/useToast";
+import { ConfirmProvider, ToastProvider } from "./hooks";
 import { queryClient } from "./lib/queryClient";
 import { globalLogger } from "./lib/logger";
 import { registerPwaServiceWorker } from "./lib/pwa";
+import { initAppearancePreferences } from "./lib/accent";
 import "./index.css";
 
+initAppearancePreferences();
 registerPwaServiceWorker();
 
 if (import.meta.env.DEV) {

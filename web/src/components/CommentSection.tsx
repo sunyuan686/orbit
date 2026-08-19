@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { CommentItem } from "../lib/api";
 import { formatDate } from "../lib/api";
 import { CommentComposer } from "./CommentComposer";
+import { Button } from "./ui";
 
 function formatCommentTime(ts: number): string {
   const date = formatDate(ts);
@@ -57,36 +58,40 @@ function CommentRow({
       {!editing && (
         <div className="orbit-comment-actions">
           {onReply && (
-            <button
+            <Button
               type="button"
-              className="orbit-btn-ghost"
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setReplying((value) => !value);
               }}
             >
               回复
-            </button>
+            </Button>
           )}
           {canManage && (
-            <button
+            <Button
               type="button"
-              className="orbit-btn-ghost"
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setReplying(false);
                 setEditing(true);
               }}
             >
               编辑
-            </button>
+            </Button>
           )}
           {canManage && (
-            <button
+            <Button
               type="button"
-              className="orbit-btn-ghost orbit-btn-ghost--danger"
+              variant="ghost"
+              size="sm"
+              className="orbit-text-danger"
               onClick={() => void onDelete(comment.id)}
             >
               删除
-            </button>
+            </Button>
           )}
         </div>
       )}

@@ -1,6 +1,6 @@
 import { db } from "../../db/index.js";
 import { createMemoriesRoutes } from "../../api/memories.js";
-import type { NotifyRuntime } from "../../services/notify.js";
+import type { NotifyRuntime } from "../../services/notify/notify.js";
 import { resolvePublicBaseUrl } from "../../lib/public-base-url.js";
 
 function getNotifyRuntime(): NotifyRuntime {

@@ -21,7 +21,8 @@ import {
   type LetterThread,
 } from "../lib/letterThread";
 import { queryKeys } from "../lib/queryKeys";
-import { useToast } from "../lib/useToast";
+import { useToast } from "../hooks/useToast";
+import { Container } from "../components/ui";
 
 /** letter 仍全量拉取以拼线程树；其余类型分页 */
 const PAGE_SIZE = 30;
@@ -131,11 +132,9 @@ function MessageCard({
 function PolaroidMessageCard({
   entry,
   tone,
-  tilt,
 }: {
   entry: EntrySummary;
   tone: "a" | "b";
-  tilt: "a" | "b" | "none";
 }) {
   const body = entry.snippet || entry.title || "（无内容）";
   const hasCover = Boolean(entry.coverUrl);
@@ -143,7 +142,6 @@ function PolaroidMessageCard({
   const className = [
     "orbit-polaroid-card",
     `orbit-polaroid-card--${tone}`,
-    tilt !== "none" ? `orbit-polaroid-card--tilt-${tilt}` : "",
     hasCover ? "orbit-polaroid-card--has-cover" : "",
   ]
     .filter(Boolean)
@@ -183,9 +181,10 @@ function DiaryGridCard({
   entry: EntrySummary;
   tone: "a" | "b";
 }) {
+  const customTitle = entry.title?.trim() || null;
+  const snippet = entry.snippet?.trim() || "";
   const hasCover = Boolean(entry.coverUrl);
   const initial = entry.author ? entry.author.charAt(0) : "日";
-  const body = entry.snippet || "（无内容）";
   const className = [
     "orbit-polaroid-card",
     `orbit-polaroid-card--${tone}`,
@@ -210,13 +209,15 @@ function DiaryGridCard({
         )}
       </div>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {entry.title && (
-          <h3 style={{ fontFamily: "var(--font-heading)", fontSize: "1rem", fontWeight: 500, marginBottom: "0.375rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {entry.title}
-          </h3>
+      <div className="orbit-polaroid-content">
+        {customTitle ? (
+          <>
+            <h3 className="orbit-polaroid-title">{customTitle}</h3>
+            {snippet && <p className="orbit-polaroid-body orbit-polaroid-body--has-title">{snippet}</p>}
+          </>
+        ) : (
+          <p className="orbit-polaroid-body">{snippet || "（查看日记内容）"}</p>
         )}
-        <p className="orbit-polaroid-body">{body}</p>
       </div>
 
       {hasCover && entry.coverUrl && (
@@ -235,9 +236,10 @@ function TimelineGridCard({
   entry: EntrySummary;
   tone: "a" | "b";
 }) {
+  const customTitle = entry.title?.trim() || null;
+  const snippet = entry.snippet?.trim() || "";
   const hasCover = Boolean(entry.coverUrl);
   const initial = entry.author ? entry.author.charAt(0) : "轨";
-  const body = entry.snippet || "（无内容）";
   const className = [
     "orbit-polaroid-card",
     `orbit-polaroid-card--${tone}`,
@@ -264,13 +266,15 @@ function TimelineGridCard({
         )}
       </div>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {entry.title && (
-          <h3 style={{ fontFamily: "var(--font-heading)", fontSize: "1rem", fontWeight: 500, marginBottom: "0.375rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {entry.title}
-          </h3>
+      <div className="orbit-polaroid-content">
+        {customTitle ? (
+          <>
+            <h3 className="orbit-polaroid-title">{customTitle}</h3>
+            {snippet && <p className="orbit-polaroid-body orbit-polaroid-body--has-title">{snippet}</p>}
+          </>
+        ) : (
+          <p className="orbit-polaroid-body">{snippet || "（查看时刻详情）"}</p>
         )}
-        <p className="orbit-polaroid-body">{body}</p>
       </div>
 
       {hasCover && entry.coverUrl && (
@@ -289,9 +293,10 @@ function NoteGridCard({
   entry: EntrySummary;
   tone: "a" | "b";
 }) {
+  const customTitle = entry.title?.trim() || null;
+  const snippet = entry.snippet?.trim() || "";
   const hasCover = Boolean(entry.coverUrl);
   const initial = entry.author ? entry.author.charAt(0) : "随";
-  const body = entry.snippet || entry.title || "（无内容）";
   const className = [
     "orbit-polaroid-card",
     `orbit-polaroid-card--${tone}`,
@@ -316,13 +321,15 @@ function NoteGridCard({
         )}
       </div>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {entry.title && (
-          <h3 style={{ fontFamily: "var(--font-heading)", fontSize: "0.95rem", fontWeight: 500, marginBottom: "0.375rem" }}>
-            {entry.title}
-          </h3>
+      <div className="orbit-polaroid-content">
+        {customTitle ? (
+          <>
+            <h3 className="orbit-polaroid-title">{customTitle}</h3>
+            {snippet && <p className="orbit-polaroid-body orbit-polaroid-body--has-title">{snippet}</p>}
+          </>
+        ) : (
+          <p className="orbit-polaroid-body">{snippet || "（查看随想内容）"}</p>
         )}
-        <p className="orbit-polaroid-body">{body}</p>
       </div>
 
       {hasCover && entry.coverUrl && (
@@ -341,18 +348,19 @@ function AppreciationGridCard({
   entry: EntrySummary;
   tone: "a" | "b";
 }) {
+  const customTitle = entry.title?.trim() || null;
+  const snippet = entry.snippet?.trim() || "";
   const hasCover = Boolean(entry.coverUrl);
   const initial = entry.author ? entry.author.charAt(0) : "谢";
-  const body = entry.snippet || entry.title || "（无内容）";
 
   return (
     <Link to={`/appreciation/${entry.id}`} className="orbit-appreciation-card">
       <div className="orbit-appreciation-header">
         <div className="orbit-polaroid-user">
-          <span className={`orbit-polaroid-avatar orbit-polaroid-avatar--${tone}`} style={{ background: "oklch(0.6 0.18 20)" }}>
+          <span className={`orbit-polaroid-avatar orbit-polaroid-avatar--${tone}`}>
             {initial}
           </span>
-          <span className="orbit-polaroid-author" style={{ fontWeight: 600 }}>
+          <span className="orbit-polaroid-author">
             {entry.author ? `来自 ${entry.author} 的感谢` : "暖心感谢"}
           </span>
         </div>
@@ -361,17 +369,19 @@ function AppreciationGridCard({
         )}
       </div>
 
-      <div style={{ flex: 1, minWidth: 0, margin: "0.5rem 0" }}>
-        {entry.title && (
-          <h3 style={{ fontFamily: "var(--font-heading)", fontSize: "1rem", fontWeight: 600, color: "oklch(0.45 0.16 20)", marginBottom: "0.375rem" }}>
-            {entry.title}
-          </h3>
+      <div className="orbit-polaroid-content">
+        {customTitle ? (
+          <>
+            <h3 className="orbit-appreciation-title">{customTitle}</h3>
+            {snippet && <p className="orbit-polaroid-body orbit-polaroid-body--has-title">{snippet}</p>}
+          </>
+        ) : (
+          <p className="orbit-polaroid-body">{snippet || "（查看感谢详情）"}</p>
         )}
-        <p className="orbit-polaroid-body" style={{ color: "var(--color-fg-muted, inherit)" }}>{body}</p>
       </div>
 
       {hasCover && entry.coverUrl && (
-        <div className="orbit-polaroid-frame" style={{ marginTop: "0.5rem" }}>
+        <div className="orbit-polaroid-frame">
           <img src={entry.coverUrl} alt="" className="orbit-polaroid-img" loading="lazy" />
         </div>
       )}
@@ -475,7 +485,8 @@ function LetterEnvelope({
   entry: EntrySummary;
   tone: "a" | "b";
 }) {
-  const title = entryDisplayLabel(entry);
+  const customTitle = entry.title?.trim() || null;
+  const snippet = entry.snippet?.trim() || "";
   const postmark = entry.entryDate != null ? formatPostmark(entry.entryDate) : null;
 
   return (
@@ -498,8 +509,14 @@ function LetterEnvelope({
       {entry.entryDate != null && (
         <span className="sr-only">{formatDateCn(entry.entryDate)}</span>
       )}
-      {title ? <h3 className="orbit-env-to">{title}</h3> : null}
-      <Snippet text={entry.snippet} className="orbit-env-snip" />
+      {customTitle ? (
+        <>
+          <h3 className="orbit-env-title">{customTitle}</h3>
+          {snippet && <p className="orbit-env-body orbit-env-body--has-title">{snippet}</p>}
+        </>
+      ) : (
+        <p className="orbit-env-body">{snippet || "（查看信件内容）"}</p>
+      )}
       {entry.author && <span className="orbit-env-sign">— {entry.author}</span>}
     </Link>
   );
@@ -514,7 +531,7 @@ function LetterReplyMini({
   tone: "a" | "b";
   tilt: "a" | "b";
 }) {
-  const text = entryDisplayLabel(reply) || reply.snippet || "回信";
+  const text = reply.title?.trim() || reply.snippet?.trim() || "回信";
 
   return (
     <Link
@@ -628,12 +645,11 @@ function TypedEntryList({
     if (viewMode === "polaroid") {
       return (
         <ul className="orbit-list-plain orbit-msg-board-polaroid">
-          {entries.map((entry, index) => (
+          {entries.map((entry) => (
             <li key={entry.id}>
               <PolaroidMessageCard
                 entry={entry}
                 tone={tones.get(authorToneKey(entry)) ?? "a"}
-                tilt={index % 2 === 0 ? "a" : "b"}
               />
             </li>
           ))}
@@ -841,7 +857,7 @@ export function ArticleList() {
   const hasMore = paginated && pagedQuery.hasNextPage;
 
   return (
-    <div className={`orbit-content${isLetter ? " orbit-content--desk" : ""}`}>
+    <Container size="standard" className={isLetter ? "orbit-content--desk" : undefined}>
       <div className={isLetter ? "orbit-desk-toolbar" : "flex items-center justify-between mb-4"}>
         <h2 className="orbit-page-title">{label}</h2>
         <Link to={`/${type}/new`} className="orbit-btn orbit-btn-primary">
@@ -915,6 +931,6 @@ export function ArticleList() {
           )}
         </>
       )}
-    </div>
+    </Container>
   );
 }

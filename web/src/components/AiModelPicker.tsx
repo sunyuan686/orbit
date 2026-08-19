@@ -17,9 +17,9 @@ import {
 import {
   mergeModelSpec,
   resolveSpecKey,
-} from "../lib/ai-model-specs";
-import { useAppSettings } from "../lib/appSettingsContext";
-import { useToast } from "../lib/useToast";
+} from "@orbit/shared";
+import { useAppSettings } from "../contexts/appSettingsContext";
+import { useToast } from "../hooks/useToast";
 import { AiIcon, CheckIcon, ChevronDownIcon, WrenchIcon } from "./OrbitIcons";
 
 function getMenuLayout(trigger: DOMRect): CSSProperties {

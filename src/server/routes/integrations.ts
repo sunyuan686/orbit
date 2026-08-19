@@ -6,7 +6,7 @@ import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 
 import { resolvePublicBaseUrl } from "../../lib/public-base-url.js";
-import type { NotifyRuntime } from "../../services/notify.js";
+import type { NotifyRuntime } from "../../services/notify/notify.js";
 
 function getNotifyRuntime(): NotifyRuntime {
   return {

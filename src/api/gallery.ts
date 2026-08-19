@@ -6,7 +6,7 @@ import {
   listGalleryItems,
   markAssetDeleted,
   type GalleryFilter,
-} from "../services/gallery.js";
+} from "../services/content/gallery.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 

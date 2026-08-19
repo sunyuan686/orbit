@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { createLogger } from "../lib/logger.js";
-import { createSearchService, getSearchIndexStatus } from "../services/search.js";
+import { createSearchService, getSearchIndexStatus } from "../services/content/search.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 

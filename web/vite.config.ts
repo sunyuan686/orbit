@@ -1,3 +1,4 @@
+import path from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -8,6 +9,11 @@ const USER_MEDIA_ASSET = /^\/assets\/[a-f0-9]{8}\.(?:jpe?g|png|gif|webp)$/i;
 
 export default defineConfig({
   envDir: "../",
+  resolve: {
+    alias: {
+      "@orbit/shared": path.resolve(__dirname, "../src/shared"),
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),

@@ -35,9 +35,9 @@ import { getSessionAuthor } from "./api/session-author.js";
 import { requestContext } from "./lib/request-context.js";
 import { createRequireAuth } from "./lib/request-auth.js";
 import { verifyTurnstileToken } from "./lib/turnstile.js";
-import type { NotifyRuntime } from "./services/notify.js";
-import { CompanionScheduler } from "./services/companion-scheduler.js";
-import { scanTestCandidate } from "./services/companion-engine.js";
+import type { NotifyRuntime } from "./services/notify/notify.js";
+import { CompanionScheduler } from "./services/companion/companion-scheduler.js";
+import { scanTestCandidate } from "./services/companion/companion-engine.js";
 
 export interface Env {
   DB: D1Database;
@@ -355,6 +355,7 @@ app.route("/api/memories", createMemoriesRoutes(getDb, {
 // R2 媒体文件代理（需登录，路径与本地 dev 一致）
 app.get("/assets/:filename", requireAuth, async (c) => {
   const filename = c.req.param("filename");
+  if (!filename) return c.json({ error: "not found" }, 404);
   const object = await c.env.R2.get(filename);
   if (!object) return c.json({ error: "not found" }, 404);
 
@@ -404,7 +405,7 @@ app.post("/api/companion/test", requireSession, async (c) => {
   };
 
   const candidate = await scanTestCandidate(db, sessionAuthor.userId, nowTs);
-  const { deliverCompanionCard } = await import("./services/feishu-companion-card.js");
+  const { deliverCompanionCard } = await import("./services/feishu/feishu-companion-card.js");
   await deliverCompanionCard(
     candidate,
     {

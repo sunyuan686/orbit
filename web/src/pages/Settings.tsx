@@ -8,24 +8,55 @@ import {
   formatDateTime,
   getApiErrorMessage,
   shouldToastApiError,
-  updateAppSettings,
   updateProfile,
-  type AccentPreset,
   type SpaceStatus,
 } from "../lib/api";
-import { ACCENT_PRESET_LIST, applyAccentPreset } from "../lib/accent";
-import { useAppSettings } from "../lib/appSettingsContext";
+import {
+  ACCENT_PRESET_LIST,
+  CANVAS_BG_LIST,
+  GRAIN_PRESETS,
+  FONT_MODE_LIST,
+  FONT_SIZE_LIST,
+  applyAccentPreset,
+  applyCanvasBg,
+  applyGrainOpacity,
+  applyFontMode,
+  applyReadingFontSize,
+  getSavedAccentTheme,
+  getSavedCanvasBg,
+  getSavedGrainOpacity,
+  getSavedFontMode,
+  getSavedFontSize,
+  type CanvasBg,
+  type AccentTheme,
+  type FontMode,
+  type ReadingFontSize,
+} from "../lib/accent";
 import { setPageTitle } from "../lib/pageTitle";
-import { useToast } from "../lib/useToast";
+import { useToast } from "../hooks/useToast";
 import { ApiTokenSettingsPanel } from "../components/ApiTokenSettingsPanel";
 import { AiProvidersSettingsPanel } from "../components/AiProvidersSettingsPanel";
 import { FeishuIntegrationPanel } from "../components/FeishuIntegrationPanel";
 import { NotificationsSettingsPanel } from "../components/NotificationsSettingsPanel";
-import { AiIcon, BellIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, EyeOffIcon, KeyIcon, MemoriesIcon, MessageIcon, PaletteIcon, TimelineIcon, UserIcon } from "../components/OrbitIcons";
+import {
+  AiIcon,
+  BellIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  EyeIcon,
+  EyeOffIcon,
+  KeyIcon,
+  MemoriesIcon,
+  MessageIcon,
+  PaletteIcon,
+  TimelineIcon,
+  UserIcon,
+} from "../components/OrbitIcons";
 import { BirthdaySettingsField } from "../components/BirthdaySettingsField";
 import { SpaceSettingsPanel } from "../components/SpaceSettingsPanel";
 import { CompanionSettingsPanel } from "../components/CompanionSettingsPanel";
-import { useMaxWidthMd } from "../lib/useBreakpoint";
+import { useMaxWidthMd } from "../hooks/useBreakpoint";
+import { Button, Input, Container, Section, Field, Stack } from "../components/ui";
 
 type SettingsTab =
   | "appearance"
@@ -136,24 +167,6 @@ const SETTINGS_NAV_GROUPS: {
   },
 ];
 
-function SettingsSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  const headingId = `settings-section-${title}`;
-  return (
-    <section className="orbit-settings-section" aria-labelledby={headingId}>
-      <h3 id={headingId} className="orbit-settings-heading">
-        {title}
-      </h3>
-      {children}
-    </section>
-  );
-}
-
 function isSettingsTab(value: string | null): value is SettingsTab {
   return (
     value === "appearance" ||
@@ -174,65 +187,8 @@ function resolveSettingsTab(value: string | null): SettingsTab | null {
   return isSettingsTab(value) ? value : null;
 }
 
-function SettingsField({
-  label,
-  hint,
-  children,
-  wide,
-  stacked,
-  readonly,
-}: {
-  label: string;
-  hint?: ReactNode;
-  children: ReactNode;
-  wide?: boolean;
-  /** Label above, control full width — for cards, lists, multi-line inputs */
-  stacked?: boolean;
-  /** Display-only value without input chrome */
-  readonly?: boolean;
-}) {
-  if (stacked) {
-    return (
-      <div
-        className={`orbit-settings-field orbit-settings-field--stacked${readonly ? " orbit-settings-field--readonly" : ""}`}
-      >
-        <div className="orbit-settings-field-copy">
-          <span className="orbit-settings-field-label">{label}</span>
-          {hint ? (
-            <p className="orbit-settings-field-hint">{hint}</p>
-          ) : null}
-        </div>
-        <div className="orbit-settings-field-control orbit-settings-field-control--block">
-          {children}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={`orbit-settings-field${readonly ? " orbit-settings-field--readonly" : ""}`}
-    >
-      <div className="orbit-settings-field-row">
-        <div className="orbit-settings-field-copy">
-          <span className="orbit-settings-field-label">{label}</span>
-          {hint ? (
-            <p className="orbit-settings-field-hint">{hint}</p>
-          ) : null}
-        </div>
-        <div
-          className={`orbit-settings-field-control${wide ? " orbit-settings-field-control--wide" : ""}`}
-        >
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function SettingsPage() {
   const toast = useToast();
-  const { settings, loading, setSettings } = useAppSettings();
   const { data: session, refetch: refetchSession } = authClient.useSession();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -243,9 +199,7 @@ export function SettingsPage() {
   const showMobileMenu = isMobile && !resolvedTab;
   const showMobileDetail = isMobile && Boolean(resolvedTab);
 
-  const [accentPreset, setAccentPreset] = useState<AccentPreset>("stone");
-  const [accentDirty, setAccentDirty] = useState(false);
-  const [savingAccent, setSavingAccent] = useState(false);
+  const [accentPreset, setAccentPreset] = useState<AccentTheme>(() => getSavedAccentTheme());
 
   const [email, setEmail] = useState("");
   const [emailDirty, setEmailDirty] = useState(false);
@@ -269,12 +223,6 @@ export function SettingsPage() {
   useEffect(() => {
     setPageTitle("设置");
   }, []);
-
-  useEffect(() => {
-    if (!settings) return;
-    setAccentPreset(settings.accentPreset);
-    setAccentDirty(false);
-  }, [settings]);
 
   useEffect(() => {
     if (!session?.user?.email) return;
@@ -317,32 +265,42 @@ export function SettingsPage() {
     setSearchParams({ tab }, { replace: true });
   }
 
+  const [canvasBg, setCanvasBgState] = useState<CanvasBg>(() => getSavedCanvasBg());
+  const [grainOpacity, setGrainOpacityState] = useState<number>(() => getSavedGrainOpacity());
+  const [fontMode, setFontModeState] = useState<FontMode>(() => getSavedFontMode());
+  const [fontSize, setFontSizeState] = useState<ReadingFontSize>(() => getSavedFontSize());
+
   function backToMobileMenu() {
     setSearchParams({}, { replace: true });
   }
 
-  function handleAccentSelect(preset: AccentPreset) {
+  function handleAccentSelect(preset: AccentTheme) {
     setAccentPreset(preset);
-    setAccentDirty(preset !== (settings?.accentPreset ?? "stone"));
     applyAccentPreset(preset);
+    toast.success(`主题色已切换为「${ACCENT_PRESET_LIST.find((c) => c.id === preset)?.label}」`);
   }
 
-  async function handleSaveAccent() {
-    if (savingAccent) return;
-    setSavingAccent(true);
-    try {
-      const next = await updateAppSettings({ accentPreset });
-      setSettings(next);
-      setAccentDirty(false);
-      toast.success("主题已更新");
-    } catch (err) {
-      if (shouldToastApiError(err)) {
-        toast.error(getApiErrorMessage(err, "保存失败，请稍后重试"));
-      }
-      if (settings) applyAccentPreset(settings.accentPreset);
-    } finally {
-      setSavingAccent(false);
-    }
+  function handleCanvasBgSelect(bg: CanvasBg) {
+    setCanvasBgState(bg);
+    applyCanvasBg(bg);
+    toast.success(`画布已切换为「${CANVAS_BG_LIST.find((c) => c.id === bg)?.label}」`);
+  }
+
+  function handleGrainChange(val: number) {
+    setGrainOpacityState(val);
+    applyGrainOpacity(val);
+  }
+
+  function handleFontModeSelect(mode: FontMode) {
+    setFontModeState(mode);
+    applyFontMode(mode);
+    toast.success(`排版风格已切换为「${FONT_MODE_LIST.find((f) => f.id === mode)?.label}」`);
+  }
+
+  function handleFontSizeSelect(size: ReadingFontSize) {
+    setFontSizeState(size);
+    applyReadingFontSize(size);
+    toast.success(`阅读字号已切换为「${FONT_SIZE_LIST.find((s) => s.id === size)?.label}」`);
   }
 
   async function handleUpdateEmail(event: React.FormEvent) {
@@ -452,7 +410,8 @@ export function SettingsPage() {
   }
 
   return (
-    <div
+    <Container
+      size="standard"
       className="orbit-settings-content"
       data-page="settings"
       data-mobile-view={isMobile ? (showMobileMenu ? "menu" : "detail") : undefined}
@@ -540,60 +499,174 @@ export function SettingsPage() {
           {activeTab === "appearance" ? (
             <>
               <header className="orbit-settings-panel-header">
-                <h2 className="orbit-settings-panel-title">主题</h2>
+                <h2 className="orbit-settings-panel-title">主题与外观</h2>
                 <p className="orbit-settings-panel-desc">
-                  调整强调色，影响按钮与重点样式，双方共用。
+                  定制当前设备的色彩、纸张底色与排版偏好，即时生效。
                 </p>
               </header>
 
-              <SettingsSection title="强调色">
-                <div className="orbit-settings-fields">
-                  <SettingsField
-                    label="主题色"
-                    hint="选择强调色，影响按钮与链接样式。"
-                    stacked
+              {/* 1. 品牌主题色 */}
+              <Section title="主题色">
+                <Field hint="用于高光按钮、金句引线与状态圆点。">
+                  <div
+                    className="orbit-settings-theme-grid"
+                    role="radiogroup"
+                    aria-label="主题色"
                   >
-                    <div
-                      className="orbit-settings-accent-grid"
-                      role="radiogroup"
-                      aria-label="主题色"
-                    >
-                      {ACCENT_PRESET_LIST.map((preset) => (
+                    {ACCENT_PRESET_LIST.map((preset) => {
+                      const isSelected = accentPreset === preset.id;
+                      return (
                         <button
                           key={preset.id}
                           type="button"
                           role="radio"
-                          aria-checked={accentPreset === preset.id}
-                          className={`orbit-settings-accent-option${accentPreset === preset.id ? " orbit-settings-accent-option--active" : ""}`}
+                          aria-checked={isSelected}
+                          className={`orbit-theme-card${isSelected ? " orbit-theme-card--active" : ""}`}
                           onClick={() => handleAccentSelect(preset.id)}
                         >
-                          <span
-                            className={`orbit-accent-swatch orbit-accent-swatch--${preset.id}${accentPreset === preset.id ? " orbit-accent-swatch--active" : ""}`}
-                            aria-hidden="true"
-                          />
-                          <span className="orbit-settings-accent-label">
-                            {preset.label}
-                          </span>
+                          <div className="orbit-theme-card-header">
+                            <span
+                              className="orbit-theme-card-dot"
+                              style={{ backgroundColor: preset.colorPreview }}
+                              aria-hidden="true"
+                            />
+                            <span className="orbit-theme-card-title">{preset.label}</span>
+                          </div>
+                          <span className="orbit-theme-card-desc">{preset.subLabel}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+              </Section>
+
+              {/* 2. 画布底色 */}
+              <Section title="纸张底色">
+                <Field hint="全站背景与卡片容器的纸张色温。">
+                  <div
+                    className="orbit-settings-canvas-grid"
+                    role="radiogroup"
+                    aria-label="纸张底色"
+                  >
+                    {CANVAS_BG_LIST.map((bg) => {
+                      const isSelected = canvasBg === bg.id;
+                      return (
+                        <button
+                          key={bg.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={isSelected}
+                          className={`orbit-canvas-card${isSelected ? " orbit-canvas-card--active" : ""}`}
+                          onClick={() => handleCanvasBgSelect(bg.id)}
+                        >
+                          <div className="orbit-canvas-card-meta">
+                            <span
+                              className="orbit-canvas-card-swatch"
+                              style={{ backgroundColor: bg.colorPreview }}
+                              aria-hidden="true"
+                            />
+                            <span className="orbit-canvas-card-title">{bg.label}</span>
+                          </div>
+                          <span className="orbit-canvas-card-desc">{bg.desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+              </Section>
+
+              {/* 3. 排版风格 */}
+              <Section title="排版风格">
+                <Field hint="全站标题与正文字体风格。">
+                  <div
+                    className="orbit-settings-font-grid"
+                    role="radiogroup"
+                    aria-label="排版风格"
+                  >
+                    {FONT_MODE_LIST.map((mode) => {
+                      const isSelected = fontMode === mode.id;
+                      return (
+                        <button
+                          key={mode.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={isSelected}
+                          className={`orbit-font-card${isSelected ? " orbit-font-card--active" : ""}`}
+                          onClick={() => handleFontModeSelect(mode.id)}
+                        >
+                          <div className="orbit-font-card-meta">
+                            <span className="orbit-font-card-title">{mode.label}</span>
+                            <span className="orbit-font-card-badge">{mode.subLabel}</span>
+                          </div>
+                          <span className="orbit-font-card-desc">{mode.desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+              </Section>
+
+              {/* 4. 阅读字号 */}
+              <Section title="阅读字号">
+                <Field hint="长篇日记与正文字阶大小。">
+                  <div
+                    className="orbit-settings-fontsize-grid"
+                    role="radiogroup"
+                    aria-label="阅读字号"
+                  >
+                    {FONT_SIZE_LIST.map((size) => {
+                      const isSelected = fontSize === size.id;
+                      return (
+                        <button
+                          key={size.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={isSelected}
+                          className={`orbit-fontsize-card${isSelected ? " orbit-fontsize-card--active" : ""}`}
+                          onClick={() => handleFontSizeSelect(size.id)}
+                        >
+                          <span className="orbit-fontsize-card-title">{size.label}</span>
+                          <span className="orbit-fontsize-card-desc">{size.desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+              </Section>
+
+              {/* 5. 纸质微颗粒感 */}
+              <Section title="纸张微颗粒">
+                <Field hint="为画布增加细腻的纸质触感。">
+                  <div className="orbit-grain-control-wrap">
+                    <div className="orbit-grain-presets-row">
+                      {GRAIN_PRESETS.map((preset) => (
+                        <button
+                          key={preset.val}
+                          type="button"
+                          className={`orbit-chip-btn${Math.abs(grainOpacity - preset.val) < 0.005 ? " orbit-chip-btn--active" : ""}`}
+                          onClick={() => handleGrainChange(preset.val)}
+                        >
+                          {preset.label}
                         </button>
                       ))}
                     </div>
-                  </SettingsField>
-                </div>
-              </SettingsSection>
-
-              <div className="orbit-settings-actions">
-                {accentDirty ? (
-                  <p className="orbit-settings-actions-hint orbit-muted">有未保存的更改</p>
-                ) : null}
-                <button
-                  type="button"
-                  className="orbit-btn orbit-btn-primary"
-                  disabled={savingAccent || !accentDirty || loading}
-                  onClick={() => void handleSaveAccent()}
-                >
-                  {savingAccent ? "保存中…" : "保存主题"}
-                </button>
-              </div>
+                    <div className="orbit-grain-slider-row">
+                      <input
+                        type="range"
+                        className="orbit-grain-slider"
+                        min="0"
+                        max="15"
+                        step="0.5"
+                        value={Math.round(grainOpacity * 1000) / 10}
+                        onChange={(e) => handleGrainChange(parseFloat(e.target.value) / 100)}
+                      />
+                      <span className="orbit-grain-val-text">
+                        {(grainOpacity * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                </Field>
+              </Section>
             </>
           ) : null}
 
@@ -608,93 +681,89 @@ export function SettingsPage() {
                 </p>
               </header>
 
-              <div className="orbit-settings-fields">
-                <div className="orbit-settings-field orbit-settings-field--editable orbit-settings-field--stacked">
-                  <form
-                    className="orbit-settings-stacked-form"
-                    onSubmit={(e) => void handleSaveDisplayName(e)}
+              <Section title="爱称">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void handleSaveDisplayName(e);
+                  }}
+                >
+                  <Field
+                    label="内容署名"
+                    hint="用于日记、信箱与留言板的内容署名，修改后历史内容展示会同步更新。"
                   >
-                    <div className="orbit-settings-field-copy">
-                      <label htmlFor="settings-display-name" className="orbit-settings-field-label">
-                        爱称
-                      </label>
-                      <p className="orbit-settings-field-hint">
-                        用于内容署名，修改后历史内容展示会同步更新。
-                      </p>
-                    </div>
-                    <div className="orbit-settings-field-control">
-                      <div className="orbit-settings-inline-form">
-                        <input
-                          id="settings-display-name"
-                          type="text"
-                          value={displayName}
-                          maxLength={16}
-                          className="orbit-input orbit-settings-input-name"
-                          onChange={(event) => {
-                            setDisplayName(event.target.value);
-                            setDisplayNameDirty(
-                              event.target.value.trim() !== (session?.user?.name ?? "")
-                            );
-                          }}
-                        />
-                        <button
-                          type="submit"
-                          className="orbit-btn orbit-btn-sm orbit-settings-form-submit"
-                          disabled={savingDisplayName || !displayNameDirty || !displayName.trim()}
-                        >
-                          {savingDisplayName ? "保存中…" : "保存"}
-                        </button>
-                      </div>
-                    </div>
-                  </form>
-                </div>
-                <div className="orbit-settings-field orbit-settings-field--editable orbit-settings-field--stacked">
-                  <BirthdaySettingsField />
-                </div>
-              </div>
+                    <Stack direction="row" gap="sm" align="center" style={{ maxWidth: "20rem" }}>
+                      <Input
+                        id="settings-display-name"
+                        value={displayName}
+                        maxLength={16}
+                        sizeVariant="md"
+                        style={{ flex: 1 }}
+                        onChange={(event) => {
+                          setDisplayName(event.target.value);
+                          setDisplayNameDirty(
+                            event.target.value.trim() !== (session?.user?.name ?? "")
+                          );
+                        }}
+                      />
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        size="md"
+                        disabled={savingDisplayName || !displayNameDirty || !displayName.trim()}
+                        loading={savingDisplayName}
+                      >
+                        保存爱称
+                      </Button>
+                    </Stack>
+                  </Field>
+                </form>
+              </Section>
+
+              <Section title="生日与纪念提醒">
+                <BirthdaySettingsField />
+              </Section>
 
               {spaceStatus?.userCount === 1 ? (
-                <SettingsSection title="邀请另一半">
-                  <div className="orbit-settings-fields">
-                    <SettingsField
-                      label="邀请链接"
-                      hint="有效期 7 天，使用后失效。请复制链接发给对方。"
-                      stacked
-                    >
-                      {inviteUrl ? (
-                        <div className="orbit-settings-inline-form orbit-settings-inline-form--wide">
-                          <input
-                            className="orbit-input orbit-settings-input-mono"
-                            readOnly
-                            value={inviteUrl}
-                            aria-label="邀请链接"
-                          />
-                          <button
-                            type="button"
-                            className="orbit-btn orbit-btn-sm"
-                            onClick={() => void handleCopyInvite()}
-                          >
-                            复制
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          className="orbit-btn orbit-btn-primary orbit-btn-sm"
-                          disabled={creatingInvite}
-                          onClick={() => void handleCreateInvite()}
+                <Section title="邀请另一半">
+                  <Field
+                    label="专属邀请链接"
+                    hint="有效期 7 天，使用后失效。请复制链接发给对方。"
+                  >
+                    {inviteUrl ? (
+                      <div className="orbit-settings-inline-form orbit-settings-inline-form--wide">
+                        <Input
+                          mono
+                          readOnly
+                          value={inviteUrl}
+                          aria-label="邀请链接"
+                        />
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => void handleCopyInvite()}
                         >
-                          {creatingInvite ? "生成中…" : "生成邀请链接"}
-                        </button>
-                      )}
-                      {inviteExpiresAt ? (
-                        <p className="orbit-settings-field-hint">
-                          过期时间：{formatDateTime(inviteExpiresAt)}
-                        </p>
-                      ) : null}
-                    </SettingsField>
-                  </div>
-                </SettingsSection>
+                          复制链接
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        disabled={creatingInvite}
+                        loading={creatingInvite}
+                        onClick={() => void handleCreateInvite()}
+                      >
+                        生成邀请链接
+                      </Button>
+                    )}
+                    {inviteExpiresAt ? (
+                      <p className="orbit-settings-field-hint">
+                        过期时间：{formatDateTime(inviteExpiresAt)}
+                      </p>
+                    ) : null}
+                  </Field>
+                </Section>
               ) : null}
             </>
           ) : null}
@@ -703,115 +772,121 @@ export function SettingsPage() {
             <>
               <header className="orbit-settings-panel-header">
                 <h2 className="orbit-settings-panel-title">登录与安全</h2>
+                <p className="orbit-settings-panel-desc">
+                  管理你的登录邮箱与账户凭证安全。
+                </p>
               </header>
 
-              <div className="orbit-settings-fields">
-                <div className="orbit-settings-field orbit-settings-field--editable orbit-settings-field--stacked">
-                  <form
-                    className="orbit-settings-stacked-form"
-                    onSubmit={(e) => void handleUpdateEmail(e)}
+              <Section title="账户邮箱">
+                <form
+                  className="orbit-settings-form-block"
+                  onSubmit={(e) => void handleUpdateEmail(e)}
+                >
+                  <Field
+                    label="登录邮箱"
+                    hint="用于登录空间与接收通知。"
                   >
-                    <div className="orbit-settings-field-copy">
-                      <label htmlFor="settings-email" className="orbit-settings-field-label">
-                        邮箱
-                      </label>
-                      <p className="orbit-settings-field-hint">用于登录与账户通知。</p>
+                    <div className="orbit-settings-inline-form">
+                      <Input
+                        id="settings-email"
+                        type="email"
+                        value={email}
+                        autoComplete="email"
+                        placeholder="your-email@example.com"
+                        onChange={(event) => {
+                          setEmail(event.target.value);
+                          setEmailDirty(
+                            event.target.value.trim() !== (session?.user?.email ?? "")
+                          );
+                        }}
+                      />
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        size="sm"
+                        disabled={savingEmail || !emailDirty}
+                        loading={savingEmail}
+                      >
+                        保存邮箱
+                      </Button>
                     </div>
-                    <div className="orbit-settings-field-control">
-                      <div className="orbit-settings-inline-form">
-                        <input
-                          id="settings-email"
-                          type="email"
-                          value={email}
-                          autoComplete="email"
-                          className="orbit-input orbit-settings-input-block"
-                          onChange={(event) => {
-                            setEmail(event.target.value);
-                            setEmailDirty(
-                              event.target.value.trim() !== (session?.user?.email ?? "")
-                            );
-                          }}
+                  </Field>
+                </form>
+              </Section>
+
+              <Section title="修改密码">
+                <form
+                  className="orbit-settings-form-block"
+                  onSubmit={(e) => void handleUpdatePassword(e)}
+                >
+                  <Stack gap="md">
+                    <Field
+                      label="当前密码"
+                      hint="请输入当前正在使用的账户密码。"
+                    >
+                      <div className="orbit-password-input-wrapper">
+                        <Input
+                          id="settings-current-password"
+                          type={showCurrentPassword ? "text" : "password"}
+                          value={currentPassword}
+                          autoComplete="current-password"
+                          placeholder="当前密码"
+                          onChange={(event) => setCurrentPassword(event.target.value)}
                         />
                         <button
-                          type="submit"
-                          className="orbit-btn orbit-btn-sm"
-                          disabled={savingEmail || !emailDirty}
+                          type="button"
+                          className="orbit-password-toggle-btn"
+                          onClick={() => setShowCurrentPassword((prev) => !prev)}
+                          aria-label={showCurrentPassword ? "隐藏密码" : "显示密码"}
+                          title={showCurrentPassword ? "隐藏密码" : "显示密码"}
                         >
-                          {savingEmail ? "更新中…" : "更新邮箱"}
+                          {showCurrentPassword ? <EyeOffIcon size="sm" /> : <EyeIcon size="sm" />}
                         </button>
                       </div>
-                    </div>
-                  </form>
-                </div>
+                    </Field>
 
-                <div className="orbit-settings-field orbit-settings-field--editable orbit-settings-field--stacked">
-                  <form
-                    className="orbit-settings-stacked-form"
-                    onSubmit={(e) => void handleUpdatePassword(e)}
-                  >
-                    <div className="orbit-settings-field-copy">
-                      <label htmlFor="settings-current-password" className="orbit-settings-field-label">
-                        密码
-                      </label>
-                      <p className="orbit-settings-field-hint">新密码至少 8 位。</p>
-                    </div>
-                    <div className="orbit-settings-field-control">
-                      <div className="orbit-settings-password-fields">
-                        <div className="orbit-password-input-wrapper">
-                          <input
-                            id="settings-current-password"
-                            type={showCurrentPassword ? "text" : "password"}
-                            value={currentPassword}
-                            autoComplete="current-password"
-                            placeholder="当前密码"
-                            className="orbit-input orbit-settings-input-block"
-                            onChange={(event) => setCurrentPassword(event.target.value)}
-                          />
-                          <button
-                            type="button"
-                            className="orbit-password-toggle-btn"
-                            onClick={() => setShowCurrentPassword((prev) => !prev)}
-                            aria-label={showCurrentPassword ? "隐藏密码" : "显示密码"}
-                            title={showCurrentPassword ? "隐藏密码" : "显示密码"}
-                          >
-                            {showCurrentPassword ? <EyeOffIcon size="sm" /> : <EyeIcon size="sm" />}
-                          </button>
-                        </div>
-                        <div className="orbit-password-input-wrapper">
-                          <input
-                            id="settings-new-password"
-                            type={showNewPassword ? "text" : "password"}
-                            value={newPassword}
-                            autoComplete="new-password"
-                            placeholder="新密码"
-                            className="orbit-input orbit-settings-input-block"
-                            minLength={8}
-                            onChange={(event) => setNewPassword(event.target.value)}
-                          />
-                          <button
-                            type="button"
-                            className="orbit-password-toggle-btn"
-                            onClick={() => setShowNewPassword((prev) => !prev)}
-                            aria-label={showNewPassword ? "隐藏密码" : "显示密码"}
-                            title={showNewPassword ? "隐藏密码" : "显示密码"}
-                          >
-                            {showNewPassword ? <EyeOffIcon size="sm" /> : <EyeIcon size="sm" />}
-                          </button>
-                        </div>
+                    <Field
+                      label="设置新密码"
+                      hint="新密码长度至少需为 8 位字符。"
+                    >
+                      <div className="orbit-password-input-wrapper">
+                        <Input
+                          id="settings-new-password"
+                          type={showNewPassword ? "text" : "password"}
+                          value={newPassword}
+                          autoComplete="new-password"
+                          placeholder="新密码 (至少 8 位)"
+                          minLength={8}
+                          onChange={(event) => setNewPassword(event.target.value)}
+                        />
                         <button
-                          type="submit"
-                          className="orbit-btn orbit-btn-sm orbit-settings-form-submit"
-                          disabled={
-                            savingPassword || !currentPassword || newPassword.length < 8
-                          }
+                          type="button"
+                          className="orbit-password-toggle-btn"
+                          onClick={() => setShowNewPassword((prev) => !prev)}
+                          aria-label={showNewPassword ? "隐藏密码" : "显示密码"}
+                          title={showNewPassword ? "隐藏密码" : "显示密码"}
                         >
-                          {savingPassword ? "更新中…" : "更新密码"}
+                          {showNewPassword ? <EyeOffIcon size="sm" /> : <EyeIcon size="sm" />}
                         </button>
                       </div>
+                    </Field>
+
+                    <div className="orbit-settings-form-actions">
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        size="sm"
+                        disabled={
+                          savingPassword || !currentPassword || newPassword.length < 8
+                        }
+                        loading={savingPassword}
+                      >
+                        更新密码
+                      </Button>
                     </div>
-                  </form>
-                </div>
-              </div>
+                  </Stack>
+                </form>
+              </Section>
             </>
           ) : null}
 
@@ -829,6 +904,6 @@ export function SettingsPage() {
         </div>
         ) : null}
       </div>
-    </div>
+    </Container>
   );
 }

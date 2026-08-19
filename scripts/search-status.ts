@@ -7,7 +7,7 @@
 import { join } from "path";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { db } from "../src/db/index.js";
-import { getSearchIndexStatus } from "../src/services/search.js";
+import { getSearchIndexStatus } from "../src/services/content/search.js";
 
 migrate(db, { migrationsFolder: join(process.cwd(), "src/db/migrations") });
 

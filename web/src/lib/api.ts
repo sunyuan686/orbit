@@ -1,6 +1,6 @@
 import { createAuthClient } from "better-auth/react";
 import { apiLogger } from "./logger";
-import type { ModelSpec } from "./ai-model-specs";
+import type { ModelSpec } from "@orbit/shared";
 
 const BASE = "";
 
@@ -88,7 +88,7 @@ export interface CommentGroups {
   inline: CommentItem[];
 }
 
-import { TYPE_LABEL, getEntryTypeLabel } from "./entry-types";
+import { TYPE_LABEL, getEntryTypeLabel } from "@orbit/shared";
 export { TYPE_LABEL, getEntryTypeLabel };
 
 const BEIJING_OFFSET_SECONDS = 8 * 3600;
@@ -137,6 +137,16 @@ export function formatDateTime(ts: number): string {
 export function formatDateCn(ts: number): string {
   const { y, m, day } = beijingDateParts(ts);
   return `${y}年${m}月${day}日`;
+}
+
+const WEEKDAYS = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+
+/** 格式化带星期的刊物级中文日期（用于无自定义标题时的自然封面标题） */
+export function formatDateWithWeekday(ts: number): string {
+  const { y, m, day } = beijingDateParts(ts);
+  const d = new Date(ts * 1000);
+  const weekday = WEEKDAYS[d.getDay()] || "";
+  return `${y} 年 ${m} 月 ${day} 日 · ${weekday}`;
 }
 
 /** Whether updatedAt differs meaningfully from createdAt */
@@ -577,6 +587,7 @@ export interface AccountBirthday {
 export interface AccountProfile {
   name: string;
   birthday: AccountBirthday | null;
+  voiceTranscribeMode: VoiceTranscribeMode;
 }
 
 export async function fetchAccountProfile(): Promise<AccountProfile> {
@@ -601,6 +612,19 @@ export async function updateAccountBirthday(
     body: JSON.stringify({ birthday }),
   });
   await assertOk(res, "更新生日失败");
+  return res.json();
+}
+
+export async function updateVoiceTranscribeMode(
+  voiceTranscribeMode: VoiceTranscribeMode
+): Promise<AccountProfile> {
+  const res = await fetch(`${BASE}/api/account/profile`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ voiceTranscribeMode }),
+  });
+  await assertOk(res, "更新语音偏好失败");
   return res.json();
 }
 
@@ -666,7 +690,15 @@ export async function updateSpace(data: {
   return res.json();
 }
 
-export const ACCENT_PRESETS = ["stone", "rose", "sage", "dusk"] as const;
+export const ACCENT_PRESETS = [
+  "sage",
+  "amber",
+  "rose",
+  "indigo",
+  "cola",
+  "stone",
+  "dusk",
+] as const;
 export type AccentPreset = (typeof ACCENT_PRESETS)[number];
 
 export const AI_PROVIDERS = ["workers-ai", "deepseek", "alibaba", "custom"] as const;
@@ -748,7 +780,6 @@ export type BuiltinProviderCatalog = Record<
 >;
 
 export interface AppSettings {
-  accentPreset: AccentPreset;
   aiProvider: AiProvider;
   aiModel: string;
   aiEnabledModels: string[];
@@ -764,7 +795,6 @@ export interface AppSettings {
   hasAlibabaKey: boolean;
   aiBotName: string;
   aiBotPersona: string;
-  voiceTranscribeMode: VoiceTranscribeMode;
 }
 
 export async function fetchAppSettings(): Promise<AppSettings> {
@@ -774,7 +804,6 @@ export async function fetchAppSettings(): Promise<AppSettings> {
 }
 
 export async function updateAppSettings(data: {
-  accentPreset?: AccentPreset;
   aiProvider?: AiProvider;
   aiModel?: string | null;
   aiEnabledModels?: string[];
@@ -786,7 +815,6 @@ export async function updateAppSettings(data: {
   alibabaKey?: string | null;
   aiBotName?: string;
   aiBotPersona?: string;
-  voiceTranscribeMode?: VoiceTranscribeMode;
 }): Promise<AppSettings> {
   const res = await fetch(`${BASE}/api/settings`, {
     method: "PUT",

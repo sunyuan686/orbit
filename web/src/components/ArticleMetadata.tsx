@@ -7,6 +7,7 @@ import {
 } from "../lib/api";
 
 interface ArticleMetadataProps {
+  title?: string | null;
   type: string;
   author: string | null;
   modifiedBy: string | null;
@@ -16,6 +17,7 @@ interface ArticleMetadataProps {
 }
 
 export function ArticleMetadata({
+  title,
   type,
   author,
   modifiedBy,
@@ -24,29 +26,29 @@ export function ArticleMetadata({
   updatedAt,
 }: ArticleMetadataProps) {
   const edited = wasEdited(createdAt, updatedAt);
-  const showEntryDate =
-    entryDate != null &&
-    type !== "memo" &&
-    (createdAt == null || !isSameLocalDay(entryDate, createdAt));
   const editor = modifiedBy || author;
   const showCrossEdit = Boolean(
     edited && editor && author && editor !== author
   );
-
-  const hasProse = (author && createdAt != null) || (edited && updatedAt != null);
-  if (!showEntryDate && !hasProse) return null;
+  const showEntryDate =
+    entryDate != null &&
+    type !== "memo" &&
+    (createdAt == null || !isSameLocalDay(entryDate, createdAt));
 
   return (
-    <div className="orbit-article-meta" aria-label="文档信息">
-      {showEntryDate && (
-        <time
-          className="orbit-article-meta-date"
-          dateTime={formatDate(entryDate!)}
-        >
-          {formatDateCn(entryDate!)}
-        </time>
-      )}
-      {hasProse && (
+    <div className="orbit-article-meta-group">
+      {title && title.trim() ? (
+        <h1 className="orbit-article-title">{title}</h1>
+      ) : null}
+      <div className="orbit-article-meta" aria-label="文档信息">
+        {showEntryDate && (
+          <time
+            className="orbit-article-meta-date"
+            dateTime={formatDate(entryDate!)}
+          >
+            {formatDateCn(entryDate!)}
+          </time>
+        )}
         <p className="orbit-article-meta-prose">
           {author && createdAt != null && (
             <>
@@ -73,7 +75,7 @@ export function ArticleMetadata({
             </>
           )}
         </p>
-      )}
+      </div>
     </div>
   );
 }

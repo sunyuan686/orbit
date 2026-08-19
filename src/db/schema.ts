@@ -28,6 +28,10 @@ export const user = sqliteTable("user", {
   }).default(false),
   /** solar | lunar；提醒按哪套历法；两侧都空时为 null */
   birthdayRemindCalendar: text("birthday_remind_calendar"),
+  /** 个人通知推送偏好（JSON 序列化） */
+  notificationPreferences: text("notification_preferences"),
+  /** 个人语音转写模式（smooth | raw | bullets | formal） */
+  voiceTranscribeMode: text("voice_transcribe_mode").default("smooth"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });

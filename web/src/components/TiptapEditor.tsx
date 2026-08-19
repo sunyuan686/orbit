@@ -13,10 +13,10 @@ import {
   useState,
   useImperativeHandle,
 } from "react";
-import { uploadImage, getApiErrorMessage } from "../lib/api";
+import { uploadAsset, getApiErrorMessage } from "../lib/api";
 import type { CommentItem } from "../lib/api";
-import { normalizeBodyForEditor, combineHtmlAndAttachments } from "../lib/content";
-import { useToast } from "../lib/useToast";
+import { normalizeBodyForEditor, combineHtmlAndAttachments, resolveMediaType } from "../lib/content";
+import { useToast } from "../hooks/useToast";
 import Link from "@tiptap/extension-link";
 import { CommentHighlight } from "../extensions/CommentHighlight";
 import { OrbitImage } from "../extensions/OrbitImage";
@@ -135,13 +135,26 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
     [inlineComments]
   );
 
-  const uploadImageToEditor = useCallback(
+  const uploadMediaToEditor = useCallback(
     async (ed: Editor, file: File) => {
+      const mediaType = resolveMediaType({ file });
+      if (mediaType === "video") {
+        try {
+          const res = await uploadAsset(file, entryId);
+          if (!ed.isDestroyed) {
+            ed.chain().focus().setVideo({ src: res.url }).run();
+          }
+        } catch (err) {
+          toast.error(getApiErrorMessage(err, "视频上传失败"));
+        }
+        return;
+      }
+
       const blobUrl = URL.createObjectURL(file);
       ed.chain().focus().setImage({ src: blobUrl }).run();
 
       try {
-        const res = await uploadImage(file, entryId);
+        const res = await uploadAsset(file, entryId);
         // 先预加载正式 URL，再换 src，避免 blob→远程替换时闪白
         // 用 createElement，避免与 TipTap Image 扩展同名冲突
         await new Promise<void>((resolve) => {
@@ -210,27 +223,31 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
     );
   }, []);
 
-  const handleImageUpload = useCallback(
+  const handleMediaUpload = useCallback(
     async (file: File) => {
       if (mode === "note") {
         try {
-          const res = await uploadImage(file, entryId);
+          const res = await uploadAsset(file, entryId);
+          const type = resolveMediaType({ file, mimeType: res.mimeType, url: res.url });
           const newItem: MediaAttachmentItem = {
-            id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            id: `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             url: res.url,
+            mimeType: res.mimeType,
             width: res.width,
             height: res.height,
+            duration: res.duration,
+            transcript: res.transcript,
           };
           setAttachments((prev) => [...prev, newItem]);
         } catch (err) {
-          toast.error(getApiErrorMessage(err, "图片上传失败"));
+          toast.error(getApiErrorMessage(err, "文件上传失败"));
         }
       } else {
         if (!editorRef.current) return;
-        void uploadImageToEditor(editorRef.current, file);
+        void uploadMediaToEditor(editorRef.current, file);
       }
     },
-    [mode, entryId, uploadImageToEditor, toast]
+    [mode, entryId, uploadMediaToEditor, toast]
   );
 
   const emitChange = useCallback(
@@ -318,11 +335,15 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
         const items = event.clipboardData?.items;
         if (!items) return false;
         for (const item of Array.from(items)) {
-          if (item.type.startsWith("image/")) {
+          if (item.type.startsWith("image/") || item.type.startsWith("video/") || item.type.startsWith("audio/")) {
             event.preventDefault();
             const file = item.getAsFile();
-            if (!file || !editorRef.current) return true;
-            void uploadImageToEditor(editorRef.current, file);
+            if (!file) return true;
+            if (mode === "note") {
+              void handleMediaUpload(file);
+            } else if (editorRef.current) {
+              void uploadMediaToEditor(editorRef.current, file);
+            }
             return true;
           }
         }
@@ -332,10 +353,13 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
         const files = event.dataTransfer?.files;
         if (!files?.length) return false;
         for (const file of Array.from(files)) {
-          if (file.type.startsWith("image/")) {
+          if (file.type.startsWith("image/") || file.type.startsWith("video/") || file.type.startsWith("audio/")) {
             event.preventDefault();
-            if (!editorRef.current) return true;
-            void uploadImageToEditor(editorRef.current, file);
+            if (mode === "note") {
+              void handleMediaUpload(file);
+            } else if (editorRef.current) {
+              void uploadMediaToEditor(editorRef.current, file);
+            }
             return true;
           }
         }
@@ -862,7 +886,7 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
           const files = e.target.files;
           if (files && files.length > 0) {
             for (let i = 0; i < files.length; i++) {
-              handleImageUpload(files[i]);
+              handleMediaUpload(files[i]);
             }
           }
           e.target.value = "";

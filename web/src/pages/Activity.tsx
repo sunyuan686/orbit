@@ -13,7 +13,7 @@ import {
 import { formatActivityDateLabel } from "../lib/activityHeatmap";
 import { queryKeys } from "../lib/queryKeys";
 import { setPageTitle } from "../lib/pageTitle";
-import { useToast } from "../lib/useToast";
+import { useToast } from "../hooks/useToast";
 import { ActivityHeatmap } from "../components/ActivityHeatmap";
 
 function entryLabel(entry: ActivityDayEntry): string {

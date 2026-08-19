@@ -110,6 +110,10 @@ class ImageNodeView {
   private editingAlt = false;
   private currentSrc = "";
 
+  private isExpanded = false;
+  private expandOverlay: HTMLElement | null = null;
+  private expandBtn: HTMLButtonElement | null = null;
+
   constructor(
     node: ProseMirrorNode,
     view: EditorView,
@@ -127,6 +131,8 @@ class ImageNodeView {
     figure.dataset.editable = String(editor.isEditable);
     figure.dataset.layout = String(node.attrs.layout || "regular");
     figure.dataset.loadState = "loading";
+    figure.dataset.longImage = "false";
+    figure.dataset.collapsed = "false";
     this.dom = figure;
 
     const container = document.createElement("div");
@@ -168,6 +174,7 @@ class ImageNodeView {
 
     if (this.editor.isEditable) {
       this.buildEditControls();
+      this.destroyExpandControls();
       this.layoutBtns.forEach((btn, value) => {
         btn.classList.toggle("is-active", value === (node.attrs.layout || "regular"));
       });
@@ -181,6 +188,7 @@ class ImageNodeView {
     } else {
       this.destroyEditControls();
       this.dom.dataset.selected = "false";
+      this.checkLongImageRatio();
     }
 
     return true;
@@ -208,6 +216,7 @@ class ImageNodeView {
     const target = event.target as HTMLElement;
     if (target.closest(".tiptap-image-toolbar")) return true;
     if (target.closest(".tiptap-image-caption-bar")) return true;
+    if (target.closest(".tiptap-image-expand-btn")) return true;
     if (!this.editor.isEditable && (event.type === "click" || event.type === "mousedown")) {
       return true;
     }
@@ -220,6 +229,7 @@ class ImageNodeView {
 
   destroy() {
     this.destroyEditControls();
+    this.destroyExpandControls();
   }
 
   private handleImageClick(e: MouseEvent) {
@@ -397,6 +407,85 @@ class ImageNodeView {
 
   private setLoadState(state: "loading" | "loaded" | "missing") {
     this.dom.dataset.loadState = state;
+    if (state === "loaded") {
+      this.checkLongImageRatio();
+    }
+  }
+
+  private checkLongImageRatio() {
+    if (this.editor.isEditable) {
+      this.destroyExpandControls();
+      this.dom.dataset.longImage = "false";
+      this.dom.dataset.collapsed = "false";
+      return;
+    }
+
+    const nw = this.img.naturalWidth;
+    const nh = this.img.naturalHeight;
+    if (nw > 0 && nh > 0) {
+      const ratio = nh / nw;
+      // 竖屏长图/长截图：高宽比 >= 1.5 且物理高度 >= 450px
+      if (ratio >= 1.5 && nh >= 450) {
+        this.dom.dataset.longImage = "true";
+        if (!this.isExpanded) {
+          this.dom.dataset.collapsed = "true";
+        }
+        this.buildExpandControls();
+        return;
+      }
+    }
+
+    this.dom.dataset.longImage = "false";
+    this.dom.dataset.collapsed = "false";
+    this.destroyExpandControls();
+  }
+
+  private buildExpandControls() {
+    if (this.expandOverlay) return;
+
+    const overlay = document.createElement("div");
+    overlay.className = "tiptap-image-expand-overlay";
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tiptap-image-expand-btn";
+    btn.setAttribute("aria-label", "展开长图");
+    btn.innerHTML = `
+      <svg class="tiptap-image-expand-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"></polyline>
+      </svg>
+      <span class="tiptap-image-expand-label">${this.isExpanded ? "收起长图" : "展开长图"}</span>
+    `;
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.toggleExpand();
+    });
+
+    overlay.appendChild(btn);
+    this.container.appendChild(overlay);
+    this.expandOverlay = overlay;
+    this.expandBtn = btn;
+  }
+
+  private toggleExpand() {
+    this.isExpanded = !this.isExpanded;
+    this.dom.dataset.collapsed = this.isExpanded ? "false" : "true";
+
+    if (this.expandBtn) {
+      const label = this.expandBtn.querySelector(".tiptap-image-expand-label");
+      if (label) label.textContent = this.isExpanded ? "收起长图" : "展开长图";
+      this.expandBtn.classList.toggle("is-expanded", this.isExpanded);
+    }
+  }
+
+  private destroyExpandControls() {
+    if (this.expandOverlay) {
+      this.expandOverlay.remove();
+      this.expandOverlay = null;
+      this.expandBtn = null;
+    }
   }
 
   private handleReplace() {

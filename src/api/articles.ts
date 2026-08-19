@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { eq, and, isNull, asc, desc, sql } from "drizzle-orm";
-import { canEditContent, canDeleteContent } from "../content-policies.js";
+import { canEditContent, canDeleteContent } from "../shared/index.js";
 import { toPlainText, isEmptyBody } from "../lib/plain-text.js";
 import { generateId } from "../lib/id.js";
 import { getRequestId } from "../lib/request-context.js";
@@ -21,15 +21,15 @@ import {
   AuditAction,
   AuditResourceType,
   recordAudit,
-} from "../services/audit.js";
-import { getSpaceUserIds } from "../services/space-authors.js";
+} from "../services/space/audit.js";
+import { getSpaceUserIds } from "../services/space/space-authors.js";
 import type { SessionAuthor } from "./session-author.js";
 import { INVALID_SESSION_ERROR } from "./session-author.js";
 import {
   notifyEntryCreated,
   type NotifyRuntime,
-} from "../services/notify.js";
-import { syncAssetReferences } from "../services/asset-references.js";
+} from "../services/notify/notify.js";
+import { syncAssetReferences } from "../services/content/asset-references.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 

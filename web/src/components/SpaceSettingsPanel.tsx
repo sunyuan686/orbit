@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   computeDaysTogetherFromIso,
   formatAnniversaryCn,
@@ -6,27 +6,10 @@ import {
   shouldToastApiError,
   updateSpace,
 } from "../lib/api";
-import { useSpace } from "../lib/spaceContext";
-import { useToast } from "../lib/useToast";
+import { useSpace } from "../contexts/spaceContext";
+import { useToast } from "../hooks/useToast";
 import { DatePicker } from "./DatePicker";
-
-function SpaceSettingsSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  const headingId = `settings-space-section-${title}`;
-  return (
-    <section className="orbit-settings-section" aria-labelledby={headingId}>
-      <h3 id={headingId} className="orbit-settings-heading">
-        {title}
-      </h3>
-      {children}
-    </section>
-  );
-}
+import { Button, Input, Field, Stack, Card, Section } from "./ui";
 
 export function SpaceSettingsPanel() {
   const toast = useToast();
@@ -86,85 +69,70 @@ export function SpaceSettingsPanel() {
             void handleSave();
           }}
         >
-          <SpaceSettingsSection title="起始日">
-            {hasAnniversary && previewDays != null && previewDays > 0 ? (
-              <div className="orbit-space-preview orbit-settings-space-preview" aria-live="polite">
-                <p className="orbit-space-preview-days">
-                  在一起第 {previewDays.toLocaleString("zh-CN")} 天
-                </p>
-                <p className="orbit-space-preview-sub orbit-muted">
-                  自 {formatAnniversaryCn(anniversaryDate)} 起
-                </p>
-              </div>
-            ) : null}
-            <div className="orbit-settings-fields">
-              <div className="orbit-settings-field orbit-settings-field--stacked orbit-settings-field--editable">
-                <div className="orbit-settings-field-copy">
-                  <label htmlFor="settings-space-anniversary" className="orbit-settings-field-label">
-                    开始日期
-                  </label>
-                  <p className="orbit-settings-field-hint">
-                    选你们开始在一起的那一天。留空则不在侧栏显示天数。
+          <Section title="起始日">
+            <Stack gap="md">
+              {hasAnniversary && previewDays != null && previewDays > 0 ? (
+                <Card className="orbit-space-preview orbit-settings-space-preview" aria-live="polite">
+                  <p className="orbit-space-preview-days">
+                    在一起第 {previewDays.toLocaleString("zh-CN")} 天
                   </p>
-                </div>
-                <div className="orbit-settings-field-control orbit-settings-field-control--block">
-                  <DatePicker
-                    id="settings-space-anniversary"
-                    value={anniversaryDate}
-                    onChange={(value) => {
-                      setAnniversaryDate(value);
-                      setDirty(true);
-                    }}
-                    allowClear
-                    className="orbit-settings-input-date"
-                    placeholder="选择起始日"
-                    aria-label="选择起始日"
-                  />
-                </div>
-              </div>
-            </div>
-          </SpaceSettingsSection>
+                  <p className="orbit-space-preview-sub orbit-muted">
+                    自 {formatAnniversaryCn(anniversaryDate)} 起
+                  </p>
+                </Card>
+              ) : null}
+              <Field
+                label="开始日期"
+                htmlFor="settings-space-anniversary"
+                hint="选你们开始在一起的那一天。留空则不在侧栏显示天数。"
+              >
+                <DatePicker
+                  id="settings-space-anniversary"
+                  value={anniversaryDate}
+                  onChange={(value) => {
+                    setAnniversaryDate(value);
+                    setDirty(true);
+                  }}
+                  allowClear
+                  className="orbit-settings-input-date"
+                  placeholder="选择起始日"
+                  aria-label="选择起始日"
+                />
+              </Field>
+            </Stack>
+          </Section>
 
-          <SpaceSettingsSection title="侧栏展示">
-            <div className="orbit-settings-fields">
-              <div className="orbit-settings-field orbit-settings-field--stacked orbit-settings-field--editable">
-                <div className="orbit-settings-field-copy">
-                  <label htmlFor="settings-space-slogan" className="orbit-settings-field-label">
-                    一句话
-                  </label>
-                  <p className="orbit-settings-field-hint">
-                    未设置纪念日时，侧栏显示这句话。
-                  </p>
-                </div>
-                <div className="orbit-settings-field-control orbit-settings-field-control--block">
-                  <input
-                    id="settings-space-slogan"
-                    type="text"
-                    value={slogan}
-                    maxLength={80}
-                    placeholder="两个人的时间轨道"
-                    onChange={(event) => {
-                      setSlogan(event.target.value);
-                      setDirty(true);
-                    }}
-                    className="orbit-input orbit-settings-input-block"
-                  />
-                </div>
-              </div>
-            </div>
-          </SpaceSettingsSection>
+          <Section title="侧栏展示">
+            <Field
+              label="一句话"
+              htmlFor="settings-space-slogan"
+              hint="未设置纪念日时，侧栏显示这句话。"
+            >
+              <Input
+                id="settings-space-slogan"
+                value={slogan}
+                maxLength={80}
+                placeholder="两个人的时间轨道"
+                onChange={(event) => {
+                  setSlogan(event.target.value);
+                  setDirty(true);
+                }}
+              />
+            </Field>
+          </Section>
 
           <div className="orbit-settings-actions">
             {dirty ? (
               <p className="orbit-settings-actions-hint orbit-muted">有未保存的更改</p>
             ) : null}
-            <button
+            <Button
               type="submit"
-              className="orbit-btn orbit-btn-primary"
+              variant="primary"
               disabled={saving || !dirty}
+              loading={saving}
             >
-              {saving ? "保存中…" : "保存修改"}
-            </button>
+              保存空间档案
+            </Button>
           </div>
         </form>
       )}

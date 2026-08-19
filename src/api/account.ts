@@ -11,8 +11,12 @@ import {
   type LunarBirthday,
   type SolarBirthday,
 } from "../lib/birthday.js";
-import { AuditResourceType, recordAudit } from "../services/audit.js";
-import { updateUserDisplayName } from "../services/user-signup.js";
+import {
+  VOICE_TRANSCRIBE_MODES,
+  type VoiceTranscribeMode,
+} from "../app-settings.js";
+import { AuditResourceType, recordAudit } from "../services/space/audit.js";
+import { updateUserDisplayName } from "../services/space/user-signup.js";
 import { getRequestId } from "../lib/request-context.js";
 import type { SessionAuthor } from "./session-author.js";
 import { INVALID_SESSION_ERROR } from "./session-author.js";
@@ -32,6 +36,7 @@ export interface AccountBirthday {
 export interface AccountProfile {
   name: string;
   birthday: AccountBirthday | null;
+  voiceTranscribeMode: VoiceTranscribeMode;
 }
 
 async function requireSessionAuthor(
@@ -70,14 +75,21 @@ async function loadAccountProfile(
       birthdayLunarDay: user.birthdayLunarDay,
       birthdayLunarLeapMonth: user.birthdayLunarLeapMonth,
       birthdayRemindCalendar: user.birthdayRemindCalendar,
+      voiceTranscribeMode: user.voiceTranscribeMode,
     })
     .from(user)
     .where(eq(user.id, userId))
     .get();
   if (!row) return null;
+  const rawVoiceMode = row.voiceTranscribeMode;
+  const voiceTranscribeMode: VoiceTranscribeMode =
+    rawVoiceMode === "raw" || rawVoiceMode === "bullets" || rawVoiceMode === "formal"
+      ? rawVoiceMode
+      : "smooth";
   return {
     name: row.name,
     birthday: presentBirthday(birthdayFromRow(row)),
+    voiceTranscribeMode,
   };
 }
 
@@ -101,7 +113,7 @@ export function createAccountRoutes(
     const session = await requireSessionAuthor(c, options.getSessionAuthor);
     if (session instanceof Response) return session;
 
-    let body: { name?: string; birthday?: unknown };
+    let body: { name?: string; birthday?: unknown; voiceTranscribeMode?: unknown };
     try {
       body = await c.req.json();
     } catch {
@@ -110,8 +122,9 @@ export function createAccountRoutes(
 
     const hasName = typeof body.name === "string";
     const hasBirthday = body.birthday !== undefined;
-    if (!hasName && !hasBirthday) {
-      return c.json({ error: "请提供爱称或生日" }, 400);
+    const hasVoiceMode = typeof body.voiceTranscribeMode === "string";
+    if (!hasName && !hasBirthday && !hasVoiceMode) {
+      return c.json({ error: "请提供爱称、生日或语音偏好" }, 400);
     }
 
     const db = await getDb(c);
@@ -143,6 +156,27 @@ export function createAccountRoutes(
           })
           .where(eq(user.id, session.userId));
         changed.push("birthday");
+      }
+
+      if (hasVoiceMode) {
+        const mode = body.voiceTranscribeMode as string;
+        if (
+          mode === "smooth" ||
+          mode === "raw" ||
+          mode === "bullets" ||
+          mode === "formal"
+        ) {
+          await db
+            .update(user)
+            .set({
+              voiceTranscribeMode: mode,
+              updatedAt: new Date(),
+            })
+            .where(eq(user.id, session.userId));
+          changed.push("voiceTranscribeMode");
+        } else {
+          return c.json({ error: "语音转写模式无效" }, 400);
+        }
       }
 
       if (changed.length > 0) {

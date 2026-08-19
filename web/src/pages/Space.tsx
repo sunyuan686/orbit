@@ -7,9 +7,9 @@ import {
   shouldToastApiError,
   updateSpace,
 } from "../lib/api";
-import { useSpace } from "../lib/spaceContext";
+import { useSpace } from "../contexts/spaceContext";
 import { setPageTitle } from "../lib/pageTitle";
-import { useToast } from "../lib/useToast";
+import { useToast } from "../hooks/useToast";
 
 export function SpacePage() {
   const toast = useToast();

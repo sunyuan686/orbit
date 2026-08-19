@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "../lib/initVoiceCards";
+import { resolveMediaType } from "../lib/content";
 
 export interface MediaAttachmentItem {
   id: string;
@@ -35,8 +36,8 @@ export function MediaAttachmentsBar({
 
   if (attachments.length === 0) return null;
 
-  const audioItems = attachments.filter((item) => item.mimeType?.startsWith("audio/"));
-  const mediaItems = attachments.filter((item) => !item.mimeType?.startsWith("audio/"));
+  const audioItems = attachments.filter((item) => resolveMediaType(item) === "audio");
+  const mediaItems = attachments.filter((item) => resolveMediaType(item) !== "audio");
 
   const handleOpenAlt = (item: MediaAttachmentItem) => {
     setEditingAltId(item.id);
@@ -69,12 +70,12 @@ export function MediaAttachmentsBar({
             return (
               <div
                 key={item.id}
-                className="orbit-prose-audio-block orbit-voice-card relative group p-2.5 px-3 bg-stone-50 dark:bg-stone-900/60 border border-stone-200/80 dark:border-stone-800 rounded-xl shadow-xs transition-all hover:border-amber-500/30 select-none max-w-xl"
+                className="orbit-prose-audio-block orbit-voice-card relative group select-none"
               >
-                <div className="flex items-center gap-2.5">
+                <div className="orbit-voice-card-main">
                   <button
                     type="button"
-                    className="orbit-voice-play-btn w-8 h-8 rounded-full bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-sm hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                    className="orbit-voice-play-btn"
                     title="播放/暂停预听"
                   >
                     <svg className="w-3.5 h-3.5 fill-current ml-0.5 orbit-voice-play-icon" viewBox="0 0 24 24">
@@ -86,39 +87,39 @@ export function MediaAttachmentsBar({
                     </svg>
                   </button>
 
-                  <div className="orbit-voice-waveform flex-1 min-w-0 flex items-center gap-[2.5px] h-4 cursor-pointer py-0.5">
+                  <div className="orbit-voice-waveform">
                     {WAVEFORM_HEIGHTS.map((h, idx) => (
                       <span
                         key={idx}
-                        className="orbit-voice-bar w-[3px] rounded-full bg-stone-300 dark:bg-stone-700 transition-colors"
+                        className="orbit-voice-bar"
                         style={{ height: `${h}%` }}
                       />
                     ))}
                   </div>
 
-                  <span className="orbit-voice-time text-[11px] font-mono text-stone-500 dark:text-stone-400 shrink-0">
+                  <span className="orbit-voice-time">
                     0:00
                   </span>
 
                   {item.transcript ? (
                     <button
                       type="button"
-                      className="orbit-voice-transcript-toggle flex items-center gap-1 px-2 py-1 rounded-md bg-stone-200/60 dark:bg-stone-800/60 hover:bg-amber-500/10 hover:text-amber-600 text-stone-500 dark:text-stone-400 text-xs font-sans transition-colors cursor-pointer shrink-0 select-none"
+                      className="orbit-voice-transcript-toggle"
                       title="展开/折叠转写文稿"
                     >
-                      <span className="text-xs select-none">💬</span>
-                      <span className="text-[10px] font-medium">文稿</span>
+                      <span className="select-none">💬</span>
+                      <span>文稿</span>
                     </button>
                   ) : (
                     onUpdateTranscript && (
                       <button
                         type="button"
                         onClick={() => handleOpenTranscript(item)}
-                        className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-sans transition-colors cursor-pointer shrink-0 select-none"
+                        className="orbit-voice-transcript-toggle"
                         title="添加文字稿"
                       >
-                        <span className="text-xs select-none">＋</span>
-                        <span className="text-[10px] font-medium">文稿</span>
+                        <span className="select-none">＋</span>
+                        <span>文稿</span>
                       </button>
                     )
                   )}
@@ -140,14 +141,14 @@ export function MediaAttachmentsBar({
 
                 {/* 编辑态与展示态文稿区域 */}
                 {isEditingThis ? (
-                  <div className="mt-2 pt-2 border-t border-stone-200/60 dark:border-stone-800/80 flex flex-col gap-2">
+                  <div className="orbit-voice-transcript-block flex flex-col gap-2">
                     <textarea
                       value={tempTranscript}
                       onChange={(e) => setTempTranscript(e.target.value)}
                       placeholder="输入或修改语音转写文稿…"
                       rows={3}
                       autoFocus
-                      className="w-full text-xs p-2 rounded-md border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 resize-y focus:outline-none focus:ring-1 focus:ring-amber-500 font-sans leading-relaxed"
+                      className="orbit-voice-textarea"
                       onKeyDown={(e) => {
                         if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                           handleSaveTranscript(item.id);
@@ -167,7 +168,7 @@ export function MediaAttachmentsBar({
                       <button
                         type="button"
                         onClick={() => handleSaveTranscript(item.id)}
-                        className="px-2.5 py-1 text-xs rounded bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-xs transition-colors cursor-pointer"
+                        className="orbit-voice-transcript-edit-btn"
                       >
                         完成
                       </button>
@@ -175,7 +176,7 @@ export function MediaAttachmentsBar({
                   </div>
                 ) : (
                   item.transcript && (
-                    <div className="orbit-voice-transcript-block hidden mt-2 pt-2 border-t border-stone-200/60 dark:border-stone-800/80 text-xs text-stone-600 dark:text-stone-300 leading-relaxed font-normal bg-stone-500/5 dark:bg-stone-400/5 p-2.5 rounded-lg">
+                    <div className="orbit-voice-transcript-block hidden">
                       <div className="flex items-start justify-between gap-2">
                         <p className="orbit-voice-transcript flex-1 min-w-0 m-0 font-sans whitespace-pre-wrap break-words">
                           {item.transcript}
@@ -184,7 +185,7 @@ export function MediaAttachmentsBar({
                           <button
                             type="button"
                             onClick={() => handleOpenTranscript(item)}
-                            className="shrink-0 text-[11px] px-1.5 py-0.5 rounded text-amber-600 hover:bg-amber-500/10 dark:text-amber-400 transition-colors cursor-pointer font-medium"
+                            className="orbit-voice-transcript-edit-btn"
                             title="修改文字稿"
                           >
                             编辑
@@ -205,16 +206,33 @@ export function MediaAttachmentsBar({
       {/* 2. 图片与视频缩略卡片网格 */}
       {mediaItems.length > 0 && (
         <div className="orbit-compose-attachments-grid">
-          {mediaItems.map((item) => (
-            <div key={item.id} className="orbit-compose-attachment-card">
-              {item.mimeType?.startsWith("video/") ? (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-stone-900 text-white rounded-lg p-2 relative">
-                  <span className="text-xl">🎬</span>
-                  <span className="text-[10px] mt-1 opacity-80">视频附件</span>
-                </div>
-              ) : (
-                <img src={item.url} alt={item.alt || "Attachment preview"} className="orbit-compose-attachment-img" />
-              )}
+          {mediaItems.map((item) => {
+            const isVideo = resolveMediaType(item) === "video";
+            return (
+              <div key={item.id} className="orbit-compose-attachment-card">
+                {isVideo ? (
+                  <div className="w-full h-full relative overflow-hidden rounded-lg bg-stone-900 flex items-center justify-center">
+                    <video
+                      src={item.url}
+                      preload="metadata"
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover opacity-80"
+                    />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-white/90">
+                      <span className="text-base drop-shadow-sm">🎬</span>
+                      {item.duration ? (
+                        <span className="text-[9px] font-mono mt-0.5 bg-black/60 px-1 py-0.2 rounded">
+                          {Math.floor(item.duration / 60)}:{String(item.duration % 60).padStart(2, "0")}
+                        </span>
+                      ) : (
+                        <span className="text-[9px] mt-0.5 bg-black/60 px-1 py-0.2 rounded opacity-90">视频</span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <img src={item.url} alt={item.alt || "Attachment preview"} className="orbit-compose-attachment-img" />
+                )}
               <button
                 type="button"
                 className="orbit-compose-attachment-remove"
@@ -261,8 +279,9 @@ export function MediaAttachmentsBar({
                   </div>
                 </div>
               )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

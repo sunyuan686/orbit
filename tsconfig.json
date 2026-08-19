@@ -7,7 +7,11 @@
     "strict": true,
     "skipLibCheck": true,
     "outDir": "dist",
-    "types": ["node", "@cloudflare/workers-types"]
+    "types": ["node", "@cloudflare/workers-types"],
+    "paths": {
+      "@orbit/shared": ["./src/shared/index.ts"],
+      "@orbit/shared/*": ["./src/shared/*"]
+    }
   },
   "include": ["src", "scripts"]
 }

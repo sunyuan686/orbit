@@ -18,10 +18,11 @@ import {
 } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
 import { setPageTitle } from "../lib/pageTitle";
-import { useConfirm } from "../lib/useConfirm";
-import { useToast } from "../lib/useToast";
+import { useConfirm } from "../hooks/useConfirm";
+import { useToast } from "../hooks/useToast";
 import { CloseIcon, ChevronLeftIcon, ChevronRightIcon } from "../components/OrbitIcons";
 import { GalleryImage } from "../components/GalleryImage";
+import { Container } from "../components/ui";
 
 const PAGE_SIZE = 48;
 
@@ -248,39 +249,45 @@ export function GalleryPage() {
     : "orbit-gallery-lightbox-controls orbit-gallery-lightbox-controls--hidden";
 
   return (
-    <div className="orbit-gallery-page max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">
-      <header className="mb-6">
-        <h1 className="orbit-page-title">相册</h1>
-        <p className="orbit-text-secondary mt-1 text-sm">
-          {loading ? "加载中…" : `共 ${total} 张`}
-        </p>
-      </header>
+    <Container size="wide" className="orbit-gallery-page">
+      <header className="orbit-gallery-header flex flex-col sm:flex-row sm:items-end justify-between gap-5">
+        <div>
+          <h1 className="orbit-page-title">相册</h1>
+          <p className="orbit-gallery-subtitle mt-2">
+            {loading ? (
+              "加载中…"
+            ) : (
+              <>
+                共 <span className="orbit-gallery-count">{total}</span> 张
+              </>
+            )}
+          </p>
+        </div>
 
-      <div className="orbit-gallery-filters" role="tablist" aria-label="相册筛选">
-        {FILTER_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            role="tab"
-            aria-selected={filter === option.value}
-            className={
-              filter === option.value
-                ? "orbit-gallery-filter orbit-gallery-filter--active"
-                : "orbit-gallery-filter"
-            }
-            onClick={() => handleFilterChange(option.value)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+        <div className="orbit-gallery-filters" role="tablist" aria-label="相册筛选">
+          {FILTER_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="tab"
+              aria-selected={filter === option.value}
+              className={`orbit-gallery-filter-btn${
+                filter === option.value ? " is-active" : ""
+              }`}
+              onClick={() => handleFilterChange(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </header>
 
       {loading && items.length === 0 ? (
         <p className="orbit-text-secondary mt-8 text-sm">加载中…</p>
       ) : items.length === 0 ? (
         <p className="orbit-text-secondary mt-8 text-sm">暂无图片</p>
       ) : (
-        <div className="orbit-gallery-grid mt-5">
+        <div className="orbit-gallery-grid">
           {items.map((item) => (
             <button
               key={item.storageKey}
@@ -444,6 +451,6 @@ export function GalleryPage() {
           </div>
         </div>
       )}
-    </div>
+    </Container>
   );
 }

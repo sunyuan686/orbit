@@ -15,7 +15,7 @@ import {
   AuditAction,
   AuditResourceType,
   recordAudit,
-} from "../services/audit.js";
+} from "../services/space/audit.js";
 import type { SessionAuthor } from "./session-author.js";
 import { INVALID_SESSION_ERROR } from "./session-author.js";
 import { buildSpaceStatus } from "./invite.js";

@@ -2,7 +2,7 @@ import { db } from "../../db/index.js";
 import { createCommentsRoutes } from "../../api/comments.js";
 import { getSessionAuthor } from "../../api/session-author.js";
 import { auth } from "../auth.js";
-import type { NotifyRuntime } from "../../services/notify.js";
+import type { NotifyRuntime } from "../../services/notify/notify.js";
 
 import { resolvePublicBaseUrl } from "../../lib/public-base-url.js";
 

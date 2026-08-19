@@ -204,21 +204,31 @@ API：`/api/memories/*`（summary / nodes / milestones / themes 等），见 [01
 
 ```
 orbit/
-├── src/                        # 后端
+├── src/                        # 后端服务与领域逻辑
+│   ├── shared/                 # 前后端 100% 同构共享核 (policies, specs, utils)
 │   ├── server/                 # Node.js 本地开发 Server
-│   ├── api/                    # Node / Worker 共享 API
-│   ├── worker.ts               # Cloudflare Workers 入口
-│   ├── db/                     # Drizzle schema + migrations
+│   ├── api/                    # Node / Worker 共享 HTTP 路由层 (Hono)
+│   ├── worker.ts               # Cloudflare Workers 边缘入口
+│   ├── db/                     # Drizzle schema + migrations + stores
 │   ├── auth.ts                 # better-auth 配置
-│   └── services/               # 搜索等业务逻辑
+│   ├── lib/                    # 后端基础设施工具 (crypto, logger, turnstile)
+│   └── services/               # 6 大自治业务领域服务
+│       ├── ai/                 # AI 模型网关、运行时、工具审批与 Tracing
+│       ├── feishu/             # 飞书机器人、Webhook、Card 与消息流
+│       ├── companion/          # 陪伴决策引擎、排程调度、恋爱记忆
+│       ├── content/            # 内容写入、审批、图库与 FTS 搜索
+│       ├── notify/             # 站内通知与推送偏好
+│       └── space/              # 空间成员、Token、活跃动态与审计
 ├── web/                        # React 前端
 │   └── src/
-│       ├── pages/
-│       ├── components/
-│       └── lib/
+│       ├── contexts/           # 全局 React Context (Auth, Space, Settings)
+│       ├── hooks/              # 自定义 Hooks (useTheme, useToast, useVoice...)
+│       ├── pages/              # 页面路由组件
+│       ├── components/         # 业务组件与 UI 原子组件
+│       └── lib/                # 前端专用工具函数与插件
 ├── scripts/                    # 运维脚本（搜索状态、R2 上传等）
 ├── content/                    # Markdown 归档（不自动同步 DB）
-├── docs/                       # 项目文档（平台见顶层；features/ 产品能力设计稿；archive/ 历史）
+├── docs/                       # 项目文档（平台见顶层；features/ 产品能力设计稿；plans/ 施工计划）
 ├── data/                       # 本地运行时（.gitignore）
 ├── drizzle.config.ts
 ├── wrangler.toml

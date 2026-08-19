@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { deleteEntry, formatDate, TYPE_LABEL, type EntrySummary } from "../lib/api";
-import { useDrafts } from "../lib/useDrafts";
+import { useDrafts } from "../hooks/useDrafts";
 import { queryKeys } from "../lib/queryKeys";
 import { DraftBoxIcon } from "./OrbitIcons";
 

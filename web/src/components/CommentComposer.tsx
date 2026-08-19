@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button, Textarea } from "./ui";
 
 export function CommentComposer({
   placeholder,
@@ -34,7 +35,7 @@ export function CommentComposer({
 
   return (
     <div className="orbit-comment-composer">
-      <textarea
+      <Textarea
         value={body}
         onChange={(event) => setBody(event.target.value)}
         placeholder={placeholder}
@@ -42,23 +43,26 @@ export function CommentComposer({
       />
       <div className="orbit-comment-composer-actions">
         {onCancel && (
-          <button
+          <Button
             type="button"
-            className="orbit-btn orbit-btn-sm"
+            variant="secondary"
+            size="sm"
             disabled={submitting}
             onClick={onCancel}
           >
             取消
-          </button>
+          </Button>
         )}
-        <button
+        <Button
           type="button"
-          className="orbit-btn orbit-btn-primary orbit-btn-sm"
+          variant="primary"
+          size="sm"
           disabled={!body.trim() || submitting}
+          loading={submitting}
           onClick={() => void handleSubmit()}
         >
-          {submitting ? (submitLabel === "保存" ? "保存中" : "发送中") : submitLabel}
-        </button>
+          {submitLabel}
+        </Button>
       </div>
     </div>
   );

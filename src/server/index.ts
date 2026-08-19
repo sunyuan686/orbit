@@ -29,7 +29,7 @@ import { apiTokens } from "./routes/api-tokens.js";
 import { activity } from "./routes/activity.js";
 import { memories } from "./routes/memories.js";
 import { getSessionAuthor } from "../api/session-author.js";
-import { scanTestCandidate } from "../services/companion-engine.js";
+import { scanTestCandidate } from "../services/companion/companion-engine.js";
 
 const bootLog = createLogger("server");
 
@@ -171,7 +171,7 @@ app.post("/api/companion/test", requireSession, async (c) => {
   if (!sessionAuthor) return c.json({ error: "Unauthorized" }, 401);
   const nowTs = Math.floor(Date.now() / 1000);
   const candidate = await scanTestCandidate(db, sessionAuthor.userId, nowTs);
-  const { deliverCompanionCard } = await import("../services/feishu-companion-card.js");
+  const { deliverCompanionCard } = await import("../services/feishu/feishu-companion-card.js");
   await deliverCompanionCard(
     candidate,
     {

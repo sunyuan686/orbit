@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { createLogger } from "../lib/logger.js";
-import type { NotifyRuntime } from "../services/notify.js";
+import type { NotifyRuntime } from "../services/notify/notify.js";
 import {
   MEMORY_ENTRY_TYPES,
   celebrateMilestones,
@@ -10,7 +10,7 @@ import {
   listMemoryNodes,
   notifyMilestonesViaFeishu,
   syncMilestoneUnlocks,
-} from "../services/love-memories.js";
+} from "../services/companion/love-memories.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 

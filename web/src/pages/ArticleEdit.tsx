@@ -2,14 +2,13 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authClient, fetchEntry, saveEntry, createEntry, fetchComments, TYPE_LABEL, formatDate, getApiErrorMessage, shouldToastApiError, type CommentItem, type CommentPositionMapping, type EntryDetail } from "../lib/api";
-import { resolveEntryType } from "../lib/entry-types";
+import { resolveEntryType, canEditContent } from "@orbit/shared";
 import { getThreadRootId } from "../lib/letterThread";
 import { resolveCommentPosition } from "../lib/anchor";
 import { isEmptyBody } from "../lib/content";
 import { setPageTitle } from "../lib/pageTitle";
 import { resolveEditorAuthor } from "../lib/authors";
-import { canEditContent } from "../lib/contentPolicies";
-import { useToast } from "../lib/useToast";
+import { useToast } from "../hooks/useToast";
 import { TiptapEditor, type TiptapEditorHandle } from "../components/TiptapEditor";
 import { EditorFullscreenOverlay } from "../components/EditorFullscreenOverlay";
 import { DatePicker } from "../components/DatePicker";
@@ -20,7 +19,8 @@ import { queryKeys } from "../lib/queryKeys";
 import type { EditorHandoffState } from "../lib/editor-handoff";
 import { DraftDrawer } from "../components/DraftDrawer";
 import { ActionSheetDialog } from "../components/ActionSheetDialog";
-import { useDrafts } from "../lib/useDrafts";
+import { useDrafts } from "../hooks/useDrafts";
+import { Container } from "../components/ui";
 
 /**
  * ArticleEdit 的路由结构：/:type/:id/edit 或 /:type/new/edit
@@ -461,7 +461,7 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
 
   return (
     <>
-      <div className="orbit-editor-layout">
+      <Container size="narrow" className="orbit-editor-layout">
         {/* 顶部导航控制栏：只保留关闭按钮以及草稿箱与保存主操作 */}
         <div className="orbit-editor-header flex items-center justify-between mb-3 gap-3">
           <div className="flex items-center gap-2">
@@ -567,7 +567,7 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
             }
           }}
         />
-      </div>
+      </Container>
 
       <EditorFullscreenOverlay
         open={fullscreenOpen}

@@ -8,50 +8,8 @@ import {
   shouldToastApiError,
   type ApiTokenListItem,
 } from "../lib/api";
-import { useToast } from "../lib/useToast";
-
-function SettingsSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  const headingId = `settings-section-${title}`;
-  return (
-    <section className="orbit-settings-section" aria-labelledby={headingId}>
-      <h3 id={headingId} className="orbit-settings-heading">
-        {title}
-      </h3>
-      {children}
-    </section>
-  );
-}
-
-function SettingsField({
-  label,
-  hint,
-  children,
-  stacked,
-}: {
-  label: string;
-  hint?: React.ReactNode;
-  children: React.ReactNode;
-  stacked?: boolean;
-}) {
-  if (!stacked) return null;
-  return (
-    <div className="orbit-settings-field orbit-settings-field--stacked">
-      <div className="orbit-settings-field-copy">
-        <span className="orbit-settings-field-label">{label}</span>
-        {hint ? <p className="orbit-settings-field-hint">{hint}</p> : null}
-      </div>
-      <div className="orbit-settings-field-control orbit-settings-field-control--block">
-        {children}
-      </div>
-    </div>
-  );
-}
+import { useToast } from "../hooks/useToast";
+import { Button, Input, Field, Section } from "./ui";
 
 function TokenRow({
   item,
@@ -83,14 +41,16 @@ function TokenRow({
           )}
         </p>
       </div>
-      <button
+      <Button
         type="button"
-        className="orbit-btn orbit-btn-sm orbit-btn-danger"
+        variant="danger"
+        size="sm"
         disabled={revoking}
+        loading={revoking}
         onClick={() => onRevoke(item.id)}
       >
-        撤销
-      </button>
+        撤销 Token
+      </Button>
     </div>
   );
 }
@@ -187,83 +147,77 @@ export function ApiTokenSettingsPanel() {
         </p>
       </header>
 
-      <SettingsSection title="新建 Token">
-        <div className="orbit-settings-fields">
-          <SettingsField
-            label="名称"
-            hint="便于区分用途，例如「本地脚本」「Cursor MCP」。"
-            stacked
-          >
-            <form className="orbit-settings-inline-form orbit-settings-inline-form--wide" onSubmit={(e) => void handleCreate(e)}>
-              <input
-                className="orbit-input"
-                value={name}
-                maxLength={64}
-                placeholder="用途说明"
-                onChange={(event) => setName(event.target.value)}
-              />
-              <button
-                type="submit"
-                className="orbit-btn orbit-btn-primary orbit-btn-sm"
-                disabled={creating || !name.trim()}
-              >
-                {creating ? "创建中…" : "创建"}
-              </button>
-            </form>
-          </SettingsField>
-        </div>
-      </SettingsSection>
+      <Section title="新建 Token">
+        <Field
+          label="名称"
+          hint="便于区分用途，例如「本地脚本」「Cursor MCP」。"
+        >
+          <form className="orbit-settings-inline-form orbit-settings-inline-form--wide" onSubmit={(e) => void handleCreate(e)}>
+            <Input
+              value={name}
+              maxLength={64}
+              placeholder="用途说明"
+              onChange={(event) => setName(event.target.value)}
+            />
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={creating || !name.trim()}
+              loading={creating}
+            >
+              创建
+            </Button>
+          </form>
+        </Field>
+      </Section>
 
       {revealedToken ? (
-        <SettingsSection title="请立即保存">
-          <div className="orbit-settings-fields">
-            <SettingsField
-              label="新 Token"
-              hint="明文仅显示一次。请复制保存，关闭页面后无法再次查看。"
-              stacked
-            >
-              <div className="orbit-settings-inline-form orbit-settings-inline-form--wide">
-                <input
-                  className="orbit-input orbit-settings-input-mono"
-                  readOnly
-                  value={revealedToken}
-                  aria-label="新 API Token"
-                />
-                <button
-                  type="button"
-                  className="orbit-btn orbit-btn-sm"
-                  onClick={() => void handleCopyToken()}
-                >
-                  复制
-                </button>
-                <button
-                  type="button"
-                  className="orbit-btn orbit-btn-ghost orbit-btn-sm"
-                  onClick={() => setRevealedToken(null)}
-                >
-                  我已保存
-                </button>
-              </div>
-            </SettingsField>
-          </div>
-        </SettingsSection>
+        <Section title="请立即保存">
+          <Field
+            label="新 Token"
+            hint="明文仅显示一次。请复制保存，关闭页面后无法再次查看。"
+          >
+            <div className="orbit-settings-inline-form orbit-settings-inline-form--wide">
+              <Input
+                mono
+                readOnly
+                value={revealedToken}
+                aria-label="新 API Token"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => void handleCopyToken()}
+              >
+                复制
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setRevealedToken(null)}
+              >
+                我已保存
+              </Button>
+            </div>
+          </Field>
+        </Section>
       ) : null}
 
-      <SettingsSection title="使用方式">
-        <div className="orbit-settings-fields">
-          <SettingsField
-            label="请求头"
-            hint="在 HTTP 请求中附带 Authorization。可访问文章、搜索、评论、相册与 AI 等接口；设置、账户与 Token 管理仍需浏览器登录。"
-            stacked
-          >
-            <pre className="orbit-settings-code-block">
-              <code>{`Authorization: Bearer orb_…`}</code>
-            </pre>
-          </SettingsField>
-        </div>
-      </SettingsSection>
+      <Section title="使用方式">
+        <Field
+          label="请求头"
+          hint="在 HTTP 请求中附带 Authorization。可访问文章、搜索、评论、相册与 AI 等接口；设置、账户与 Token 管理仍需浏览器登录。"
+        >
+          <pre className="orbit-settings-code-block">
+            <code>{`Authorization: Bearer orb_…`}</code>
+          </pre>
+        </Field>
+      </Section>
 
-      <SettingsSection title="已有 Token">
+      <Section title="已有 Token">
         <div className="orbit-settings-fields">
           {loading ? (
             <p className="orbit-muted">加载中…</p>
@@ -282,7 +236,7 @@ export function ApiTokenSettingsPanel() {
             </div>
           )}
         </div>
-      </SettingsSection>
+      </Section>
     </>
   );
 }

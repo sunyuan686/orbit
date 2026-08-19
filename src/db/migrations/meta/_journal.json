@@ -169,6 +169,13 @@
       "when": 1786000000000,
       "tag": "0023_merge_memo_into_entry",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1786100000000,
+      "tag": "0024_user_preferences",
+      "breakpoints": true
     }
   ]
 }

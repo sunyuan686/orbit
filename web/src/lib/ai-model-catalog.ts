@@ -8,7 +8,7 @@ import {
   type AiProvider,
   type BuiltinProviderCatalog,
 } from "./api";
-import { resolveSpecKey, type ModelSpec } from "./ai-model-specs";
+import { resolveSpecKey, type ModelSpec } from "@orbit/shared";
 
 export interface UnifiedChatModel {
   id: string;

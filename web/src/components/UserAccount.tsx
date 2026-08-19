@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { authClient } from "../lib/api";
-import { useToast } from "../lib/useToast";
+import { useToast } from "../hooks/useToast";
 import { LogoutIcon, SettingsIcon } from "./OrbitIcons";
 
 interface UserAccountProps {

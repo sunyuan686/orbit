@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { scrollBehavior } from "../lib/motion";
 import type { CommentItem } from "../lib/api";
 import { formatDate } from "../lib/api";
-import { useMinWidthXl } from "../lib/useBreakpoint";
+import { useMinWidthXl } from "../hooks/useBreakpoint";
 import { MARGINALIA_RAIL_STORAGE_KEY, useRailExpanded } from "../lib/railPreferences";
 import { MarginaliaIcon, CloseIcon, ChevronRightIcon } from "./OrbitIcons";
 import { CommentComposer } from "./CommentComposer";
