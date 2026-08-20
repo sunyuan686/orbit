@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   authClient,
   createInvite,
@@ -188,6 +188,7 @@ function resolveSettingsTab(value: string | null): SettingsTab | null {
 }
 
 export function SettingsPage() {
+  const navigate = useNavigate();
   const toast = useToast();
   const { data: session, refetch: refetchSession } = authClient.useSession();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -209,6 +210,8 @@ export function SettingsPage() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
   const [displayName, setDisplayName] = useState("");
@@ -383,9 +386,17 @@ export function SettingsPage() {
 
   async function handleUpdatePassword(event: React.FormEvent) {
     event.preventDefault();
-    if (savingPassword || !currentPassword || !newPassword) return;
+    if (savingPassword || !currentPassword || !newPassword || !confirmPassword) return;
     if (newPassword.length < 8) {
       toast.error("新密码至少 8 位");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("两次输入的新密码不一致");
+      return;
+    }
+    if (currentPassword === newPassword) {
+      toast.error("新密码不能与当前密码相同");
       return;
     }
     setSavingPassword(true);
@@ -393,15 +404,15 @@ export function SettingsPage() {
       const { error } = await authClient.changePassword({
         currentPassword,
         newPassword,
-        revokeOtherSessions: false,
+        revokeOtherSessions: true,
       });
       if (error) {
         toast.error(error.message || "密码更新失败，请检查当前密码");
         return;
       }
-      setCurrentPassword("");
-      setNewPassword("");
-      toast.success("密码已更新");
+      await authClient.signOut({ fetchOptions: { credentials: "include" } });
+      toast.success("密码已更新，请使用新密码重新登录");
+      navigate("/login", { replace: true });
     } catch {
       toast.error("网络错误，请稍后重试");
     } finally {
@@ -871,13 +882,43 @@ export function SettingsPage() {
                       </div>
                     </Field>
 
+                    <Field
+                      label="确认新密码"
+                      hint="请再次输入新密码，更新后将退出登录并需重新登录。"
+                    >
+                      <div className="orbit-password-input-wrapper">
+                        <Input
+                          id="settings-confirm-password"
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={confirmPassword}
+                          autoComplete="new-password"
+                          placeholder="再次输入新密码"
+                          minLength={8}
+                          onChange={(event) => setConfirmPassword(event.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="orbit-password-toggle-btn"
+                          onClick={() => setShowConfirmPassword((prev) => !prev)}
+                          aria-label={showConfirmPassword ? "隐藏密码" : "显示密码"}
+                          title={showConfirmPassword ? "隐藏密码" : "显示密码"}
+                        >
+                          {showConfirmPassword ? <EyeOffIcon size="sm" /> : <EyeIcon size="sm" />}
+                        </button>
+                      </div>
+                    </Field>
+
                     <div className="orbit-settings-form-actions">
                       <Button
                         type="submit"
                         variant="primary"
                         size="sm"
                         disabled={
-                          savingPassword || !currentPassword || newPassword.length < 8
+                          savingPassword ||
+                          !currentPassword ||
+                          newPassword.length < 8 ||
+                          confirmPassword.length < 8 ||
+                          newPassword !== confirmPassword
                         }
                         loading={savingPassword}
                       >
