@@ -3,6 +3,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
 import { uploadImage } from "../lib/api";
 import { moveSelectionAfterBlockInsertion } from "../lib/blockInsertion";
+import { openMultiImageLightbox } from "../lib/lightbox";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -30,65 +31,6 @@ const ICONS = {
   replace: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>`,
   expand: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>`,
 } as const;
-
-function openImageLightbox(src: string) {
-  const dialog = document.createElement("dialog");
-  dialog.className = "orbit-image-lightbox-dialog";
-  dialog.setAttribute("aria-label", "图片预览");
-
-  const content = document.createElement("div");
-  content.className = "orbit-image-lightbox-content";
-  content.tabIndex = -1;
-
-  const closeBtn = document.createElement("button");
-  closeBtn.type = "button";
-  closeBtn.className = "orbit-image-lightbox-close";
-  closeBtn.title = "关闭全屏预览";
-  closeBtn.setAttribute("aria-label", "关闭全屏预览");
-  closeBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
-
-  const imgEl = document.createElement("img");
-  imgEl.src = src;
-  imgEl.className = "orbit-image-lightbox-img";
-  imgEl.alt = "";
-
-  const close = () => {
-    document.removeEventListener("keydown", onKeyDown);
-    if (dialog.open) {
-      dialog.close();
-    }
-    dialog.remove();
-  };
-
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      e.stopPropagation();
-      close();
-    }
-  };
-
-  const onDialogCancel = (e: Event) => {
-    e.preventDefault();
-    close();
-  };
-
-  closeBtn.addEventListener("click", close);
-  dialog.addEventListener("click", (e) => {
-    if (e.target === dialog || e.target === content) {
-      close();
-    }
-  });
-  dialog.addEventListener("cancel", onDialogCancel);
-  document.addEventListener("keydown", onKeyDown, true);
-
-  content.appendChild(closeBtn);
-  content.appendChild(imgEl);
-  dialog.appendChild(content);
-  document.body.appendChild(dialog);
-  dialog.showModal();
-  content.focus();
-}
 
 class ImageNodeView {
   dom: HTMLElement;
@@ -241,7 +183,18 @@ class ImageNodeView {
         window.open(href, "_blank", "noopener,noreferrer");
       } else {
         const src = String(this.node.attrs.src ?? "");
-        if (src) openImageLightbox(src);
+        if (src) {
+          openMultiImageLightbox({
+            images: [
+              {
+                src,
+                alt: String(this.node.attrs.alt ?? ""),
+                caption: String(this.node.attrs.caption ?? ""),
+                title: String(this.node.attrs.title ?? ""),
+              },
+            ],
+          });
+        }
       }
     }
   }
@@ -301,7 +254,7 @@ class ImageNodeView {
     expandBtn.addEventListener("mousedown", (e) => {
       e.preventDefault();
       const src = String(this.node.attrs.src ?? "");
-      if (src) openImageLightbox(src);
+      if (src) openMultiImageLightbox(src);
     });
     toolbar.appendChild(expandBtn);
 

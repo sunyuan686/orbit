@@ -7,3 +7,4 @@ export * from "./useVoiceRecorder";
 export * from "./useRealtimeVoiceStream";
 export * from "./useStreamingSpeech";
 export * from "./useAccountProfile";
+export * from "./usePwaInstall";

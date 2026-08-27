@@ -31,6 +31,9 @@ export interface MemoryNode {
   title: string | null;
   snippet: string;
   coverImage: string | null;
+  coverBlurhash: string | null;
+  coverWidth: number | null;
+  coverHeight: number | null;
   author: string;
   weight: MemoryWeight;
   parentId: string | null;
@@ -246,7 +249,7 @@ function toNode(
     createdAt: number;
     parentId: string | null;
   },
-  coverImage: string | null
+  cover: { url: string; blurhash: string | null; width: number | null; height: number | null } | null
 ): MemoryNode {
   const occurredAt = row.entryDate ?? row.createdAt;
   const bodyLen = Number(row.bodyLen ?? 0);
@@ -258,12 +261,15 @@ function toNode(
     occurredAt,
     title: row.title,
     snippet: truncateSnippet(row.snippetRaw),
-    coverImage,
+    coverImage: cover?.url ?? null,
+    coverBlurhash: cover?.blurhash ?? null,
+    coverWidth: cover?.width ?? null,
+    coverHeight: cover?.height ?? null,
     author: row.author,
     weight: computeWeight({
       type: row.type,
       bodyLen,
-      hasCover: Boolean(coverImage),
+      hasCover: Boolean(cover?.url),
     }),
     parentId: row.parentId,
     link: `/${row.type}/${row.id}`,

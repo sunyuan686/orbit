@@ -142,9 +142,6 @@ export function ApiTokenSettingsPanel() {
     <>
       <header className="orbit-settings-panel-header">
         <h2 className="orbit-settings-panel-title">API Token</h2>
-        <p className="orbit-settings-panel-desc">
-          生成 Bearer Token，供脚本、Cursor 或 MCP 客户端调用内容 API。Token 以创建者身份写入内容。
-        </p>
       </header>
 
       <Section title="新建 Token">

@@ -906,9 +906,6 @@ export function AiProvidersSettingsPanel() {
     <>
       <header className="orbit-settings-panel-header">
         <h2 className="orbit-settings-panel-title">Orbit AI</h2>
-        <p className="orbit-settings-panel-desc">
-          配置 AI 助手昵称、语气人设与供应商凭证。
-        </p>
       </header>
 
       <Section title="助手人设与名称">

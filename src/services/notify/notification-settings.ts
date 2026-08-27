@@ -3,6 +3,7 @@ export type NotificationEventKind = "entry" | "comment" | "letter";
 export interface NotificationChannelPrefs {
   inApp: boolean;
   feishu: boolean;
+  webPush: boolean;
 }
 
 export interface NotificationPreferences {
@@ -13,9 +14,9 @@ export interface NotificationPreferences {
 export interface NotificationPreferencesPublic extends NotificationPreferences {}
 
 const DEFAULT_EVENTS: NotificationPreferences["events"] = {
-  entry: { inApp: true, feishu: false },
-  comment: { inApp: true, feishu: false },
-  letter: { inApp: true, feishu: false },
+  entry: { inApp: true, feishu: false, webPush: false },
+  comment: { inApp: true, feishu: false, webPush: false },
+  letter: { inApp: true, feishu: false, webPush: false },
 };
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
@@ -36,6 +37,7 @@ export function parseNotificationPreferences(
         events[key] = {
           inApp: channel.inApp !== false,
           feishu: Boolean(channel.feishu),
+          webPush: Boolean(channel.webPush),
         };
       }
     }

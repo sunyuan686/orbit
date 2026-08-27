@@ -36,6 +36,8 @@ custom_domain = true
 BETTER_AUTH_URL = "https://orbitspace.top"
 # 在 wrangler secret put 中设置：BETTER_AUTH_SECRET
 # Workers AI 模型目录（设置页下拉）：CF_ACCOUNT_ID、CF_API_TOKEN
+# Web Push VAPID：VAPID_PRIVATE_KEY 用 secret put；公钥明文填在下方
+VAPID_PUBLIC_KEY = "BAIsc0TTH7_AWIf_KQLVY6w5HRUJCt_t7bixserNK-Pg0HAGYRx5dW_2YcxG6lfSM-Vd4vvt8_y7u4XlXoBEOfY"
 
 [ai]
 binding = "AI"

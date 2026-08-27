@@ -1,9 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { assetReference, entry } from "../../db/schema.js";
 import { extractStorageKeysFromBody } from "../../lib/gallery-keys.js";
 import { readSettingsMap, upsertSetting } from "../../db/settings-store.js";
 
-export const ASSET_REFERENCE_BACKFILL_KEY = "asset_reference_backfilled";
+export const ASSET_REFERENCE_BACKFILL_KEY = "asset_reference_backfilled_v2";
 
 export type AssetReferenceSourceType = string;
 
@@ -19,7 +19,7 @@ function chunkRows<T>(rows: T[], size: number): T[][] {
 }
 
 /**
- * 按正文重写某一内容对图片的引用。软删内容时保留引用（恢复后仍一致）。
+ * 按正文重写某一内容对图片的引用。内容删除时清理引用。
  */
 export async function syncAssetReferences(
   db: any,
@@ -63,6 +63,27 @@ export async function clearAssetReferencesForKey(
     .where(eq(assetReference.storageKey, storageKey));
 }
 
+export async function clearAssetReferencesForSource(
+  db: any,
+  sourceId: string,
+  sourceType?: string
+): Promise<void> {
+  if (sourceType) {
+    await db
+      .delete(assetReference)
+      .where(
+        and(
+          eq(assetReference.sourceType, sourceType),
+          eq(assetReference.sourceId, sourceId)
+        )
+      );
+  } else {
+    await db
+      .delete(assetReference)
+      .where(eq(assetReference.sourceId, sourceId));
+  }
+}
+
 async function backfillAssetReferences(db: any): Promise<void> {
   const entries = (await db
     .select({
@@ -70,7 +91,8 @@ async function backfillAssetReferences(db: any): Promise<void> {
       type: entry.type,
       body: entry.body,
     })
-    .from(entry)) as Array<{ id: string; type: string; body: string | null }>;
+    .from(entry)
+    .where(isNull(entry.deletedAt))) as Array<{ id: string; type: string; body: string | null }>;
 
   await db.delete(assetReference);
 

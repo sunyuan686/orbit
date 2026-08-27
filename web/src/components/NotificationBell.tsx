@@ -8,7 +8,30 @@ import {
   markNotificationRead,
   type NotificationItem,
 } from "../lib/api";
-import { BellIcon } from "./OrbitIcons";
+import { BellIcon, CloseIcon } from "./OrbitIcons";
+import { usePwaInstall } from "../hooks/usePwaInstall";
+
+const PWA_BELL_TIP_KEY = "orbit_pwa_bell_tip_dismissed";
+const PWA_BELL_TIP_DAYS = 14;
+
+function isPwaTipDismissed(): boolean {
+  try {
+    const raw = localStorage.getItem(PWA_BELL_TIP_KEY);
+    if (!raw) return false;
+    const time = Number(raw);
+    return Date.now() - time < PWA_BELL_TIP_DAYS * 24 * 60 * 60 * 1000;
+  } catch {
+    return false;
+  }
+}
+
+function markPwaTipDismissed(): void {
+  try {
+    localStorage.setItem(PWA_BELL_TIP_KEY, Date.now().toString());
+  } catch {
+    // ignore
+  }
+}
 
 function formatRelativeTime(timestamp: number): string {
   const diff = Math.floor(Date.now() / 1000) - timestamp;
@@ -23,6 +46,10 @@ export function NotificationBell() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const { isStandalone, canPrompt, setGuideOpen, triggerInstall } = usePwaInstall();
+  const [tipDismissed, setTipDismissed] = useState(isPwaTipDismissed);
+
+  const showPwaTip = !isStandalone && !tipDismissed;
 
   const unreadQuery = useQuery({
     queryKey: ["notifications-unread"] as const,
@@ -129,6 +156,44 @@ export function NotificationBell() {
               </ul>
             )}
           </div>
+
+          {showPwaTip ? (
+            <div className="orbit-notification-panel-footer">
+              <span className="orbit-notification-footer-text">
+                添加到主屏幕，不错过锁屏通知
+              </span>
+              <div className="orbit-notification-footer-actions">
+                <button
+                  type="button"
+                  className="orbit-notification-footer-action"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpen(false);
+                    if (canPrompt) {
+                      void triggerInstall();
+                    } else {
+                      setGuideOpen(true);
+                    }
+                  }}
+                >
+                  去添加
+                </button>
+                <button
+                  type="button"
+                  className="orbit-notification-footer-dismiss"
+                  aria-label="不再提示"
+                  title="14天内不再提示"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markPwaTipDismissed();
+                    setTipDismissed(true);
+                  }}
+                >
+                  <CloseIcon size="sm" />
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

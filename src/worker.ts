@@ -38,6 +38,7 @@ import { verifyTurnstileToken } from "./lib/turnstile.js";
 import type { NotifyRuntime } from "./services/notify/notify.js";
 import { CompanionScheduler } from "./services/companion/companion-scheduler.js";
 import { scanTestCandidate } from "./services/companion/companion-engine.js";
+import { thumbStorageKey } from "./lib/gallery-keys.js";
 
 export interface Env {
   DB: D1Database;
@@ -56,6 +57,8 @@ export interface Env {
   LANGFUSE_ENV?: string;
   LANGFUSE_PROJECT_ID?: string;
   COMPANION_SCHEDULER: DurableObjectNamespace<CompanionScheduler>;
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
 }
 
 type HonoEnv = { Bindings: Env };
@@ -173,6 +176,8 @@ function getNotifyRuntime(c: Context<HonoEnv>): NotifyRuntime {
   return {
     baseUrl: c.env.BETTER_AUTH_URL,
     secret: c.env.BETTER_AUTH_SECRET,
+    vapidPublicKey: c.env.VAPID_PUBLIC_KEY,
+    vapidPrivateKey: c.env.VAPID_PRIVATE_KEY,
     aiEnv: {
       AI: c.env.AI,
       BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET,
@@ -342,6 +347,7 @@ app.route(
       const existing = await c.env.R2.head(storageKey);
       if (!existing) return false;
       await c.env.R2.delete(storageKey);
+      await c.env.R2.delete(thumbStorageKey(storageKey));
       return true;
     },
   })

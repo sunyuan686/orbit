@@ -176,6 +176,20 @@
       "when": 1786100000000,
       "tag": "0024_user_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1786200000000,
+      "tag": "0025_push_subscription",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1786300000000,
+      "tag": "0026_asset_has_thumb",
+      "breakpoints": true
     }
   ]
 }

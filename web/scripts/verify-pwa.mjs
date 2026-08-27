@@ -4,9 +4,11 @@
  * 用法：先 `npm run build`，再 `node scripts/verify-pwa.mjs [baseUrl]`
  */
 import { readFile, readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const distDir = join(import.meta.dirname, "..", "dist");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const distDir = join(__dirname, "..", "dist");
 const baseUrl = process.argv[2] ?? "";
 
 function assert(condition, message) {
@@ -20,14 +22,11 @@ async function readDist(file) {
 }
 
 async function verifyDistFiles() {
-  const distFiles = await readdir(distDir);
-  const workboxFile = distFiles.find((name) => /^workbox-.+\.js$/.test(name));
-  assert(workboxFile, "missing workbox-*.js");
-
   const required = [
     "manifest.webmanifest",
     "sw.js",
     "apple-touch-icon.png",
+    "apple-touch-icon-dark.png",
     "pwa-192.png",
     "pwa-512.png",
     "pwa-maskable-512.png",
@@ -50,10 +49,11 @@ async function verifyDistFiles() {
   assert(html.includes("apple-touch-icon"), "index.html missing apple-touch-icon");
 
   const sw = await readDist("sw.js");
-  assert(sw.includes("precacheAndRoute"), "sw.js missing precache");
-  assert(sw.includes("NavigationRoute"), "sw.js missing SPA navigation fallback");
-  assert(sw.includes("NetworkOnly"), "sw.js should keep API/media network-only");
-  assert(sw.includes(String.raw`\/api\/`), "sw.js missing /api denylist");
+  assert(sw.includes("manifest.webmanifest") || sw.includes("pwa-192.png"), "sw.js missing precache entries");
+  assert(/fonts\\?\.googleapis\\?\.com/.test(sw), "sw.js missing Google Fonts stylesheets cache");
+  assert(/fonts\\?\.gstatic\\?\.com/.test(sw), "sw.js missing Google Fonts webfonts cache");
+  assert(sw.includes('"push"') || sw.includes("'push'"), "sw.js missing push event listener");
+  assert(sw.includes('"notificationclick"') || sw.includes("'notificationclick'"), "sw.js missing notificationclick event listener");
 }
 
 async function verifyHttp() {

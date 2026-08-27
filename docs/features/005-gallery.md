@@ -51,7 +51,7 @@ Orbit 的图片散落在日记、时间线、信件等正文中。相册提供�
 
 同一 `storage_key` 可被多篇引用（内容寻址去重）；相册展示全部来源。
 
-软删的 `entry` / `memo`：**仍算已关联**；来源链接可跳转，UI 标注「已删除」。
+软删的 `entry`：**内容删除时同步清理引用关系**；相册仅统计未被软删除（`deleted_at is null`）的有效内容。若引用的内容已全部删除，图片自动转为未关联（orphan），允许用户安全删除。
 
 ---
 
@@ -83,7 +83,7 @@ Orbit 的图片散落在日记、时间线、信件等正文中。相册提供�
 |------|------|
 | 正文或 `entry_id` 仍有引用 | 禁止删除，提示被引用处数量 |
 | 未关联（孤儿） | 允许删除；双方登录用户均可操作 |
-| 删除动作 | 删 R2/本地文件；若存在则软删 `asset.deleted_at` |
+| 删除动作 | 删 R2/本地原图与 `{hash}.w480.webp`；若存在则软删 `asset.deleted_at` |
 
 不自动从正文摘 `<img>`（避免误伤）；有引用时必须手动改正文后再删。
 
@@ -108,7 +108,8 @@ Orbit 的图片散落在日记、时间线、信件等正文中。相册提供�
 ```ts
 {
   storageKey: string;
-  url: string;           // /assets/{storageKey}
+  url: string;           // /assets/{storageKey} 原图
+  thumbUrl: string;      // 有 has_thumb 时为 /assets/{hash}.w480.webp，否则同 url
   mimeType: string;
   size: number;
   uploadedAt: number;  // Unix 秒
@@ -123,6 +124,10 @@ Orbit 的图片散落在日记、时间线、信件等正文中。相册提供�
   }>;
 }
 ```
+
+网格用 `thumbUrl`，灯箱用 `url`。`{hash}.w480.webp` 是原图旁路对象，**不是**相册条目，不写入 `asset` / `asset_reference`。删除原图时一并删除缩略图。
+
+存量静图用 `npm run db:backfill-thumbs`（本地）或 `db:backfill-thumbs:remote`（生产）补文件并置 `has_thumb`。
 
 ### `DELETE /api/gallery/:storageKey`
 

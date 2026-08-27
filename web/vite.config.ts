@@ -4,9 +4,6 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
-/** R2 / 本地媒体：8 位十六进制 hash + 图片扩展名，与 Vite 打包产物区分 */
-const USER_MEDIA_ASSET = /^\/assets\/[a-f0-9]{8}\.(?:jpe?g|png|gif|webp)$/i;
-
 export default defineConfig({
   envDir: "../",
   resolve: {
@@ -19,9 +16,13 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
       includeAssets: [
         "favicon.svg",
         "apple-touch-icon.png",
+        "apple-touch-icon-dark.png",
         "pwa-192.png",
         "pwa-512.png",
         "pwa-maskable-512.png",
@@ -58,27 +59,10 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
-        navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api\//, USER_MEDIA_ASSET],
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webmanifest}"],
+      injectManifest: {
         // mermaid 仅 AI 聊天渲染图表时用到，653KB 不进预缓存
         globIgnores: ["**/mermaid-*.js"],
-        runtimeCaching: [
-          {
-            urlPattern: USER_MEDIA_ASSET,
-            handler: "NetworkOnly",
-            options: {
-              fetchOptions: {
-                credentials: "include",
-              },
-            },
-          },
-          {
-            urlPattern: /^\/api\//,
-            handler: "NetworkOnly",
-          },
-        ],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webmanifest}"],
       },
       devOptions: {
         enabled: false,

@@ -59,6 +59,7 @@ audit_log  — 操作审计（创建 / 编辑 / 删除 / 评论 / 空间与设�
 api_token  — 外部访问 Bearer Token（仅存哈希）；`GET/POST/DELETE /api/api-tokens`（管理需会话）
 milestone_unlock — 恋爱记忆里程碑解锁（派生规则命中后物化；见 [010-love-memories.md](./features/010-love-memories.md)）
 companion_log — 主动陪伴推送记录与去重（见 [012-proactive-companion.md](./features/012-proactive-companion.md)）
+push_subscription — Web Push 订阅（VAPID；endpoint 唯一）
 ai_conversation / ai_message  — AI 聊天会话与消息（见 [002-ai.md](./features/002-ai.md)）
 feishuMessageDedup / feishuThreadSession — 飞书事件去重与 AI 会话映射（见 [003-feishu.md](./features/003-feishu.md)）
 user / session / account / verification  — better-auth 标准表
@@ -85,7 +86,8 @@ user / session / account / verification  — better-auth 标准表
 
 | 字段 | 说明 |
 |------|------|
-| `storageKey` | SHA256 前 8 位 + 扩展名（内容寻址，天然去重） |
+| `storageKey` | SHA256 前 8 位 + 扩展名（内容寻址，天然去重）；列表缩略图为旁路对象 `{hash}.w480.webp`，不另占一行 |
+| `hasThumb` | `0`/`1`，旁路缩略图写出成功后置 1；否则列表仍用原图 URL |
 | `blurhash` | 上传时生成的占位图编码，用于图片加载前展示 |
 | `entryId` | 关联文章，可为空 |
 | `duration` | 媒体时长（秒，针对音视频，可空） |
@@ -217,7 +219,7 @@ orbit/
 │       ├── feishu/             # 飞书机器人、Webhook、Card 与消息流
 │       ├── companion/          # 陪伴决策引擎、排程调度、恋爱记忆
 │       ├── content/            # 内容写入、审批、图库与 FTS 搜索
-│       ├── notify/             # 站内通知与推送偏好
+│       ├── notify/             # 站内通知、Web Push 与推送偏好
 │       └── space/              # 空间成员、Token、活跃动态与审计
 ├── web/                        # React 前端
 │   └── src/

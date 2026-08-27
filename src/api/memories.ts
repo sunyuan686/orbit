@@ -11,6 +11,10 @@ import {
   notifyMilestonesViaFeishu,
   syncMilestoneUnlocks,
 } from "../services/companion/love-memories.js";
+import {
+  getDailyScratchCard,
+  getRandomScratchCard,
+} from "../services/companion/scratch-card.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 
@@ -32,6 +36,30 @@ export function createMemoriesRoutes(
 ) {
   const memories = new Hono();
   const { getNotifyRuntime, waitUntil } = options;
+
+  memories.get("/scratch-card", async (c) => {
+    const date = c.req.query("date");
+    const db = await getDb(c);
+    try {
+      const card = await getDailyScratchCard(db, { dateStr: date });
+      return c.json({ card });
+    } catch (err) {
+      log.error("getDailyScratchCard failed", err);
+      return c.json({ error: "获取今日刮刮卡失败" }, 500);
+    }
+  });
+
+  memories.get("/scratch-card/random", async (c) => {
+    const excludeId = c.req.query("excludeId");
+    const db = await getDb(c);
+    try {
+      const card = await getRandomScratchCard(db, { excludeId });
+      return c.json({ card });
+    } catch (err) {
+      log.error("getRandomScratchCard failed", err);
+      return c.json({ error: "抽取随机刮刮卡失败" }, 500);
+    }
+  });
 
   memories.get("/summary", async (c) => {
     const db = await getDb(c);

@@ -55,9 +55,6 @@ export function SpaceSettingsPanel() {
     <>
       <header className="orbit-settings-panel-header">
         <h2 className="orbit-settings-panel-title">空间档案</h2>
-        <p className="orbit-settings-panel-desc">
-          设置起始日与侧栏展示文案，双方共用。
-        </p>
       </header>
 
       {loading && !profile ? (

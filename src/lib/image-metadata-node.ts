@@ -36,3 +36,25 @@ export async function processImageMetadataWithSharp(
     return undefined;
   }
 }
+
+const LIST_THUMB_EDGE = 480;
+const LIST_THUMB_QUALITY = 82;
+
+export async function createListThumbWebp(
+  body: ArrayBuffer | Buffer
+): Promise<Buffer | undefined> {
+  try {
+    const image = sharp(Buffer.isBuffer(body) ? body : Buffer.from(body));
+    const metadata = await image.metadata();
+    if (metadata.format === "gif" || metadata.format === "svg") return undefined;
+
+    return await image
+      .rotate()
+      .resize(LIST_THUMB_EDGE, LIST_THUMB_EDGE, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: LIST_THUMB_QUALITY })
+      .toBuffer();
+  } catch (e) {
+    console.warn("Failed to create list thumbnail:", e);
+    return undefined;
+  }
+}

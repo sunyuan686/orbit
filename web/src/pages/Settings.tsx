@@ -38,6 +38,7 @@ import { ApiTokenSettingsPanel } from "../components/ApiTokenSettingsPanel";
 import { AiProvidersSettingsPanel } from "../components/AiProvidersSettingsPanel";
 import { FeishuIntegrationPanel } from "../components/FeishuIntegrationPanel";
 import { NotificationsSettingsPanel } from "../components/NotificationsSettingsPanel";
+import { AboutSettingsPanel } from "../components/AboutSettingsPanel";
 import {
   AiIcon,
   BellIcon,
@@ -45,6 +46,7 @@ import {
   ChevronRightIcon,
   EyeIcon,
   EyeOffIcon,
+  InfoIcon,
   KeyIcon,
   MemoriesIcon,
   MessageIcon,
@@ -67,7 +69,8 @@ type SettingsTab =
   | "integrations"
   | "notifications"
   | "companion"
-  | "api-tokens";
+  | "api-tokens"
+  | "about";
 
 type SettingsTabConfig = {
   id: SettingsTab;
@@ -165,6 +168,18 @@ const SETTINGS_NAV_GROUPS: {
       },
     ],
   },
+  {
+    id: "system",
+    label: "系统",
+    tabs: [
+      {
+        id: "about",
+        label: "关于",
+        description: "版本信息与客户端安装",
+        icon: (props) => <InfoIcon {...props} />,
+      },
+    ],
+  },
 ];
 
 function isSettingsTab(value: string | null): value is SettingsTab {
@@ -177,7 +192,8 @@ function isSettingsTab(value: string | null): value is SettingsTab {
     value === "integrations" ||
     value === "notifications" ||
     value === "companion" ||
-    value === "api-tokens"
+    value === "api-tokens" ||
+    value === "about"
   );
 }
 
@@ -511,9 +527,6 @@ export function SettingsPage() {
             <>
               <header className="orbit-settings-panel-header">
                 <h2 className="orbit-settings-panel-title">主题与外观</h2>
-                <p className="orbit-settings-panel-desc">
-                  定制当前设备的色彩、纸张底色与排版偏好，即时生效。
-                </p>
               </header>
 
               {/* 1. 品牌主题色 */}
@@ -685,11 +698,6 @@ export function SettingsPage() {
             <>
               <header className="orbit-settings-panel-header">
                 <h2 className="orbit-settings-panel-title">个人资料</h2>
-                <p className="orbit-settings-panel-desc">
-                  {isMobile
-                    ? "管理爱称与生日。"
-                    : "管理爱称与生日。爱称用于内容署名展示。"}
-                </p>
               </header>
 
               <Section title="爱称">
@@ -783,9 +791,6 @@ export function SettingsPage() {
             <>
               <header className="orbit-settings-panel-header">
                 <h2 className="orbit-settings-panel-title">登录与安全</h2>
-                <p className="orbit-settings-panel-desc">
-                  管理你的登录邮箱与账户凭证安全。
-                </p>
               </header>
 
               <Section title="账户邮箱">
@@ -942,6 +947,7 @@ export function SettingsPage() {
           {activeTab === "notifications" ? <NotificationsSettingsPanel /> : null}
 
           {activeTab === "api-tokens" ? <ApiTokenSettingsPanel /> : null}
+          {activeTab === "about" ? <AboutSettingsPanel /> : null}
         </div>
         ) : null}
       </div>

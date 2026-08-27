@@ -4,6 +4,7 @@ import {
   isImageStorageKey,
   mimeTypeFromKey,
   normalizeStorageKey,
+  listImageUrl,
 } from "../../lib/gallery-keys.js";
 import {
   clearAssetReferencesForKey,
@@ -23,6 +24,7 @@ export interface GallerySource {
 export interface GalleryItem {
   storageKey: string;
   url: string;
+  thumbUrl: string;
   mimeType: string;
   size: number;
   width: number | null;
@@ -110,7 +112,7 @@ async function loadSourcesForKeys(
         deletedAt: entry.deletedAt,
       })
       .from(entry)
-      .where(inArray(entry.id, chunk))
+      .where(and(inArray(entry.id, chunk), isNull(entry.deletedAt)))
   )) as Array<{
     id: string;
     type: string;
@@ -159,6 +161,7 @@ export async function getGalleryItem(
       width: asset.width,
       height: asset.height,
       blurhash: asset.blurhash,
+      hasThumb: asset.hasThumb,
       createdAt: asset.createdAt,
     })
     .from(asset)
@@ -171,6 +174,7 @@ export async function getGalleryItem(
         width: number | null;
         height: number | null;
         blurhash: string | null;
+        hasThumb: number;
         createdAt: number;
       }
     | undefined;
@@ -183,6 +187,7 @@ export async function getGalleryItem(
   return {
     storageKey: normalized,
     url: `/assets/${normalized}`,
+    thumbUrl: listImageUrl(normalized, row.hasThumb),
     mimeType: row.mimeType || mimeTypeFromKey(normalized),
     size: row.size ?? 0,
     width: row.width,
@@ -225,6 +230,7 @@ export async function listGalleryItems(
       width: asset.width,
       height: asset.height,
       blurhash: asset.blurhash,
+      hasThumb: asset.hasThumb,
       createdAt: asset.createdAt,
       linked: sql<number>`case when ${linkedExists} then 1 else 0 end`,
     })
@@ -239,6 +245,7 @@ export async function listGalleryItems(
     width: number | null;
     height: number | null;
     blurhash: string | null;
+    hasThumb: number;
     createdAt: number;
     linked: number;
   }>;
@@ -252,6 +259,7 @@ export async function listGalleryItems(
     return {
       storageKey,
       url: `/assets/${storageKey}`,
+      thumbUrl: listImageUrl(storageKey, row.hasThumb),
       mimeType: row.mimeType || mimeTypeFromKey(storageKey),
       size: row.size ?? 0,
       width: row.width,

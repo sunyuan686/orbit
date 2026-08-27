@@ -1,5 +1,5 @@
 import { and, desc, eq, gte, isNull } from "drizzle-orm";
-import { notification, user } from "../../db/schema.js";
+import { notification, user, pushSubscription } from "../../db/schema.js";
 import { getEntryTypeLabel } from "../../lib/entry-types.js";
 import {
   parseNotificationPreferences,
@@ -15,6 +15,7 @@ import type { AiRuntimeEnv } from "../ai/ai-model.js";
 import { getOtherUserId, getUserById } from "../space/space-authors.js";
 import { loadUserNameMap, resolveUserName } from "../../lib/author-present.js";
 import { generateId } from "../../lib/id.js";
+import { sendWebPush } from "../../lib/vapid.js";
 
 const FEISHU_MIN_INTERVAL_MS = 220;
 
@@ -24,6 +25,8 @@ export interface NotifyRuntime {
   baseUrl: string;
   secret: string;
   aiEnv?: AiRuntimeEnv;
+  vapidPublicKey?: string;
+  vapidPrivateKey?: string;
 }
 
 export interface DispatchNotificationInput {
@@ -242,6 +245,26 @@ export async function dispatchNotification(
     );
   }
 
+  // Web Push：查出该用户的所有订阅端点，逐个发送；收到 410/404 自动清理失效订阅
+  if (channels.webPush && runtime.vapidPublicKey && runtime.vapidPrivateKey) {
+    const subs = await db
+      .select()
+      .from(pushSubscription)
+      .where(eq(pushSubscription.userId, recipientUserId));
+
+    for (const sub of subs) {
+      const result = await sendWebPush({
+        endpoint: sub.endpoint,
+        vapidPublicKey: runtime.vapidPublicKey,
+        vapidPrivateKey: runtime.vapidPrivateKey,
+        vapidSubject: `mailto:admin@${new URL(runtime.baseUrl).hostname}`,
+      });
+      if (result.status === 410 || result.status === 404) {
+        await db.delete(pushSubscription).where(eq(pushSubscription.id, sub.id));
+      }
+    }
+  }
+
   await recordAudit(db, {
     userId: input.actorUserId,
     author: input.actorName,
@@ -255,6 +278,7 @@ export async function dispatchNotification(
       feishu: channels.feishu,
       feishuOk: feishuResult.ok,
       feishuError: feishuResult.error ?? null,
+      webPush: channels.webPush,
       targetType: input.targetType,
       targetId: input.targetId,
     },

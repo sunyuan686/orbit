@@ -249,6 +249,15 @@ export function MoonIcon(props: OrbitIconProps) {
   );
 }
 
+export function InfoIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4M12 8h.01" />
+    </OrbitIcon>
+  );
+}
+
 export function MonitorIcon(props: OrbitIconProps) {
   return (
     <OrbitIcon {...props}>
@@ -301,6 +310,27 @@ export function ShareIcon(props: OrbitIconProps) {
       <circle cx="18" cy="6" r="2.25" />
       <circle cx="18" cy="18" r="2.25" />
       <path d="M8.1 10.8l7.8-3.6M8.1 13.2l7.8 3.6" />
+    </OrbitIcon>
+  );
+}
+
+export function IosShareIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
+      <polyline points="16 6 12 2 8 6" />
+      <line x1="12" y1="2" x2="12" y2="15" />
+    </OrbitIcon>
+  );
+}
+
+export function AddToHomeScreenIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+      <line x1="12" y1="18" x2="12.01" y2="18" />
+      <line x1="9" y1="10" x2="15" y2="10" />
+      <line x1="12" y1="7" x2="12" y2="13" />
     </OrbitIcon>
   );
 }
@@ -647,6 +677,15 @@ export function NotFoundIcon(props: OrbitIconProps) {
       <path d="M8 12h3" strokeDasharray="2 2" />
       <circle cx="17.5" cy="5.5" r="1.25" fill="currentColor" stroke="none" />
       <ellipse cx="12" cy="12" rx="9.5" ry="3.8" transform="rotate(-18 12 12)" strokeDasharray="3 3" />
+    </OrbitIcon>
+  );
+}
+
+export function RefreshIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+      <path d="M21 3v5h-5" />
     </OrbitIcon>
   );
 }

@@ -20,6 +20,7 @@ import { useToast } from "../hooks/useToast";
 import Link from "@tiptap/extension-link";
 import { CommentHighlight } from "../extensions/CommentHighlight";
 import { OrbitImage } from "../extensions/OrbitImage";
+import { OrbitImageDeck } from "../extensions/OrbitImageDeck";
 import { OrbitAudio } from "../extensions/OrbitAudio";
 import { OrbitVideo } from "../extensions/OrbitVideo";
 import { ORBIT_ALLOW_DOC_CHANGE, ReadonlyGuard } from "../extensions/ReadonlyGuard";
@@ -286,6 +287,7 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
         allowBase64: false,
         HTMLAttributes: { class: "orbit-prose-img" },
       }),
+      OrbitImageDeck,
       OrbitAudio,
       OrbitVideo,
       Placeholder.configure({

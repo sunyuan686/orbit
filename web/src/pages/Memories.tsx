@@ -21,6 +21,7 @@ import { useToast } from "../hooks/useToast";
 import { MilestoneCelebrate } from "../components/MilestoneCelebrate";
 import { ActivityHeatmap } from "../components/ActivityHeatmap";
 import { Container, Section, Card, CardBody, Stack } from "../components/ui";
+import { GalleryImage } from "../components/GalleryImage";
 
 const TYPE_TABS = [
   { key: "all", label: "全部" },
@@ -471,11 +472,12 @@ export function MemoriesPage() {
                           className={`orbit-memory-card${node.coverImage ? " has-cover" : ""}`}
                         >
                           {node.coverImage ? (
-                            <img
+                            <GalleryImage
                               src={node.coverImage}
-                              alt=""
+                              blurhash={node.coverBlurhash}
+                              width={node.coverWidth}
+                              height={node.coverHeight}
                               className="orbit-memory-card-cover"
-                              loading="lazy"
                             />
                           ) : null}
                           <div className="orbit-memory-card-body">

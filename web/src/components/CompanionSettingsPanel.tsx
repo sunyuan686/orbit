@@ -114,9 +114,6 @@ export function CompanionSettingsPanel() {
     <>
       <header className="orbit-settings-panel-header">
         <h2 className="orbit-settings-panel-title">主动触达</h2>
-        <p className="orbit-settings-panel-desc">
-          配置陪伴提醒的触达窗口、安静时段与偏好时间。实际触发由 Durable Object Alarm 动态排程。
-        </p>
       </header>
 
       <form onSubmit={(event) => void handleSave(event)}>

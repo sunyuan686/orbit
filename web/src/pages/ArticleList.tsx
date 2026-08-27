@@ -23,6 +23,7 @@ import {
 import { queryKeys } from "../lib/queryKeys";
 import { useToast } from "../hooks/useToast";
 import { Container } from "../components/ui";
+import { GalleryImage } from "../components/GalleryImage";
 
 /** letter 仍全量拉取以拼线程树；其余类型分页 */
 const PAGE_SIZE = 30;
@@ -50,20 +51,23 @@ function Snippet({ text, className }: { text?: string | null; className?: string
 }
 
 function CoverImg({
-  src,
+  entry,
   className,
+  imgClassName,
 }: {
-  src?: string | null;
+  entry: EntrySummary;
   className?: string;
+  imgClassName?: string;
 }) {
-  if (!src) return null;
+  if (!entry.coverUrl) return null;
   return (
-    <img
-      className={className ?? "orbit-entry-cover"}
-      src={src}
-      alt=""
-      loading="lazy"
-      decoding="async"
+    <GalleryImage
+      src={entry.coverUrl}
+      blurhash={entry.coverBlurhash}
+      width={entry.coverWidth}
+      height={entry.coverHeight}
+      className={className}
+      imgClassName={imgClassName}
     />
   );
 }
@@ -116,7 +120,7 @@ function MessageCard({
   return (
     <Link to={`/message/${entry.id}`} className={className}>
       <p className="orbit-msg-card-body">{body}</p>
-      <CoverImg src={entry.coverUrl} className="orbit-msg-card-cover" />
+      <CoverImg entry={entry} className="orbit-msg-card-cover" />
       <div className="orbit-msg-card-meta">
         {entry.author && (
           <span className="orbit-msg-card-author">{entry.author}</span>
@@ -167,7 +171,7 @@ function PolaroidMessageCard({
 
       {hasCover && entry.coverUrl && (
         <div className="orbit-polaroid-frame">
-          <img src={entry.coverUrl} alt="" className="orbit-polaroid-img" loading="lazy" />
+          <CoverImg entry={entry} imgClassName="orbit-polaroid-img" />
         </div>
       )}
     </Link>
@@ -222,7 +226,7 @@ function DiaryGridCard({
 
       {hasCover && entry.coverUrl && (
         <div className="orbit-polaroid-frame">
-          <img src={entry.coverUrl} alt="" className="orbit-polaroid-img" loading="lazy" />
+          <CoverImg entry={entry} imgClassName="orbit-polaroid-img" />
         </div>
       )}
     </Link>
@@ -279,7 +283,7 @@ function TimelineGridCard({
 
       {hasCover && entry.coverUrl && (
         <div className="orbit-polaroid-frame">
-          <img src={entry.coverUrl} alt="" className="orbit-polaroid-img" loading="lazy" />
+          <CoverImg entry={entry} imgClassName="orbit-polaroid-img" />
         </div>
       )}
     </Link>
@@ -334,7 +338,7 @@ function NoteGridCard({
 
       {hasCover && entry.coverUrl && (
         <div className="orbit-polaroid-frame">
-          <img src={entry.coverUrl} alt="" className="orbit-polaroid-img" loading="lazy" />
+          <CoverImg entry={entry} imgClassName="orbit-polaroid-img" />
         </div>
       )}
     </Link>
@@ -382,7 +386,7 @@ function AppreciationGridCard({
 
       {hasCover && entry.coverUrl && (
         <div className="orbit-polaroid-frame">
-          <img src={entry.coverUrl} alt="" className="orbit-polaroid-img" loading="lazy" />
+          <CoverImg entry={entry} imgClassName="orbit-polaroid-img" />
         </div>
       )}
     </Link>
@@ -412,7 +416,7 @@ function DiaryCard({ entry }: { entry: EntrySummary }) {
       </div>
       {hasCover && (
         <div className="orbit-diary-card-cover-wrap">
-          <CoverImg src={entry.coverUrl} className="orbit-diary-card-cover" />
+          <CoverImg entry={entry} className="orbit-diary-card-cover" />
         </div>
       )}
       <div className="orbit-diary-card-body">
@@ -444,7 +448,7 @@ function TimelineCard({ entry }: { entry: EntrySummary }) {
           {entry.title && <h3 className="orbit-tl-card-title">{entry.title}</h3>}
           <Snippet text={entry.snippet} />
         </div>
-        <CoverImg src={entry.coverUrl} className="orbit-tl-card-cover" />
+        <CoverImg entry={entry} className="orbit-tl-card-cover" />
       </Link>
     </div>
   );
@@ -503,7 +507,7 @@ function LetterEnvelope({
       )}
       {entry.coverUrl && (
         <span className="orbit-env-stamp" aria-hidden="true">
-          <img src={entry.coverUrl} alt="" loading="lazy" decoding="async" />
+          <CoverImg entry={entry} />
         </span>
       )}
       {entry.entryDate != null && (

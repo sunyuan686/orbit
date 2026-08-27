@@ -226,9 +226,6 @@ export function FeishuIntegrationPanel() {
     <>
       <header className="orbit-settings-panel-header">
         <h2 className="orbit-settings-panel-title">飞书连接</h2>
-        <p className="orbit-settings-panel-desc">
-          通过飞书 Bot 写日记、查摘要、收通知。凭证加密存储，双方共用一套连接。
-        </p>
       </header>
 
       <Section title="连接状态">

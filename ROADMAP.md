@@ -2,7 +2,7 @@
 
 > 版本记录 [CHANGELOG.md](./CHANGELOG.md) · 架构 [ARCHITECTURE.md](ARCHITECTURE.md)
 >
-> 最后更新：2026-08-09
+> 最后更新：2026-08-28
 
 ## 状态说明
 
@@ -34,7 +34,7 @@
 ## 持续进行
 
 - 组件细节打磨（动效 / 按钮 / 图标 / 字体 / 配色 ）— Phase A
-- 性能：Smart Placement、鉴权减 D1 往返、列表可选分页 ✅；缓存机制待评估 — Phase A
+- 性能：Smart Placement、鉴权减 D1 往返、列表可选分页 ✅；列表 480 WebP 缩略图 + 封面 Blurhash ✅；缓存机制待评估 — Phase A
 
 ---
 
@@ -55,7 +55,7 @@
 | 留言板仪式感呈现       | ✅   | 便签卡列表；日记/时间线/信箱/备忘录分形态列表 |
 
 
-编辑：TipTap 富文本、草稿箱与草稿状态、图片上传（SHA256 去重）、本地 / R2 双存储 ✅。
+编辑：TipTap 富文本、草稿箱与草稿状态、图片上传（SHA256 去重）、本地 / R2 双存储；正文连续 ≥3 张图折叠为堆叠卡片 ✅，见 [015-multi-image-deck.md](docs/features/015-multi-image-deck.md)。
 
 图片增强 📋（远期）：解析原始信息（EXIF 拍摄时间 / 设备 / 方位等）、HEIC 转换与展示、Live Photo（静图 + 短视频）支持。
 
@@ -75,12 +75,12 @@
 | 空间开通与身份             | ✅   | 一人注册 → 邀请加入，≤2 账号，可配置爱称；详见 [009-space-onboarding.md](docs/features/009-space-onboarding.md) |
 | 邀请邮件                | 📋  | MVP 仅复制链接                                                                        |
 | 空间档案                | ✅   | 纪念日、slogan 等，`/settings?tab=space`                                               |
-| 首页                  | 🚧  | MVP + 记忆摘要已落地；封面图、统计卡待做                                                           |
+| 首页                  | 🚧  | MVP + 记忆摘要已落地；每日刮刮乐见 [016-daily-scratch-card.md](docs/features/016-daily-scratch-card.md)；封面图、统计卡待做 |
 | 设置页                 | ✅   | 账户 / 界面 / 空间 / 集成 / 通知 / AI / API Token                                          |
 | 认证与权限               | ✅   | better-auth；软删除；按类型作者归属校验                                                        |
 | 部署                  | ✅   | Node 本地 + Cloudflare 生产，push main 自动部署                                           |
 | 响应式 + 暗色主题          | ✅   | 移动端布局、主题切换                                                                       |
-| PWA                 | ✅   | 可安装 + 离线壳                                                                        |
+| PWA                 | ✅   | 可安装 + 离线壳；安装引导见 [017-pwa-install-guidance.md](docs/features/017-pwa-install-guidance.md) |
 | 文章目录 TOC            | ✅   | 见 [001-marginalia-layout.md](docs/features/001-marginalia-layout.md)                        |
 | 国际化                 | 📋  | 界面 i18n，策略待定                                                                     |
 | Design Tokens / 主题色 | ✅   | 见 [DESIGN.md](DESIGN.md)                                                         |
@@ -137,6 +137,7 @@
 | 功能        | 状态  | 说明                                    |
 | --------- | --- | ------------------------------------- |
 | 站内通知      | ✅   | 顶栏铃铛、未读角标、跳转详情                        |
+| Web Push    | ✅   | VAPID + `push_subscription`；需已安装 PWA（iOS） |
 | 飞书出站通知    | ✅   | 关键事件推送（纯文本），复用飞书凭证                    |
 | 飞书通知卡片    | 🚧  | 恋爱记忆里程碑已用 interactive card；通用出站事件仍待改卡片；统一方案见 [011-feishu-companion.md](docs/features/011-feishu-companion.md) |
 | 通知偏好      | ✅   | 按事件类型开关，`/settings?tab=notifications` |
@@ -172,8 +173,8 @@
 | 功能      | 状态  | 说明                                                  |
 | ------- | --- | --------------------------------------------------- |
 | 写作热力图   | ✅   | `/activity`，见 [006-activity.md](docs/features/006-activity.md) |
-| 电子相册    | ✅   | `/gallery`，见 [005-gallery.md](docs/features/005-gallery.md)    |
-| 恋爱记忆星图  | ✅   | `/memories` 按日星图；见 [010-love-memories.md](docs/features/010-love-memories.md) |
+| 电子相册    | ✅   | `/gallery`，列表缩略图与引用解绑见 [005-gallery.md](docs/features/005-gallery.md) |
+| 恋爱记忆星图  | ✅   | `/memories` 按日星图；每日刮刮乐见 [016-daily-scratch-card.md](docs/features/016-daily-scratch-card.md)；见 [010-love-memories.md](docs/features/010-love-memories.md) |
 | 恋爱记忆图鉴  | ✅   | `/memories/atlas`；主题分册 + 星座；地图/爱好待模块接入             |
 | 记忆里程碑   | ✅   | `milestone_unlock` + 庆祝动效 + 飞书卡片；含星座彩蛋               |
 | 恋爱地图    | 📋  | 地点实体 + 地图可视化；星图节点可挂坐标                                   |

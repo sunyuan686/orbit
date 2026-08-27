@@ -15,12 +15,119 @@ marked.use({
 });
 
 /**
+ * 在 HTML 中识别连续 >= 3 个 <img> 或 <figure data-image> 节点并规范化聚合为 <figure data-image-deck="true">
+ */
+export function groupConsecutiveImages(html: string): string {
+  if (!html || (!html.includes("<img") && !html.includes("<figure"))) {
+    return html;
+  }
+
+  if (typeof window !== "undefined" && typeof DOMParser !== "undefined") {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+      const body = doc.body;
+
+      const getImageInfo = (el: Element) => {
+        if (el.tagName === "IMG") {
+          const img = el as HTMLImageElement;
+          return {
+            src: img.getAttribute("src") || "",
+            alt: img.getAttribute("alt") || "",
+            title: img.getAttribute("title") || "",
+          };
+        }
+        if (el.tagName === "FIGURE" && (el.getAttribute("data-image") !== null || el.querySelector("img"))) {
+          const img = el.querySelector("img");
+          if (!img) return null;
+          const figcaption = el.querySelector("figcaption");
+          return {
+            src: img.getAttribute("src") || "",
+            alt: img.getAttribute("alt") || "",
+            title: img.getAttribute("title") || "",
+            caption: figcaption?.textContent || "",
+          };
+        }
+        if (
+          el.tagName === "P" &&
+          el.children.length === 1 &&
+          el.firstElementChild?.tagName === "IMG" &&
+          !el.textContent?.trim()
+        ) {
+          const img = el.firstElementChild as HTMLImageElement;
+          return {
+            src: img.getAttribute("src") || "",
+            alt: img.getAttribute("alt") || "",
+            title: img.getAttribute("title") || "",
+          };
+        }
+        return null;
+      };
+
+      const children = Array.from(body.childNodes);
+      let currentRun: { node: ChildNode; info: NonNullable<ReturnType<typeof getImageInfo>> }[] = [];
+
+      const flushRun = () => {
+        if (currentRun.length >= 3) {
+          const deckEl = doc.createElement("figure");
+          deckEl.setAttribute("data-image-deck", "true");
+          deckEl.setAttribute("data-images", JSON.stringify(currentRun.map((r) => r.info)));
+
+          currentRun[0].node.parentNode?.replaceChild(deckEl, currentRun[0].node);
+          for (let i = 1; i < currentRun.length; i++) {
+            currentRun[i].node.parentNode?.removeChild(currentRun[i].node);
+          }
+        }
+        currentRun = [];
+      };
+
+      for (const node of children) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          if (!node.textContent?.trim()) {
+            continue;
+          } else {
+            flushRun();
+          }
+          continue;
+        }
+
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const el = node as Element;
+          if (el.getAttribute("data-image-deck") !== null) {
+            flushRun();
+            continue;
+          }
+
+          const info = getImageInfo(el);
+          if (info && info.src) {
+            currentRun.push({ node, info });
+          } else {
+            flushRun();
+          }
+        } else {
+          flushRun();
+        }
+      }
+      flushRun();
+
+      return body.innerHTML;
+    } catch {
+      return html;
+    }
+  }
+
+  return html;
+}
+
+/**
  * 将正文（包括纯 HTML、Markdown 或混合文本）规范化为标准的 TipTap HTML DOM。
- * 遵循 CommonMark / GFM 规范，保留原生 HTML 节点并精准解析 Markdown 标记。
+ * 遵循 CommonMark / GFM 规范，保留原生 HTML 节点并精准解析 Markdown 标记，
+ * 且对连续 >= 3 张图片进行语义聚合归一。
  */
 export function normalizeBodyForEditor(body: string): string {
   if (!body?.trim()) return "";
-  return marked.parse(body) as string;
+  const parsed = marked.parse(body) as string;
+  return groupConsecutiveImages(parsed);
 }
 
 /**
@@ -29,7 +136,11 @@ export function normalizeBodyForEditor(body: string): string {
  */
 export function isEmptyBody(value: string | null | undefined): boolean {
   if (!value) return true;
-  if (/<(img|video|audio|iframe)\b/i.test(value) || /!\[[^\]]*\]\([^)]+\)/.test(value)) {
+  if (
+    /<(img|video|audio|iframe)\b/i.test(value) ||
+    /data-image-deck/i.test(value) ||
+    /!\[[^\]]*\]\([^)]+\)/.test(value)
+  ) {
     return false;
   }
   return (
@@ -74,7 +185,7 @@ export interface ExtractedMediaAttachment {
 }
 
 /**
- * 将正文 HTML 与媒体附件卡片数组重新组合为标准带 <img> / <video> / <audio> 标签的完整 HTML 字符串。
+ * 将正文 HTML 与媒体附件卡片数组重新组合为标准带 <img> / <figure data-image-deck> / <video> / <audio> 标签的完整 HTML 字符串。
  */
 export function combineHtmlAndAttachments(
   textHtml: string,
@@ -83,32 +194,60 @@ export function combineHtmlAndAttachments(
   if (!attachments || attachments.length === 0) {
     return textHtml || "";
   }
-  const mediaHtml = attachments
-    .map((a) => {
-      const type = resolveMediaType(a);
-      if (type === "video") {
-        return `<video src="${a.url}" controls class="orbit-prose-video rounded-xl max-w-full my-2" preload="metadata"></video>`;
-      }
-      if (type === "audio") {
-        const heights = [35, 50, 80, 60, 40, 90, 100, 75, 50, 65, 85, 45, 95, 70, 80, 55, 35, 90, 60, 45, 75, 85, 50, 35];
-        const waveformBars = heights
-          .map((h) => `<span class="orbit-voice-bar" style="height:${h}%"></span>`)
-          .join("");
 
-        const transcriptToggle = a.transcript
-          ? `<button type="button" class="orbit-voice-transcript-toggle" title="展开/折叠转写文稿"><span class="select-none">💬</span><span>文稿</span></button>`
-          : "";
+  const audioAttachments = attachments.filter((a) => resolveMediaType(a) === "audio");
+  const videoAttachments = attachments.filter((a) => resolveMediaType(a) === "video");
+  const imageAttachments = attachments.filter((a) => resolveMediaType(a) === "image");
 
-        const transcriptBlock = a.transcript
-          ? `<div class="orbit-voice-transcript-block hidden"><p class="orbit-voice-transcript m-0 font-sans">${a.transcript}</p></div>`
-          : "";
+  const mediaParts: string[] = [];
 
-        return `<div data-orbit-audio="true" data-src="${a.url}" data-transcript="${a.transcript || ""}" class="orbit-prose-audio-block orbit-voice-card"><div class="orbit-voice-card-main"><button type="button" class="orbit-voice-play-btn" title="播放/暂停"><svg class="w-3.5 h-3.5 fill-current ml-0.5 orbit-voice-play-icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg><svg class="w-3.5 h-3.5 fill-current hidden orbit-voice-pause-icon" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></button><div class="orbit-voice-waveform">${waveformBars}</div><span class="orbit-voice-time">0:00</span>${transcriptToggle}</div>${transcriptBlock}<audio src="${a.url}" controls class="orbit-prose-audio hidden"></audio></div>`;
-      }
-      return `<img src="${a.url}"${a.alt ? ` alt="${a.alt.replace(/"/g, "&quot;")}"` : ""} class="orbit-prose-img" />`;
-    })
-    .join("");
-  return `${textHtml || ""}${mediaHtml}`;
+  // 1. Audio
+  for (const a of audioAttachments) {
+    const heights = [35, 50, 80, 60, 40, 90, 100, 75, 50, 65, 85, 45, 95, 70, 80, 55, 35, 90, 60, 45, 75, 85, 50, 35];
+    const waveformBars = heights
+      .map((h) => `<span class="orbit-voice-bar" style="height:${h}%"></span>`)
+      .join("");
+
+    const transcriptToggle = a.transcript
+      ? `<button type="button" class="orbit-voice-transcript-toggle" title="展开/折叠转写文稿"><span class="select-none">💬</span><span>文稿</span></button>`
+      : "";
+
+    const transcriptBlock = a.transcript
+      ? `<div class="orbit-voice-transcript-block hidden"><p class="orbit-voice-transcript m-0 font-sans">${a.transcript}</p></div>`
+      : "";
+
+    mediaParts.push(
+      `<div data-orbit-audio="true" data-src="${a.url}" data-transcript="${a.transcript || ""}" class="orbit-prose-audio-block orbit-voice-card"><div class="orbit-voice-card-main"><button type="button" class="orbit-voice-play-btn" title="播放/暂停"><svg class="w-3.5 h-3.5 fill-current ml-0.5 orbit-voice-play-icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg><svg class="w-3.5 h-3.5 fill-current hidden orbit-voice-pause-icon" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></button><div class="orbit-voice-waveform">${waveformBars}</div><span class="orbit-voice-time">0:00</span>${transcriptToggle}</div>${transcriptBlock}<audio src="${a.url}" controls class="orbit-prose-audio hidden"></audio></div>`
+    );
+  }
+
+  // 2. Video
+  for (const a of videoAttachments) {
+    mediaParts.push(
+      `<video src="${a.url}" controls class="orbit-prose-video rounded-xl max-w-full my-2" preload="metadata"></video>`
+    );
+  }
+
+  // 3. Images: if >= 3, output clean data-image-deck block; otherwise single images
+  if (imageAttachments.length >= 3) {
+    const imagesData = imageAttachments.map((a) => ({
+      src: a.url,
+      alt: a.alt || "",
+      width: a.width,
+      height: a.height,
+    }));
+    mediaParts.push(
+      `<figure data-image-deck="true" data-images="${JSON.stringify(imagesData).replace(/"/g, "&quot;")}"></figure>`
+    );
+  } else {
+    for (const a of imageAttachments) {
+      mediaParts.push(
+        `<img src="${a.url}"${a.alt ? ` alt="${a.alt.replace(/"/g, "&quot;")}"` : ""} class="orbit-prose-img" />`
+      );
+    }
+  }
+
+  return `${textHtml || ""}${mediaParts.join("")}`;
 }
 
 

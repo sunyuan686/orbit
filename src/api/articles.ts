@@ -12,7 +12,7 @@ import {
   presentEntryDetail,
 } from "../lib/article-present.js";
 import { entry, comment } from "../db/schema.js";
-import { loadCoversForEntries } from "../lib/entry-covers.js";
+import { loadCoversForEntries, type EntryCover } from "../lib/entry-covers.js";
 import {
   snippetFromBody,
   truncateListSnippet,
@@ -29,7 +29,10 @@ import {
   notifyEntryCreated,
   type NotifyRuntime,
 } from "../services/notify/notify.js";
-import { syncAssetReferences } from "../services/content/asset-references.js";
+import {
+  clearAssetReferencesForSource,
+  syncAssetReferences,
+} from "../services/content/asset-references.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 
@@ -123,9 +126,10 @@ function mapEntrySummary(
     snippetRaw?: string | null;
   },
   nameMap: Map<string, string>,
-  covers?: Map<string, string>
+  covers?: Map<string, EntryCover>
 ) {
   const authorName = resolveUserName(nameMap, row.userId, row.author);
+  const cover = covers?.get(row.id);
   return {
     id: row.id,
     type: row.type,
@@ -137,7 +141,10 @@ function mapEntrySummary(
     createdAt: row.createdAt,
     parentId: row.parentId,
     snippet: truncateListSnippet(row.snippetRaw),
-    coverUrl: covers?.get(row.id) ?? null,
+    coverUrl: cover?.url ?? null,
+    coverBlurhash: cover?.blurhash ?? null,
+    coverWidth: cover?.width ?? null,
+    coverHeight: cover?.height ?? null,
   };
 }
 
@@ -535,6 +542,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     }
 
     await db.update(entry).set({ deletedAt: now() }).where(eq(entry.id, id));
+    await clearAssetReferencesForSource(db, id, entryRow.type);
     await auditArticleWrite(c, db, sessionAuthor, AuditAction.ARTICLE_DELETE, AuditResourceType.ENTRY, id, {
       contentType: entryRow.type,
     });

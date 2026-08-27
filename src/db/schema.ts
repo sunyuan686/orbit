@@ -154,6 +154,7 @@ export const asset = sqliteTable(
     width: integer("width"),
     height: integer("height"),
     blurhash: text("blurhash"),
+    hasThumb: integer("has_thumb").notNull().default(0),
     duration: integer("duration"),
     transcript: text("transcript"),
     size: integer("size"),
@@ -478,4 +479,23 @@ export const companionLog = sqliteTable(
     index("idx_companion_dedup").on(t.spaceId, t.recipientUserId, t.targetId, t.createdAt),
     index("idx_companion_log_created").on(t.createdAt),
   ]
+);
+
+/**
+ * Web Push 订阅（每个浏览器/设备对应一条记录）
+ * endpoint 唯一标识一个推送终端
+ */
+export const pushSubscription = sqliteTable(
+  "push_subscription",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [index("idx_push_subscription_user").on(t.userId)]
 );

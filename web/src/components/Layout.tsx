@@ -13,6 +13,8 @@ import { NotificationBell } from "./NotificationBell";
 import { AiChatFab } from "./AiChatFab";
 import { AiChatPanel, type AiChatContext } from "./AiChatPanel";
 import { RouteErrorBoundary } from "./RouteErrorBoundary";
+import { PwaInstallGuideModal } from "./PwaInstallGuideModal";
+import { usePwaInstall } from "../hooks/usePwaInstall";
 
 const navItems: { to: string; label: string; type: NavContentType }[] = [
   { to: "/diary", label: TYPE_LABEL.diary, type: "diary" },
@@ -63,6 +65,7 @@ function LayoutShell() {
   const { theme, setTheme } = useTheme();
   const { profile, loading: spaceLoading } = useSpace();
   const { meta: aiArticleMeta } = useAiArticleMeta();
+  const { guideOpen, setGuideOpen } = usePwaInstall();
 
   const segments = location.pathname.split("/").filter(Boolean);
   const isEntryDetailRoute =
@@ -86,6 +89,17 @@ function LayoutShell() {
     setPrevPathname(location.pathname);
     setOpen(false);
   }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    (window as unknown as { __openPwaGuide?: () => void }).__openPwaGuide = () => {
+      setGuideOpen(true);
+    };
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("pwa-guide") === "1" || window.location.hash === "#pwa-guide") {
+      setGuideOpen(true);
+    }
+  }, [location.search, location.hash, setGuideOpen]);
 
   useEffect(() => {
     const pathSegments = location.pathname.split("/").filter(Boolean);
@@ -436,6 +450,10 @@ function LayoutShell() {
           />
         </RouteErrorBoundary>
       ) : null}
+      <PwaInstallGuideModal
+        isOpen={guideOpen}
+        onClose={() => setGuideOpen(false)}
+      />
     </div>
   );
 }

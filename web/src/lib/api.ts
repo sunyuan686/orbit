@@ -25,8 +25,11 @@ export interface EntrySummary {
   key?: string | null;
   /** 正文纯文本预览 */
   snippet?: string | null;
-  /** 首图；无图为 null */
+  /** 列表封面；有缩略图时为 .w480.webp */
   coverUrl?: string | null;
+  coverBlurhash?: string | null;
+  coverWidth?: number | null;
+  coverHeight?: number | null;
 }
 
 export interface EntryListPage {
@@ -361,9 +364,11 @@ export async function uploadAsset(
   let payload: File = file;
 
   if (file.type.startsWith("image/")) {
-    const { compressImage } = await import("./compressImage");
+    const { compressImage, makeListThumb } = await import("./compressImage");
     const { extractImageMetadataOptional } = await import("./media-metadata");
     payload = await compressImage(file);
+    const thumb = await makeListThumb(payload);
+    if (thumb) form.append("thumb", thumb);
     const meta = await extractImageMetadataOptional(payload);
     if (meta?.width) form.append("width", String(meta.width));
     if (meta?.height) form.append("height", String(meta.height));
@@ -429,6 +434,7 @@ export interface GallerySource {
 export interface GalleryItem {
   storageKey: string;
   url: string;
+  thumbUrl?: string;
   mimeType: string;
   size: number;
   width: number | null;
@@ -944,6 +950,7 @@ export type NotificationEventKind = "entry" | "comment" | "letter";
 export interface NotificationChannelPrefs {
   inApp: boolean;
   feishu: boolean;
+  webPush: boolean;
 }
 
 export interface NotificationPreferences {
@@ -1056,6 +1063,33 @@ export async function markAllNotificationsRead(): Promise<void> {
     credentials: "include",
   });
   await assertOk(res, "全部已读失败");
+}
+
+export async function registerPushSubscription(sub: PushSubscription): Promise<void> {
+  const key = sub.getKey("p256dh");
+  const auth = sub.getKey("auth");
+  if (!key || !auth) throw new Error("Push subscription missing keys");
+  const res = await fetch(`${BASE}/api/notifications/push-subscription`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      endpoint: sub.endpoint,
+      p256dh: btoa(String.fromCharCode(...new Uint8Array(key))),
+      auth: btoa(String.fromCharCode(...new Uint8Array(auth))),
+    }),
+  });
+  await assertOk(res, "注册推送订阅失败");
+}
+
+export async function unregisterPushSubscription(endpoint: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/notifications/push-subscription`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ endpoint }),
+  });
+  await assertOk(res, "注销推送订阅失败");
 }
 
 export interface DeepseekModelOption {
@@ -1443,6 +1477,9 @@ export interface MemoryNode {
   title: string | null;
   snippet: string;
   coverImage: string | null;
+  coverBlurhash?: string | null;
+  coverWidth?: number | null;
+  coverHeight?: number | null;
   author: string;
   weight: MemoryWeight;
   parentId: string | null;
@@ -1555,3 +1592,40 @@ export async function celebrateMemoryMilestones(
   await assertOk(res, "标记里程碑失败");
   return res.json();
 }
+
+export interface ScratchCardData {
+  id: string;
+  badge: string;
+  title: string;
+  meta: string;
+  quote: string;
+  link: string;
+  linkText: string;
+  type: string;
+  coverImage?: string | null;
+  mode: "daily" | "roam";
+  dateKey?: string;
+}
+
+export async function fetchDailyScratchCard(
+  dateStr?: string
+): Promise<{ card: ScratchCardData }> {
+  const params = dateStr ? `?date=${encodeURIComponent(dateStr)}` : "";
+  const res = await fetch(`${BASE}/api/memories/scratch-card${params}`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载今日刮刮卡失败");
+  return res.json();
+}
+
+export async function fetchRandomScratchCard(
+  excludeId?: string
+): Promise<{ card: ScratchCardData }> {
+  const params = excludeId ? `?excludeId=${encodeURIComponent(excludeId)}` : "";
+  const res = await fetch(`${BASE}/api/memories/scratch-card/random${params}`, {
+    credentials: "include",
+  });
+  await assertOk(res, "抽取随机刮刮卡失败");
+  return res.json();
+}
+

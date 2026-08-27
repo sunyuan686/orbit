@@ -3,6 +3,7 @@ import type { Context } from "hono";
 import { eq } from "drizzle-orm";
 import { asset } from "../db/schema.js";
 import { generateId } from "../lib/id.js";
+import { canMakeListThumb, thumbStorageKey } from "../lib/gallery-keys.js";
 import { transcribeAudioWithDashScope } from "../services/ai/dashscope-voice.js";
 import { transcribeAudioWithWorkersAi } from "../services/ai/workers-ai-whisper.js";
 
@@ -17,6 +18,8 @@ interface SaveAssetInput {
 interface AssetStorage {
   save(input: SaveAssetInput, c: Context): Promise<string>;
 }
+
+type MakeListThumb = (body: ArrayBuffer, mimeType: string) => Promise<ArrayBuffer | undefined>;
 
 async function sha256Prefix(body: ArrayBuffer): Promise<string> {
   const hashBuffer = await crypto.subtle.digest("SHA-256", body);
@@ -67,7 +70,8 @@ function parseClientBlurhash(raw: FormDataEntryValue | null): string | undefined
 export function createAssetsRoutes(
   getDb: DbProvider,
   storage: AssetStorage,
-  getEnv?: (c: Context) => any
+  getEnv?: (c: Context) => any,
+  makeListThumb?: MakeListThumb
 ) {
   const assets = new Hono();
 
@@ -86,6 +90,28 @@ export function createAssetsRoutes(
     const filename = `${await sha256Prefix(body)}${ext}`;
     const mimeType = inferMimeType(file, ext);
     const url = await storage.save({ filename, mimeType, body }, c);
+
+    let hasThumb = 0;
+    const thumbFile = formData.get("thumb");
+    if (thumbFile instanceof File && thumbFile.size > 0 && canMakeListThumb(mimeType)) {
+      const thumbBody = await thumbFile.arrayBuffer();
+      await storage.save({
+        filename: thumbStorageKey(filename),
+        mimeType: "image/webp",
+        body: thumbBody,
+      }, c);
+      hasThumb = 1;
+    } else if (makeListThumb && canMakeListThumb(mimeType)) {
+      const generated = await makeListThumb(body, mimeType);
+      if (generated) {
+        await storage.save({
+          filename: thumbStorageKey(filename),
+          mimeType: "image/webp",
+          body: generated,
+        }, c);
+        hasThumb = 1;
+      }
+    }
 
     let width = parsePositiveInt(formData.get("width"));
     let height = parsePositiveInt(formData.get("height"));
@@ -127,6 +153,7 @@ export function createAssetsRoutes(
         blurhash: asset.blurhash,
         duration: asset.duration,
         transcript: asset.transcript,
+        hasThumb: asset.hasThumb,
       })
       .from(asset)
       .where(eq(asset.storageKey, filename))
@@ -142,6 +169,7 @@ export function createAssetsRoutes(
         width: width ?? null,
         height: height ?? null,
         blurhash: blurhash ?? null,
+        hasThumb,
         duration: duration ?? null,
         transcript: transcript ?? null,
         createdAt: Math.floor(Date.now() / 1000),
@@ -152,6 +180,13 @@ export function createAssetsRoutes(
       blurhash = existingAsset.blurhash ?? blurhash;
       duration = existingAsset.duration ?? duration;
       transcript = existingAsset.transcript ?? transcript;
+      if (hasThumb && Number(existingAsset.hasThumb) !== 1) {
+        await db
+          .update(asset)
+          .set({ hasThumb: 1 })
+          .where(eq(asset.storageKey, filename));
+      }
+      hasThumb = Number(existingAsset.hasThumb) === 1 || hasThumb ? 1 : 0;
     }
 
     return c.json({ url, filename, mimeType, width, height, blurhash, duration, transcript });

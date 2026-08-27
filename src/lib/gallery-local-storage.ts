@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, statSync, unlinkSync } from "fs";
 import { join } from "path";
 import type { GalleryObjectMeta } from "../services/content/gallery.js";
-import { isImageStorageKey } from "./gallery-keys.js";
+import { isImageStorageKey, thumbStorageKey } from "./gallery-keys.js";
 
 const ASSETS_DIR = join(process.cwd(), "data", "assets");
 
@@ -22,7 +22,14 @@ export function listLocalGalleryObjects(): GalleryObjectMeta[] {
 
 export function deleteLocalGalleryObject(key: string): boolean {
   const filepath = join(ASSETS_DIR, key);
-  if (!existsSync(filepath)) return false;
-  unlinkSync(filepath);
-  return true;
+  const thumbPath = join(ASSETS_DIR, thumbStorageKey(key));
+  let deleted = false;
+  if (existsSync(filepath)) {
+    unlinkSync(filepath);
+    deleted = true;
+  }
+  if (existsSync(thumbPath)) {
+    unlinkSync(thumbPath);
+  }
+  return deleted;
 }

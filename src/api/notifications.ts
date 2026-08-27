@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
-import { notification, user } from "../db/schema.js";
+import { notification, user, pushSubscription } from "../db/schema.js";
 import {
   parseNotificationPreferences,
   serializeNotificationPreferences,
@@ -9,6 +9,7 @@ import {
 } from "../services/notify/notification-settings.js";
 import type { SessionAuthor } from "./session-author.js";
 import { INVALID_SESSION_ERROR } from "./session-author.js";
+import { generateId } from "../lib/id.js";
 
 type DbProvider = (c: Context) => any | Promise<any>;
 
@@ -180,6 +181,59 @@ export function createNotificationsRoutes(
           eq(notification.id, id),
           eq(notification.recipientUserId, session.userId),
           isNull(notification.readAt)
+        )
+      );
+    return c.json({ ok: true });
+  });
+
+  // Web Push 订阅注册
+  routes.post("/push-subscription", async (c) => {
+    const session = await requireSessionAuthor(c, options.getSessionAuthor);
+    if (session instanceof Response) return session;
+
+    let body: { endpoint: string; p256dh: string; auth: string };
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "请求体格式无效" }, 400);
+    }
+    if (!body.endpoint || !body.p256dh || !body.auth) {
+      return c.json({ error: "缺少必要字段" }, 400);
+    }
+
+    const db = await getDb(c);
+    const id = generateId("psh");
+    const createdAt = Math.floor(Date.now() / 1000);
+    await db
+      .insert(pushSubscription)
+      .values({ id, userId: session.userId, endpoint: body.endpoint, p256dh: body.p256dh, auth: body.auth, createdAt })
+      .onConflictDoUpdate({
+        target: pushSubscription.endpoint,
+        set: { userId: session.userId, p256dh: body.p256dh, auth: body.auth },
+      });
+    return c.json({ ok: true });
+  });
+
+  // Web Push 订阅注销
+  routes.delete("/push-subscription", async (c) => {
+    const session = await requireSessionAuthor(c, options.getSessionAuthor);
+    if (session instanceof Response) return session;
+
+    let body: { endpoint: string };
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "请求体格式无效" }, 400);
+    }
+    if (!body.endpoint) return c.json({ error: "缺少 endpoint" }, 400);
+
+    const db = await getDb(c);
+    await db
+      .delete(pushSubscription)
+      .where(
+        and(
+          eq(pushSubscription.userId, session.userId),
+          eq(pushSubscription.endpoint, body.endpoint)
         )
       );
     return c.json({ ok: true });

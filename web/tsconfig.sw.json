@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "WebWorker"],
+    "types": ["vite/client", "vite-plugin-pwa/client"]
+  },
+  "include": ["src/sw.ts"]
+}

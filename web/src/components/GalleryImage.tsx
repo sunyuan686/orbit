@@ -9,6 +9,8 @@ interface GalleryImageProps {
   width?: number | null;
   height?: number | null;
   variant?: GalleryImageVariant;
+  className?: string;
+  imgClassName?: string;
 }
 
 type LoadState = "loading" | "loaded" | "error";
@@ -31,6 +33,8 @@ export function GalleryImage({
   width,
   height,
   variant = "thumb",
+  className,
+  imgClassName,
 }: GalleryImageProps) {
   const imgRef = useRef<HTMLImageElement>(null);
   const [loadState, setLoadState] = useState<LoadState>(() =>
@@ -43,7 +47,12 @@ export function GalleryImage({
     setLoadState(resolveLoadState(imgRef.current, src));
   }, [src]);
 
-  const stackClass = `orbit-gallery-image-stack orbit-gallery-image-stack--${variant}`;
+  const stackClass = [
+    `orbit-gallery-image-stack orbit-gallery-image-stack--${variant}`,
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
   const aspectRatio =
     width && height && width > 0 && height > 0 ? `${width} / ${height}` : undefined;
 
@@ -68,7 +77,7 @@ export function GalleryImage({
         decoding="async"
         width={width ?? undefined}
         height={height ?? undefined}
-        className="orbit-gallery-image-img"
+        className={["orbit-gallery-image-img", imgClassName].filter(Boolean).join(" ")}
         onLoad={() => {
           loadedSrcCache.add(src);
           setLoadState("loaded");

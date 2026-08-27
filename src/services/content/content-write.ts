@@ -13,7 +13,10 @@ import {
   recordAudit,
 } from "../space/audit.js";
 import { getSpaceUserIds } from "../space/space-authors.js";
-import { syncAssetReferences } from "./asset-references.js";
+import {
+  clearAssetReferencesForSource,
+  syncAssetReferences,
+} from "./asset-references.js";
 import {
   notifyEntryCreated,
   type NotifyRuntime,
@@ -268,6 +271,7 @@ export async function deleteContent(
   }
 
   await db.update(entry).set({ deletedAt: now() }).where(eq(entry.id, id));
+  await clearAssetReferencesForSource(db, id, entryRow.type);
   await auditContentWrite(
     db,
     actor,

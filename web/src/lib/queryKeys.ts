@@ -17,4 +17,5 @@ export const queryKeys = {
   memoryMilestones: ["memory-milestones"] as const,
   drafts: (type: string) => ["drafts", type] as const,
   search: (q: string) => ["search", q] as const,
+  scratchCard: (date?: string) => ["scratch-card", date ?? "today"] as const,
 };

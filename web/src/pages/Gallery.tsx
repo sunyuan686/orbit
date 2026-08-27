@@ -297,7 +297,7 @@ export function GalleryPage() {
               aria-label={`查看图片 ${item.storageKey}`}
             >
               <GalleryImage
-                src={item.url}
+                src={item.thumbUrl ?? item.url}
                 blurhash={item.blurhash}
                 width={item.width}
                 height={item.height}

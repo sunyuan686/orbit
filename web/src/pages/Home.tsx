@@ -4,9 +4,11 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { FEED_ENTRY_TYPES } from "@orbit/shared";
 import {
   TYPE_LABEL,
+  fetchDailyScratchCard,
   fetchEntries,
   fetchGallery,
   fetchMemorySummary,
+  fetchRandomScratchCard,
   fetchSpaceStatus,
   formatAnniversaryCn,
   formatDate,
@@ -15,6 +17,7 @@ import {
   shouldToastApiError,
   type EntryListPage,
   type EntrySummary,
+  type ScratchCardData,
   type SpaceAuthor,
 } from "../lib/api";
 import { entryDisplayLabel } from "../lib/letterThread";
@@ -34,6 +37,7 @@ import {
   GalleryIcon,
   MemoriesIcon,
   ChevronRightIcon,
+  RefreshIcon,
 } from "../components/OrbitIcons";
 
 type RecentItem = EntrySummary & { contentType: string };
@@ -98,6 +102,14 @@ function formatCoupleNames(authors: SpaceAuthor[]): string | null {
   return authors.map((a) => a.name).join(" & ");
 }
 
+function getTodayDateKey(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function HomePage() {
   const toast = useToast();
   const { profile, loading: spaceLoading } = useSpace();
@@ -106,6 +118,22 @@ export function HomePage() {
   useEffect(() => {
     setPageTitle("首页");
   }, []);
+
+  const todayDateKey = useMemo(() => getTodayDateKey(), []);
+  const [customCard, setCustomCard] = useState<ScratchCardData | null>(null);
+  const [scratchSeed, setScratchSeed] = useState<string | number>(todayDateKey);
+  const [isDailyRevealed, setIsDailyRevealed] = useState(() => {
+    try {
+      return (
+        localStorage.getItem(`orbit_scratch_revealed_${todayDateKey}`) ===
+        "true"
+      );
+    } catch {
+      return false;
+    }
+  });
+  const [isRoamRevealed, setIsRoamRevealed] = useState(false);
+  const [isDrawingRoam, setIsDrawingRoam] = useState(false);
 
   const homeEntryParams = { limit: 8, offset: 0 } as const;
   const feedTypes = FEED_ENTRY_TYPES;
@@ -129,12 +157,17 @@ export function HomePage() {
     queryKey: queryKeys.memorySummary,
     queryFn: fetchMemorySummary,
   });
+  const scratchCardQuery = useQuery({
+    queryKey: queryKeys.scratchCard(todayDateKey),
+    queryFn: () => fetchDailyScratchCard(todayDateKey),
+  });
 
   const feedQueries = [
     ...entryQueries,
     statusQuery,
     galleryQuery,
     memoriesQuery,
+    scratchCardQuery,
   ];
   const loadingFeed = feedQueries.some((q) => q.isPending);
   const feedError = feedQueries.find((q) => q.error)?.error;
@@ -148,8 +181,42 @@ export function HomePage() {
   }, [feedError, toast]);
 
   const authors: SpaceAuthor[] = statusQuery.data?.authors ?? [];
-  const memories = memoriesQuery.data ?? null;
   const photos = galleryQuery.data?.items ?? [];
+
+  const currentCard: ScratchCardData | null =
+    customCard ?? scratchCardQuery.data?.card ?? null;
+  const isCurrentCardDaily = !customCard;
+  const isCurrentRevealed = isCurrentCardDaily
+    ? isDailyRevealed
+    : isRoamRevealed;
+
+  const handleScratchComplete = () => {
+    if (isCurrentCardDaily) {
+      setIsDailyRevealed(true);
+      try {
+        localStorage.setItem(`orbit_scratch_revealed_${todayDateKey}`, "true");
+      } catch {
+        // ignore
+      }
+    } else {
+      setIsRoamRevealed(true);
+    }
+  };
+
+  const handleDrawRoamCard = async () => {
+    if (isDrawingRoam) return;
+    setIsDrawingRoam(true);
+    try {
+      const res = await fetchRandomScratchCard(currentCard?.id);
+      setCustomCard(res.card);
+      setScratchSeed(`${res.card.id}-${Date.now()}`);
+      setIsRoamRevealed(false);
+    } catch (err) {
+      toast.error("抽取失败，请重试");
+    } finally {
+      setIsDrawingRoam(false);
+    }
+  };
 
   const recent = useMemo(() => {
     if (entryQueries.some((q) => !q.data)) return [];
@@ -160,80 +227,6 @@ export function HomePage() {
     merged.sort((a, b) => (b.entryDate ?? 0) - (a.entryDate ?? 0));
     return merged.slice(0, 6);
   }, [entryQueries, feedTypes]);
-
-  const [cardIndex, setCardIndex] = useState(0);
-
-  const memoryDeck = useMemo(() => {
-    const deck = [];
-
-    if (recent.length > 0) {
-      for (const item of recent) {
-        deck.push({
-          id: `entry-${item.id}`,
-          badge: `✨ 回忆闪回 · ${TYPE_LABEL[item.contentType] ?? item.contentType}`,
-          title: entryLabel(item),
-          meta: `${item.author ? `@${item.author} ` : ""}${item.entryDate ? formatDate(item.entryDate) : ""}`,
-          quote: item.snippet?.trim() || item.title?.trim() || "翻开那一天，看看我们当时的心情...",
-          link: `/${item.contentType}/${item.id}`,
-          linkText: "穿越回到那一天 ➔",
-          type: item.contentType,
-        });
-      }
-    }
-
-    if (photos.length > 0) {
-      deck.push({
-        id: "photo-memories",
-        badge: "📸 珍藏光影 · 相册",
-        title: `相册里已定格了 ${memories?.photoCount ?? photos.length} 个瞬间`,
-        meta: "属于两人的记忆影集",
-        quote: "无论日子流转多久，照片里的笑容依然清晰如昨。",
-        link: "/gallery",
-        linkText: "去相册翻看全景 ➔",
-        type: "gallery",
-      });
-    }
-
-    if (profile?.daysTogether) {
-      deck.push({
-        id: "days-milestone",
-        badge: "💖 相伴里程碑",
-        title: `在一起的第 ${profile.daysTogether} 天`,
-        meta: "漫漫星河里的同频相伴",
-        quote: "谢谢你陪我走过的每一个日日夜夜，每一刻都是值得珍藏的奇迹。",
-        link: "/memories/atlas",
-        linkText: "查看恋爱图鉴 ➔",
-        type: "memories",
-      });
-    }
-
-    deck.push({
-      id: "quiz-prompt",
-      badge: "🎲 恋爱默契拷问",
-      title: "【心动记忆提问】",
-      meta: "双人互动小话题",
-      quote: "还记得对方为你做过的哪件微小的事情，最让你心头一暖吗？今晚不妨聊聊看。",
-      link: "/message",
-      linkText: "在留言板写下回答 ➔",
-      type: "message",
-    });
-
-    return deck;
-  }, [recent, photos, memories, profile]);
-
-  const currentCard = memoryDeck[cardIndex % Math.max(memoryDeck.length, 1)] ?? memoryDeck[0];
-
-  const handleDrawRandomCard = () => {
-    setCardIndex((prev) => {
-      const len = memoryDeck.length;
-      if (len <= 1) return prev + 1;
-      let nextIndex;
-      do {
-        nextIndex = Math.floor(Math.random() * len);
-      } while (nextIndex === prev % len);
-      return nextIndex;
-    });
-  };
 
   const coupleNames = useMemo(() => formatCoupleNames(authors), [authors]);
   const tagline = formatSpaceTagline(profile);
@@ -310,34 +303,50 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* 🎟️ 真实手感 HTML5 刮刮彩票卡 */}
-      {!loadingFeed && currentCard && (
-        <section className="orbit-home-section" aria-label="时光刮刮乐">
-          <div className="orbit-scratch-wrapper" data-type={currentCard.type}>
-            <div className="orbit-scratch-header">
-              <span className="orbit-scratch-badge">{currentCard.badge}</span>
-              <button
-                type="button"
-                className="orbit-scratch-reset-btn"
-                onClick={handleDrawRandomCard}
-              >
-                🎲 换一张刮刮彩
-              </button>
-            </div>
-            <ScratchCard seed={cardIndex}>
-              <div className="orbit-scratch-card-body">
-                <h3 className="orbit-scratch-title">{currentCard.title}</h3>
-                {currentCard.meta && (
-                  <p className="orbit-scratch-meta">{currentCard.meta}</p>
-                )}
-                <blockquote className="orbit-scratch-quote">
-                  “{currentCard.quote}”
-                </blockquote>
-                <Link to={currentCard.link} className="orbit-scratch-link">
-                  {currentCard.linkText}
-                </Link>
-              </div>
-            </ScratchCard>
+      {(scratchCardQuery.isLoading || currentCard) && (
+        <section className="orbit-home-section" aria-label="时光记忆卡">
+          <div className="orbit-scratch-card" data-type={currentCard?.type}>
+            {scratchCardQuery.isLoading && !currentCard ? (
+              <div className="orbit-scratch-skeleton" aria-hidden />
+            ) : currentCard ? (
+              <>
+                <button
+                  type="button"
+                  className={`orbit-scratch-float-btn${isDrawingRoam ? " is-spinning" : ""}`}
+                  onClick={handleDrawRoamCard}
+                  disabled={isDrawingRoam}
+                  title="换一段记忆"
+                  aria-label="换一段记忆"
+                >
+                  <RefreshIcon size="sm" />
+                </button>
+                <ScratchCard
+                  seed={scratchSeed}
+                  isAlreadyRevealed={isCurrentRevealed}
+                  onScratchComplete={handleScratchComplete}
+                >
+                  <div className="orbit-scratch-card-body">
+                    <div className="orbit-scratch-card-top">
+                      {currentCard.badge && (
+                        <span className="orbit-scratch-badge">{currentCard.badge}</span>
+                      )}
+                      {currentCard.meta && (
+                        <span className="orbit-scratch-meta">{currentCard.meta}</span>
+                      )}
+                    </div>
+                    {currentCard.title && (
+                      <h3 className="orbit-scratch-title">{currentCard.title}</h3>
+                    )}
+                    <blockquote className="orbit-scratch-quote">
+                      “{currentCard.quote}”
+                    </blockquote>
+                    <Link to={currentCard.link} className="orbit-scratch-link">
+                      {currentCard.linkText}
+                    </Link>
+                  </div>
+                </ScratchCard>
+              </>
+            ) : null}
           </div>
         </section>
       )}
@@ -361,8 +370,8 @@ export function HomePage() {
                 className="orbit-home-photo"
                 title="查看相册"
               >
-                <GalleryImage
-                  src={item.url}
+              <GalleryImage
+                  src={item.thumbUrl ?? item.url}
                   blurhash={item.blurhash}
                   width={item.width}
                   height={item.height}
