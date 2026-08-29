@@ -4,10 +4,22 @@
  * vite-plugin-pwa 在构建时将 self.__WB_MANIFEST 替换为 precache 清单
  */
 import { precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
+import { clientsClaim } from "workbox-core";
 import { NavigationRoute, registerRoute } from "workbox-routing";
 import { NetworkOnly, CacheFirst } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
 import { CacheableResponsePlugin } from "workbox-cacheable-response";
+
+// 新 SW 安装后立即激活并接管当前页面
+self.skipWaiting();
+clientsClaim();
+
+// 监听客户端的 SKIP_WAITING 显式更新消息
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
 
 // App Shell 预缓存（构建时由 vite-plugin-pwa 注入清单）
 precacheAndRoute(self.__WB_MANIFEST);

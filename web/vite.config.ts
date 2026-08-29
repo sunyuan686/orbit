@@ -78,6 +78,7 @@ export default defineConfig({
     proxy: {
       "/api": "http://localhost:3001",
       "/assets": "http://localhost:3001",
+      "/ai-attachments": "http://localhost:3001",
       "/media": "http://localhost:3001",
     },
   },

@@ -15,7 +15,7 @@ import {
   type UnifiedChatModel,
 } from "../lib/ai-model-catalog";
 import {
-  mergeModelSpec,
+  resolveEffectiveModelSpec,
   resolveSpecKey,
 } from "@orbit/shared";
 import { useAppSettings } from "../contexts/appSettingsContext";
@@ -111,15 +111,15 @@ export function AiModelPicker({
 
   const reasoningLevelBadge = useMemo(() => {
     if (!effectiveModelRef || !settings) return null;
-    const resolved = resolveSpecKey(effectiveModelRef);
-    if (!resolved) return null;
-    const builtin = settings.aiBuiltinModelSpecs?.[resolved.provider]?.[resolved.key];
-    const userOverride = settings.aiModelSpecs?.[resolved.provider]?.[resolved.key];
-    const spec = mergeModelSpec(builtin, userOverride);
+    const spec = resolveEffectiveModelSpec(
+      effectiveModelRef,
+      settings.aiBuiltinModelSpecs,
+      settings.aiModelSpecs
+    );
     if (!spec.reasoning) return null;
     const level = spec.defaultReasoning ?? "low";
     return level.charAt(0).toUpperCase() + level.slice(1);
-  }, [effectiveModelRef, settings?.aiBuiltinModelSpecs, settings?.aiModelSpecs]);
+  }, [effectiveModelRef, settings]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -395,17 +395,15 @@ function ModelConfigSubmenuPortal({
   };
 
   const resolved = resolveSpecKey(model.id);
-  const builtinSpec = resolved
-    ? settings?.aiBuiltinModelSpecs?.[resolved.provider]?.[resolved.key]
-    : undefined;
-  const userSpec = resolved
-    ? settings?.aiModelSpecs?.[resolved.provider]?.[resolved.key]
-    : undefined;
-  const spec = mergeModelSpec(builtinSpec, userSpec);
+  const spec = resolveEffectiveModelSpec(
+    model.id,
+    settings?.aiBuiltinModelSpecs,
+    settings?.aiModelSpecs
+  );
 
-  const baseContext = builtinSpec?.contextWindow ?? model.contextWindow ?? 200_000;
+  const baseContext = model.contextWindow ?? spec.contextWindow ?? 200_000;
   const currentContext = spec.contextWindow ?? baseContext;
-  const currentReasoning = spec.reasoning ?? model.capabilities.includes("reasoning");
+  const currentReasoning = spec.reasoning;
   const currentLevel = spec.defaultReasoning ?? "low";
 
   const contextOptions = [

@@ -147,6 +147,7 @@ app.use("/api/integrations/*", async (c, next) => {
   return requireSession(c, next);
 });
 app.use("/assets/*", requireAuth);
+app.use("/ai-attachments/*", requireAuth);
 
 // API 路由
 app.route("/api/articles", articles);
@@ -185,9 +186,15 @@ app.post("/api/companion/test", requireSession, async (c) => {
   return c.json({ success: true, candidate });
 });
 
-// 静态文件：图片资源（需登录，见上方 /assets/* 中间件）
+// 静态文件：图片资源与 AI 附件（需登录，见上方中间件）
 app.use(
   "/assets/*",
+  serveStatic({
+    root: "./data",
+  })
+);
+app.use(
+  "/ai-attachments/*",
   serveStatic({
     root: "./data",
   })

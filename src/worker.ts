@@ -280,6 +280,14 @@ app.route("/api/ai", createAiRoutes(getDb, {
       secret: c.env.BETTER_AUTH_SECRET,
       baseURL: c.env.BETTER_AUTH_URL,
     }), getDb),
+  storage: {
+    async save({ filename, mimeType, body }, c) {
+      await (c as Context<HonoEnv>).env.R2.put(`ai-attachments/${filename}`, body, {
+        httpMetadata: { contentType: mimeType },
+      });
+      return `/ai-attachments/${filename}`;
+    },
+  },
   getEnv: (c) => ({
     AI: c.env.AI,
     BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET,
@@ -363,6 +371,20 @@ app.get("/assets/:filename", requireAuth, async (c) => {
   const filename = c.req.param("filename");
   if (!filename) return c.json({ error: "not found" }, 404);
   const object = await c.env.R2.get(filename);
+  if (!object) return c.json({ error: "not found" }, 404);
+
+  const headers = new Headers();
+  headers.set("Content-Type", object.httpMetadata?.contentType ?? "application/octet-stream");
+  headers.set("Cache-Control", "public, max-age=31536000, immutable");
+
+  return new Response(object.body, { headers });
+});
+
+// R2 AI 附件代理（需登录）
+app.get("/ai-attachments/:filename", requireAuth, async (c) => {
+  const filename = c.req.param("filename");
+  if (!filename) return c.json({ error: "not found" }, 404);
+  const object = await c.env.R2.get(`ai-attachments/${filename}`);
   if (!object) return c.json({ error: "not found" }, 404);
 
   const headers = new Headers();

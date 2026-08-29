@@ -421,6 +421,45 @@ export async function uploadImage(
   return uploadAsset(file, entryId);
 }
 
+export interface UploadAiAttachmentResult {
+  url: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+}
+
+export async function uploadAiAttachment(
+  file: File
+): Promise<UploadAiAttachmentResult> {
+  const form = new FormData();
+  let payload: File = file;
+
+  if (file.type.startsWith("image/")) {
+    try {
+      const { compressImage } = await import("./compressImage");
+      payload = await compressImage(file);
+    } catch {
+      payload = file;
+    }
+  }
+
+  form.append("file", payload);
+
+  const res = await fetch(`${BASE}/api/ai/upload`, {
+    method: "POST",
+    credentials: "include",
+    body: form,
+  });
+  await assertOk(res, "附件上传失败");
+  const data = await res.json();
+  return {
+    url: data.url as string,
+    filename: data.filename as string,
+    mimeType: data.mimeType as string,
+    size: data.size as number,
+  };
+}
+
 export type GalleryFilter = "all" | "linked" | "orphan";
 
 export interface GallerySource {

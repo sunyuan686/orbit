@@ -271,3 +271,21 @@ export function resolveSpecKey(
   return null;
 }
 
+/**
+ * 解析任意模型当前生效的规格定义（单真实源：用户覆盖 > 内置默认 > 保守兜底）。
+ */
+export function resolveEffectiveModelSpec(
+  modelRef: string,
+  builtinSpecs?: ModelSpecMap,
+  userSpecs?: ModelSpecMap
+): ModelSpec {
+  const resolved = resolveSpecKey(modelRef);
+  if (!resolved) return DEFAULT_MODEL_SPEC;
+  const provider = resolved.provider as AiProvider;
+  const builtin =
+    builtinSpecs?.[provider]?.[resolved.key] ??
+    BUILTIN_MODEL_SPECS[provider]?.[resolved.key];
+  const userOverride = userSpecs?.[provider]?.[resolved.key];
+  return mergeModelSpec(builtin, userOverride);
+}
+

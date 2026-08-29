@@ -19,12 +19,17 @@ import {
   getApiErrorMessage,
   patchAiConversation,
   shouldToastApiError,
+  uploadAiAttachment,
   type AiContextMode,
   type AiConversationListItem,
 } from "../lib/api";
 import { parseAssistantContent } from "../lib/ai-message-content";
+import {
+  resolveEffectiveModelRef,
+} from "../lib/ai-model-catalog";
 import { safeRandomUUID } from "../lib/uuid";
 import { formatWriteContentApprovalSummary, applyToolApprovalResponse } from "../lib/ai-write-approval";
+import { useAppSettings } from "../contexts/appSettingsContext";
 import { useMaxWidthMd } from "../hooks/useBreakpoint";
 import { useConfirm } from "../hooks/useConfirm";
 import { useToast } from "../hooks/useToast";
@@ -33,6 +38,7 @@ import { AiLayoutMenu, type AiPanelLayout } from "./AiLayoutMenu";
 import { AiModelPicker } from "./AiModelPicker";
 import { VoiceInputButton } from "./VoiceInputButton";
 import {
+  resolveEffectiveModelSpec,
   REASONING_LEVELS,
   type ReasoningLevel,
 } from "@orbit/shared";
@@ -42,6 +48,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   CloseIcon,
+  ImageIcon,
   MenuIcon,
   PlusIcon,
   ReloadIcon,
@@ -52,6 +59,15 @@ import {
   NAV_CONTENT_ICONS,
   type NavContentType,
 } from "./OrbitIcons";
+
+export interface PendingAiAttachment {
+  id: string;
+  localUrl: string;
+  url?: string;
+  filename: string;
+  uploading: boolean;
+  error?: string;
+}
 
 export interface AiChatContext {
   mode: AiContextMode;
@@ -659,20 +675,55 @@ function ReasoningAccordion({
   );
 }
 
+function AiImageLightbox({
+  src,
+  onClose,
+}: {
+  src: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="orbit-ai-lightbox-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="查看大图"
+      onClick={onClose}
+    >
+      <img
+        src={src}
+        alt="大图预览"
+        className="orbit-ai-lightbox-img"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+}
+
 // Renders a message's parts in order (AI SDK v7 best practice): consecutive
-// text parts are grouped into a markdown bubble, tool parts become cards.
+// text parts are grouped into a markdown bubble, images and tool parts become cards.
 function MessageBody({
   parts,
   isAssistant,
   isStreaming,
   onApprove,
   onDeny,
+  onPreviewImage,
 }: {
   parts: UIMessage["parts"];
   isAssistant: boolean;
   isStreaming: boolean;
   onApprove?: (approvalId: string) => void;
   onDeny?: (approvalId: string) => void;
+  onPreviewImage?: (src: string) => void;
 }) {
   const nodes: ReactNode[] = [];
   let textBuffer = "";
@@ -703,6 +754,47 @@ function MessageBody({
   (parts ?? []).forEach((part, i) => {
     if (part.type === "text") {
       textBuffer += part.text;
+      return;
+    }
+    if (
+      part.type === "file" &&
+      typeof (part as { mediaType?: string }).mediaType === "string" &&
+      (part as { mediaType: string }).mediaType.startsWith("image/")
+    ) {
+      flush(`tb-${i}`);
+      const src = (part as { url?: string }).url ?? "";
+      if (src) {
+        nodes.push(
+          <div className="orbit-ai-image-wrap" key={`img-${i}`}>
+            <img
+              src={src}
+              alt="用户上传图片"
+              className="orbit-ai-message-img"
+              loading="lazy"
+              onClick={() => onPreviewImage?.(src)}
+            />
+          </div>
+        );
+      }
+      return;
+    }
+    if ((part as { type?: string }).type === "image") {
+      flush(`tb-${i}`);
+      const rawImage = (part as { image?: unknown }).image;
+      const src = typeof rawImage === "string" ? rawImage : "";
+      if (src) {
+        nodes.push(
+          <div className="orbit-ai-image-wrap" key={`img-${i}`}>
+            <img
+              src={src}
+              alt="用户上传图片"
+              className="orbit-ai-message-img"
+              loading="lazy"
+              onClick={() => onPreviewImage?.(src)}
+            />
+          </div>
+        );
+      }
       return;
     }
     if (isToolPart(part)) {
@@ -760,12 +852,16 @@ export function AiChatPanel({
   const toast = useToast();
   const confirm = useConfirm();
   const isMobile = useMaxWidthMd();
+  const { settings } = useAppSettings();
   const [conversations, setConversations] = useState<AiConversationListItem[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [isOwner, setIsOwner] = useState(true);
   const [shared, setShared] = useState(false);
   const [input, setInput] = useState("");
+  const [attachments, setAttachments] = useState<PendingAiAttachment[]>([]);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [panelMounted, setPanelMounted] = useState(open);
   const [panelVisible, setPanelVisible] = useState(false);
@@ -780,9 +876,26 @@ export function AiChatPanel({
   const floatingPosRef = useRef(floatingPos);
   const panelRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [chatSession, setChatSession] = useState<ChatSessionState>(() =>
     createChatSession()
   );
+
+  const effectiveModelRef = settings
+    ? resolveEffectiveModelRef(settings.aiProvider, settings.aiModel)
+    : resolveEffectiveModelRef("deepseek", "");
+
+  const currentModelSpec = useMemo(
+    () =>
+      resolveEffectiveModelSpec(
+        effectiveModelRef,
+        settings?.aiBuiltinModelSpecs,
+        settings?.aiModelSpecs
+      ),
+    [effectiveModelRef, settings?.aiBuiltinModelSpecs, settings?.aiModelSpecs]
+  );
+
+  const currentSupportsVision = currentModelSpec.supportsVision ?? false;
 
   /** 思考档位（localStorage 记忆，随请求体传参，不存服务器） */
   const [reasoningPref] = useState<ReasoningLevel>(() => {
@@ -970,14 +1083,19 @@ export function AiChatPanel({
 
     function syncViewport() {
       if (!vv || typeof vv.height !== "number" || vv.height <= 0) {
-        root.style.setProperty("--ai-vv-top", "0px");
-        root.style.setProperty("--ai-vv-height", "100dvh");
+        root.style.removeProperty("--ai-vv-top");
+        root.style.removeProperty("--ai-vv-height");
         return;
       }
-      // Prefer layout-stable inset: visualViewport tracks keyboard without page zoom.
-      // offsetTop + height map the panel to the visible area above the keyboard.
+      const isKeyboardOpen = window.innerHeight - vv.height > 60 || (vv.offsetTop || 0) > 0;
+      if (!isKeyboardOpen) {
+        root.style.removeProperty("--ai-vv-top");
+        root.style.removeProperty("--ai-vv-height");
+        return;
+      }
+      // Keyboard open: pin panel to visible viewport area above keyboard
       const top = Math.max(0, vv.offsetTop || 0);
-      const height = vv.height > 100 ? vv.height : window.innerHeight;
+      const height = vv.height;
       root.style.setProperty("--ai-vv-top", `${top}px`);
       root.style.setProperty("--ai-vv-height", `${height}px`);
     }
@@ -1214,12 +1332,138 @@ export function AiChatPanel({
     }
   }
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  const handleUploadFiles = useCallback(async (files: FileList | File[]) => {
+    const imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (imageFiles.length === 0) return;
+
+    const newItems: PendingAiAttachment[] = imageFiles.map((f, i) => ({
+      id: `att_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 6)}`,
+      localUrl: URL.createObjectURL(f),
+      filename: f.name,
+      uploading: true,
+    }));
+
+    setAttachments((prev) => [...prev, ...newItems]);
+
+    for (let i = 0; i < imageFiles.length; i++) {
+      const file = imageFiles[i];
+      const item = newItems[i];
+      try {
+        const res = await uploadAiAttachment(file);
+        setAttachments((prev) =>
+          prev.map((a) =>
+            a.id === item.id
+              ? { ...a, url: res.url, filename: res.filename, uploading: false }
+              : a
+          )
+        );
+      } catch (err: unknown) {
+        const errorMsg =
+          err instanceof Error
+            ? err.message
+            : typeof err === "object" && err !== null && "message" in err
+            ? String((err as { message: unknown }).message)
+            : "上传失败";
+        setAttachments((prev) =>
+          prev.map((a) =>
+            a.id === item.id
+              ? { ...a, uploading: false, error: errorMsg }
+              : a
+          )
+        );
+      }
+    }
+  }, []);
+
+  const handleRemoveAttachment = useCallback((id: string) => {
+    setAttachments((prev) => {
+      const target = prev.find((a) => a.id === id);
+      if (target?.localUrl) {
+        URL.revokeObjectURL(target.localUrl);
+      }
+      return prev.filter((a) => a.id !== id);
+    });
+  }, []);
+
+  const handlePaste = useCallback(
+    (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const items = event.clipboardData.items;
+      if (!items || items.length === 0) return;
+
+      const imageFiles: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) imageFiles.push(file);
+        }
+      }
+
+      if (imageFiles.length > 0) {
+        event.preventDefault();
+        void handleUploadFiles(imageFiles);
+      }
+    },
+    [handleUploadFiles]
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        void handleUploadFiles(files);
+      }
+    },
+    [handleUploadFiles]
+  );
+
+  async function handleSubmit(event?: React.FormEvent) {
+    event?.preventDefault();
     const text = input.trim();
-    if (!text || status === "streaming" || status === "submitted") return;
+    const readyAttachments = attachments.filter(
+      (a) => a.url && !a.uploading && !a.error
+    );
+    const hasUploading = attachments.some((a) => a.uploading);
+
+    if (hasUploading) {
+      toast.error("图片正在上传中，请稍候…");
+      return;
+    }
+
+    if (
+      (!text && readyAttachments.length === 0) ||
+      status === "streaming" ||
+      status === "submitted"
+    ) {
+      return;
+    }
+
     setInput("");
-    await sendMessage({ text });
+    setAttachments([]);
+
+    const parts: UIMessage["parts"] = [
+      ...readyAttachments.map((a) => ({
+        type: "file" as const,
+        mediaType: "image/jpeg",
+        url: a.url!,
+        filename: a.filename,
+      })),
+      ...(text ? [{ type: "text" as const, text }] : []),
+    ];
+
+    await sendMessage({ role: "user", parts });
     void reloadList();
   }
 
@@ -1399,93 +1643,96 @@ export function AiChatPanel({
 
           <div className="orbit-ai-chat-main">
             <div className="orbit-ai-messages" aria-live="polite">
-              {messages.length === 0 && !detailLoading ? (
-                <div className="orbit-ai-welcome">
-                  <div className="orbit-ai-welcome-icon" aria-hidden="true">
-                    <AiIcon size="md" />
-                  </div>
-                  <h2 className="orbit-ai-welcome-title">Orbit AI</h2>
-                  <p className="orbit-ai-welcome-desc">
-                    可以帮你查找、总结和整理空间里的内容，随便问点什么吧。
-                  </p>
-                  <div className="orbit-ai-suggestions">
-                    {suggestions.map((suggestion) => (
-                      <button
-                        key={suggestion}
-                        type="button"
-                        className="orbit-ai-suggestion"
-                        onClick={() => handleSuggestion(suggestion)}
-                      >
-                        <span className="orbit-ai-suggestion-icon" aria-hidden="true">
-                          <SearchIcon size="sm" />
-                        </span>
-                        <span>{suggestion}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {messages.map((message, messageIndex) => {
-                const author = getMessageAuthor(message);
-                const { reasoning, text: visibleText } =
-                  message.role === "assistant"
-                    ? parseAssistantContent(message)
-                    : { reasoning: "", text: "" };
-                const showReasoning = Boolean(reasoning);
-                const parts = message.parts ?? [];
-                const hasText =
-                  message.role === "assistant"
-                    ? Boolean(visibleText)
-                    : parts.some((p) => p.type === "text" && Boolean(p.text));
-                const hasTool = parts.some((p) => isToolPart(p));
-                if (!showReasoning && !hasText && !hasTool) return null;
-                const isStreamingMessage =
-                  status === "streaming" &&
-                  message.role === "assistant" &&
-                  messageIndex === messages.length - 1;
-                return (
-                  <div
-                    key={message.id}
-                    className={`orbit-ai-message orbit-ai-message--${message.role}`}
-                  >
-                    {message.role === "user" && author ? (
-                      <span className="orbit-ai-message-author">{author}</span>
-                    ) : null}
-                    {showReasoning ? (
-                      <ReasoningAccordion
-                        reasoning={reasoning}
-                        isStreaming={isStreamingMessage}
-                        hasText={hasText}
-                        messageId={message.id}
-                      />
-                    ) : null}
-                    <MessageBody
-                      parts={parts}
-                      isAssistant={message.role === "assistant"}
-                      isStreaming={isStreamingMessage}
-                      onApprove={(approvalId) => handleToolApproval(approvalId, true)}
-                      onDeny={(approvalId) => handleToolApproval(approvalId, false)}
-                    />
-                    {message.role === "assistant" &&
-                    !isStreamingMessage &&
-                    status !== "streaming" ? (
-                      <div className="orbit-ai-message-actions">
+              <div className="orbit-ai-messages-inner">
+                {messages.length === 0 && !detailLoading ? (
+                  <div className="orbit-ai-welcome">
+                    <div className="orbit-ai-welcome-icon" aria-hidden="true">
+                      <AiIcon size="md" />
+                    </div>
+                    <h2 className="orbit-ai-welcome-title">Orbit AI</h2>
+                    <p className="orbit-ai-welcome-desc">
+                      可以帮你查找、总结和整理空间里的内容，随便问点什么吧。
+                    </p>
+                    <div className="orbit-ai-suggestions">
+                      {suggestions.map((suggestion) => (
                         <button
+                          key={suggestion}
                           type="button"
-                          className="orbit-ai-action-btn"
-                          aria-label="重新生成"
-                          title="重新生成"
-                          onClick={() => void regenerate()}
+                          className="orbit-ai-suggestion"
+                          onClick={() => handleSuggestion(suggestion)}
                         >
-                          <ReloadIcon size="sm" />
-                          <span>重新生成</span>
+                          <span className="orbit-ai-suggestion-icon" aria-hidden="true">
+                            <SearchIcon size="sm" />
+                          </span>
+                          <span>{suggestion}</span>
                         </button>
-                      </div>
-                    ) : null}
+                      ))}
+                    </div>
                   </div>
-                );
-              })}
-              {isBusy && !hasActiveAssistantContent ? <p className="orbit-muted text-sm">思考中…</p> : null}
+                ) : null}
+                {messages.map((message, messageIndex) => {
+                  const author = getMessageAuthor(message);
+                  const { reasoning, text: visibleText } =
+                    message.role === "assistant"
+                      ? parseAssistantContent(message)
+                      : { reasoning: "", text: "" };
+                  const showReasoning = Boolean(reasoning);
+                  const parts = message.parts ?? [];
+                  const hasText =
+                    message.role === "assistant"
+                      ? Boolean(visibleText)
+                      : parts.some((p) => p.type === "text" && Boolean(p.text));
+                  const hasTool = parts.some((p) => isToolPart(p));
+                  if (!showReasoning && !hasText && !hasTool) return null;
+                  const isStreamingMessage =
+                    status === "streaming" &&
+                    message.role === "assistant" &&
+                    messageIndex === messages.length - 1;
+                  return (
+                    <div
+                      key={message.id}
+                      className={`orbit-ai-message orbit-ai-message--${message.role}`}
+                    >
+                      {message.role === "user" && author ? (
+                        <span className="orbit-ai-message-author">{author}</span>
+                      ) : null}
+                      {showReasoning ? (
+                        <ReasoningAccordion
+                          reasoning={reasoning}
+                          isStreaming={isStreamingMessage}
+                          hasText={hasText}
+                          messageId={message.id}
+                        />
+                      ) : null}
+                      <MessageBody
+                        parts={parts}
+                        isAssistant={message.role === "assistant"}
+                        isStreaming={isStreamingMessage}
+                        onApprove={(approvalId) => handleToolApproval(approvalId, true)}
+                        onDeny={(approvalId) => handleToolApproval(approvalId, false)}
+                        onPreviewImage={(src) => setLightboxUrl(src)}
+                      />
+                      {message.role === "assistant" &&
+                      !isStreamingMessage &&
+                      status !== "streaming" ? (
+                        <div className="orbit-ai-message-actions">
+                          <button
+                            type="button"
+                            className="orbit-ai-action-btn"
+                            aria-label="重新生成"
+                            title="重新生成"
+                            onClick={() => void regenerate()}
+                          >
+                            <ReloadIcon size="sm" />
+                            <span>重新生成</span>
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+                {isBusy && !hasActiveAssistantContent ? <p className="orbit-muted text-sm">思考中…</p> : null}
+              </div>
             </div>
 
             {showStreamError ? (
@@ -1500,7 +1747,20 @@ export function AiChatPanel({
             ) : null}
 
             <form className="orbit-ai-composer" onSubmit={(e) => void handleSubmit(e)}>
-              <div className="orbit-ai-composer-card">
+              <div
+                className="orbit-ai-composer-card"
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                style={{ position: "relative" }}
+              >
+                {isDragging ? (
+                  <div className="orbit-ai-drag-overlay">
+                    <ImageIcon size="md" />
+                    <span>松开以添加图片</span>
+                  </div>
+                ) : null}
+
                 {showArticleContextPill ? (
                   <div className="orbit-ai-context-pill">
                     {ContextIcon ? (
@@ -1520,14 +1780,59 @@ export function AiChatPanel({
                     </button>
                   </div>
                 ) : null}
+
+                {attachments.length > 0 ? (
+                  <div className="orbit-ai-composer-attachments">
+                    {attachments.map((att) => (
+                      <div key={att.id} className="orbit-ai-attachment-chip">
+                        <img
+                          src={att.localUrl}
+                          alt={att.filename}
+                          className="orbit-ai-attachment-chip-img"
+                        />
+                        {att.uploading ? (
+                          <div className="orbit-ai-attachment-chip-loading">
+                            <span>上传中</span>
+                          </div>
+                        ) : null}
+                        {att.error ? (
+                          <div
+                            className="orbit-ai-attachment-chip-loading"
+                            style={{ background: "rgba(239, 68, 68, 0.75)" }}
+                            title={att.error}
+                          >
+                            <span>失败</span>
+                          </div>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="orbit-ai-attachment-chip-remove"
+                          onClick={() => handleRemoveAttachment(att.id)}
+                          aria-label="移除图片"
+                          title="移除图片"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                {attachments.length > 0 && !currentSupportsVision ? (
+                  <div className="orbit-ai-vision-tip">
+                    <span>⚠️ 当前模型未声明视觉理解能力，建议切换至多模态模型。</span>
+                  </div>
+                ) : null}
+
                 <textarea
                   ref={inputRef}
                   value={input}
                   rows={2}
-                  placeholder="随便问点什么…"
+                  placeholder="随便问点什么，也可直接粘贴或拖拽图片…"
                   className="orbit-ai-composer-input"
                   disabled={isBusy}
                   onChange={(event) => setInput(event.target.value)}
+                  onPaste={handlePaste}
                   onKeyDown={(event) => {
                     if (isMobile) return;
                     if (event.key === "Enter" && !event.shiftKey) {
@@ -1540,6 +1845,27 @@ export function AiChatPanel({
                   <AiModelPicker disabled={isBusy} onNavigateAway={onClose} />
 
                   <div className="flex items-center gap-1.5 shrink-0">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      style={{ display: "none" }}
+                      onChange={(e) => {
+                        if (e.target.files) void handleUploadFiles(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="orbit-icon-btn inline-flex"
+                      disabled={isBusy}
+                      aria-label="上传图片"
+                      title="上传图片 (也可直接粘贴或拖拽)"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <ImageIcon size="sm" />
+                    </button>
                     <VoiceInputButton
                       compact
                       onTextUpdate={(val) => setInput(val)}
@@ -1560,7 +1886,11 @@ export function AiChatPanel({
                         type="submit"
                         className="orbit-ai-send-btn"
                         aria-label="发送"
-                        disabled={isBusy || !input.trim()}
+                        disabled={
+                          isBusy ||
+                          (!input.trim() &&
+                            !attachments.some((a) => a.url && !a.uploading))
+                        }
                       >
                         <ArrowUpIcon size="sm" />
                       </button>
@@ -1572,6 +1902,10 @@ export function AiChatPanel({
           </div>
         </div>
       </aside>
+
+      {lightboxUrl ? (
+        <AiImageLightbox src={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+      ) : null}
     </div>
   );
 }

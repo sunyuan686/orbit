@@ -48,9 +48,41 @@ type DbProvider = (c: Context) => any | Promise<any>;
 
 const log = createLogger("ai");
 
+export interface AiAttachmentStorage {
+  save(
+    input: { filename: string; mimeType: string; body: ArrayBuffer },
+    c: Context
+  ): Promise<string>;
+}
+
 export interface AiRouteOptions {
   getSessionAuthor?: (c: Context) => Promise<SessionAuthor | null>;
   getEnv?: (c: Context) => AiRuntimeEnv;
+  storage?: AiAttachmentStorage;
+}
+
+async function sha256Prefix(body: ArrayBuffer): Promise<string> {
+  const hashBuffer = await crypto.subtle.digest("SHA-256", body);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 12);
+}
+
+function normalizeExtension(name: string): string {
+  if (!name.includes(".")) return ".jpg";
+  const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
+  if (ext === ".jpeg") return ".jpg";
+  return ext;
+}
+
+function inferMimeType(file: File, ext: string): string {
+  if (file.type) return file.type;
+  if (ext === ".png") return "image/png";
+  if (ext === ".gif") return "image/gif";
+  if (ext === ".webp") return "image/webp";
+  return "image/jpeg";
 }
 
 interface AiChatContext {
@@ -118,6 +150,35 @@ function normalizeContext(raw?: AiChatContext): {
 
 export function createAiRoutes(getDb: DbProvider, options: AiRouteOptions = {}) {
   const ai = new Hono();
+
+  ai.post("/upload", async (c) => {
+    const session = await requireSessionAuthor(c, options.getSessionAuthor);
+    if (session instanceof Response) return session;
+
+    if (!options.storage) {
+      return c.json({ error: "附件存储服务未配置" }, 500);
+    }
+
+    const formData = await c.req.formData();
+    const file = formData.get("file");
+    if (!file || !(file instanceof File)) {
+      return c.json({ error: "请上传文件" }, 400);
+    }
+
+    const body = await file.arrayBuffer();
+    const ext = normalizeExtension(file.name || "upload.jpg");
+    const filename = `ai_${await sha256Prefix(body)}${ext}`;
+    const mimeType = inferMimeType(file, ext);
+
+    const url = await options.storage.save({ filename, mimeType, body }, c);
+
+    return c.json({
+      url,
+      filename,
+      mimeType,
+      size: body.byteLength,
+    });
+  });
 
   ai.get("/workers-models", async (c) => {
     const session = await requireSessionAuthor(c, options.getSessionAuthor);

@@ -8,7 +8,11 @@ import {
   type AiProvider,
   type BuiltinProviderCatalog,
 } from "./api";
-import { resolveSpecKey, type ModelSpec } from "@orbit/shared";
+import {
+  resolveEffectiveModelSpec,
+  type ModelSpec,
+  type ModelSpecMap,
+} from "@orbit/shared";
 
 export interface UnifiedChatModel {
   id: string;
@@ -111,7 +115,8 @@ export function parseModelRef(raw: string): {
 export function buildUnifiedChatModels(
   builtinCatalog?: BuiltinProviderCatalog,
   connections?: AiCustomConnectionPublic[],
-  userSpecs?: Record<string, Record<string, Partial<ModelSpec>>>
+  userSpecs?: Record<string, Record<string, Partial<ModelSpec>>>,
+  builtinSpecs?: ModelSpecMap
 ): UnifiedChatModel[] {
   const unified: UnifiedChatModel[] = [];
   const seenIds = new Set<string>();
@@ -200,32 +205,22 @@ export function buildUnifiedChatModels(
         }
       }
     }
+  }
 
-    // 应用用户 spec 覆盖的 capabilities (Tool Calling, Vision, File, Image Gen, Video Gen, Web Search)
-    for (const model of unified) {
-      const resolved = resolveSpecKey(model.id);
-      if (!resolved) continue;
-      const userOverride = userSpecs[resolved.provider]?.[resolved.key];
-      if (userOverride) {
-        if (typeof userOverride.supportsToolCalling === "boolean") {
-          model.supportsToolCalling = userOverride.supportsToolCalling;
-        }
-        if (typeof userOverride.supportsVision === "boolean") {
-          model.supportsVision = userOverride.supportsVision;
-        }
-        if (typeof userOverride.supportsFileInput === "boolean") {
-          model.supportsFileInput = userOverride.supportsFileInput;
-        }
-        if (typeof userOverride.supportsImageOutput === "boolean") {
-          model.supportsImageOutput = userOverride.supportsImageOutput;
-        }
-        if (typeof userOverride.supportsVideoOutput === "boolean") {
-          model.supportsVideoOutput = userOverride.supportsVideoOutput;
-        }
-        if (typeof userOverride.supportsWebSearch === "boolean") {
-          model.supportsWebSearch = userOverride.supportsWebSearch;
-        }
-      }
+  // 统一通过 resolveEffectiveModelSpec 注入生效的规格与能力
+  for (const model of unified) {
+    const spec = resolveEffectiveModelSpec(model.id, builtinSpecs, userSpecs as ModelSpecMap | undefined);
+    model.contextWindow = spec.contextWindow;
+    model.supportsToolCalling = spec.supportsToolCalling ?? true;
+    model.supportsVision = spec.supportsVision ?? false;
+    model.supportsFileInput = spec.supportsFileInput ?? true;
+    model.supportsImageOutput = spec.supportsImageOutput ?? false;
+    model.supportsVideoOutput = spec.supportsVideoOutput ?? false;
+    model.supportsWebSearch = spec.supportsWebSearch ?? false;
+    if (spec.supportsVision && !model.capabilities.includes("视觉理解")) {
+      model.capabilities.push("视觉理解");
+    } else if (!spec.supportsVision && model.capabilities.includes("视觉理解")) {
+      model.capabilities = model.capabilities.filter((c) => c !== "视觉理解");
     }
   }
 

@@ -232,7 +232,7 @@ function LayoutShell() {
   };
 
   return (
-    <div className="orbit-shell flex h-dvh transition-colors">
+    <div className="orbit-shell flex transition-colors">
       <div
         className={`orbit-overlay-scrim fixed inset-0 z-40 md:hidden${
           open ? " orbit-overlay-scrim--visible" : ""

@@ -142,6 +142,152 @@ function buildHandoffBridgeMessage(summaryText: string): UIMessage {
   };
 }
 
+async function resolveMessageImagesForModel(
+  messages: UIMessage[],
+  env?: AiRuntimeEnv
+): Promise<UIMessage[]> {
+  const result: UIMessage[] = [];
+
+  for (const message of messages) {
+    if (!Array.isArray(message.parts) || message.parts.length === 0) {
+      result.push(message);
+      continue;
+    }
+
+    const resolvedParts = await Promise.all(
+      message.parts.map(async (part) => {
+        if (!part || typeof part !== "object") return part;
+        const p = part as {
+          type?: string;
+          mediaType?: string;
+          mimeType?: string;
+          url?: string;
+          image?: unknown;
+        };
+
+        const isFile =
+          p.type === "file" &&
+          (p.mediaType?.startsWith("image/") || p.mimeType?.startsWith("image/"));
+        const isLegacyImage = p.type === "image";
+
+        if (!isFile && !isLegacyImage) {
+          return part;
+        }
+
+        const rawUrl =
+          typeof p.url === "string"
+            ? p.url
+            : typeof p.image === "string"
+            ? p.image
+            : "";
+
+        if (!rawUrl) return part;
+        if (rawUrl.startsWith("data:")) return part;
+
+        let pathname = rawUrl;
+        try {
+          if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) {
+            const urlObj = new URL(rawUrl);
+            pathname = urlObj.pathname;
+          }
+        } catch {
+          // ignore
+        }
+
+        let base64DataUrl: string | null = null;
+
+        if (pathname.includes("/ai-attachments/")) {
+          const filename = pathname.split("/ai-attachments/")[1]?.split("?")[0];
+          if (filename && typeof process !== "undefined" && process.cwd) {
+            try {
+              const { readFileSync, existsSync } = await import("fs");
+              const { join } = await import("path");
+              const filepath = join(
+                process.cwd(),
+                "data",
+                "ai-attachments",
+                filename
+              );
+              if (existsSync(filepath)) {
+                const buf = readFileSync(filepath);
+                const ext = filename.split(".").pop()?.toLowerCase() || "jpg";
+                const mime =
+                  ext === "png"
+                    ? "image/png"
+                    : ext === "webp"
+                    ? "image/webp"
+                    : ext === "gif"
+                    ? "image/gif"
+                    : "image/jpeg";
+                base64DataUrl = `data:${mime};base64,${buf.toString("base64")}`;
+              }
+            } catch {
+              // fallback
+            }
+          }
+        } else if (pathname.includes("/assets/")) {
+          const filename = pathname.split("/assets/")[1]?.split("?")[0];
+          if (filename && typeof process !== "undefined" && process.cwd) {
+            try {
+              const { readFileSync, existsSync } = await import("fs");
+              const { join } = await import("path");
+              const filepath = join(process.cwd(), "data", "assets", filename);
+              if (existsSync(filepath)) {
+                const buf = readFileSync(filepath);
+                const ext = filename.split(".").pop()?.toLowerCase() || "jpg";
+                const mime =
+                  ext === "png"
+                    ? "image/png"
+                    : ext === "webp"
+                    ? "image/webp"
+                    : ext === "gif"
+                    ? "image/gif"
+                    : "image/jpeg";
+                base64DataUrl = `data:${mime};base64,${buf.toString("base64")}`;
+              }
+            } catch {
+              // fallback
+            }
+          }
+        }
+
+        if (base64DataUrl) {
+          if (isFile) {
+            return {
+              ...part,
+              url: base64DataUrl,
+            };
+          }
+          return {
+            ...part,
+            image: base64DataUrl,
+          };
+        }
+
+        // If not base64 and url is relative, convert to full absolute URL so new URL(part.url) succeeds in convertToModelMessages
+        if (isFile && typeof p.url === "string" && p.url.startsWith("/")) {
+          const baseUrl =
+            (env as { BETTER_AUTH_URL?: string })?.BETTER_AUTH_URL ||
+            "http://localhost:3001";
+          return {
+            ...part,
+            url: `${baseUrl.replace(/\/$/, "")}${p.url}`,
+          };
+        }
+
+        return part;
+      })
+    );
+
+    result.push({
+      ...message,
+      parts: resolvedParts as UIMessage["parts"],
+    });
+  }
+
+  return result;
+}
+
 /**
  * Shared prep for Web / Feishu chat: model, compression, handoff summary,
  * system prompt, tools, and model messages.
@@ -200,7 +346,11 @@ export async function prepareAiChatAgent(
     modelId: resolved.modelId,
   });
 
-  const modelMessages = await convertToModelMessages(effectiveMessages);
+  const messagesForModel = await resolveMessageImagesForModel(
+    effectiveMessages,
+    options.env
+  );
+  const modelMessages = await convertToModelMessages(messagesForModel);
   let system = await buildSystemPrompt(
     options.db,
     options.promptContext,

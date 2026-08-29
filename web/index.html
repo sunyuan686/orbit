@@ -7,8 +7,9 @@
     <meta name="description" content="Orbit — 两个人的时间轨道" />
     <meta name="application-name" content="Orbit" />
     <meta name="theme-color" content="#fafaf9" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#1c1917" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#131315" media="(prefers-color-scheme: dark)" />
     <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Orbit" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -22,9 +23,24 @@
     
     <!-- App shell 启动屏：JS 执行前的品牌化首屏，与 AppBootScreen 组件共用样式 -->
     <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #fafaf9;
+      }
+      #root {
+        width: 100%;
+        height: 100%;
+        background: #fafaf9;
+      }
       .orbit-boot {
-        min-height: 100vh;
-        min-height: 100dvh;
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -33,6 +49,7 @@
         background: #fafaf9;
         opacity: 0;
         animation: orbit-boot-in 0.5s ease 0.15s both;
+        z-index: 99999;
       }
       .orbit-boot-orbit {
         position: relative;
@@ -40,7 +57,7 @@
         height: 46px;
         border: 1px solid #e7e5e4;
         border-radius: 50%;
-        animation: orbit-boot-spin 1.6s linear infinite;
+        animation: orbit-boot-spin 4.5s linear infinite;
       }
       .orbit-boot-dot {
         position: absolute;
@@ -76,8 +93,8 @@
         }
       }
       @media (prefers-color-scheme: dark) {
-        .orbit-boot {
-          background: #1c1917;
+        html, body, #root, .orbit-boot {
+          background: #131315;
         }
         .orbit-boot-orbit {
           border-color: #44403c;

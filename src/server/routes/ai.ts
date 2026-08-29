@@ -1,10 +1,24 @@
+import { writeFileSync, existsSync, mkdirSync } from "fs";
+import { join } from "path";
 import { db } from "../../db/index.js";
 import { createAiRoutes } from "../../api/ai.js";
 import { getSessionAuthor } from "../../api/session-author.js";
 import { auth } from "../auth.js";
 
+const AI_ATTACHMENTS_DIR = join(process.cwd(), "data", "ai-attachments");
+
 const ai = createAiRoutes(() => db, {
   getSessionAuthor: (c) => getSessionAuthor(c, auth, () => db),
+  storage: {
+    async save({ filename, body }) {
+      mkdirSync(AI_ATTACHMENTS_DIR, { recursive: true });
+      const filepath = join(AI_ATTACHMENTS_DIR, filename);
+      if (!existsSync(filepath)) {
+        writeFileSync(filepath, Buffer.from(body));
+      }
+      return `/ai-attachments/${filename}`;
+    },
+  },
   getEnv: () => ({
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     CF_ACCOUNT_ID: process.env.CF_ACCOUNT_ID,

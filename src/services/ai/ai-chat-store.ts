@@ -70,11 +70,28 @@ export function extractTextFromParts(parts: unknown): string {
     .join("");
 }
 
+function isImagePart(part: unknown): boolean {
+  if (!part || typeof part !== "object") return false;
+  const p = part as { type?: string; mediaType?: string; mimeType?: string };
+  if (p.type === "image") return true;
+  if (
+    p.type === "file" &&
+    (p.mediaType?.startsWith("image/") || p.mimeType?.startsWith("image/"))
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export function partsToPreview(parts: unknown, maxLen = 80): string {
+  const hasImage = Array.isArray(parts) && parts.some(isImagePart);
   const text = extractVisibleTextFromParts(parts).replace(/\s+/g, " ").trim();
+  const prefix = hasImage ? (text ? "[图片] " : "[图片]") : "";
+  if (!text && hasImage) return "[图片]";
   if (!text) return "";
-  if (text.length <= maxLen) return text;
-  return `${text.slice(0, maxLen)}…`;
+  const combined = `${prefix}${text}`;
+  if (combined.length <= maxLen) return combined;
+  return `${combined.slice(0, maxLen)}…`;
 }
 
 export function serializeParts(parts: UIMessage["parts"]): string {
@@ -172,36 +189,53 @@ function estimateTokens(text: string): number {
 }
 
 function estimateMessageTokens(msg: UIMessage): number {
-  // role tag + serialised parts content
+  let extraTokens = 0;
+  if (Array.isArray(msg.parts)) {
+    for (const part of msg.parts) {
+      if (isImagePart(part)) {
+        extraTokens += 800;
+      }
+    }
+  }
   return (
-    estimateTokens(msg.role) + estimateTokens(serializeParts(msg.parts))
+    estimateTokens(msg.role) + estimateTokens(serializeParts(msg.parts)) + extraTokens
   );
 }
 
 /**
- * Replace large tool-invocation results in a single assistant UIMessage with
- * a deterministic metadata placeholder.  Returns the original message
- * unchanged if no elision is needed (no allocation).
+ * Replace large tool-invocation results and image parts in older turns with
+ * deterministic metadata placeholders.
  */
-function elideToolResultsInMessage(msg: UIMessage): UIMessage {
-  if (msg.role !== "assistant") return msg;
+function elideOldPartsInMessage(msg: UIMessage): UIMessage {
+  if (!Array.isArray(msg.parts)) return msg;
 
   let modified = false;
   const newParts = (msg.parts as unknown[]).map((part) => {
-    if (!isToolInvocationPart(part)) return part;
-    if (part.toolInvocation.state !== "result") return part;
+    if (isToolInvocationPart(part)) {
+      if (part.toolInvocation.state !== "result") return part;
 
-    const resultJson = JSON.stringify(part.toolInvocation.result ?? "");
-    if (resultJson.length <= TOOL_RESULT_ELIDE_THRESHOLD) return part;
+      const resultJson = JSON.stringify(part.toolInvocation.result ?? "");
+      if (resultJson.length <= TOOL_RESULT_ELIDE_THRESHOLD) return part;
 
-    modified = true;
-    return {
-      ...part,
-      toolInvocation: {
-        ...part.toolInvocation,
-        result: `[已压缩: ${part.toolInvocation.toolName}, 原始 ${resultJson.length} 字节。如需完整内容请重新调用该工具。]`,
-      },
-    };
+      modified = true;
+      return {
+        ...part,
+        toolInvocation: {
+          ...part.toolInvocation,
+          result: `[已压缩: ${part.toolInvocation.toolName}, 原始 ${resultJson.length} 字节。如需完整内容请重新调用该工具。]`,
+        },
+      };
+    }
+
+    if (isImagePart(part)) {
+      modified = true;
+      return {
+        type: "text",
+        text: "[历史图片已压缩省略]",
+      };
+    }
+
+    return part;
   });
 
   if (!modified) return msg;
@@ -292,9 +326,9 @@ export function compressMessagesForModel(
     };
   }
 
-  // Compress old turns: replace large tool results with metadata placeholders.
+  // Compress old turns: replace large tool results and images with metadata placeholders.
   const compressedOldTurns = oldTurns.map((turn) =>
-    turn.map(elideToolResultsInMessage)
+    turn.map(elideOldPartsInMessage)
   );
 
   // Greedily include compressed old turns from newest to oldest.
