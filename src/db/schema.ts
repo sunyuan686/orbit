@@ -67,6 +67,7 @@ export const account = sqliteTable("account", {
   }),
   scope: text("scope"),
   password: text("password"),
+  issuer: text("issuer"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
