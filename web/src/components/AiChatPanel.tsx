@@ -332,29 +332,6 @@ function ToolCallBody({
     );
   }
 
-  if (toolName === "list_memos") {
-    const output = (part.output ?? []) as Array<{
-      id?: string;
-      key?: string;
-      title?: string;
-      updatedAt?: number;
-    }>;
-    if (Array.isArray(output) && output.length > 0) {
-      return (
-        <ul className="orbit-ai-tool-list">
-          {output.slice(0, 8).map((m, i) => (
-            <li key={m.id ?? m.key ?? i} className="orbit-ai-tool-item">
-              <span className="orbit-ai-tool-item-title">
-                {m.title ?? m.key ?? "备忘录"}
-              </span>
-            </li>
-          ))}
-        </ul>
-      );
-    }
-    return null;
-  }
-
   if (toolName === "write_content") {
     const output = (part.output ?? {}) as {
       ok?: boolean;
@@ -473,11 +450,6 @@ function renderToolArgs(toolName: string, input: unknown): ReactNode {
     if (!id) return null;
     return <span className="orbit-ai-tool-arg">#{id}</span>;
   }
-  if (toolName === "list_memos") {
-    const limit = typeof a.limit === "number" ? a.limit : null;
-    if (limit == null) return null;
-    return <span className="orbit-ai-tool-arg">limit={limit}</span>;
-  }
 
   if (toolName === "write_content") {
     const action = typeof a.action === "string" ? a.action : "";
@@ -537,8 +509,6 @@ function getToolDisplayName(toolName: string): string {
       return "检索记录";
     case "get_entry":
       return "查看内容";
-    case "list_memos":
-      return "查找备忘";
     case "write_content":
       return "写入内容";
     case "web_search":

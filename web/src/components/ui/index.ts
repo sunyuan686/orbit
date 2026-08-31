@@ -8,4 +8,5 @@ export * from "./Modal";
 export * from "./Section";
 export * from "./Container";
 export * from "./Field";
+export * from "./InfoTip";
 export * from "./Stack";

@@ -23,17 +23,17 @@ const STATUS_LABEL: Record<FeishuConfigPublic["connectionStatus"], string> = {
 
 function CopyUrlRow({
   label,
-  hint,
+  info,
   value,
   onCopy,
 }: {
   label: string;
-  hint: string;
+  info: string;
   value: string;
   onCopy: () => void;
 }) {
   return (
-    <Field label={label} hint={hint}>
+    <Field label={label} info={info}>
       <div className="orbit-settings-inline-form orbit-settings-inline-form--wide">
         <Input
           mono
@@ -57,14 +57,14 @@ function CopyUrlRow({
 
 function SecretField({
   label,
-  hint,
+  info,
   configured,
   value,
   placeholder,
   onChange,
 }: {
   label: string;
-  hint: string;
+  info: string;
   configured: boolean;
   value: string;
   placeholder?: string;
@@ -84,7 +84,7 @@ function SecretField({
           />
         </span>
       }
-      hint={hint}
+      info={info}
     >
       <Input
         type="password"
@@ -272,13 +272,13 @@ export function FeishuIntegrationPanel() {
         <Stack gap="md">
           <CopyUrlRow
             label="事件订阅请求地址"
-            hint="开放平台「事件配置」→ 请求地址；订阅 im.message.receive_v1。"
+            info="开放平台「事件配置」→ 请求地址；订阅 im.message.receive_v1。"
             value={config?.webhookUrl ?? ""}
             onCopy={() => copyUrl(config?.webhookUrl, "事件订阅地址")}
           />
           <CopyUrlRow
             label="回调配置请求地址"
-            hint="开放平台「回调配置」→ 请求地址；订阅卡片回传交互与链接预览。"
+            info="开放平台「回调配置」→ 请求地址；订阅卡片回传交互与链接预览。"
             value={config?.callbackUrl ?? ""}
             onCopy={() => copyUrl(config?.callbackUrl, "回调地址")}
           />
@@ -298,7 +298,7 @@ export function FeishuIntegrationPanel() {
 
       <Section title="应用凭证">
         <Stack gap="md">
-          <Field label="App ID" hint="飞书开放平台应用的唯一标识（以 cli_ 开头）。">
+          <Field label="App ID" info="飞书开放平台应用的唯一标识（以 cli_ 开头）。">
             <Input
               mono
               value={appId}
@@ -310,7 +310,7 @@ export function FeishuIntegrationPanel() {
           <SecretField
             label="App Secret"
             configured={Boolean(config?.hasAppSecret)}
-            hint={config?.hasAppSecret ? "已加密保存；留空则不修改" : "必填，用于换取飞书凭证与调用 API"}
+            info={config?.hasAppSecret ? "已加密保存；留空则不修改" : "必填，用于换取飞书凭证与调用 API"}
             value={appSecret}
             placeholder={config?.hasAppSecret ? "粘贴新 Secret" : "请输入 App Secret"}
             onChange={setAppSecret}
@@ -318,14 +318,14 @@ export function FeishuIntegrationPanel() {
           <SecretField
             label="Encrypt Key"
             configured={Boolean(config?.hasEncryptKey)}
-            hint={config?.hasEncryptKey ? "已配置；留空则不修改" : "推荐配置，用于 Webhook 验签与解密"}
+            info={config?.hasEncryptKey ? "已配置；留空则不修改" : "推荐配置，用于 Webhook 验签与解密"}
             value={encryptKey}
             placeholder={config?.hasEncryptKey ? "粘贴新 Key" : "请输入 Encrypt Key（选填）"}
             onChange={setEncryptKey}
           />
           <Field
             label="Verification Token"
-            hint="飞书事件订阅的验证令牌，用于校验请求来源真实性。"
+            info="飞书事件订阅的验证令牌，用于校验请求来源真实性。"
           >
             <Input
               mono
@@ -344,7 +344,7 @@ export function FeishuIntegrationPanel() {
             <Field
               key={author.id}
               label={`${author.name} open_id`}
-              hint="飞书用户 open_id，用于识别日记作者与投递提醒。"
+              info="飞书用户 open_id，用于识别日记作者与投递提醒。"
             >
               <Input
                 mono
@@ -359,7 +359,7 @@ export function FeishuIntegrationPanel() {
           ))}
           <Field
             label="Home Chat ID"
-            hint="通知与测试的默认群/单聊 chat_id；留空则发到当前操作者单聊。"
+            info="通知与测试的默认群/单聊 chat_id；留空则发到当前操作者单聊。"
           >
             <Input
               mono
@@ -371,7 +371,7 @@ export function FeishuIntegrationPanel() {
           </Field>
           <Field
             label="AI 响应超时"
-            hint="飞书 AI 超过该时间无完整回复时自动结束（秒，范围 30–900）。"
+            info="飞书 AI 超过该时间无完整回复时自动结束（秒，范围 30–900）。"
           >
             <Input
               type="number"
@@ -388,7 +388,7 @@ export function FeishuIntegrationPanel() {
           </Field>
           <Field
             label="回复方式"
-            hint="开启后 Bot 会以话题（Thread）形式在群/单聊中跟帖回复。"
+            info="开启后 Bot 会以话题（Thread）形式在群/单聊中跟帖回复。"
           >
             <div style={{ paddingTop: "0.25rem" }}>
               <Toggle
@@ -410,7 +410,7 @@ export function FeishuIntegrationPanel() {
             <Stack gap="md">
               <Field
                 label="允许的群 chat_id"
-                hint="每行一个；留空表示仅单聊可写。群聊中需 @Bot 触发。"
+                info="每行一个；留空表示仅单聊可写。群聊中需 @Bot 触发。"
               >
                 <Textarea
                   mono
@@ -422,7 +422,7 @@ export function FeishuIntegrationPanel() {
               </Field>
               <Field
                 label="消息合并窗口 (毫秒)"
-                hint="短时间内连续发送的多条消息自动合并为同一条日记。"
+                info="短时间内连续发送的多条消息自动合并为同一条日记。"
               >
                 <Input
                   type="number"

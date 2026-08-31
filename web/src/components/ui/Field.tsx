@@ -1,9 +1,11 @@
 import type { HTMLAttributes, ReactNode } from "react";
+import { InfoTip } from "./InfoTip";
 
 export interface FieldProps extends HTMLAttributes<HTMLDivElement> {
   label?: ReactNode;
   htmlFor?: string;
   hint?: ReactNode;
+  info?: ReactNode;
   error?: ReactNode;
   required?: boolean;
   stacked?: boolean;
@@ -14,6 +16,7 @@ export function Field({
   label,
   htmlFor,
   hint,
+  info,
   error,
   required = false,
   stacked = true,
@@ -31,7 +34,7 @@ export function Field({
 
   return (
     <div className={classList} {...props}>
-      {(label || hint) && (
+      {(label || hint || info) && (
         <div className="orbit-ui-field-header">
           {label && (
             <div className="orbit-ui-field-label-row">
@@ -39,6 +42,12 @@ export function Field({
                 {label}
                 {required && <span className="orbit-ui-field-required" aria-hidden="true">*</span>}
               </label>
+              {info && <InfoTip content={info} />}
+            </div>
+          )}
+          {!label && info && (
+            <div className="orbit-ui-field-label-row">
+              <InfoTip content={info} />
             </div>
           )}
           {hint && <p className="orbit-ui-field-hint">{hint}</p>}

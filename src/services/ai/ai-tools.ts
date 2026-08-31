@@ -9,12 +9,51 @@ import {
   executeWriteContentInput,
   type ContentWriteActor,
 } from "../content/content-write.js";
+import { executeWebSearch } from "./web-search-provider.js";
 
 const log = createLogger("ai-tools");
 
 const MAX_TOOL_CHARS = 8_000;
 /** Max chars for a single search snippet sent to the model. */
 const MAX_SNIPPET_CHARS = 500;
+
+/**
+ * AI 工具统一展示元数据（中文名称、图标及描述）
+ */
+export const AI_TOOL_METADATA = {
+  search_entries: {
+    displayName: "空间搜索",
+    icon: "🔍",
+    description: "搜索空间内的日记、时间线、留言、信件与备忘录",
+  },
+  get_entry: {
+    displayName: "读取文章",
+    icon: "📖",
+    description: "按 ID 读取单篇文章或备忘录正文",
+  },
+  write_content: {
+    displayName: "写入内容",
+    icon: "✍️",
+    description: "创建、修改或删除空间日记/信件/备忘录",
+  },
+  web_search: {
+    displayName: "联网搜索",
+    icon: "🌐",
+    description: "在互联网上搜索外部实时信息与公开知识",
+  },
+} as const;
+
+export type AiToolName = keyof typeof AI_TOOL_METADATA;
+
+/**
+ * 格式化输出带图标的工具友好展示名（如 "🔍 空间搜索"）
+ */
+export function formatToolDisplayName(toolName: string): string {
+  const meta = (AI_TOOL_METADATA as Record<string, { icon: string; displayName: string }>)[
+    toolName
+  ];
+  return meta ? `${meta.icon} ${meta.displayName}` : `🛠️ ${toolName}`;
+}
 
 /** Single-end truncation — use for short strings like error messages. */
 function truncate(value: string, max = MAX_TOOL_CHARS): string {
@@ -34,66 +73,6 @@ function headTailTruncate(value: string, max = MAX_TOOL_CHARS): string {
   const tail = value.slice(-half);
   const removed = value.length - head.length - tail.length;
   return `${head}\n\n…（省略 ${removed} 字符）…\n\n${tail}`;
-}
-
-async function executeTavilySearch(query: string, apiKey: string) {
-  const res = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      api_key: apiKey,
-      query,
-      search_depth: "basic",
-      max_results: 5,
-    }),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Tavily API 响应异常 (${res.status}): ${truncate(errorText, 200)}`);
-  }
-
-  const data = (await res.json()) as {
-    results?: Array<{ title: string; url: string; content: string }>;
-  };
-
-  return (data.results || []).map((item) => ({
-    title: item.title,
-    url: item.url,
-    snippet: truncate(item.content || "", 1500),
-    source: "tavily",
-  }));
-}
-
-async function executeBraveSearch(query: string, apiKey: string) {
-  const url = new URL("https://api.search.brave.com/res/v1/web/search");
-  url.searchParams.set("q", query);
-  url.searchParams.set("count", "5");
-
-  const res = await fetch(url.toString(), {
-    headers: {
-      Accept: "application/json",
-      "X-Subscription-Token": apiKey,
-    },
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Brave Search API 响应异常 (${res.status}): ${truncate(errorText, 200)}`);
-  }
-
-  const data = (await res.json()) as {
-    web?: {
-      results?: Array<{ title: string; url: string; description?: string }>;
-    };
-  };
-
-  return (data.web?.results || []).map((item) => ({
-    title: item.title,
-    url: item.url,
-    snippet: truncate(item.description || "", 1500),
-    source: "brave",
-  }));
 }
 
 export interface CreateAiToolsOptions {
@@ -176,33 +155,6 @@ export function createAiTools(
       },
     }),
 
-    list_memos: tool({
-      description: "列出备忘录标题与更新时间，不含全文。",
-      inputSchema: z.object({
-        limit: z.number().int().min(1).max(50).optional(),
-      }),
-      execute: async ({ limit }) => {
-        const rows = await db
-          .select({
-            id: entry.id,
-            title: entry.title,
-            updatedAt: entry.updatedAt,
-          })
-          .from(entry)
-          .where(and(eq(entry.type, "memo"), isNull(entry.deletedAt)))
-          .orderBy(desc(entry.updatedAt))
-          .limit(limit ?? 20);
-
-        return rows.map(
-          (row: { id: string; title: string | null; updatedAt: number }) => ({
-            id: row.id,
-            title: row.title ?? "无标题备忘录",
-            updatedAt: row.updatedAt,
-          })
-        );
-      },
-    }),
-
     write_content: tool({
       description:
         "创建、更新或删除情侣空间内的日记、时间线、留言、信件与备忘录。创建与更新时 body 为 Markdown 正文；删除仅软删除且只能删除自己创建的内容。",
@@ -267,65 +219,12 @@ export function createAiTools(
           process.env.BRAVE_SEARCH_API_KEY ||
           settingsMap?.brave_search_api_key;
 
-        if (!tavilyKey && !braveKey) {
-          log.warn("web_search: no API key configured", {
-            hasEnvTavily: !!env?.TAVILY_API_KEY,
-            hasEnvBrave: !!env?.BRAVE_SEARCH_API_KEY,
-            hasProcessTavily: !!process.env.TAVILY_API_KEY,
-            hasProcessBrave: !!process.env.BRAVE_SEARCH_API_KEY,
-            hasSettingsTavily: !!settingsMap?.tavily_api_key,
-            hasSettingsBrave: !!settingsMap?.brave_search_api_key,
-          });
-          return {
-            error:
-              "尚未配置 Web 搜索 API Key。请在环境变量或系统设置中配置 TAVILY_API_KEY 或 BRAVE_SEARCH_API_KEY。",
-          };
-        }
-
-        let targetProvider = provider;
-        if (targetProvider === "auto") {
-          targetProvider = tavilyKey ? "tavily" : "brave";
-        }
-
-        log.info("web_search: calling", { query, targetProvider });
-        try {
-          if (targetProvider === "tavily" && tavilyKey) {
-            const results = await executeTavilySearch(query, tavilyKey);
-            log.info("web_search: tavily success", { count: results.length });
-            return { query, provider: "tavily", results };
-          }
-          if (targetProvider === "brave" && braveKey) {
-            const results = await executeBraveSearch(query, braveKey);
-            log.info("web_search: brave success", { count: results.length });
-            return { query, provider: "brave", results };
-          }
-          if (tavilyKey) {
-            const results = await executeTavilySearch(query, tavilyKey);
-            log.info("web_search: tavily fallback success", { count: results.length });
-            return { query, provider: "tavily", results };
-          }
-          if (braveKey) {
-            const results = await executeBraveSearch(query, braveKey);
-            log.info("web_search: brave fallback success", { count: results.length });
-            return { query, provider: "brave", results };
-          }
-          return { error: "所选搜索引擎 API Key 未配置" };
-        } catch (err: any) {
-          log.error("web_search: primary failed", err, { targetProvider, query });
-          if (targetProvider === "tavily" && braveKey) {
-            try {
-              const results = await executeBraveSearch(query, braveKey);
-              log.info("web_search: brave fallback success", { count: results.length });
-              return { query, provider: "brave (fallback)", results };
-            } catch (fallbackErr: any) {
-              log.error("web_search: both providers failed", fallbackErr, { query });
-              return {
-                error: `Tavily 搜索失败: ${err.message}; 自动降级 Brave 也失败: ${fallbackErr.message}`,
-              };
-            }
-          }
-          return { error: `Web 搜索失败: ${err.message}` };
-        }
+        return executeWebSearch({
+          query,
+          provider,
+          tavilyKey,
+          braveKey,
+        });
       },
     }),
   };

@@ -31,7 +31,7 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
   useEffect(() => {
     if (!menuOpen) return;
 
-    function handlePointerDown(event: MouseEvent) {
+    function handlePointerDown(event: PointerEvent) {
       if (!rootRef.current?.contains(event.target as Node)) {
         setMenuOpen(false);
       }
@@ -41,10 +41,10 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
       if (event.key === "Escape") setMenuOpen(false);
     }
 
-    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [menuOpen]);

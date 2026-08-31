@@ -81,7 +81,6 @@ export function SpaceSettingsPanel() {
               <Field
                 label="开始日期"
                 htmlFor="settings-space-anniversary"
-                hint="选你们开始在一起的那一天。留空则不在侧栏显示天数。"
               >
                 <DatePicker
                   id="settings-space-anniversary"
@@ -103,7 +102,6 @@ export function SpaceSettingsPanel() {
             <Field
               label="一句话"
               htmlFor="settings-space-slogan"
-              hint="未设置纪念日时，侧栏显示这句话。"
             >
               <Input
                 id="settings-space-slogan"

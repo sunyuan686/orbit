@@ -147,7 +147,6 @@ export function ApiTokenSettingsPanel() {
       <Section title="新建 Token">
         <Field
           label="名称"
-          hint="便于区分用途，例如「本地脚本」「Cursor MCP」。"
         >
           <form className="orbit-settings-inline-form orbit-settings-inline-form--wide" onSubmit={(e) => void handleCreate(e)}>
             <Input
@@ -173,7 +172,6 @@ export function ApiTokenSettingsPanel() {
         <Section title="请立即保存">
           <Field
             label="新 Token"
-            hint="明文仅显示一次。请复制保存，关闭页面后无法再次查看。"
           >
             <div className="orbit-settings-inline-form orbit-settings-inline-form--wide">
               <Input
@@ -206,7 +204,6 @@ export function ApiTokenSettingsPanel() {
       <Section title="使用方式">
         <Field
           label="请求头"
-          hint="在 HTTP 请求中附带 Authorization。可访问文章、搜索、评论、相册与 AI 等接口；设置、账户与 Token 管理仍需浏览器登录。"
         >
           <pre className="orbit-settings-code-block">
             <code>{`Authorization: Bearer orb_…`}</code>

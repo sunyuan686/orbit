@@ -1,3 +1,4 @@
+export * from "./prompts/index.js";
 export * from "./ai-model-specs.js";
 export * from "./ai-model-catalog-builtin.js";
 export * from "./ai-connections.js";
@@ -14,4 +15,6 @@ export * from "./deepseek-models.js";
 export * from "./workers-ai-models.js";
 export * from "./workers-ai-whisper.js";
 export * from "./dashscope-voice.js";
+export * from "./voice-refine.js";
+export * from "./web-search-provider.js";
 export * from "./langfuse.js";

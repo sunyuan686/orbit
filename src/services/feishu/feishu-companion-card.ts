@@ -28,15 +28,12 @@ const MILESTONE_TITLE_MAP = new Map(
   MILESTONE_DEFINITIONS.map((m) => [m.key, m.title])
 );
 import { notification } from "../../db/schema.js";
+import {
+  COMPANION_TAGLINE_SYSTEM_PROMPT,
+  buildCompanionTaglineUserPrompt,
+} from "../ai/prompts/index.js";
 
 // ─── AI 润色 ─────────────────────────────────────────────────────────────────
-
-const COMPANION_SYSTEM_PROMPT = `你是一个温柔、克制的空间文字助理。你的任务是根据提供的二人真实历史记录，生成一句简短有温度的引言。
-规则：
-1. 必须完全基于提供的输入文本，严禁编造或推测未提及的细节。
-2. 字数控制在 30~60 字以内，风格典雅、克制，符合 Orbit 暖石风格。
-3. 如果输入记录较少，直接输出原句摘录，不要过度修饰。
-4. 只输出引言本身，不要任何解释或前缀。`;
 
 async function generateAiTagline(
   excerpt: string,
@@ -46,10 +43,11 @@ async function generateAiTagline(
   try {
     const settingsMap = await readSettingsMap(aiEnv._db as any);
     const model = await resolveModel(settingsMap, aiEnv as any);
+    const prompt = buildCompanionTaglineUserPrompt(excerpt);
     const { text } = await generateText({
       model: model.model,
-      system: COMPANION_SYSTEM_PROMPT,
-      prompt: `历史记录片段：\n${excerpt.slice(0, 500)}`,
+      system: COMPANION_TAGLINE_SYSTEM_PROMPT,
+      prompt,
       maxOutputTokens: 120,
       temperature: 0.6,
     });

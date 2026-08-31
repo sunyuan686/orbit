@@ -80,8 +80,19 @@ export function ComposeModal({
       setFullscreenHandoff(null);
       setSelectedTagId(null);
       setShowTitle(Boolean(title && title.trim().length > 0));
+
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape" && !fullscreenOpen) onClose();
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.body.style.overflow = prev;
+        window.removeEventListener("keydown", handleKeyDown);
+      };
     }
-  }, [isOpen, defaultFormat, defaultMode, title]);
+  }, [isOpen, defaultFormat, defaultMode, title, fullscreenOpen, onClose]);
 
   const applyFullscreenClose = useCallback((detail: {
     html: string;

@@ -385,6 +385,7 @@ body {
   background: var(--color-bg);
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
+  text-autospace: normal;
 }
 
 #root {
@@ -865,6 +866,12 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 0.875rem;
 }
 
+.orbit-ui-section-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
 .orbit-ui-section-title {
   font-family: var(--font-body);
   font-size: 0.9375rem;
@@ -881,6 +888,89 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: 0.015em;
   line-height: 1.6;
   margin: 0.375rem 0 0;
+}
+
+/* --- InfoTip Popover --- */
+.orbit-ui-infotip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+.orbit-ui-infotip-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full, 9999px);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.orbit-ui-infotip-trigger:hover,
+.orbit-ui-infotip-trigger[aria-expanded="true"] {
+  color: var(--color-text-primary);
+  background-color: var(--color-surface-raised);
+}
+
+.orbit-ui-infotip-trigger:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.orbit-ui-infotip-popover {
+  position: absolute;
+  z-index: 60;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(20rem, calc(100vw - 2rem));
+  padding: 0.5rem 0.75rem;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  animation: orbit-infotip-fade 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+.orbit-ui-infotip-popover--top {
+  bottom: calc(100% + 6px);
+}
+
+.orbit-ui-infotip-popover--bottom {
+  top: calc(100% + 6px);
+}
+
+.orbit-ui-infotip-content {
+  font-family: var(--font-body);
+  font-size: var(--type-xs, 0.75rem);
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+  word-break: break-word;
+  white-space: normal;
+  text-align: left;
+}
+
+@keyframes orbit-infotip-fade {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 /* --- 8. Container (Alignment Master Frame) --- */
@@ -947,9 +1037,9 @@ h1, h2, h3, h4, h5, h6 {
 
 .orbit-ui-field-label-row {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.375rem;
 }
 
 .orbit-ui-field-label {
@@ -1343,10 +1433,12 @@ h1, h2, h3, h4, h5, h6 {
   min-height: 250px;
 }
 
-.orbit-polaroid-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--color-border);
+@media (hover: hover) and (pointer: fine) {
+  .orbit-polaroid-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-border);
+  }
 }
 
 .orbit-polaroid-header {
@@ -1736,10 +1828,12 @@ h1, h2, h3, h4, h5, h6 {
     border-color var(--motion-fast);
 }
 
-.orbit-letter-stack:hover .orbit-env {
-  transform: translateY(-3px);
-  box-shadow: var(--letter-shadow-hover);
-  border-color: var(--color-border);
+@media (hover: hover) and (pointer: fine) {
+  .orbit-letter-stack:hover .orbit-env {
+    transform: translateY(-3px);
+    box-shadow: var(--letter-shadow-hover);
+    border-color: var(--color-border);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2019,9 +2113,11 @@ h1, h2, h3, h4, h5, h6 {
     transform: rotate(-1.1deg);
   }
 
-  .orbit-desk-item:hover .orbit-letter-thread {
-    transform: rotate(0deg) translateY(-2px);
-    z-index: 2;
+  @media (hover: hover) and (pointer: fine) {
+    .orbit-desk-item:hover .orbit-letter-thread {
+      transform: rotate(0deg) translateY(-2px);
+      z-index: 2;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -2154,9 +2250,11 @@ h1, h2, h3, h4, h5, h6 {
   transform: rotate(1.1deg);
 }
 
-.orbit-reply-mini:hover {
-  transform: translateY(-2px) rotate(0deg);
-  box-shadow: var(--letter-shadow-hover);
+@media (hover: hover) and (pointer: fine) {
+  .orbit-reply-mini:hover {
+    transform: translateY(-2px) rotate(0deg);
+    box-shadow: var(--letter-shadow-hover);
+  }
 }
 
 .orbit-reply-mini:focus-visible {
@@ -5560,9 +5658,11 @@ a.orbit-settings-mobile-row {
   transition: all var(--motion-fast) ease;
   box-shadow: var(--shadow-subtle);
 }
-.orbit-theme-card:hover {
-  border-color: var(--color-border);
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  .orbit-theme-card:hover {
+    border-color: var(--color-border);
+    transform: translateY(-1px);
+  }
 }
 .orbit-theme-card--active {
   border-color: var(--color-accent);
@@ -5619,9 +5719,11 @@ a.orbit-settings-mobile-row {
   transition: all var(--motion-fast) ease;
   box-shadow: var(--shadow-subtle);
 }
-.orbit-canvas-card:hover {
-  border-color: var(--color-border);
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  .orbit-canvas-card:hover {
+    border-color: var(--color-border);
+    transform: translateY(-1px);
+  }
 }
 .orbit-canvas-card--active {
   border-color: var(--color-accent);
@@ -5682,9 +5784,11 @@ a.orbit-settings-mobile-row {
   transition: all var(--motion-fast) ease;
   box-shadow: var(--shadow-subtle);
 }
-.orbit-font-card:hover {
-  border-color: var(--color-border);
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  .orbit-font-card:hover {
+    border-color: var(--color-border);
+    transform: translateY(-1px);
+  }
 }
 .orbit-font-card--active {
   border-color: var(--color-accent);
@@ -5745,9 +5849,11 @@ a.orbit-settings-mobile-row {
   transition: all var(--motion-fast) ease;
   box-shadow: var(--shadow-subtle);
 }
-.orbit-fontsize-card:hover {
-  border-color: var(--color-border);
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  .orbit-fontsize-card:hover {
+    border-color: var(--color-border);
+    transform: translateY(-1px);
+  }
 }
 .orbit-fontsize-card--active {
   border-color: var(--color-accent);
@@ -6100,20 +6206,23 @@ a.orbit-settings-mobile-row {
   color: var(--color-text-muted);
 }
 
-.orbit-date-picker-input {
+.orbit-date-picker-label {
   flex: 1;
   min-width: 0;
-  padding: 0;
+  text-align: left;
   font-family: inherit;
   font-size: inherit;
   color: inherit;
-  background: transparent;
-  border: none;
-  outline: none;
+  user-select: none;
 }
 
-.orbit-date-picker-input::placeholder {
+.orbit-date-picker-label--placeholder {
   color: var(--color-text-muted);
+}
+
+.orbit-date-picker-label--filled {
+  color: var(--color-text-primary);
+  font-family: var(--font-mono, monospace);
 }
 
 /* Inline micro variant for immersive editor metadata bar */
@@ -6126,6 +6235,8 @@ a.orbit-settings-mobile-row {
   border-radius: 6px;
   gap: 0.25rem;
   color: var(--color-text-muted);
+  cursor: pointer;
+  appearance: none;
   transition: all 0.15s ease;
 }
 
@@ -6137,12 +6248,12 @@ a.orbit-settings-mobile-row {
   box-shadow: none;
 }
 
-.orbit-date-picker--inline .orbit-date-picker-input {
-  width: 6.5rem;
-  max-width: 100%;
+.orbit-date-picker--inline .orbit-date-picker-text {
+  font-family: var(--font-mono, monospace);
   font-size: var(--type-xs);
   color: inherit;
-  cursor: pointer;
+  user-select: none;
+  letter-spacing: -0.01em;
 }
 
 .orbit-editor-meta-bar {
@@ -6501,9 +6612,10 @@ a.orbit-settings-mobile-row {
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
     padding: 0.75rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
-    animation: orbit-date-picker-slide-up 0.24s cubic-bezier(0.16, 1, 0.3, 1);
-    max-height: 85vh;
-    overflow-y: auto;
+    animation: orbit-date-picker-slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    max-height: min(90vh, 480px);
+    overflow-y: hidden;
+    touch-action: pan-y;
   }
 
   .orbit-date-picker-drawer-handle {
@@ -6765,6 +6877,8 @@ a.orbit-settings-mobile-row {
 .orbit-reply-mini:focus-visible,
 .orbit-memo-card:focus-visible,
 .orbit-home-card:focus-visible,
+.orbit-home-bento-tile:focus-visible,
+.orbit-home-story-card:focus-visible,
 .orbit-home-photo:focus-visible,
 .orbit-home-hero-link:focus-visible,
 .orbit-settings-nav-item:focus-visible,
@@ -6800,6 +6914,15 @@ a.orbit-settings-mobile-row {
   max-width: var(--layout-editor);
   margin: 0 auto;
   width: 100%;
+}
+
+/* 沉浸式阅读与写作主视口：移动端优雅适配刘海屏/灵动岛顶部安全区 */
+@media (max-width: 767px) {
+  .orbit-main--immersive,
+  .orbit-main--editor {
+    padding-top: max(0.875rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) !important;
+    padding-bottom: max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1rem)) !important;
+  }
 }
 
 .orbit-article-layout {
@@ -7057,10 +7180,12 @@ a.orbit-settings-mobile-row {
   transition: transform 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
-.orbit-not-found-card:hover .orbit-not-found-icon-wrapper {
-  transform: translateY(-2px) scale(1.03);
-  color: var(--color-text-primary);
-  border-color: var(--color-border-light);
+@media (hover: hover) and (pointer: fine) {
+  .orbit-not-found-card:hover .orbit-not-found-icon-wrapper {
+    transform: translateY(-2px) scale(1.03);
+    color: var(--color-text-primary);
+    border-color: var(--color-border-light);
+  }
 }
 
 .orbit-not-found-svg {
@@ -7191,6 +7316,7 @@ a.orbit-settings-mobile-row {
   outline: none;
   font-size: var(--type-body);
   line-height: var(--leading-body);
+  letter-spacing: var(--tracking-body, 0.01em);
   color: var(--color-text-primary);
   font-family: var(--font-body);
   min-height: 200px;
@@ -7202,10 +7328,22 @@ a.orbit-settings-mobile-row {
      Use max(16px, …) so the PWA editor never triggers viewport zoom on focus. */
   font-size: max(16px, var(--type-body));
   line-height: var(--leading-body);
+  letter-spacing: var(--tracking-body, 0.01em);
   color: var(--color-text-primary);
 }
 
-/* 编辑器和阅读视图共用排版规则 */
+/* 消除首尾元素的外边距溢出，保证容器内部垂直节奏精美 */
+.orbit-prose > :first-child,
+.ProseMirror > :first-child {
+  margin-top: 0 !important;
+}
+
+.orbit-prose > :last-child,
+.ProseMirror > :last-child {
+  margin-bottom: 0 !important;
+}
+
+/* 编辑器和阅读视图共用排版规则：垂直节奏基于相对 em 标尺 */
 .orbit-prose h1, .ProseMirror h1,
 .orbit-prose h2, .ProseMirror h2,
 .orbit-prose h3, .ProseMirror h3,
@@ -7214,15 +7352,15 @@ a.orbit-settings-mobile-row {
   font-weight: 400;
   line-height: var(--leading-heading);
   color: var(--color-text-primary);
-  margin-top: 1.75rem;
-  margin-bottom: 0.6rem;
 }
-.orbit-prose h1, .ProseMirror h1 { font-size: 1.65rem; margin-top: 0; }
-.orbit-prose h2, .ProseMirror h2 { font-size: 1.35rem; border-bottom: 1px solid var(--color-border-light); padding-bottom: 0.35rem; }
-.orbit-prose h3, .ProseMirror h3 { font-size: 1.12rem; }
-.orbit-prose h4, .ProseMirror h4 { font-size: 1rem; font-weight: 500; }
+.orbit-prose h1, .ProseMirror h1 { font-size: 1.65rem; margin-top: 1.4em; margin-bottom: 0.45em; }
+.orbit-prose h2, .ProseMirror h2 { font-size: 1.35rem; margin-top: 1.3em; margin-bottom: 0.4em; border-bottom: 1px solid var(--color-border-light); padding-bottom: 0.35rem; }
+.orbit-prose h3, .ProseMirror h3 { font-size: 1.12rem; margin-top: 1.2em; margin-bottom: 0.35em; }
+.orbit-prose h4, .ProseMirror h4 { font-size: 1rem; margin-top: 1.1em; margin-bottom: 0.3em; font-weight: 500; }
 
-.orbit-prose p, .ProseMirror p { margin: 0 0 0.9rem; }
+.orbit-prose p, .ProseMirror p {
+  margin: 0 0 0.45em;
+}
 
 .orbit-prose strong, .ProseMirror strong { font-weight: 600; }
 .orbit-prose em, .ProseMirror em { font-style: italic; }
@@ -7241,7 +7379,7 @@ a.orbit-settings-mobile-row {
 .orbit-prose blockquote, .ProseMirror blockquote {
   border-left: 3px solid var(--color-border);
   padding-left: 1rem;
-  margin: 1rem 0;
+  margin: 0.8em 0;
   color: var(--color-text-secondary);
   font-style: italic;
 }
@@ -7249,15 +7387,15 @@ a.orbit-settings-mobile-row {
 .orbit-prose hr, .ProseMirror hr {
   border: none;
   border-top: 1px solid var(--color-border-light);
-  margin: 2rem 0;
+  margin: 1.5em 0;
 }
 
 .orbit-prose ul, .ProseMirror ul,
 .orbit-prose ol, .ProseMirror ol {
   padding-left: 1.5rem;
-  margin: 0.5rem 0 1rem;
+  margin: 0.4em 0 0.8em;
 }
-.orbit-prose li, .ProseMirror li { margin-bottom: 0.25rem; }
+.orbit-prose li, .ProseMirror li { margin-bottom: 0.2em; }
 
 .orbit-prose code, .ProseMirror code {
   font-family: var(--font-mono);
@@ -7276,7 +7414,7 @@ a.orbit-settings-mobile-row {
   border-radius: 8px;
   padding: 1rem;
   overflow-x: auto;
-  margin: 1rem 0;
+  margin: 0.8em 0;
 }
 .orbit-prose pre code, .ProseMirror pre code {
   background: none;
@@ -10288,12 +10426,14 @@ html.orbit-ai-open body {
   user-select: none;
 }
 
-.orbit-ai-conversation-item:hover {
-  border-color: var(--color-border);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
-  transform: translateY(-1px);
-  background: var(--color-surface);
-  color: var(--color-text-primary);
+@media (hover: hover) and (pointer: fine) {
+  .orbit-ai-conversation-item:hover {
+    border-color: var(--color-border);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+    transform: translateY(-1px);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+  }
 }
 
 .orbit-ai-conversation-item--active {
@@ -11159,8 +11299,8 @@ html.orbit-ai-open body {
 
 .orbit-scratch-float-btn {
   position: absolute;
-  top: 0.875rem;
-  right: 0.875rem;
+  top: 1.125rem;
+  right: 1.375rem;
   z-index: 3;
   width: 28px;
   height: 28px;
@@ -11168,24 +11308,22 @@ html.orbit-ai-open body {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  border: 1px solid color-mix(in srgb, var(--color-border-light) 80%, transparent);
-  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
-  backdrop-filter: blur(8px);
-  color: var(--color-text-secondary);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
-  transition: all var(--motion-fast);
+  transition: transform var(--motion-fast), color var(--motion-fast), background var(--motion-fast), border-color var(--motion-fast);
 }
 
 .orbit-scratch-float-btn:hover:not(:disabled) {
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-surface-raised) 80%, transparent);
   color: var(--color-text-primary);
-  border-color: var(--color-border);
-  transform: scale(1.06);
+  border-color: color-mix(in srgb, var(--color-border) 60%, transparent);
 }
 
 .orbit-scratch-float-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -11209,7 +11347,6 @@ html.orbit-ai-open body {
   min-height: 180px;
   border-radius: 16px;
   overflow: hidden;
-  touch-action: none;
   box-sizing: border-box;
 }
 
@@ -11352,10 +11489,335 @@ html.orbit-ai-open body {
   text-decoration: underline;
 }
 
+/* 🎫 首页 Feed 未拆封特种纸票券封皮 (0 冲突，纯静态原生滚动) */
+.orbit-scratch-feed-cover {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 180px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--scratch-film-start), var(--scratch-film-mid), var(--scratch-film-end));
+  padding: 0.875rem 1.125rem;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform var(--motion-fast), box-shadow var(--motion-fast);
+  outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .orbit-scratch-feed-cover:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--color-accent) 12%, rgba(0, 0, 0, 0.06));
+  }
+}
+
+.orbit-scratch-feed-cover:active {
+  transform: scale(0.992);
+}
+
+.orbit-scratch-cover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--color-text-secondary) 75%, transparent);
+}
+
+.orbit-scratch-cover-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.375rem;
+  padding-bottom: 0.25rem;
+}
+
+.orbit-scratch-cover-astrolabe {
+  position: relative;
+  width: 54px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in srgb, var(--color-text-secondary) 70%, transparent);
+}
+
+.orbit-scratch-astrolabe-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-16deg);
+}
+
+.orbit-scratch-cover-star {
+  position: absolute;
+  font-family: var(--font-heading, serif);
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--color-text-secondary) 85%, transparent);
+}
+
+.orbit-scratch-cover-title {
+  font-family: var(--font-heading, var(--font-serif, serif));
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin: 0;
+  letter-spacing: 0.04em;
+}
+
+.orbit-scratch-cover-hint {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--color-text-secondary) 80%, transparent);
+  margin: 0;
+}
+
+/* 🌌 沉浸式刮卡弹窗 (Google Pay 级手势隔离与仪式感) */
+.orbit-scratch-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 9999);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  box-sizing: border-box;
+  animation: orbit-scratch-fade 0.25s ease-out;
+}
+
+@keyframes orbit-scratch-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.orbit-scratch-modal-dialog {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  animation: orbit-scratch-pop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes orbit-scratch-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.orbit-scratch-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.orbit-scratch-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background var(--motion-fast), transform var(--motion-fast);
+}
+
+.orbit-scratch-modal-close:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
+}
+
+.orbit-scratch-modal-card {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  min-height: 220px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.45);
+  box-sizing: border-box;
+}
+
+.orbit-scratch-modal-card .orbit-scratch-underneath {
+  height: 100%;
+  min-height: 220px;
+  padding: 1.25rem 1.5rem;
+  box-sizing: border-box;
+}
+
+.orbit-scratch-modal-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+  cursor: crosshair;
+  touch-action: none;
+  transition: opacity 0.45s ease;
+}
+
+.orbit-scratch-modal-canvas.is-cleared {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 👆 拟态手势滑动引导 (Coachmark Swipe Gesture Cue) */
+.orbit-scratch-guide-cue {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  animation: orbit-scratch-cue-in 0.4s ease-out 0.2s both;
+  transition: opacity 0.25s ease;
+}
+
+@keyframes orbit-scratch-cue-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.orbit-scratch-guide-hand {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+  filter: drop-shadow(0 4px 12px color-mix(in srgb, var(--color-accent) 30%, rgba(0, 0, 0, 0.35)));
+  animation: orbit-scratch-swipe-motion 3.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.orbit-scratch-guide-svg {
+  width: 30px;
+  height: 30px;
+  transform: rotate(-12deg);
+}
+
+.orbit-scratch-guide-ripple {
+  position: absolute;
+  top: 3px;
+  left: 7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  animation: orbit-scratch-pulse 3.4s ease-out infinite;
+}
+
+@keyframes orbit-scratch-pulse {
+  0%, 100% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    transform: scale(1.1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 0.8;
+  }
+  75% {
+    transform: scale(1.1);
+    opacity: 0.5;
+  }
+}
+
+@keyframes orbit-scratch-swipe-motion {
+  0% {
+    transform: translate(-34px, -14px) rotate(-6deg);
+    opacity: 0;
+  }
+  15% {
+    transform: translate(-30px, -12px) rotate(-5deg);
+    opacity: 0.95;
+  }
+  50% {
+    transform: translate(32px, 14px) rotate(6deg);
+    opacity: 0.95;
+  }
+  75% {
+    transform: translate(-10px, 4px) rotate(-2deg);
+    opacity: 0.95;
+  }
+  90% {
+    transform: translate(-30px, -12px) rotate(-5deg);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translate(-34px, -14px) rotate(-6deg);
+    opacity: 0;
+  }
+}
+
+.orbit-scratch-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.orbit-scratch-modal-reveal-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+  transition: color var(--motion-fast);
+}
+
+.orbit-scratch-modal-reveal-btn:hover {
+  color: #ffffff;
+}
+
 @media (max-width: 640px) {
   .orbit-scratch-card,
   .orbit-scratch-skeleton,
-  .orbit-scratch-container {
+  .orbit-scratch-container,
+  .orbit-scratch-feed-cover {
     height: 186px;
     min-height: 186px;
     max-height: 186px;
@@ -11373,6 +11835,21 @@ html.orbit-ai-open body {
   .orbit-scratch-quote {
     font-size: 0.875rem;
     line-height: 1.5;
+  }
+
+  .orbit-scratch-float-btn {
+    top: 1rem;
+    right: 1.125rem;
+  }
+
+  .orbit-scratch-modal-card {
+    height: 200px;
+    min-height: 200px;
+  }
+
+  .orbit-scratch-modal-card .orbit-scratch-underneath {
+    min-height: 200px;
+    padding: 1rem 1.25rem;
   }
 }
 
@@ -11409,10 +11886,22 @@ html.orbit-ai-open body {
   transition: transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease, border-color var(--motion-fast) ease;
 }
 
-.orbit-home-bento-tile:hover {
-  transform: translateY(-2px);
-  border-color: var(--color-border);
-  box-shadow: var(--shadow-float);
+@media (hover: hover) and (pointer: fine) {
+  .orbit-home-bento-tile:hover {
+    transform: translateY(-2px);
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-float);
+  }
+
+  .orbit-home-bento-tile:hover .orbit-home-bento-icon-box {
+    color: var(--color-accent);
+    background: var(--color-accent-soft);
+    border-color: var(--color-accent-border);
+  }
+}
+
+.orbit-home-bento-tile:active {
+  transform: scale(var(--motion-press-scale));
 }
 
 .orbit-home-bento-icon-box {
@@ -11427,12 +11916,6 @@ html.orbit-ai-open body {
   border: 1px solid var(--color-border-light);
   color: var(--color-text-secondary);
   transition: color var(--motion-fast) ease, background-color var(--motion-fast) ease, border-color var(--motion-fast) ease;
-}
-
-.orbit-home-bento-tile:hover .orbit-home-bento-icon-box {
-  color: var(--color-accent);
-  background: var(--color-accent-soft);
-  border-color: var(--color-accent-border);
 }
 
 .orbit-home-bento-content {
@@ -11479,9 +11962,15 @@ html.orbit-ai-open body {
   transition: border-color var(--motion-fast) ease, transform var(--motion-fast) ease;
 }
 
-.orbit-home-story-card:hover {
-  border-color: var(--color-border);
-  background: var(--color-surface);
+@media (hover: hover) and (pointer: fine) {
+  .orbit-home-story-card:hover {
+    border-color: var(--color-border);
+    background: var(--color-surface);
+  }
+}
+
+.orbit-home-story-card:active {
+  transform: scale(var(--motion-press-scale));
 }
 
 .orbit-home-story-header {
@@ -11688,7 +12177,7 @@ html.orbit-ai-open body {
   background: var(--color-surface-raised);
 }
 
-@media (prefers-reduced-motion: no-preference) {
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   .orbit-home-photo:hover {
     z-index: 1;
     transform: rotate(0deg) translateY(-3px) scale(1.03);
@@ -12630,10 +13119,12 @@ button.orbit-activity-cell:hover {
     border-color var(--motion-fast);
 }
 
-.orbit-memory-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--color-border);
+@media (hover: hover) and (pointer: fine) {
+  .orbit-memory-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-border);
+  }
 }
 
 .orbit-memory-card-cover {

@@ -912,7 +912,6 @@ export function AiProvidersSettingsPanel() {
         <Stack gap="md">
           <Field
             label="AI 助手名字"
-            hint="设置 AI 在对话与提示词中的专属称呼（例如：“小辛星”、“星宝”、“月老”）。"
           >
             <Input
               id="settings-ai-bot-name"
@@ -924,7 +923,6 @@ export function AiProvidersSettingsPanel() {
 
           <Field
             label="AI 语气与人设"
-            hint="自定义 AI 助手的说话风格、语气与定位（留空或重置将使用默认温暖细腻人设）。"
           >
             <Textarea
               id="settings-ai-bot-persona"
@@ -965,7 +963,6 @@ export function AiProvidersSettingsPanel() {
       <Section title="语音打字设置">
         <Field
           label="默认转写与润色模式"
-          hint="设置全局默认的语音打字处理方式。改动后将在所有编辑框中全局生效。"
         >
           <div className="orbit-voice-mode-grid">
             {[
@@ -1011,7 +1008,6 @@ export function AiProvidersSettingsPanel() {
         <Stack gap="lg">
           <Field
             label="API 来源"
-            hint="Workers AI 无需 Key；DeepSeek 与自定义供应商需配置 API Key 后，模型才会出现在下方列表。"
           >
             <div className="orbit-settings-supplier-list">
               <article className="orbit-settings-supplier-card">
@@ -1287,7 +1283,6 @@ export function AiProvidersSettingsPanel() {
 
           <Field
             label="自定义供应商"
-            hint="接入 OpenAI 兼容 API（OpenRouter、Ollama、Groq 等）。配置凭证并发现模型后，会作为新供应商出现在下方「模型」分组中。"
           >
             <div className="orbit-settings-connections-panel">
               <button
@@ -1555,7 +1550,6 @@ export function AiProvidersSettingsPanel() {
       <Section title="模型">
         <Field
           label="聊天可用模型"
-          hint="按供应商分组。组开关控制整个供应商，行开关控制单个模型。"
         >
             <div className="orbit-settings-model-catalog">
               <div className="orbit-settings-model-search-wrap">

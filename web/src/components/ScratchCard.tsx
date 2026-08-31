@@ -1,4 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { scratchSound } from "../lib/scratchSound";
+import { CloseIcon } from "./OrbitIcons";
 
 interface ScratchCardProps {
   onScratchComplete?: () => void;
@@ -6,6 +9,8 @@ interface ScratchCardProps {
   seed: number | string;
   isAlreadyRevealed?: boolean;
   coverText?: string;
+  autoOpenModal?: boolean;
+  onModalClose?: () => void;
 }
 
 export function ScratchCard({
@@ -14,28 +19,170 @@ export function ScratchCard({
   seed,
   isAlreadyRevealed = false,
   coverText,
+  autoOpenModal = false,
+  onModalClose,
 }: ScratchCardProps) {
+  const [isModalOpen, setIsModalOpen] = useState(autoOpenModal);
+  const [isRevealed, setIsRevealed] = useState(isAlreadyRevealed);
+
+  // 同步外部揭晓状态与漫游种子
+  useEffect(() => {
+    setIsRevealed(isAlreadyRevealed);
+  }, [isAlreadyRevealed]);
+
+  useEffect(() => {
+    if (autoOpenModal && !isAlreadyRevealed) {
+      setIsModalOpen(true);
+    }
+  }, [seed, autoOpenModal, isAlreadyRevealed]);
+
+  const handleOpenModal = () => {
+    if (!isRevealed) {
+      setIsModalOpen(true);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    scratchSound.stop();
+    onModalClose?.();
+  };
+
+  const handleDirectReveal = () => {
+    setIsRevealed(true);
+    onScratchComplete?.();
+  };
+
+  const handleScratchSuccess = () => {
+    setIsRevealed(true);
+    onScratchComplete?.();
+  };
+
+  const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, " · ");
+
+  return (
+    <>
+      {/* 首页 Feed 静态卡片：已揭晓展示内容，未揭晓展示精美特种纸票券封皮 */}
+      {isRevealed ? (
+        <div className="orbit-scratch-container orbit-scratch-revealed-view">
+          <div className="orbit-scratch-underneath">{children}</div>
+        </div>
+      ) : (
+        <div
+          className="orbit-scratch-feed-cover"
+          onClick={handleOpenModal}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleOpenModal();
+            }
+          }}
+          aria-label="点击拆开今日时光回忆"
+        >
+          {/* 边角微型档案标识 */}
+          <div className="orbit-scratch-cover-header">
+            <span className="orbit-scratch-cover-tag">ORBIT ARCHIVE</span>
+            <span className="orbit-scratch-cover-date">{todayStr}</span>
+          </div>
+
+          {/* 中心徽标与文案 */}
+          <div className="orbit-scratch-cover-center">
+            <div className="orbit-scratch-cover-astrolabe">
+              <svg viewBox="0 0 100 48" className="orbit-scratch-astrolabe-svg" aria-hidden>
+                <ellipse cx="50" cy="24" rx="42" ry="18" fill="none" stroke="currentColor" strokeWidth="1.4" />
+                <circle cx="92" cy="24" r="3.2" fill="currentColor" />
+                <circle cx="8" cy="24" r="2.4" fill="currentColor" />
+              </svg>
+              <span className="orbit-scratch-cover-star" aria-hidden>✦</span>
+            </div>
+            <h3 className="orbit-scratch-cover-title">{coverText || "拂 开 旧 时 光"}</h3>
+            <p className="orbit-scratch-cover-hint">✦ 点 击 拆 开 · 偶 遇 旧 时 光 ✦</p>
+          </div>
+        </div>
+      )}
+
+      {/* 沉浸式刮卡弹窗：刮开后保留在弹窗内展示完整回忆，由用户主动阅读 */}
+      {isModalOpen && (
+        <ScratchModal
+          onClose={handleCloseModal}
+          isRevealed={isRevealed}
+          onScratchSuccess={handleScratchSuccess}
+          onDirectReveal={handleDirectReveal}
+          coverText={coverText}
+        >
+          {children}
+        </ScratchModal>
+      )}
+    </>
+  );
+}
+
+interface ScratchModalProps {
+  onClose: () => void;
+  isRevealed: boolean;
+  onScratchSuccess: () => void;
+  onDirectReveal: () => void;
+  coverText?: string;
+  children: React.ReactNode;
+}
+
+function ScratchModal({
+  onClose,
+  isRevealed,
+  onScratchSuccess,
+  onDirectReveal,
+  coverText,
+  children,
+}: ScratchModalProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const cardContainerRef = useRef<HTMLDivElement | null>(null);
   const probeStartRef = useRef<HTMLSpanElement | null>(null);
   const probeMidRef = useRef<HTMLSpanElement | null>(null);
   const probeEndRef = useRef<HTMLSpanElement | null>(null);
   const probeInkRef = useRef<HTMLSpanElement | null>(null);
-  const [isScratching, setIsScratching] = useState(false);
-  const [isCleared, setIsCleared] = useState(isAlreadyRevealed);
 
-  const initCanvas = useCallback(() => {
-    if (isAlreadyRevealed) {
-      setIsCleared(true);
-      return;
+  const [isCanvasCleared, setIsCanvasCleared] = useState(isRevealed);
+  const [hasStartedScratching, setHasStartedScratching] = useState(false);
+  const isScratchingRef = useRef(false);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const lastCheckTimeRef = useRef(0);
+
+  useEffect(() => {
+    if (isRevealed) {
+      setIsCanvasCleared(true);
     }
+  }, [isRevealed]);
 
+  // 弹窗打开时锁定背景滚动并监听 ESC
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+      scratchSound.stop();
+    };
+  }, [onClose]);
+
+  // 初始化弹窗 Canvas 涂层
+  const initCanvas = useCallback(() => {
+    if (isRevealed) return;
     const canvas = canvasRef.current;
-    const container = containerRef.current;
+    const container = cardContainerRef.current;
     if (!canvas || !container) return;
 
-    const width = Math.round(container.clientWidth) || 320;
-    const height = Math.round(container.clientHeight) || 180;
+    const width = Math.round(container.clientWidth) || 360;
+    const height = Math.round(container.clientHeight) || 220;
 
     canvas.width = width * window.devicePixelRatio;
     canvas.height = height * window.devicePixelRatio;
@@ -47,7 +194,6 @@ export function ScratchCard({
 
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
-    // 动态提取当前主题（含亮暗模式与强调色）解析后的真实色值
     const getResolvedColor = (el: HTMLElement | null, fallback: string): string => {
       if (!el) return fallback;
       const val = window.getComputedStyle(el).backgroundColor;
@@ -59,7 +205,7 @@ export function ScratchCard({
     const colorEnd = getResolvedColor(probeEndRef.current, "rgba(148, 163, 184, 0.96)");
     const inkColor = getResolvedColor(probeInkRef.current, "rgba(100, 116, 139, 0.5)");
 
-    // 1. 绘制带有当前主题微光的金属特种纸底膜
+    // 特种纸渐变涂层
     const grad = ctx.createLinearGradient(0, 0, width, height);
     grad.addColorStop(0, colorStart);
     grad.addColorStop(0.5, colorMid);
@@ -67,160 +213,106 @@ export function ScratchCard({
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
 
-    // 2. 绘制复古藏书票/特种纸票券内边框 (Archival Ticket Inset Border)
-    const inset = 10;
+    // 票券齿孔内边框
+    const inset = 12;
     const borderW = width - inset * 2;
     const borderH = height - inset * 2;
 
     ctx.save();
     ctx.strokeStyle = inkColor;
     ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]); // 细虚线邮票齿孔质感
+    ctx.setLineDash([4, 4]);
     ctx.strokeRect(inset, inset, borderW, borderH);
-    ctx.setLineDash([]); // 恢复实线
+    ctx.setLineDash([]);
 
-    // 四角 L 型校准标线 (Corner Registration Marks)
-    const markLen = 8;
+    // 四角 L 标线
+    const markLen = 10;
     ctx.beginPath();
-    // 左上
     ctx.moveTo(inset, inset + markLen);
     ctx.lineTo(inset, inset);
     ctx.lineTo(inset + markLen, inset);
-    // 右上
     ctx.moveTo(inset + borderW - markLen, inset);
     ctx.lineTo(inset + borderW, inset);
     ctx.lineTo(inset + borderW, inset + markLen);
-    // 左下
     ctx.moveTo(inset, inset + borderH - markLen);
     ctx.lineTo(inset, inset + borderH);
     ctx.lineTo(inset + markLen, inset + borderH);
-    // 右下
     ctx.moveTo(inset + borderW - markLen, inset + borderH);
     ctx.lineTo(inset + borderW, inset + borderH);
     ctx.lineTo(inset + borderW, inset + borderH - markLen);
     ctx.stroke();
 
-    // 3. 边角微型档案标识与时间戳 (JetBrains Mono 秩序感)
+    // 档案标识与时间
     ctx.fillStyle = inkColor;
-    ctx.font = '500 9px "JetBrains Mono", ui-monospace, Menlo, monospace';
+    ctx.font = '500 10px "JetBrains Mono", ui-monospace, Menlo, monospace';
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.fillText("ORBIT ARCHIVE", inset + 8, inset + 8);
+    ctx.fillText("ORBIT ARCHIVE", inset + 10, inset + 10);
 
     ctx.textAlign = "right";
     ctx.textBaseline = "bottom";
     const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, " · ");
-    ctx.fillText(todayStr, inset + borderW - 8, inset + borderH - 8);
+    ctx.fillText(todayStr, inset + borderW - 10, inset + borderH - 10);
 
-    // 4. 中心徽标：双星公转轨道与微星 (Orbit Astrolabe Motif)
+    // 双星徽标
     const cx = width / 2;
-    const cy = height / 2 - 12;
+    const cy = height / 2 - 14;
 
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate((-18 * Math.PI) / 180);
 
     ctx.beginPath();
-    ctx.ellipse(0, 0, 36, 14, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, 42, 16, 0, 0, Math.PI * 2);
     ctx.strokeStyle = inkColor;
-    ctx.lineWidth = 1.2;
+    ctx.lineWidth = 1.3;
     ctx.stroke();
 
-    // 双星节点 (Two Orbiting Planets)
     ctx.beginPath();
-    ctx.arc(36, 0, 3, 0, Math.PI * 2);
+    ctx.arc(42, 0, 3.4, 0, Math.PI * 2);
     ctx.fillStyle = inkColor;
     ctx.fill();
 
     ctx.beginPath();
-    ctx.arc(-36, 0, 2.2, 0, Math.PI * 2);
+    ctx.arc(-42, 0, 2.6, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.restore();
 
-    // 中心微星 (Center Star)
     ctx.fillStyle = inkColor;
-    ctx.font = '12px "Source Serif 4", "Songti SC", serif';
+    ctx.font = '14px "Source Serif 4", "Songti SC", serif';
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("✦", cx, cy);
 
-    // 5. 诗意主标题与提示 (Editorial Typography)
+    // 主标题
     const labelText = coverText || "拂 开 旧 时 光";
     ctx.fillStyle = inkColor;
-    ctx.font = '500 13px "Source Serif 4", "Songti SC", "Noto Serif SC", STSong, serif';
+    ctx.font = '500 16px "Source Serif 4", "Songti SC", "Noto Serif SC", STSong, serif';
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(labelText, cx, cy + 28);
-
-    ctx.font = '500 9px "JetBrains Mono", ui-monospace, monospace';
-    ctx.fillText("· 划 开 揭 晓 ·", cx, cy + 44);
+    ctx.fillText(labelText, cx, cy + 34);
 
     ctx.restore();
-  }, [isAlreadyRevealed, coverText]);
-
-  // 监听根节点主题或深浅色切换，实时动态重绘涂层
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      if (!isAlreadyRevealed && !isCleared) {
-        initCanvas();
-      }
-    });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class", "data-accent", "data-theme"],
-    });
-    return () => observer.disconnect();
-  }, [isAlreadyRevealed, isCleared, initCanvas]);
-
-  // 监听移动端屏幕旋转或容器宽度变化，精准更新画布尺寸
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const ro = new ResizeObserver(() => {
-      if (!isAlreadyRevealed && !isCleared) {
-        initCanvas();
-      }
-    });
-    ro.observe(container);
-    return () => ro.disconnect();
-  }, [isAlreadyRevealed, isCleared, initCanvas]);
+  }, [coverText, isRevealed]);
 
   useEffect(() => {
-    if (isAlreadyRevealed) {
-      setIsCleared(true);
-    } else {
-      setIsCleared(false);
-      initCanvas();
+    if (!isRevealed) {
+      const timer = setTimeout(initCanvas, 30);
+      return () => clearTimeout(timer);
     }
-  }, [seed, isAlreadyRevealed, initCanvas]);
+  }, [initCanvas, isRevealed]);
 
-  const scratch = (x: number, y: number) => {
+  const checkProgress = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || isCleared) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const clientX = x - rect.left;
-    const clientY = y - rect.top;
-
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.beginPath();
-    ctx.arc(clientX, clientY, 22, 0, Math.PI * 2);
-    ctx.fill();
-
-    checkProgress();
-  };
-
-  const checkProgress = () => {
-    const canvas = canvasRef.current;
-    if (!canvas || isCleared) return;
+    if (!canvas || isCanvasCleared || isRevealed) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const w = canvas.width;
     const h = canvas.height;
+    if (w === 0 || h === 0) return;
+
     const imageData = ctx.getImageData(0, 0, w, h);
     const pixels = imageData.data;
     let transparentCount = 0;
@@ -230,41 +322,171 @@ export function ScratchCard({
     }
 
     const totalSamples = pixels.length / 16;
-    if (transparentCount / totalSamples > 0.3) {
-      setIsCleared(true);
-      onScratchComplete?.();
+    if (transparentCount / totalSamples > 0.28) {
+      setIsCanvasCleared(true);
+      onScratchSuccess();
+    }
+  }, [isCanvasCleared, isRevealed, onScratchSuccess]);
+
+  const scratchStroke = useCallback(
+    (fromX: number, fromY: number, toX: number, toY: number) => {
+      const canvas = canvasRef.current;
+      if (!canvas || isCanvasCleared || isRevealed) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x1 = fromX - rect.left;
+      const y1 = fromY - rect.top;
+      const x2 = toX - rect.left;
+      const y2 = toY - rect.top;
+
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.lineWidth = 48;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      ctx.restore();
+
+      const dist = Math.hypot(toX - fromX, toY - fromY);
+      scratchSound.scratch(dist || 16);
+
+      const now = Date.now();
+      if (now - lastCheckTimeRef.current > 120) {
+        lastCheckTimeRef.current = now;
+        checkProgress();
+      }
+    },
+    [isCanvasCleared, isRevealed, checkProgress]
+  );
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isCanvasCleared || isRevealed) return;
+    if (!hasStartedScratching) {
+      setHasStartedScratching(true);
+    }
+    isScratchingRef.current = true;
+    lastPointRef.current = { x: e.clientX, y: e.clientY };
+    scratchStroke(e.clientX, e.clientY, e.clientX, e.clientY);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
     }
   };
 
-  const handlePointerDown = (e: React.PointerEvent) => {
-    setIsScratching(true);
-    scratch(e.clientX, e.clientY);
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isCanvasCleared || isRevealed || !isScratchingRef.current || !lastPointRef.current) return;
+    scratchStroke(lastPointRef.current.x, lastPointRef.current.y, e.clientX, e.clientY);
+    lastPointRef.current = { x: e.clientX, y: e.clientY };
   };
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isScratching) return;
-    scratch(e.clientX, e.clientY);
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    scratchSound.stop();
+    if (isScratchingRef.current) {
+      checkProgress();
+      try {
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    isScratchingRef.current = false;
+    lastPointRef.current = null;
   };
 
-  const handlePointerUp = () => {
-    setIsScratching(false);
+  const handleDirectClick = () => {
+    setIsCanvasCleared(true);
+    onDirectReveal();
   };
 
-  return (
-    <div ref={containerRef} className="orbit-scratch-container">
-      <span ref={probeStartRef} className="orbit-scratch-probe-start" aria-hidden />
-      <span ref={probeMidRef} className="orbit-scratch-probe-mid" aria-hidden />
-      <span ref={probeEndRef} className="orbit-scratch-probe-end" aria-hidden />
-      <span ref={probeInkRef} className="orbit-scratch-probe-ink" aria-hidden />
-      <div className="orbit-scratch-underneath">{children}</div>
-      <canvas
-        ref={canvasRef}
-        className={`orbit-scratch-canvas${isCleared ? " is-cleared" : ""}`}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-      />
-    </div>
+  return createPortal(
+    <div
+      className="orbit-scratch-modal-backdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="scratch-modal-title"
+    >
+      <div className="orbit-scratch-modal-dialog">
+        {/* 顶部关闭按钮 */}
+        <div className="orbit-scratch-modal-header">
+          <button
+            type="button"
+            className="orbit-scratch-modal-close"
+            onClick={onClose}
+            aria-label="关闭刮卡"
+          >
+            <CloseIcon size="sm" />
+          </button>
+        </div>
+
+        {/* 刮卡卡片本体 */}
+        <div ref={cardContainerRef} className="orbit-scratch-modal-card">
+          <span ref={probeStartRef} className="orbit-scratch-probe-start" aria-hidden />
+          <span ref={probeMidRef} className="orbit-scratch-probe-mid" aria-hidden />
+          <span ref={probeEndRef} className="orbit-scratch-probe-end" aria-hidden />
+          <span ref={probeInkRef} className="orbit-scratch-probe-ink" aria-hidden />
+
+          <div className="orbit-scratch-underneath">{children}</div>
+
+          {!isRevealed && (
+            <canvas
+              ref={canvasRef}
+              className={`orbit-scratch-modal-canvas${isCanvasCleared ? " is-cleared" : ""}`}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+            />
+          )}
+
+          {/* 拟态手势滑动引导 (触碰即隐) */}
+          {!hasStartedScratching && !isCanvasCleared && !isRevealed && (
+            <div className="orbit-scratch-guide-cue" aria-hidden>
+              <div className="orbit-scratch-guide-hand">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="orbit-scratch-guide-svg"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M8 13v-7.5a1.5 1.5 0 0 1 3 0v6.5" />
+                  <path d="M11 10.5v-2a1.5 1.5 0 0 1 3 0v3.5" />
+                  <path d="M14 11v-1a1.5 1.5 0 0 1 3 0v4.5" />
+                  <path d="M17 12.5a1.5 1.5 0 0 1 3 0v4a6 6 0 0 1-6 6h-2a6 6 0 0 1-4.24-1.76l-4.24-4.24a1.5 1.5 0 0 1 2.12-2.12L8 16.5" />
+                </svg>
+                <span className="orbit-scratch-guide-ripple" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 底部辅助操作（未揭晓时提供直接翻开） */}
+        {!isRevealed && !isCanvasCleared && (
+          <div className="orbit-scratch-modal-footer">
+            <button
+              type="button"
+              className="orbit-scratch-modal-reveal-btn"
+              onClick={handleDirectClick}
+            >
+              直接翻开回忆
+            </button>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
   );
 }

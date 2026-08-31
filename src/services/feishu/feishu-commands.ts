@@ -4,6 +4,7 @@ import { entry } from "../../db/schema.js";
 import { toPlainText } from "../../lib/plain-text.js";
 import { createSearchService } from "../content/search.js";
 import { resolveModel, type AiRuntimeEnv } from "../ai/ai-model.js";
+import { buildMonthReviewPrompt } from "../ai/prompts/index.js";
 
 const BEIJING_OFFSET_SECONDS = 8 * 3600;
 
@@ -133,9 +134,10 @@ export async function buildMonthAiSummary(
 
   try {
     const { model } = await resolveModel(db, aiEnv);
+    const prompt = buildMonthReviewPrompt({ year, month, corpus });
     const { text } = await generateText({
       model,
-      prompt: `你是情侣空间 Orbit 的助理。请根据以下${year}年${month}月的内容记录，写一段 200 字以内的温暖回顾摘要，中文，不要编造未出现的事实：\n\n${corpus}`,
+      prompt,
     });
     return `${year}年${month}月 AI 回顾\n\n${text.trim()}`;
   } catch {

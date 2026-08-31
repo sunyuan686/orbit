@@ -197,7 +197,6 @@ export function NotificationsSettingsPanel() {
       <Section title="节流">
         <Field
           label="评论合并窗口（分钟）"
-          hint="同篇文章在窗口内的多条评论合并为一条站内/飞书通知。"
         >
           <Input
             type="number"
@@ -216,18 +215,10 @@ export function NotificationsSettingsPanel() {
       </Section>
 
       {showPushSection ? (
-        <Section title="手机推送">
-          <Field
-            hint={
-              !isStandalone
-                ? "请先将 Orbit 添加到主屏幕，然后从主屏幕打开再开启推送（iOS 要求）。"
-                : !VAPID_PUBLIC_KEY
-                ? "当前环境尚未配置 Web Push 密钥，暂无法开启推送。"
-                : isSubscribed
-                ? "当前设备已订阅推送，关闭后本设备将不再收到推送。"
-                : "开启后，对方更新内容时本设备会收到系统通知。"
-            }
-          >
+        <Section
+          title="手机推送"
+        >
+          <div style={{ paddingTop: "0.25rem" }}>
             {!isStandalone ? (
               <Button
                 type="button"
@@ -270,7 +261,7 @@ export function NotificationsSettingsPanel() {
                 开启手机推送
               </Button>
             )}
-          </Field>
+          </div>
         </Section>
       ) : null}
 

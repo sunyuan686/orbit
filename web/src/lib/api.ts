@@ -139,7 +139,7 @@ export function formatDateTime(ts: number): string {
 /** 格式化 Unix 时间戳为中文日期（北京时间日界，用于标题区展示） */
 export function formatDateCn(ts: number): string {
   const { y, m, day } = beijingDateParts(ts);
-  return `${y}年${m}月${day}日`;
+  return `${y} 年 ${m} 月 ${day} 日`;
 }
 
 const WEEKDAYS = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
@@ -1429,7 +1429,7 @@ export function formatSpaceTagline(profile: SpaceProfile | null | undefined): st
 
 export function formatAnniversaryCn(isoDate: string): string {
   const [year, month, day] = isoDate.split("-").map(Number);
-  return `${year}年${month}月${day}日`;
+  return `${year} 年 ${month} 月 ${day} 日`;
 }
 
 /** Client-side preview; mirrors server computeDaysTogether */

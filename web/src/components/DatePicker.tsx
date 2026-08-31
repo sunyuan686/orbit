@@ -38,75 +38,6 @@ const MONTH_NAMES = [
   "12月",
 ];
 
-function parseDateString(str: string): Date | null {
-  if (!str) return null;
-  const s = str.trim();
-
-  // 1. YYYYMMDD
-  if (/^\d{8}$/.test(s)) {
-    const y = parseInt(s.slice(0, 4), 10);
-    const m = parseInt(s.slice(4, 6), 10);
-    const d = parseInt(s.slice(6, 8), 10);
-    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
-      const date = new Date(y, m - 1, d);
-      if (
-        date.getFullYear() === y &&
-        date.getMonth() === m - 1 &&
-        date.getDate() === d
-      ) {
-        return date;
-      }
-    }
-  }
-
-  // 2. YYYY年M月D日 or YYYY年MM月DD日
-  const cnMatch = s.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日?$/);
-  if (cnMatch) {
-    const y = parseInt(cnMatch[1], 10);
-    const m = parseInt(cnMatch[2], 10);
-    const d = parseInt(cnMatch[3], 10);
-    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
-      const date = new Date(y, m - 1, d);
-      if (
-        date.getFullYear() === y &&
-        date.getMonth() === m - 1 &&
-        date.getDate() === d
-      ) {
-        return date;
-      }
-    }
-  }
-
-  // 3. YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD
-  const parts = s.split(/[-/.]/);
-  if (parts.length === 3) {
-    const y = parseInt(parts[0], 10);
-    const m = parseInt(parts[1], 10);
-    const d = parseInt(parts[2], 10);
-    if (
-      !isNaN(y) &&
-      !isNaN(m) &&
-      !isNaN(d) &&
-      y > 1000 &&
-      m >= 1 &&
-      m <= 12 &&
-      d >= 1 &&
-      d <= 31
-    ) {
-      const date = new Date(y, m - 1, d);
-      if (
-        date.getFullYear() === y &&
-        date.getMonth() === m - 1 &&
-        date.getDate() === d
-      ) {
-        return date;
-      }
-    }
-  }
-
-  return null;
-}
-
 export function DatePicker({
   id,
   value,
@@ -121,7 +52,6 @@ export function DatePicker({
   const triggerId = id ?? fallbackId;
   const popoverId = `${triggerId}-popover`;
   const rootRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const [open, setOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("day");
@@ -130,8 +60,6 @@ export function DatePicker({
 
   // Month navigation state
   const [month, setMonth] = useState<Date>(() => selected ?? new Date());
-  // Input string state
-  const [inputText, setInputText] = useState(value);
 
   // Year range start for "year" grid mode (12 years per page)
   const [yearPageStart, setYearPageStart] = useState<number>(() => {
@@ -139,37 +67,23 @@ export function DatePicker({
     return Math.floor(y / 12) * 12;
   });
 
-  const [isTouch, setIsTouch] = useState(false);
-
-  useEffect(() => {
-    const updateTouch = () => {
-      setIsTouch(
-        window.matchMedia("(pointer: coarse)").matches ||
-          "ontouchstart" in window ||
-          navigator.maxTouchPoints > 0 ||
-          window.innerWidth <= 640
-      );
-    };
-    updateTouch();
-    window.addEventListener("resize", updateTouch);
-    return () => window.removeEventListener("resize", updateTouch);
-  }, []);
-
   // Lock body scrolling when open on mobile
   useEffect(() => {
     if (!open) return;
-    if (isTouch || window.innerWidth <= 640) {
+    const isMobile =
+      window.innerWidth <= 640 ||
+      window.matchMedia("(pointer: coarse)").matches;
+    if (isMobile) {
       const prevOverflow = document.body.style.overflow;
       document.body.style.overflow = "hidden";
       return () => {
         document.body.style.overflow = prevOverflow;
       };
     }
-  }, [open, isTouch]);
+  }, [open]);
 
-  // Sync inputText and month when value prop changes externally
+  // Sync month when value prop changes externally
   useEffect(() => {
-    setInputText(value);
     const date = parseIsoDate(value);
     if (date) {
       setMonth(date);
@@ -180,96 +94,46 @@ export function DatePicker({
   useEffect(() => {
     if (!open) return;
 
-    function handlePointerDown(event: MouseEvent | TouchEvent) {
+    function handlePointerDown(event: PointerEvent) {
       const target = event.target;
       if (!(target instanceof Node)) return;
       if (rootRef.current?.contains(target)) return;
       setOpen(false);
       setViewMode("day");
-      // Validate on blur / close
-      if (inputText.trim() === "" && allowClear) {
-        onChange("");
-      } else if (value) {
-        setInputText(value);
-      } else {
-        setInputText("");
-      }
     }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setOpen(false);
         setViewMode("day");
-        setInputText(value || "");
       }
     }
 
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("touchstart", handlePointerDown);
+    document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("touchstart", handlePointerDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, inputText, value, allowClear, onChange]);
+  }, [open]);
 
   function selectDate(date: Date) {
     const iso = toIsoDate(date);
     onChange(iso);
-    setInputText(iso);
     setMonth(date);
     setOpen(false);
     setViewMode("day");
   }
 
-  function handleInputChange(text: string) {
-    setInputText(text);
-    const parsed = parseDateString(text);
-    if (parsed) {
-      const iso = toIsoDate(parsed);
-      onChange(iso);
-      setMonth(parsed);
-      setYearPageStart(Math.floor(parsed.getFullYear() / 12) * 12);
-    }
-  }
-
-  function handleInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      const parsed = parseDateString(inputText);
-      if (parsed) {
-        selectDate(parsed);
-      } else if (inputText.trim() === "" && allowClear) {
-        onChange("");
-        setOpen(false);
-        setViewMode("day");
-      } else {
-        setInputText(value || "");
-        setOpen(false);
-        setViewMode("day");
-      }
-    }
-  }
-
   function handleClear(e: React.MouseEvent) {
     e.stopPropagation();
     onChange("");
-    setInputText("");
     setOpen(false);
     setViewMode("day");
   }
 
   function handleTriggerClick() {
-    if (!open) {
-      setOpen(true);
-      if (!isTouch) {
-        inputRef.current?.focus();
-      }
-    } else {
-      setOpen(false);
-      setViewMode("day");
-    }
+    setOpen((prev) => !prev);
   }
 
   const currentYear = month.getFullYear();
@@ -280,42 +144,57 @@ export function DatePicker({
       ref={rootRef}
       className={`orbit-date-picker ${variant === "inline" ? "orbit-date-picker--inline" : ""} ${className}`.trim()}
     >
-      <div
-        className={`orbit-date-picker-trigger ${open ? "orbit-date-picker-trigger--open" : ""}`}
-        onClick={handleTriggerClick}
-      >
-        <CalendarIcon size="sm" className="orbit-date-picker-trigger-icon" />
-        <input
-          ref={inputRef}
+      {variant === "inline" ? (
+        <button
+          type="button"
           id={triggerId}
-          type="text"
-          readOnly={isTouch}
-          inputMode={isTouch ? "none" : "text"}
-          className="orbit-date-picker-input"
-          value={inputText}
-          placeholder={placeholder}
-          aria-label={ariaLabel}
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-controls={popoverId}
-          onFocus={() => {
-            if (!isTouch) setOpen(true);
-          }}
-          onChange={(e) => handleInputChange(e.target.value)}
-          onKeyDown={handleInputKeyDown}
-        />
-        {allowClear && value ? (
-          <button
-            type="button"
-            className="orbit-date-picker-clear-btn"
-            aria-label="清除日期"
-            title="清除日期"
-            onClick={handleClear}
+          aria-label={ariaLabel}
+          className={`orbit-date-picker-trigger orbit-date-picker-trigger--inline ${open ? "orbit-date-picker-trigger--open" : ""}`}
+          onClick={handleTriggerClick}
+        >
+          <CalendarIcon size="sm" className="orbit-date-picker-trigger-icon" />
+          <span className="orbit-date-picker-text">{value || placeholder}</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          id={triggerId}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={popoverId}
+          aria-label={ariaLabel}
+          className={`orbit-date-picker-trigger ${open ? "orbit-date-picker-trigger--open" : ""}`}
+          onClick={handleTriggerClick}
+        >
+          <CalendarIcon size="sm" className="orbit-date-picker-trigger-icon" />
+          <span
+            className={`orbit-date-picker-label ${value ? "orbit-date-picker-label--filled" : "orbit-date-picker-label--placeholder"}`}
           >
-            <CloseIcon size="sm" />
-          </button>
-        ) : null}
-      </div>
+            {value || placeholder}
+          </span>
+          {allowClear && value ? (
+            <span
+              role="button"
+              tabIndex={0}
+              className="orbit-date-picker-clear-btn"
+              aria-label="清除日期"
+              title="清除日期"
+              onClick={handleClear}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleClear(e as unknown as React.MouseEvent);
+                }
+              }}
+            >
+              <CloseIcon size="sm" />
+            </span>
+          ) : null}
+        </button>
+      )}
 
       {open ? (
         <>
@@ -326,13 +205,6 @@ export function DatePicker({
               e.stopPropagation();
               setOpen(false);
               setViewMode("day");
-              if (inputText.trim() === "" && allowClear) {
-                onChange("");
-              } else if (value) {
-                setInputText(value);
-              } else {
-                setInputText("");
-              }
             }}
           />
           <div
@@ -489,8 +361,7 @@ export function DatePicker({
                 if (date) selectDate(date);
               }}
               hideNavigation
-              showOutsideDays
-              fixedWeeks
+              showOutsideDays={false}
               className="orbit-date-picker-calendar"
               components={{
                 MonthCaption: () => <span style={{ display: "none" }} />,
@@ -552,20 +423,19 @@ export function DatePicker({
             >
               今天
             </button>
-            {allowClear && value ? (
-              <button
-                type="button"
-                className="orbit-date-picker-footer-btn orbit-date-picker-footer-btn--muted"
-                onClick={() => {
-                  onChange("");
-                  setInputText("");
-                  setOpen(false);
-                  setViewMode("day");
-                }}
-              >
-                清除
-              </button>
-            ) : null}
+              {allowClear && value ? (
+                <button
+                  type="button"
+                  className="orbit-date-picker-footer-btn orbit-date-picker-footer-btn--muted"
+                  onClick={() => {
+                    onChange("");
+                    setOpen(false);
+                    setViewMode("day");
+                  }}
+                >
+                  清除
+                </button>
+              ) : null}
           </div>
         </div>
       </>

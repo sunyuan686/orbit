@@ -120,7 +120,6 @@ export function CompanionSettingsPanel() {
         <Section title="总开关">
           <Field
             label="主动陪伴"
-            hint="开启后会在合适时间发送回忆、里程碑、温柔摘要与本周回顾。"
           >
             <Toggle
               checked={draft.enabled}
@@ -134,7 +133,6 @@ export function CompanionSettingsPanel() {
           <div className="orbit-settings-fields">
             <Field
               label="触达时间范围"
-              hint="非固定触达会在这个范围内动态发生；超出范围只排程不发送。"
             >
               <div className="orbit-settings-time-pair">
                 <label>
@@ -161,7 +159,6 @@ export function CompanionSettingsPanel() {
             <Field
               label="偏好时间"
               htmlFor="settings-companion-preferred-time"
-              hint="固定型陪伴优先靠近这个时间，非固定型陪伴仍会在触达范围内灵活出现。"
             >
               <Input
                 id="settings-companion-preferred-time"
@@ -177,7 +174,6 @@ export function CompanionSettingsPanel() {
         <Section title="安静时段">
           <Field
             label="不打扰时间"
-            hint="这段时间内不会主动发送陪伴内容，跨午夜时间段可直接配置。"
           >
             <div className="orbit-settings-time-pair">
               <label>
@@ -205,7 +201,6 @@ export function CompanionSettingsPanel() {
         <Section title="调度状态">
           <Field
             label="下次检查时间"
-            hint="保存后会重新计算；部署后第一次需要调用 bootstrap 才会有排程。"
           >
             <p className="orbit-settings-readonly-value">{nextAlarmText}</p>
           </Field>

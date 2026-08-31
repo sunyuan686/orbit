@@ -211,7 +211,7 @@ export function HomePage() {
       setCustomCard(res.card);
       setScratchSeed(`${res.card.id}-${Date.now()}`);
       setIsRoamRevealed(false);
-    } catch (err) {
+    } catch {
       toast.error("抽取失败，请重试");
     } finally {
       setIsDrawingRoam(false);
@@ -310,20 +310,24 @@ export function HomePage() {
               <div className="orbit-scratch-skeleton" aria-hidden />
             ) : currentCard ? (
               <>
-                <button
-                  type="button"
-                  className={`orbit-scratch-float-btn${isDrawingRoam ? " is-spinning" : ""}`}
-                  onClick={handleDrawRoamCard}
-                  disabled={isDrawingRoam}
-                  title="换一段记忆"
-                  aria-label="换一段记忆"
-                >
-                  <RefreshIcon size="sm" />
-                </button>
+                {isCurrentRevealed && (
+                  <button
+                    type="button"
+                    className={`orbit-scratch-float-btn${isDrawingRoam ? " is-spinning" : ""}`}
+                    onClick={handleDrawRoamCard}
+                    disabled={isDrawingRoam}
+                    title="换一段记忆"
+                    aria-label="换一段记忆"
+                  >
+                    <RefreshIcon size="sm" />
+                  </button>
+                )}
                 <ScratchCard
                   seed={scratchSeed}
                   isAlreadyRevealed={isCurrentRevealed}
                   onScratchComplete={handleScratchComplete}
+                  coverText={isCurrentCardDaily ? "拂 开 旧 时 光" : "时 光 漫 游"}
+                  autoOpenModal={!isCurrentRevealed && Boolean(customCard)}
                 >
                   <div className="orbit-scratch-card-body">
                     <div className="orbit-scratch-card-top">

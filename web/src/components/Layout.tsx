@@ -72,6 +72,10 @@ function LayoutShell() {
     segments.length === 2 &&
     isValidEntryType(segments[0]) &&
     segments[1] !== "new";
+  const isEditorRoute =
+    location.pathname.endsWith("/edit") ||
+    (segments.length >= 2 && segments[1] === "new");
+  const isImmersiveRoute = isEditorRoute || isEntryDetailRoute;
 
   const aiContext: AiChatContext = isEntryDetailRoute
     ? { mode: "article", articleId: segments[1] }
@@ -367,7 +371,11 @@ function LayoutShell() {
       />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="orbit-header-bar flex items-center justify-between px-4 md:px-6 py-2.5">
+        <header
+          className={`orbit-header-bar flex items-center justify-between px-4 md:px-6 py-2.5 ${
+            isImmersiveRoute ? "hidden md:flex" : ""
+          }`}
+        >
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
               type="button"
@@ -412,21 +420,27 @@ function LayoutShell() {
             </Link>
             <NotificationBell />
             <button
-            onClick={() => {
-              const order: Theme[] = ["light", "dark", "system"];
-              const next = order[(order.indexOf(theme) + 1) % order.length];
-              setTheme(next);
-            }}
-            className="orbit-icon-btn inline-flex p-1.5 cursor-pointer"
-            title={theme === "light" ? "浅色模式" : theme === "dark" ? "深色模式" : "跟随系统"}
-            aria-label="切换主题"
-          >
-            {themeIcons[theme]}
-          </button>
+              onClick={() => {
+                const order: Theme[] = ["light", "dark", "system"];
+                const next = order[(order.indexOf(theme) + 1) % order.length];
+                setTheme(next);
+              }}
+              className="orbit-icon-btn inline-flex p-1.5 cursor-pointer"
+              title={theme === "light" ? "浅色模式" : theme === "dark" ? "深色模式" : "跟随系统"}
+              aria-label="切换主题"
+            >
+              {themeIcons[theme]}
+            </button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto px-4 md:px-8 py-6 md:py-8">
+        <main
+          className={`flex-1 overflow-y-auto px-4 md:px-8 ${
+            isImmersiveRoute
+              ? "orbit-main--immersive py-3 md:py-8"
+              : "py-6 md:py-8"
+          }`}
+        >
           <RouteErrorBoundary>
             <Outlet />
           </RouteErrorBoundary>

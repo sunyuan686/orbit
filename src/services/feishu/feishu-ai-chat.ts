@@ -14,6 +14,7 @@ import {
   extractTextFromParts,
   generateAiId,
 } from "../ai/ai-chat-store.js";
+import { formatToolDisplayName } from "../ai/ai-tools.js";
 import {
   findPendingWriteContentApprovals,
   buildWriteContentResultCard,
@@ -35,6 +36,7 @@ import {
   prepareAiChatAgent,
   streamAiChat,
 } from "../ai/ai-chat-runtime.js";
+import { buildFeishuPromptSuffix } from "../ai/prompts/index.js";
 import {
   enrichFeishuGroupMessagesForModel,
   stripFeishuSpeakerPrefix,
@@ -171,21 +173,13 @@ export interface ToolCallLog {
   resultSummary?: string;
 }
 
-const TOOL_DISPLAY_NAMES: Record<string, string> = {
-  search_entries: "🔍 空间记录检索",
-  get_entry: "📖 读取条目全文",
-  list_memos: "📋 浏览备忘录",
-  write_content: "✍️ 写入空间内容",
-  web_search: "🌐 互联网全网搜索",
-};
-
 export function formatToolCallLogs(logs: ToolCallLog[]): string {
   if (logs.length === 0) return "";
 
   const lines = logs.map((log) => {
     const icon = log.status === "executing" ? "⚙️" : log.status === "completed" ? "✅" : "❌";
     const statusText = log.status === "executing" ? "正在执行..." : log.status === "completed" ? "已完成" : "执行失败";
-    const name = TOOL_DISPLAY_NAMES[log.toolName] ?? `🛠️ ${log.toolName}`;
+    const name = formatToolDisplayName(log.toolName);
     let text = `${icon} **${name}** (${statusText})`;
     if (log.args && Object.keys(log.args).length > 0) {
       text += `\n> 📥 **参数:** \`${JSON.stringify(log.args)}\``;
@@ -199,28 +193,8 @@ export function formatToolCallLogs(logs: ToolCallLog[]): string {
   return lines.join("\n\n") + "\n---";
 }
 
-const FEISHU_SYSTEM_PROMPT_SUFFIX =
-  "\n\n提示：你正在通过飞书与用户对话。如果回复中包含站内链接，请直接给出完整 URL。需要写入空间内容时直接调用 write_content，不要用文字向用户索要确认（飞书会自动弹出确认卡片）。写入成功后给出完整 URL；用户取消写入时告知已取消。";
-
 const FEISHU_PENDING_WRITE_APPROVAL_NOTE =
   "请在下方卡片中点击「确认写入」或「取消」。";
-
-const FEISHU_GROUP_SYSTEM_PROMPT_SUFFIX =
-  "\n\n提示：当前为群聊，多条用户消息可能来自不同成员。每条用户消息以「姓名:」开头标识说话人，请根据该前缀区分是谁在说话。";
-
-const FEISHU_P2P_SYSTEM_PROMPT_SUFFIX =
-  "\n\n提示：当前为飞书单聊，你正在与「{name}」单独对话。请用「你」称呼对方，不要同时对空间两位成员使用「你们」或向两人一并打招呼；除非对方明确问起另一位成员。";
-
-function buildFeishuPromptSuffix(
-  chatType: string | undefined,
-  actorName: string
-): string {
-  if (chatType === "group") {
-    return `${FEISHU_SYSTEM_PROMPT_SUFFIX}${FEISHU_GROUP_SYSTEM_PROMPT_SUFFIX}`;
-  }
-  const name = actorName.trim() || "用户";
-  return `${FEISHU_SYSTEM_PROMPT_SUFFIX}${FEISHU_P2P_SYSTEM_PROMPT_SUFFIX.replace("{name}", name)}`;
-}
 
 const FEISHU_AI_TIMEOUT_CARD_MESSAGE =
   "⏱️ **响应超时**\n\n已自动结束本次处理，你可以继续发送新消息。\n\n发送 **/reset** 可清空对话重新开始。";
@@ -585,7 +559,7 @@ async function runFeishuAgentTurn(options: {
           const res = step.toolResults?.find((tr) => tr.toolCallId === tc.toolCallId);
           toolLogs.push({
             toolName: tc.toolName,
-            toolDisplayName: TOOL_DISPLAY_NAMES[tc.toolName] ?? `🛠️ ${tc.toolName}`,
+            toolDisplayName: formatToolDisplayName(tc.toolName),
             args: (tc as any).args as Record<string, any>,
             status: res ? "completed" : "executing",
             resultSummary: res ? JSON.stringify((res as any).result).slice(0, 200) : undefined,

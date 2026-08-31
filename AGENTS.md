@@ -21,7 +21,7 @@
 - UI 优先级：先解决信息层级、可读性和交互效率，再考虑视觉表现。
 
 ### UI 与设计
-遵循 [DESIGN.md](DESIGN.md) 与 [docs/guides/palette-and-typography.md](docs/guides/palette-and-typography.md)，追求纸质刊物的温度与克制美：
+遵循 [DESIGN.md](DESIGN.md) 与 [docs/guides/palette-and-typography.md](docs/guides/palette-and-typography.md)，追求留白简单的克制美：
 - **60-30-10 黄金色彩法则**：
   - 60% 画布与负空间（月石清白 `--bg` + 5% 纸质微颗粒 + 纯白 `--surface` 卡片）；
   - 30% 墨水排版骨架（标题与正文 `--text-primary`/`--text-secondary` + 1px 中性分割线 `--border` + 单色中性图标）；

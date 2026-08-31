@@ -531,165 +531,155 @@ export function SettingsPage() {
 
               {/* 1. 品牌主题色 */}
               <Section title="主题色">
-                <Field hint="用于高光按钮、金句引线与状态圆点。">
-                  <div
-                    className="orbit-settings-theme-grid"
-                    role="radiogroup"
-                    aria-label="主题色"
-                  >
-                    {ACCENT_PRESET_LIST.map((preset) => {
-                      const isSelected = accentPreset === preset.id;
-                      return (
-                        <button
-                          key={preset.id}
-                          type="button"
-                          role="radio"
-                          aria-checked={isSelected}
-                          className={`orbit-theme-card${isSelected ? " orbit-theme-card--active" : ""}`}
-                          onClick={() => handleAccentSelect(preset.id)}
-                        >
-                          <div className="orbit-theme-card-header">
-                            <span
-                              className="orbit-theme-card-dot"
-                              style={{ backgroundColor: preset.colorPreview }}
-                              aria-hidden="true"
-                            />
-                            <span className="orbit-theme-card-title">{preset.label}</span>
-                          </div>
-                          <span className="orbit-theme-card-desc">{preset.subLabel}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </Field>
+                <div
+                  className="orbit-settings-theme-grid"
+                  role="radiogroup"
+                  aria-label="主题色"
+                >
+                  {ACCENT_PRESET_LIST.map((preset) => {
+                    const isSelected = accentPreset === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        className={`orbit-theme-card${isSelected ? " orbit-theme-card--active" : ""}`}
+                        onClick={() => handleAccentSelect(preset.id)}
+                      >
+                        <div className="orbit-theme-card-header">
+                          <span
+                            className="orbit-theme-card-dot"
+                            style={{ backgroundColor: preset.colorPreview }}
+                            aria-hidden="true"
+                          />
+                          <span className="orbit-theme-card-title">{preset.label}</span>
+                        </div>
+                        <span className="orbit-theme-card-desc">{preset.subLabel}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </Section>
 
               {/* 2. 画布底色 */}
               <Section title="纸张底色">
-                <Field hint="全站背景与卡片容器的纸张色温。">
-                  <div
-                    className="orbit-settings-canvas-grid"
-                    role="radiogroup"
-                    aria-label="纸张底色"
-                  >
-                    {CANVAS_BG_LIST.map((bg) => {
-                      const isSelected = canvasBg === bg.id;
-                      return (
-                        <button
-                          key={bg.id}
-                          type="button"
-                          role="radio"
-                          aria-checked={isSelected}
-                          className={`orbit-canvas-card${isSelected ? " orbit-canvas-card--active" : ""}`}
-                          onClick={() => handleCanvasBgSelect(bg.id)}
-                        >
-                          <div className="orbit-canvas-card-meta">
-                            <span
-                              className="orbit-canvas-card-swatch"
-                              style={{ backgroundColor: bg.colorPreview }}
-                              aria-hidden="true"
-                            />
-                            <span className="orbit-canvas-card-title">{bg.label}</span>
-                          </div>
-                          <span className="orbit-canvas-card-desc">{bg.desc}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </Field>
+                <div
+                  className="orbit-settings-canvas-grid"
+                  role="radiogroup"
+                  aria-label="纸张底色"
+                >
+                  {CANVAS_BG_LIST.map((bg) => {
+                    const isSelected = canvasBg === bg.id;
+                    return (
+                      <button
+                        key={bg.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        className={`orbit-canvas-card${isSelected ? " orbit-canvas-card--active" : ""}`}
+                        onClick={() => handleCanvasBgSelect(bg.id)}
+                      >
+                        <div className="orbit-canvas-card-meta">
+                          <span
+                            className="orbit-canvas-card-swatch"
+                            style={{ backgroundColor: bg.colorPreview }}
+                            aria-hidden="true"
+                          />
+                          <span className="orbit-canvas-card-title">{bg.label}</span>
+                        </div>
+                        <span className="orbit-canvas-card-desc">{bg.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </Section>
 
               {/* 3. 排版风格 */}
               <Section title="排版风格">
-                <Field hint="全站标题与正文字体风格。">
-                  <div
-                    className="orbit-settings-font-grid"
-                    role="radiogroup"
-                    aria-label="排版风格"
-                  >
-                    {FONT_MODE_LIST.map((mode) => {
-                      const isSelected = fontMode === mode.id;
-                      return (
-                        <button
-                          key={mode.id}
-                          type="button"
-                          role="radio"
-                          aria-checked={isSelected}
-                          className={`orbit-font-card${isSelected ? " orbit-font-card--active" : ""}`}
-                          onClick={() => handleFontModeSelect(mode.id)}
-                        >
-                          <div className="orbit-font-card-meta">
-                            <span className="orbit-font-card-title">{mode.label}</span>
-                            <span className="orbit-font-card-badge">{mode.subLabel}</span>
-                          </div>
-                          <span className="orbit-font-card-desc">{mode.desc}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </Field>
+                <div
+                  className="orbit-settings-font-grid"
+                  role="radiogroup"
+                  aria-label="排版风格"
+                >
+                  {FONT_MODE_LIST.map((mode) => {
+                    const isSelected = fontMode === mode.id;
+                    return (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        className={`orbit-font-card${isSelected ? " orbit-font-card--active" : ""}`}
+                        onClick={() => handleFontModeSelect(mode.id)}
+                      >
+                        <div className="orbit-font-card-meta">
+                          <span className="orbit-font-card-title">{mode.label}</span>
+                          <span className="orbit-font-card-badge">{mode.subLabel}</span>
+                        </div>
+                        <span className="orbit-font-card-desc">{mode.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </Section>
 
               {/* 4. 阅读字号 */}
               <Section title="阅读字号">
-                <Field hint="长篇日记与正文字阶大小。">
-                  <div
-                    className="orbit-settings-fontsize-grid"
-                    role="radiogroup"
-                    aria-label="阅读字号"
-                  >
-                    {FONT_SIZE_LIST.map((size) => {
-                      const isSelected = fontSize === size.id;
-                      return (
-                        <button
-                          key={size.id}
-                          type="button"
-                          role="radio"
-                          aria-checked={isSelected}
-                          className={`orbit-fontsize-card${isSelected ? " orbit-fontsize-card--active" : ""}`}
-                          onClick={() => handleFontSizeSelect(size.id)}
-                        >
-                          <span className="orbit-fontsize-card-title">{size.label}</span>
-                          <span className="orbit-fontsize-card-desc">{size.desc}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </Field>
+                <div
+                  className="orbit-settings-fontsize-grid"
+                  role="radiogroup"
+                  aria-label="阅读字号"
+                >
+                  {FONT_SIZE_LIST.map((size) => {
+                    const isSelected = fontSize === size.id;
+                    return (
+                      <button
+                        key={size.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        className={`orbit-fontsize-card${isSelected ? " orbit-fontsize-card--active" : ""}`}
+                        onClick={() => handleFontSizeSelect(size.id)}
+                      >
+                        <span className="orbit-fontsize-card-title">{size.label}</span>
+                        <span className="orbit-fontsize-card-desc">{size.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </Section>
 
               {/* 5. 纸质微颗粒感 */}
               <Section title="纸张微颗粒">
-                <Field hint="为画布增加细腻的纸质触感。">
-                  <div className="orbit-grain-control-wrap">
-                    <div className="orbit-grain-presets-row">
-                      {GRAIN_PRESETS.map((preset) => (
-                        <button
-                          key={preset.val}
-                          type="button"
-                          className={`orbit-chip-btn${Math.abs(grainOpacity - preset.val) < 0.005 ? " orbit-chip-btn--active" : ""}`}
-                          onClick={() => handleGrainChange(preset.val)}
-                        >
-                          {preset.label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="orbit-grain-slider-row">
-                      <input
-                        type="range"
-                        className="orbit-grain-slider"
-                        min="0"
-                        max="15"
-                        step="0.5"
-                        value={Math.round(grainOpacity * 1000) / 10}
-                        onChange={(e) => handleGrainChange(parseFloat(e.target.value) / 100)}
-                      />
-                      <span className="orbit-grain-val-text">
-                        {(grainOpacity * 100).toFixed(1)}%
-                      </span>
-                    </div>
+                <div className="orbit-grain-control-wrap">
+                  <div className="orbit-grain-presets-row">
+                    {GRAIN_PRESETS.map((preset) => (
+                      <button
+                        key={preset.val}
+                        type="button"
+                        className={`orbit-chip-btn${Math.abs(grainOpacity - preset.val) < 0.005 ? " orbit-chip-btn--active" : ""}`}
+                        onClick={() => handleGrainChange(preset.val)}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
                   </div>
-                </Field>
+                  <div className="orbit-grain-slider-row">
+                    <input
+                      type="range"
+                      className="orbit-grain-slider"
+                      min="0"
+                      max="15"
+                      step="0.5"
+                      value={Math.round(grainOpacity * 1000) / 10}
+                      onChange={(e) => handleGrainChange(parseFloat(e.target.value) / 100)}
+                    />
+                    <span className="orbit-grain-val-text">
+                      {(grainOpacity * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
               </Section>
             </>
           ) : null}
@@ -709,7 +699,6 @@ export function SettingsPage() {
                 >
                   <Field
                     label="内容署名"
-                    hint="用于日记、信箱与留言板的内容署名，修改后历史内容展示会同步更新。"
                   >
                     <Stack direction="row" gap="sm" align="center" style={{ maxWidth: "20rem" }}>
                       <Input
@@ -747,7 +736,6 @@ export function SettingsPage() {
                 <Section title="邀请另一半">
                   <Field
                     label="专属邀请链接"
-                    hint="有效期 7 天，使用后失效。请复制链接发给对方。"
                   >
                     {inviteUrl ? (
                       <div className="orbit-settings-inline-form orbit-settings-inline-form--wide">
@@ -800,7 +788,6 @@ export function SettingsPage() {
                 >
                   <Field
                     label="登录邮箱"
-                    hint="用于登录空间与接收通知。"
                   >
                     <div className="orbit-settings-inline-form">
                       <Input
@@ -838,7 +825,6 @@ export function SettingsPage() {
                   <Stack gap="md">
                     <Field
                       label="当前密码"
-                      hint="请输入当前正在使用的账户密码。"
                     >
                       <div className="orbit-password-input-wrapper">
                         <Input
@@ -863,7 +849,6 @@ export function SettingsPage() {
 
                     <Field
                       label="设置新密码"
-                      hint="新密码长度至少需为 8 位字符。"
                     >
                       <div className="orbit-password-input-wrapper">
                         <Input
@@ -889,7 +874,6 @@ export function SettingsPage() {
 
                     <Field
                       label="确认新密码"
-                      hint="请再次输入新密码，更新后将退出登录并需重新登录。"
                     >
                       <div className="orbit-password-input-wrapper">
                         <Input

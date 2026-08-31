@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { deleteEntry, formatDate, TYPE_LABEL, type EntrySummary } from "../lib/api";
@@ -58,6 +58,20 @@ export function DraftDrawer({ open, onClose, type }: DraftDrawerProps) {
       setDeleting(null);
     }
   }, [confirmDeleteId, invalidate, queryClient, currentEntryId, navigate, type]);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, onClose]);
 
   if (!open) return null;
 
