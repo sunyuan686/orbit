@@ -21,3 +21,14 @@
 ## 验证结果
 - `npm run build` 0 错误编译通过。
 - 启动过渡屏与主应用在移动端与 PWA 下均无缝全屏通铺。
+
+## 遗留问题（2026-09-02 补充）
+
+上述「100% 满宽满高」方案在 **iOS Standalone PWA** 下存在缺陷：
+`html, body, #root { height: 100% }` 的百分比链最终解析到 ICB，而 WebKit 在
+standalone 下把 ICB 谎报为可见区（少算一个 `safe-area-inset-top`，WebKit #254859），
+导致底部出现 62px 系统级留白。
+
+已由 `docs/bugs/007-ios-standalone-pwa-bottom-gap.md` 修复：全屏高度收敛为单一 token
+`--viewport-height: 100lvh`（`@supports` 渐进增强回退 `100vh`），
+`.orbit-shell` 保留 `position: fixed` 且高度改用该 token。详见 007 文档。

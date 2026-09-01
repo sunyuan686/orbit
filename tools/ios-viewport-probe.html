@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="zh-CN" data-page-node-id="oHYkADy1RmrwcgqnOZB1NJ">
+  <head data-page-node-id="HDCHohpxOfPBdXZg1ikSKJ">
+    <meta charset="utf-8" data-page-node-id="FPQO94vspIfpNUVckR3KPy" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" data-page-node-id="rOO9isqWs28jp4Gy1EVGYi" />
+    <meta name="apple-mobile-web-app-capable" content="yes" data-page-node-id="NoaOUN08EPFDmRx8IcLg8d" />
+    <meta name="mobile-web-app-capable" content="yes" data-page-node-id="1Lcgb16j7mhTSx0KTsBANR" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" data-page-node-id="QyHZYq5HDajYdT7Ysvkh8Y" />
+    <meta name="apple-mobile-web-app-title" content="VP" data-page-node-id="lJa0DuYXkR6XsYEc9jZ29V" />
+    <title>iOS 视口探针</title>
+    <style>
+      :root {
+        --bg: #fafaf9;
+        --fg: #1c1917;
+        --dim: #78716c;
+        --line: #e7e5e4;
+        --hit: #b91c1c;
+        --ok: #15803d;
+      }
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 15px/1.6 -apple-system, "PingFang SC", system-ui, sans-serif;
+        overflow: hidden;
+      }
+
+      /* 判定层：高度 = 100vh。这是本次诊断的核心——
+         若 100vh 真等于物理屏高，本层底边应贴住物理屏幕最下沿。 */
+      #probe-layer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        overflow: hidden;
+        pointer-events: none;
+        z-index: 1;
+      }
+      #probe-layer.paint { background: #ff00ff; }
+
+      .edge-line { position: absolute; left: 0; width: 100%; height: 0; }
+      .edge-line span {
+        position: absolute;
+        right: 6px;
+        top: -9px;
+        font: 600 11px/1 ui-monospace, "SF Mono", Menlo, monospace;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 2px 4px;
+        border-radius: 3px;
+      }
+      #line-vh { border-top: 2px dashed var(--hit); }
+      #line-screen { border-top: 2px solid #2563eb; }
+      #line-inner { border-top: 2px solid #ea580c; }
+
+      #ruler { position: absolute; top: 0; right: 0; width: 2px; height: 100%; background: var(--hit); }
+      .tick { position: absolute; right: 0; width: 14px; height: 1px; background: var(--hit); }
+      .tick b {
+        position: absolute;
+        right: 16px;
+        top: -7px;
+        font: 400 10px/1 ui-monospace, Menlo, monospace;
+        color: var(--hit);
+      }
+
+      #panel {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 10;
+        max-height: 62%;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+        background: rgba(250, 250, 249, 0.94);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-top: 1px solid var(--line);
+        pointer-events: auto;
+      }
+      h1 { margin: 0 0 2px; font-size: 14px; letter-spacing: 0.02em; }
+      .sub { margin: 0 0 12px; font-size: 11px; color: var(--dim); font-family: ui-monospace, Menlo, monospace; }
+
+      table { width: 100%; border-collapse: collapse; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+      td { padding: 3px 0; vertical-align: top; }
+      td.k { color: var(--dim); white-space: nowrap; padding-right: 8px; }
+      td.v { text-align: right; font-weight: 600; white-space: nowrap; }
+      td.n { width: 42%; color: var(--dim); font-size: 10px; line-height: 1.45; padding-left: 10px; }
+      tr.hi td.v { color: var(--hit); }
+      tr.ok td.v { color: var(--ok); }
+      tr.sep td { border-top: 1px solid var(--line); padding-top: 7px; }
+
+      .row { display: flex; gap: 8px; margin-top: 12px; }
+      button {
+        flex: 1;
+        padding: 9px 6px;
+        font-size: 12px;
+        font-family: inherit;
+        color: var(--fg);
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+      }
+      button:active { background: #f5f5f4; }
+      .hint { margin-top: 10px; font-size: 11px; color: var(--dim); line-height: 1.55; }
+    </style>
+  </head>
+  <body data-page-node-id="dc3ktBC4HTHvNmTuzlG4Db">
+    <div id="probe-layer" data-page-node-id="nh6mefA0XDlEmrABNYLUca">
+      <div id="ruler" data-page-node-id="f1hCJZC67MyWq8KRpo8F3k"></div>
+      <div class="edge-line" id="line-inner" data-page-node-id="OQ9SX6awfHGTwbGEhYGPGt"><span data-page-node-id="rKBiJu8wX0JBWIkcFceWHj">innerHeight</span></div>
+      <div class="edge-line" id="line-vh" data-page-node-id="UbiSiGBurxybAt9nRoKXOo"><span data-page-node-id="Z3p3MSwXbiDcLiPrLp2shS">100vh</span></div>
+      <div class="edge-line" id="line-screen" data-page-node-id="V35hRUnZt0g40pLNy6aTkH"><span data-page-node-id="haHA6S1hhbQ8OS5QdH8RHq">screen.height</span></div>
+    </div>
+
+    <div id="panel" data-page-node-id="8YXNisBS4l9ZnK0P2Tm01Q">
+      <h1 data-page-node-id="Tvni6FMuGhi2xpbpXTxbJt">iOS 视口探针</h1>
+      <p class="sub" id="meta" data-page-node-id="68jJp3jaYkG7NYdA8IO2Vp">measuring…</p>
+      <table id="tbl" data-page-node-id="OTkgcOWoZd6lTairDCWONf"></table>
+      <div class="row" data-page-node-id="d49vKuSXION9FVXpbrxa11">
+        <button id="btn-paint" data-page-node-id="4GuHYbkLc9ioBfDvBbb9pb">涂紫（查系统条）</button>
+        <button id="btn-heal" data-page-node-id="jbSEjz4bKENCP7xRnTcxoN">强制重算视口</button>
+        <button id="btn-theme" data-page-node-id="xlidxMt0JIjpH1rU028cIK">切深色</button>
+      </div>
+      <p class="hint" data-page-node-id="esjucFeGq1WRnxHBgUhfAE">
+        先在本页点「分享 → 添加到主屏幕」，<b data-page-node-id="HW5mjiLOnBX0C9NXSPtnBs">再从桌面图标打开</b>读数才有效。
+        改 meta 后必须<b data-page-node-id="UjpfpxBON3i8EyydUvRHLq">删掉旧图标重新添加</b>，iOS 会缓存安装时的配置。
+      </p>
+    </div>
+
+    <script>
+      var ROWS = [
+        ["screen.height", "物理屏高（点）"],
+        ["window.innerHeight", "布局视口高"],
+        ["documentElement.clientHeight", "根元素可视高"],
+        ["visualViewport.height", "视觉视口高"],
+        ["visualViewport.offsetTop", "视觉视口纵向偏移"],
+        ["100vh", "大视口单位（关键）"],
+        ["100lvh", "最大视口单位（关键）"],
+        ["100svh", "最小视口单位"],
+        ["100dvh", "动态视口单位"],
+        ["gap = screen - innerHeight", "缺失高度"],
+        ["env(safe-area-inset-top)", "顶部安全区"],
+        ["env(safe-area-inset-bottom)", "底部安全区"],
+        ["-webkit-fill-available", "旧式填充"],
+        ["navigator.standalone", "是否独立模式"],
+        ["display-mode: standalone", "媒体查询是否匹配"],
+      ];
+
+      function readUnit(unit) {
+        var d = document.createElement("div");
+        d.style.cssText =
+          "position:fixed;top:0;left:-9999px;width:1px;height:" + unit + ";visibility:hidden;";
+        document.body.appendChild(d);
+        var h = d.getBoundingClientRect().height;
+        d.remove();
+        return h;
+      }
+
+      // 正确读法：把 env() 用在真实属性上再读 computed value。
+      // 注意：getPropertyValue('env(safe-area-inset-top)') 永远返回空字符串，
+      // 因为参数必须是属性名而非值——这是最常见的误测写法。
+      function readInset(side) {
+        var prop = "padding-" + side;
+        var d = document.createElement("div");
+        d.style.cssText =
+          "position:fixed;top:0;left:-9999px;width:0;height:0;visibility:hidden;" +
+          prop + ": env(safe-area-inset-" + side + ", 0px);";
+        document.body.appendChild(d);
+        var v = getComputedStyle(d).getPropertyValue(prop);
+        d.remove();
+        return v;
+      }
+
+      var maxInner = 0;
+
+      function measure() {
+        var vv = window.visualViewport;
+        var inner = window.innerHeight;
+        if (inner > maxInner) maxInner = inner;
+
+        var vh = readUnit("100vh");
+        var lvh = readUnit("100lvh");
+        var svh = readUnit("100svh");
+        var dvh = readUnit("100dvh");
+        var fill = readUnit("-webkit-fill-available");
+        var screenH = window.screen.height;
+
+        var vals = {
+          "screen.height": screenH,
+          "window.innerHeight": inner,
+          "documentElement.clientHeight": document.documentElement.clientHeight,
+          "visualViewport.height": vv ? Math.round(vv.height) : "n/a",
+          "visualViewport.offsetTop": vv ? Math.round(vv.offsetTop) : "n/a",
+          "100vh": vh,
+          "100lvh": lvh,
+          "100svh": svh,
+          "100dvh": dvh,
+          "gap = screen - innerHeight": screenH - inner,
+          "env(safe-area-inset-top)": readInset("top"),
+          "env(safe-area-inset-bottom)": readInset("bottom"),
+          "-webkit-fill-available": fill,
+          "navigator.standalone": navigator.standalone === true ? "true" : "false",
+          "display-mode: standalone": window.matchMedia("(display-mode: standalone)").matches
+            ? "match"
+            : "no",
+        };
+
+        var html = "";
+        for (var i = 0; i < ROWS.length; i++) {
+          var key = ROWS[i][0];
+          var note = ROWS[i][1];
+          var v = vals[key];
+          var cls = "";
+          if (key === "100vh" || key === "100lvh") {
+            cls = Number(v) >= screenH ? " ok" : " hi";
+          }
+          if (key === "100dvh" || key === "100svh") {
+            cls = Number(v) >= screenH ? " ok" : " hi";
+          }
+          if (key === "gap = screen - innerHeight") {
+            cls = Number(v) === 0 ? " ok" : " hi";
+          }
+          html +=
+            '<tr class="' +
+            cls.trim() +
+            (key === "gap = screen - innerHeight" ? " sep" : "") +
+            '"><td class="k">' +
+            key +
+            '</td><td class="v">' +
+            v +
+            '</td><td class="n">' +
+            note +
+            "</td></tr>";
+        }
+        document.getElementById("tbl").innerHTML = html;
+
+        var sa = readInset("top");
+        document.getElementById("meta").textContent =
+          "dpr=" + window.devicePixelRatio +
+          " · " + window.innerWidth + "×" + inner +
+          " · peak innerHeight=" + maxInner +
+          (maxInner > inner ? "  ⚠ 视口曾收缩，未恢复" : "");
+
+        // 判定线：三条线画在 fixed 容器内，容器高 = 100vh
+        var layer = document.getElementById("probe-layer");
+        setLine("line-inner", inner);
+        setLine("line-vh", vh);
+        setLine("line-screen", screenH);
+        layer.style.display = "";
+
+        var ruler = document.getElementById("ruler");
+        ruler.innerHTML = "";
+        for (var y = 0; y <= vh; y += 50) {
+          var t = document.createElement("div");
+          t.className = "tick";
+          t.style.top = y + "px";
+          t.innerHTML = "<b>" + y + "</b>";
+          ruler.appendChild(t);
+        }
+      }
+
+      function setLine(id, y) {
+        var el = document.getElementById(id);
+        if (!isFinite(y)) { el.style.display = "none"; return; }
+        el.style.top = y + "px";
+        el.querySelector("span").textContent =
+          id.replace("line-", "") + " " + Math.round(y);
+      }
+
+      // 已知的视口自愈手法：对「整屏高元素」做 display off→on 翻转并强制回流，
+      // 迫使 WebKit 重新测量视口。
+      function healViewport() {
+        var el = document.getElementById("probe-layer");
+        el.style.display = "none";
+        void el.offsetHeight;
+        el.style.display = "";
+        setTimeout(measure, 200);
+        setTimeout(measure, 1000);
+      }
+
+      document.getElementById("btn-paint").addEventListener("click", function () {
+        document.getElementById("probe-layer").classList.toggle("paint");
+      });
+      document.getElementById("btn-heal").addEventListener("click", healViewport);
+      document.getElementById("btn-theme").addEventListener("click", function () {
+        var dark = document.body.style.background === "rgb(19, 19, 21)";
+        document.body.style.background = dark ? "#fafaf9" : "#131315";
+        document.documentElement.style.background = document.body.style.background;
+      });
+
+      window.addEventListener("resize", measure);
+      window.addEventListener("orientationchange", function () { setTimeout(measure, 300); });
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden) setTimeout(measure, 300);
+      });
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", measure);
+        window.visualViewport.addEventListener("scroll", measure);
+      }
+
+      measure();
+      setTimeout(measure, 500);
+      setTimeout(measure, 2000);
+    </script>
+  </body>
+</html>

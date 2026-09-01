@@ -8,6 +8,7 @@ import {
   shouldToastApiError,
 } from "../lib/api";
 import { setPageTitle } from "../lib/pageTitle";
+import { dismissBootScreen } from "../lib/bootScreen";
 import { useToast } from "../hooks/useToast";
 import { EyeIcon, EyeOffIcon } from "../components/OrbitIcons";
 
@@ -30,6 +31,8 @@ export function Join() {
 
   useEffect(() => {
     setPageTitle("加入空间");
+    // 加入页在 RequireAuth 之外，需自行移除 App shell 启动屏
+    dismissBootScreen();
   }, []);
 
   useEffect(() => {

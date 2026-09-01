@@ -64,6 +64,23 @@
   --space-2xl: 3rem;    /* 48px */
   --space-section: 3rem;
 
+  /* Viewport — 全屏高度单一真源（跨平台：iOS / Android / 桌面）
+     viewport-fit=cover 全屏延伸模型下，绘制区等于整块物理屏，系统 UI 由 env() 单独避让。
+     dvh 是「跟随可见区」语义，与此模型冲突，且 WebKit standalone 下会少算一个
+     safe-area-inset-top（WebKit #254859），故取大视口。
+     lvh 需 Chrome 108+ / Safari 15.4+；按 CSS Values 4，vh ≡ lvh，
+     不支持 lvh 的环境回退 vh，语义不变。 */
+  --viewport-height: 100vh;
+}
+
+@supports (height: 100lvh) {
+  :root {
+    --viewport-height: 100lvh;
+  }
+}
+
+:root {
+
   /* Rounded corners (DESIGN.md) */
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -349,7 +366,7 @@ body::before {
   position: fixed;
   inset: 0;
   width: 100vw;
-  height: 100vh;
+  height: var(--viewport-height);
   pointer-events: none;
   z-index: 9999;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
@@ -369,14 +386,14 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior-y: none;
-  height: 100%;
+  height: var(--viewport-height);
   width: 100%;
   background: var(--color-bg);
 }
 
 body {
   margin: 0;
-  height: 100%;
+  height: var(--viewport-height);
   width: 100%;
   font-family: var(--font-body);
   font-size: var(--type-body);
@@ -389,7 +406,7 @@ body {
 }
 
 #root {
-  height: 100%;
+  height: var(--viewport-height);
   width: 100%;
   background: var(--color-bg);
 }
@@ -2605,10 +2622,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .orbit-shell {
+  /* 内部 fixed 子元素（遮罩 / 侧边栏）以本元素为包含块，勿移除 */
   position: fixed;
   inset: 0;
   width: 100%;
-  height: 100%;
+  height: var(--viewport-height);
   overflow: hidden;
   background: var(--color-bg);
   color: var(--color-text-primary);
@@ -2666,17 +2684,91 @@ h1, h2, h3, h4, h5, h6 {
   pointer-events: none;
 }
 
+.orbit-notification-backdrop {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .orbit-notification-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 90;
+    animation: orbit-fade-in 0.2s ease-out;
+  }
+}
+
 .orbit-notification-panel {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  right: 0;
-  width: min(22rem, calc(100vw - 2rem));
   background: var(--color-surface);
-  border: 1px solid var(--color-border-light);
-  border-radius: 0.75rem;
-  box-shadow: var(--shadow-elevated, 0 12px 32px rgba(0, 0, 0, 0.12));
-  z-index: 40;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .orbit-notification-panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    width: 23.5rem;
+    max-width: calc(100vw - 2rem);
+    max-height: 28rem;
+    border: 1px solid var(--color-border-light);
+    border-radius: 0.875rem;
+    box-shadow: var(--shadow-elevated, 0 12px 32px rgba(0, 0, 0, 0.12));
+    z-index: 95;
+    animation: orbit-notification-popover-in 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@media (max-width: 767px) {
+  .orbit-notification-panel {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    top: auto;
+    right: 0;
+    left: 0;
+    width: 100%;
+    max-height: 82vh;
+    border-top: 1px solid var(--color-border-light);
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    border-top-left-radius: 1.125rem;
+    border-top-right-radius: 1.125rem;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    box-shadow: var(--shadow-float, 0 -8px 30px rgba(0, 0, 0, 0.15));
+    z-index: 95;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    animation: orbit-drawer-slide-in 0.25s var(--motion-ease-drawer, cubic-bezier(0.32, 0.72, 0, 1));
+  }
+}
+
+.orbit-notification-handle-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 0.625rem;
+  padding-bottom: 0.25rem;
+  touch-action: pan-y;
+}
+
+@media (min-width: 768px) {
+  .orbit-notification-handle-container {
+    display: none;
+  }
+}
+
+.orbit-notification-handle {
+  width: 2.25rem;
+  height: 0.25rem;
+  border-radius: 9999px;
+  background: var(--color-border);
 }
 
 .orbit-notification-panel-header {
@@ -2686,18 +2778,37 @@ h1, h2, h3, h4, h5, h6 {
   gap: 0.75rem;
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--color-border-light);
-  font-size: var(--type-secondary);
-  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.orbit-notification-panel-title {
+  font-family: var(--font-title);
+  font-size: var(--type-title, 1.125rem);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.orbit-notification-unread-pill {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
 }
 
 .orbit-notification-panel-body {
-  max-height: 24rem;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .orbit-notification-empty {
-  padding: 1rem;
+  padding: 2.5rem 1rem;
   text-align: center;
+  font-size: var(--type-secondary);
 }
 
 .orbit-notification-list {
@@ -2708,16 +2819,16 @@ h1, h2, h3, h4, h5, h6 {
 
 .orbit-notification-item {
   display: flex;
-  flex-direction: column;
   align-items: flex-start;
-  gap: 0.2rem;
+  gap: 0.75rem;
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 0.8125rem 1rem;
   text-align: left;
   border: 0;
   border-bottom: 1px solid var(--color-border-light);
   background: transparent;
   cursor: pointer;
+  transition: background var(--motion-fast) ease;
 }
 
 .orbit-notification-item:hover {
@@ -2725,23 +2836,89 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .orbit-notification-item--unread {
-  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
 }
 
-.orbit-notification-item-title {
-  font-size: var(--type-secondary);
-  font-weight: 600;
-  color: var(--color-text-primary);
+.orbit-notification-item--unread:hover {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
 
-.orbit-notification-item-body {
-  font-size: var(--type-secondary);
+.orbit-notification-item-lead {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.orbit-notification-icon-wrapper {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--color-text-secondary);
 }
 
+.orbit-notification-unread-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-surface);
+}
+
+.orbit-notification-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.orbit-notification-item-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.orbit-notification-item-title {
+  font-family: var(--font-body);
+  font-size: var(--type-secondary);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .orbit-notification-item-meta {
-  font-size: var(--type-xs);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
   color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.orbit-notification-item-body {
+  font-family: var(--font-body);
+  font-size: var(--type-secondary);
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 .orbit-notification-panel-footer {
@@ -2752,6 +2929,7 @@ h1, h2, h3, h4, h5, h6 {
   padding: 0.5rem 0.75rem;
   background: var(--color-surface-raised);
   border-top: 1px solid var(--color-border-light);
+  flex-shrink: 0;
 }
 
 .orbit-notification-footer-text {
@@ -2804,6 +2982,17 @@ h1, h2, h3, h4, h5, h6 {
 .orbit-notification-footer-dismiss:hover {
   color: var(--color-text-primary);
   background: var(--color-surface);
+}
+
+@keyframes orbit-notification-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .orbit-settings-toggle {
@@ -2981,9 +3170,11 @@ h1, h2, h3, h4, h5, h6 {
   color: inherit;
 }
 
-.orbit-icon-btn:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-raised);
+@media (hover: hover) and (pointer: fine) {
+  .orbit-icon-btn:hover {
+    color: var(--color-text-primary);
+    background: var(--color-surface-raised);
+  }
 }
 
 .orbit-icon-btn:focus-visible {
@@ -6029,6 +6220,76 @@ a.orbit-settings-mobile-row {
 
 .orbit-header-search {
   color: var(--color-text-primary);
+}
+
+.orbit-search-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0 0.75rem;
+  height: 2.25rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  box-shadow: var(--shadow-subtle);
+  transition:
+    border-color var(--motion-fast),
+    box-shadow var(--motion-fast);
+}
+
+.orbit-search-bar-wrap:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-soft);
+}
+
+.orbit-search-bar-icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.orbit-search-bar-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  font-size: var(--type-secondary);
+  font-family: var(--font-body);
+  color: var(--color-text-primary);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.orbit-search-bar-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.orbit-search-bar-clear {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast),
+    color var(--motion-fast);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .orbit-search-bar-clear:hover {
+    color: var(--color-text-primary);
+    background: var(--color-surface-raised);
+  }
 }
 
 .orbit-avatar {
@@ -10612,6 +10873,8 @@ html.orbit-ai-open body {
     max-width: 100%;
     padding: var(--space-md);
     padding-bottom: max(var(--space-md), env(safe-area-inset-bottom, 0px));
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border-light);
   }
 
   .orbit-ai-panel--fullscreen .orbit-ai-error {
@@ -10672,7 +10935,12 @@ html.orbit-ai-open body {
   }
 
   .orbit-ai-composer {
+    /* 与 .orbit-header-bar 上下对称的「栏」语义：
+       底部安全区成为栏表面的一部分（Apple「bar 背景延伸」模式），
+       home indicator 压在栏上而非悬在画布色空白中 */
     padding-bottom: max(var(--space-md), env(safe-area-inset-bottom, 0px));
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border-light);
   }
 
   .orbit-ai-composer-toolbar {
@@ -13322,14 +13590,13 @@ button.orbit-activity-cell:hover {
   justify-content: space-between;
   padding: 8px 10px;
   background: color-mix(in srgb, var(--color-surface-muted, #f4f4f5) 50%, transparent);
-  border-top: 1px solid var(--color-border-light, oklch(0.9 0.01 80));
+  border-top: 1px solid var(--color-border-light);
   font-size: 11px;
   color: var(--color-text-muted);
 }
 
 .dark .orbit-slash-footer {
   background: oklch(0.15 0.01 80);
-  border-color: oklch(0.25 0.01 80);
 }
 
 .orbit-slash-footer-desc {
@@ -13529,11 +13796,7 @@ button.orbit-activity-cell:hover {
   align-items: center;
   justify-content: space-between;
   padding: max(12px, calc(12px + env(safe-area-inset-top, 0px))) 16px 12px;
-  border-bottom: 1px solid var(--color-border-light, oklch(0.9 0.01 80));
-}
-
-.dark .orbit-compose-header {
-  border-color: oklch(0.25 0.01 80);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .orbit-compose-cancel-btn {
@@ -13656,12 +13919,11 @@ button.orbit-activity-cell:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* 与 .orbit-compose-header 对称的「栏」：底部安全区成为栏表面一部分
+     （Apple「bar 背景延伸」模式），背景显式化而非依赖父 modal 同色兜底 */
   padding: 12px 16px max(12px, calc(12px + env(safe-area-inset-bottom, 0px)));
-  border-top: 1px solid var(--color-border-light, oklch(0.9 0.01 80));
-}
-
-.dark .orbit-compose-footer {
-  border-color: oklch(0.25 0.01 80);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border-light);
 }
 
 .orbit-compose-tool-btn {
@@ -13693,7 +13955,7 @@ button.orbit-activity-cell:hover {
 .orbit-compose-attachments-bar {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px dashed var(--color-border-light, oklch(0.9 0.01 80));
+  border-top: 1px dashed var(--color-border-light);
 }
 
 .orbit-compose-attachments-grid {
@@ -13707,7 +13969,7 @@ button.orbit-activity-cell:hover {
   width: 90px;
   height: 90px;
   border-radius: 8px;
-  border: 1px solid var(--color-border-light, oklch(0.9 0.01 80));
+  border: 1px solid var(--color-border-light);
   background: var(--color-surface-muted, #f4f4f5);
 }
 
@@ -13898,12 +14160,11 @@ button.orbit-activity-cell:hover {
   padding: 6px 14px;
   min-height: 48px;
   background: color-mix(in srgb, var(--color-surface-muted, #f4f4f5) 40%, transparent);
-  border-top: 1px solid var(--color-border-light, oklch(0.9 0.01 80));
+  border-top: 1px solid var(--color-border-light);
 }
 
 .dark .orbit-editor-toolbar {
   background: oklch(0.16 0.008 80);
-  border-color: oklch(0.25 0.01 80);
 }
 
 .orbit-editor-toolbar-left {
@@ -14137,7 +14398,7 @@ button.orbit-activity-cell:hover {
 }
 
 .orbit-fullscreen-article-overlay .orbit-editor-toolbar {
-  border-top-color: var(--color-border-light, oklch(0.9 0.01 80));
+  border-top-color: var(--color-border-light);
   background: transparent;
   padding-inline: 0;
 }

@@ -383,7 +383,7 @@ function LayoutShell() {
               className="orbit-icon-btn orbit-icon-btn--secondary inline-flex md:hidden p-1.5 cursor-pointer shrink-0"
               aria-label="打开菜单"
             >
-              <MenuIcon size="md" />
+              <MenuIcon size="sm" />
             </button>
             <span className="orbit-heading md:hidden text-sm font-medium shrink-0">Orbit</span>
 
@@ -416,7 +416,7 @@ function LayoutShell() {
               title="搜索"
               aria-label="搜索"
             >
-              <SearchIcon size="md" />
+              <SearchIcon size="sm" />
             </Link>
             <NotificationBell />
             <button

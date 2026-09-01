@@ -6,12 +6,11 @@ import App from "./App";
 import { ConfirmProvider, ToastProvider } from "./hooks";
 import { queryClient } from "./lib/queryClient";
 import { globalLogger } from "./lib/logger";
-import { registerPwaServiceWorker } from "./lib/pwa";
 import { initAppearancePreferences } from "./lib/accent";
+import "./fonts.css";
 import "./index.css";
 
 initAppearancePreferences();
-registerPwaServiceWorker();
 
 if (import.meta.env.DEV) {
   window.addEventListener("error", (event) => {

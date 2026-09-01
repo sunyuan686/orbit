@@ -67,7 +67,7 @@ export function PwaInstallGuideModal({ isOpen, onClose }: PwaInstallGuideModalPr
                 <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                   当前处于应用内置窗口中，无法直接添加主屏幕。请点击右上角{" "}
                   <span className="font-mono font-medium">···</span>，选择
-                  「在 Safari 中打开」或「在浏览器中打开」。
+                  {isIOS ? "「在 Safari 中打开」。" : "「在浏览器中打开」。"}
                 </p>
               </div>
             </div>

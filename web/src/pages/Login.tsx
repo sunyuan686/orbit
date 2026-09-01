@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { TurnstileWidget } from "../components/TurnstileWidget";
 import { authClient, fetchSpaceStatus, type SpaceStatus } from "../lib/api";
+import { dismissBootScreen } from "../lib/bootScreen";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../hooks/useToast";
 
@@ -31,6 +32,8 @@ export function Login() {
 
   useEffect(() => {
     setPageTitle("登录");
+    // 登录页在 RequireAuth 之外，需自行移除 App shell 启动屏
+    dismissBootScreen();
   }, []);
 
   useEffect(() => {

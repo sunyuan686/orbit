@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { RequireAuth } from "./components/RequireAuth";
-import { AppBootScreen } from "./components/AppBootScreen";
+import { SwUpdatePrompt } from "./components/SwUpdatePrompt";
 
 const Login = lazy(() =>
   import("./pages/Login").then((m) => ({ default: m.Login }))
@@ -39,8 +39,12 @@ const ArticleEdit = lazy(() =>
 );
 
 export default function App() {
+  // fallback 为 null：lazy chunk 加载期间 App shell 启动屏（index.html #orbit-boot）
+  // 仍在页面最上层覆盖，由 lib/bootScreen.ts 统一淡出，避免启动屏卸载重建闪烁。
+  // SwUpdatePrompt 位于路由之外：登录页/加入页同样受版本更新提示覆盖。
   return (
-    <Suspense fallback={<AppBootScreen />}>
+    <>
+    <Suspense fallback={null}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/join" element={<Join />} />
@@ -64,5 +68,7 @@ export default function App() {
         </Route>
       </Routes>
     </Suspense>
+    <SwUpdatePrompt />
+    </>
   );
 }

@@ -15,6 +15,7 @@ import type { AiRuntimeEnv } from "../ai/ai-model.js";
 import { getOtherUserId, getUserById } from "../space/space-authors.js";
 import { loadUserNameMap, resolveUserName } from "../../lib/author-present.js";
 import { generateId } from "../../lib/id.js";
+import { toPlainText } from "../../lib/plain-text.js";
 import { sendWebPush } from "../../lib/vapid.js";
 
 const FEISHU_MIN_INTERVAL_MS = 220;
@@ -300,7 +301,8 @@ export function notifyEntryCreated(
   }
 ): Promise<void> {
   const link = buildContentLink(runtime.baseUrl, input.entryType, input.entryId);
-  const preview = input.bodyPreview?.slice(0, 80) ?? "新内容";
+  const cleanPreview = toPlainText(input.bodyPreview ?? "").trim();
+  const preview = cleanPreview ? cleanPreview.slice(0, 80) : "新内容";
   const isReply =
     input.entryType === "letter" && Boolean(input.parentId);
   const kind: NotificationEventKind = isReply ? "letter" : "entry";
@@ -339,6 +341,7 @@ export function notifyCommentCreated(
 ): Promise<void> {
   const link = buildContentLink(runtime.baseUrl, input.contentType, input.targetId);
   const label = input.kind === "inline" ? "边注" : "评论";
+  const cleanBody = toPlainText(input.body ?? "").trim();
   return dispatchNotification(db, runtime, {
     kind: "comment",
     actorUserId: input.actorUserId,
@@ -347,7 +350,7 @@ export function notifyCommentCreated(
     targetId: input.targetId,
     contentType: input.contentType,
     title: `${input.actorName} 留了新${label}`,
-    body: input.body.slice(0, 120),
+    body: cleanBody.slice(0, 120),
     link,
     requestId: input.requestId,
   });

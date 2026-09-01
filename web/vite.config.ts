@@ -15,7 +15,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
       strategies: "injectManifest",
       srcDir: "src",
       filename: "sw.ts",
@@ -37,7 +37,7 @@ export default defineConfig({
         scope: "/",
         display: "standalone",
         orientation: "portrait-primary",
-        theme_color: "#1c1917",
+        theme_color: "#fafaf9",
         background_color: "#fafaf9",
         categories: ["lifestyle", "productivity"],
         icons: [

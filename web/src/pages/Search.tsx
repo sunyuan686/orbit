@@ -10,6 +10,7 @@ import {
 } from "../lib/api";
 import { useToast } from "../hooks/useToast";
 import { setPageTitle } from "../lib/pageTitle";
+import { SearchIcon, CloseIcon } from "../components/OrbitIcons";
 
 function resultHref(result: SearchResult): string {
   if (result.type === "memo") return `/memo/${result.id}`;
@@ -116,18 +117,30 @@ export function SearchPage() {
       <h1 className="orbit-page-title mb-6">搜索</h1>
 
       <form onSubmit={handleSubmit} className="mb-8">
-        <div className="flex gap-2">
+        <div className="orbit-search-bar-wrap">
+          <SearchIcon size="sm" className="orbit-search-bar-icon" />
           <input
             type="search"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            className="orbit-input flex-1"
+            className="orbit-search-bar-input"
             placeholder="搜索日记、留言、信件、备忘录…"
             autoFocus={!query}
           />
-          <button type="submit" className="orbit-btn orbit-btn-primary shrink-0">
-            搜索
-          </button>
+          {input ? (
+            <button
+              type="button"
+              onClick={() => {
+                setInput("");
+                setParams({});
+              }}
+              className="orbit-search-bar-clear"
+              aria-label="清空搜索内容"
+              title="清空"
+            >
+              <CloseIcon size="sm" />
+            </button>
+          ) : null}
         </div>
       </form>
 

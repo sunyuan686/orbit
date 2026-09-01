@@ -15,38 +15,75 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" media="(prefers-color-scheme: light)" />
     <link rel="apple-touch-icon" href="/apple-touch-icon-dark.png" media="(prefers-color-scheme: dark)" />
-    
-    <!-- 引入开源免费商用字体：Source Serif 4, Noto Serif SC, Inter, JetBrains Mono -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <!-- 首帧外观初始化：在任何绘制之前同步应用用户外观偏好。
+         键名与 src/lib/accent.ts、src/hooks/useTheme.ts 保持一致；此脚本是这些状态的首帧唯一写入点。 -->
+    <script>
+      (function () {
+        var d = document.documentElement;
+        try {
+          var theme = localStorage.getItem("orbit-theme");
+          var dark =
+            theme === "dark" ||
+            (!theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          d.classList.toggle("dark", dark);
+
+          var accent = localStorage.getItem("orbit-accent-theme");
+          if (accent === "dusk") accent = "indigo";
+          if (accent === "stone") accent = "amber";
+          if (accent) d.dataset.accent = accent;
+
+          var bg = localStorage.getItem("orbit-canvas-bg");
+          if (bg) d.dataset.bg = bg;
+
+          var fontMode = localStorage.getItem("orbit-font-mode");
+          if (fontMode) d.dataset.fontMode = fontMode;
+
+          var fontSize = localStorage.getItem("orbit-font-size");
+          if (fontSize) d.dataset.fontSize = fontSize;
+
+          var grain = localStorage.getItem("orbit-grain-opacity");
+          if (grain !== null) d.style.setProperty("--grain-opacity", grain);
+        } catch (e) {
+          /* localStorage 不可用时使用默认外观 */
+        }
+      })();
+    </script>
+
+    <!-- 中文字体 Noto Serif SC（标题栈中位于本地宋体之后的回退）：非阻塞加载，
+         避免大陆网络下 fonts.googleapis.com 不可达时阻塞首绘。拉丁字体已自托管（src/fonts.css）。 -->
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+SC:wght@500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet">
-    
-    <!-- App shell 启动屏：JS 执行前的品牌化首屏，与 AppBootScreen 组件共用样式 -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600&display=swap" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600&display=swap"></noscript>
+
+    <!-- App shell 启动屏：JS 执行前的品牌化首屏。
+         位于 #root 之外的唯一 DOM 实例，由 React 渲染出首个有效帧后经 lib/bootScreen.ts 淡出移除，
+         冷启动全程无卸载重建。颜色引用 Design Tokens 变量（由上方内联脚本 + 打包 CSS 解析），不硬编码。 -->
     <style>
       html, body {
         margin: 0;
         padding: 0;
         width: 100%;
-        height: 100%;
+        height: var(--viewport-height, 100vh);
         overflow: hidden;
-        background: #fafaf9;
+        background: var(--color-bg, #fafaf9);
       }
       #root {
         width: 100%;
-        height: 100%;
-        background: #fafaf9;
+        height: var(--viewport-height, 100vh);
+        background: var(--color-bg, #fafaf9);
       }
       .orbit-boot {
         position: fixed;
         inset: 0;
         width: 100%;
-        height: 100%;
+        height: var(--viewport-height, 100vh);
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         gap: 22px;
-        background: #fafaf9;
+        background: var(--color-bg, #fafaf9);
         opacity: 0;
         animation: orbit-boot-in 0.5s ease 0.15s both;
         z-index: 99999;
@@ -55,7 +92,7 @@
         position: relative;
         width: 46px;
         height: 46px;
-        border: 1px solid #e7e5e4;
+        border: 1px solid var(--color-border, #e7e5e4);
         border-radius: 50%;
         animation: orbit-boot-spin 4.5s linear infinite;
       }
@@ -67,17 +104,19 @@
         height: 7px;
         margin-left: -3.5px;
         border-radius: 50%;
-        background: #292524;
+        background: var(--color-text-primary, #292524);
       }
       .orbit-boot-name {
         margin: 0;
-        font-family: "New York Small", "New York", "Iowan Old Style", Charter,
-          "Bitstream Charter", "Source Serif 4", Georgia, "Songti SC", STSong,
-          SimSun, ui-serif, serif;
+        font-family: "Source Serif 4", "Songti SC", STSong, Georgia, ui-serif, serif;
         font-size: 15px;
         letter-spacing: 0.32em;
         text-indent: 0.32em;
-        color: #a8a29e;
+        color: var(--color-text-muted, #a8a29e);
+      }
+      .orbit-boot--leave {
+        pointer-events: none;
+        animation: orbit-boot-out 0.4s ease forwards;
       }
       @keyframes orbit-boot-spin {
         to {
@@ -92,15 +131,9 @@
           opacity: 1;
         }
       }
-      @media (prefers-color-scheme: dark) {
-        html, body, #root, .orbit-boot {
-          background: #131315;
-        }
-        .orbit-boot-orbit {
-          border-color: #44403c;
-        }
-        .orbit-boot-dot {
-          background: #e7e5e4;
+      @keyframes orbit-boot-out {
+        to {
+          opacity: 0;
         }
       }
       @media (prefers-reduced-motion: reduce) {
@@ -111,17 +144,20 @@
         .orbit-boot-orbit {
           animation: none;
         }
+        .orbit-boot--leave {
+          animation: none;
+          opacity: 0;
+        }
       }
     </style>
   </head>
   <body>
-    <div id="root">
-      <div class="orbit-boot" role="status" aria-label="加载中">
-        <div class="orbit-boot-orbit" aria-hidden="true">
-          <span class="orbit-boot-dot"></span>
-        </div>
-        <p class="orbit-boot-name">Orbit</p>
+    <div id="root"></div>
+    <div class="orbit-boot" id="orbit-boot" role="status" aria-label="加载中">
+      <div class="orbit-boot-orbit" aria-hidden="true">
+        <span class="orbit-boot-dot"></span>
       </div>
+      <p class="orbit-boot-name">Orbit</p>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

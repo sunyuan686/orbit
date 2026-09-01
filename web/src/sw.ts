@@ -10,8 +10,8 @@ import { NetworkOnly, CacheFirst } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
 import { CacheableResponsePlugin } from "workbox-cacheable-response";
 
-// 新 SW 安装后立即激活并接管当前页面
-self.skipWaiting();
+// 新 SW 安装后处于 waiting，不自动接管；
+// 由页面在用户确认更新后发送 SKIP_WAITING 消息（prompt 模式），再激活接管
 clientsClaim();
 
 // 监听客户端的 SKIP_WAITING 显式更新消息
