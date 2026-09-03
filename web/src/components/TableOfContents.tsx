@@ -211,7 +211,7 @@ export function MobileToc({ items }: Props) {
               className="orbit-icon-btn inline-flex p-1 cursor-pointer"
               aria-label="关闭目录"
             >
-              <CloseIcon size="md" />
+              <CloseIcon size="sm" />
             </button>
           </div>
 

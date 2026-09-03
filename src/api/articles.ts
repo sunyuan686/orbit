@@ -1,6 +1,11 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { eq, and, isNull, asc, desc, sql } from "drizzle-orm";
+import { eq, and, isNull, asc, desc, sql, gte, lte } from "drizzle-orm";
+import {
+  dateKeyToUnix,
+  dateKeyToEndOfDayUnix,
+  getSpaceYear,
+} from "../shared/utils/date.js";
 import { canEditContent, canDeleteContent } from "../shared/index.js";
 import { toPlainText, isEmptyBody } from "../lib/plain-text.js";
 import { generateId } from "../lib/id.js";
@@ -69,6 +74,12 @@ function parseOptionalPage(c: Context):
     limit: Math.min(Math.floor(limitNum), ARTICLES_PAGE_MAX),
     offset: Math.floor(offsetNum),
   };
+}
+
+function parseIntParam(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const val = parseInt(raw, 10);
+  return Number.isNaN(val) ? null : val;
 }
 
 function authorRequiredResponse(c: Context) {
@@ -161,6 +172,9 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const type = c.req.query("type");
     const statusFilter = c.req.query("status"); // 'draft' | undefined
     const rootsOnly = c.req.query("roots") !== "0";
+    const year = parseIntParam(c.req.query("year") ?? undefined);
+    const author = c.req.query("author");
+    const order = c.req.query("order") === "asc" ? "asc" : "desc";
     const page = parseOptionalPage(c);
     if (!page.ok) return page.response;
 
@@ -211,19 +225,31 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     }
 
     // 默认只返回 published
-    const conditions = [isNull(entry.deletedAt), eq(entry.status, "published")];
+    const baseConditions = [isNull(entry.deletedAt), eq(entry.status, "published")];
     if (type && type !== "all") {
-      conditions.push(eq(entry.type, type));
+      baseConditions.push(eq(entry.type, type));
     }
     if (type === "letter" && rootsOnly) {
-      conditions.push(isNull(entry.parentId));
+      baseConditions.push(isNull(entry.parentId));
+    }
+
+    const conditions = [...baseConditions];
+    if (year != null) {
+      const from = dateKeyToUnix(`${year}-01-01`);
+      const to = dateKeyToEndOfDayUnix(`${year}-12-31`);
+      conditions.push(gte(entry.entryDate, from));
+      conditions.push(lte(entry.entryDate, to));
+    }
+    if (author) {
+      conditions.push(eq(entry.author, author));
     }
     const where = and(...conditions);
 
+    const orderFn = order === "asc" ? asc : desc;
     const orderClause =
       type === "memo"
-        ? [desc(entry.updatedAt), desc(entry.createdAt)]
-        : [desc(entry.entryDate), desc(entry.createdAt)];
+        ? [orderFn(entry.updatedAt), orderFn(entry.createdAt)]
+        : [orderFn(entry.entryDate), orderFn(entry.createdAt)];
 
     const baseQuery = db
       .select({
@@ -247,6 +273,13 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const countQuery = page.paginate
       ? db.select({ count: sql<number>`count(*)` }).from(entry).where(where).get()
       : null;
+    const earliestRow = page.paginate
+      ? db
+          .select({ minDate: sql<number>`min(${entry.entryDate})` })
+          .from(entry)
+          .where(and(...baseConditions))
+          .get()
+      : null;
 
     const [entries, countRow] = await Promise.all([
       listQuery,
@@ -266,9 +299,15 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
 
     if (!page.paginate) return c.json(items);
 
+    const minTimestamp = earliestRow?.minDate;
+    const earliestYear = minTimestamp
+      ? getSpaceYear(minTimestamp)
+      : getSpaceYear();
+
     return c.json({
       items,
       total: Number(countRow?.count ?? 0),
+      earliestYear,
       limit: page.limit,
       offset: page.offset,
     });

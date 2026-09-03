@@ -1,6 +1,8 @@
 import { useMemo, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { dateKeyToUnix, formatRelativeTime, getSpaceTodayKey } from "@orbit/shared";
 import type { AiConversationListItem } from "../lib/api";
 import { ShareIcon, TrashIcon, MessageIcon } from "./OrbitIcons";
+
 
 const LONG_PRESS_MS = 480;
 const MOVE_THRESHOLD_PX = 10;
@@ -16,23 +18,7 @@ function secondaryPreview(title: string, preview: string): string | null {
   return rest || null;
 }
 
-function formatRelativeTime(updatedAt?: number | string): string {
-  if (!updatedAt) return "";
-  const date = typeof updatedAt === "number" ? new Date(updatedAt) : new Date(updatedAt);
-  if (Number.isNaN(date.getTime())) return "";
 
-  const now = new Date();
-  const isToday =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate();
-
-  if (isToday) {
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }
-
-  return `${date.getMonth() + 1}月${date.getDate()}日`;
-}
 
 interface AiConversationListProps {
   items: AiConversationListItem[];
@@ -123,17 +109,24 @@ export function AiConversationList({
     const todayItems: AiConversationListItem[] = [];
     const earlierItems: AiConversationListItem[] = [];
 
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todayStart = dateKeyToUnix(getSpaceTodayKey()) * 1000;
 
     items.forEach((item) => {
-      const t = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+      const raw = item.updatedAt;
+      const t = raw
+        ? typeof raw === "number"
+          ? raw > 1e11
+            ? raw
+            : raw * 1000
+          : new Date(raw).getTime()
+        : 0;
       if (t >= todayStart) {
         todayItems.push(item);
       } else {
         earlierItems.push(item);
       }
     });
+
 
     const groups = [];
     if (todayItems.length > 0) {

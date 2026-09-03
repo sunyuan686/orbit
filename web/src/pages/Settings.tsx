@@ -34,6 +34,7 @@ import {
 } from "../lib/accent";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../hooks/useToast";
+import { usePwaUpdate } from "../hooks/usePwaUpdate";
 import { ApiTokenSettingsPanel } from "../components/ApiTokenSettingsPanel";
 import { AiProvidersSettingsPanel } from "../components/AiProvidersSettingsPanel";
 import { FeishuIntegrationPanel } from "../components/FeishuIntegrationPanel";
@@ -210,6 +211,7 @@ export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isMobile = useMaxWidthMd();
+  const { needRefresh } = usePwaUpdate();
   const tabParam = searchParams.get("tab");
   const resolvedTab = resolveSettingsTab(tabParam);
   const activeTab: SettingsTab = resolvedTab ?? "appearance";
@@ -477,7 +479,14 @@ export function SettingsPage() {
                     onClick={() => setTab(tab.id)}
                   >
                     {tab.icon({ size: "sm" })}
-                    {tab.label}
+                    <span>{tab.label}</span>
+                    {tab.id === "about" && needRefresh ? (
+                      <span
+                        className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] ml-auto shrink-0"
+                        title="新版本可用"
+                        aria-label="新版本可用"
+                      />
+                    ) : null}
                   </button>
                 ))}
               </div>
@@ -502,7 +511,16 @@ export function SettingsPage() {
                           onClick={() => setTab(tab.id)}
                         >
                           <span className="orbit-settings-mobile-row-body">
-                            <span className="orbit-settings-mobile-row-label">{tab.label}</span>
+                            <span className="orbit-settings-mobile-row-label flex items-center gap-1.5">
+                              <span>{tab.label}</span>
+                              {tab.id === "about" && needRefresh ? (
+                                <span
+                                  className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] shrink-0"
+                                  title="新版本可用"
+                                  aria-label="新版本可用"
+                                />
+                              ) : null}
+                            </span>
                             <span id={descId} className="orbit-settings-mobile-row-desc">
                               {tab.description}
                             </span>

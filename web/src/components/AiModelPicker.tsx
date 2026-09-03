@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
@@ -149,11 +150,19 @@ export function AiModelPicker({
     if (!open) return;
     function handlePointerDown(event: PointerEvent) {
       const target = event.target as Node;
-      if (
-        rootRef.current?.contains(target) ||
-        menuRef.current?.contains(target) ||
-        (target as HTMLElement).closest?.(".orbit-ai-model-submenu-portal")
-      ) {
+      if ((target as HTMLElement).closest?.(".orbit-ai-model-submenu-portal")) {
+        return;
+      }
+      if (menuRef.current?.contains(target)) {
+        if (
+          activeConfigTarget &&
+          !(target as HTMLElement).closest?.(".orbit-ai-model-item-edit-btn")
+        ) {
+          setActiveConfigTarget(null);
+        }
+        return;
+      }
+      if (rootRef.current?.contains(target)) {
         return;
       }
       setOpen(false);
@@ -168,10 +177,10 @@ export function AiModelPicker({
         }
       }
     }
-    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("pointerdown", handlePointerDown, true);
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("pointerdown", handlePointerDown, true);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [open, activeConfigTarget]);
@@ -321,40 +330,58 @@ function ModelMenuItem({
   onSelect: () => void;
   onToggleConfig: (rect: DOMRect) => void;
 }) {
-  const itemRef = useRef<HTMLButtonElement>(null);
+  const itemRef = useRef<HTMLDivElement>(null);
+
+  const handleClick = () => {
+    if (disabled) return;
+    onSelect();
+  };
+
+  const handleKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (disabled) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onSelect();
+    }
+  };
 
   return (
-    <button
+    <div
       ref={itemRef}
-      type="button"
       role="option"
       aria-selected={selected}
-      className={`orbit-ai-model-menu-item${selected ? " orbit-ai-model-menu-item--selected" : ""}`}
-      disabled={disabled}
-      onClick={onSelect}
+      aria-disabled={disabled}
+      tabIndex={disabled ? -1 : 0}
+      className={`orbit-ai-model-menu-item${selected ? " orbit-ai-model-menu-item--selected" : ""}${disabled ? " is-disabled" : ""}`}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
     >
       <span className="orbit-ai-model-menu-item-body">
         <span className="orbit-ai-model-menu-item-name">{model.label}</span>
       </span>
       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-        <button
-          type="button"
-          title="调节上下文与思考配置"
-          className={`orbit-ai-model-item-edit-btn${isConfigOpen ? " orbit-ai-model-item-edit-btn--active" : ""}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (itemRef.current) {
-              onToggleConfig(itemRef.current.getBoundingClientRect());
-            }
-          }}
-        >
-          <WrenchIcon size="sm" />
-        </button>
+        {selected ? (
+          <button
+            type="button"
+            title="调节上下文与思考配置"
+            aria-label={`${model.label} 配置`}
+            disabled={disabled}
+            className={`orbit-ai-model-item-edit-btn${isConfigOpen ? " orbit-ai-model-item-edit-btn--active" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (itemRef.current) {
+                onToggleConfig(itemRef.current.getBoundingClientRect());
+              }
+            }}
+          >
+            <WrenchIcon size="sm" />
+          </button>
+        ) : null}
         <span className="orbit-ai-model-menu-item-check" aria-hidden="true">
           {selected ? <CheckIcon size="sm" /> : null}
         </span>
       </div>
-    </button>
+    </div>
   );
 }
 

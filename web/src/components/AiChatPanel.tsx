@@ -1053,21 +1053,22 @@ export function AiChatPanel({
 
     function syncViewport() {
       if (!vv || typeof vv.height !== "number" || vv.height <= 0) {
-        root.style.removeProperty("--ai-vv-top");
-        root.style.removeProperty("--ai-vv-height");
+        root.style.removeProperty("--ai-keyboard-height");
+        root.classList.remove("orbit-keyboard-open");
         return;
       }
-      const isKeyboardOpen = window.innerHeight - vv.height > 60 || (vv.offsetTop || 0) > 0;
+      const keyboardHeight = Math.max(0, Math.round(window.innerHeight - vv.height));
+      const isKeyboardOpen = keyboardHeight > 60;
       if (!isKeyboardOpen) {
-        root.style.removeProperty("--ai-vv-top");
-        root.style.removeProperty("--ai-vv-height");
+        root.style.removeProperty("--ai-keyboard-height");
+        root.classList.remove("orbit-keyboard-open");
         return;
       }
-      // Keyboard open: pin panel to visible viewport area above keyboard
-      const top = Math.max(0, vv.offsetTop || 0);
-      const height = vv.height;
-      root.style.setProperty("--ai-vv-top", `${top}px`);
-      root.style.setProperty("--ai-vv-height", `${height}px`);
+      root.style.setProperty("--ai-keyboard-height", `${keyboardHeight}px`);
+      root.classList.add("orbit-keyboard-open");
+      if (window.scrollY !== 0) {
+        window.scrollTo(0, 0);
+      }
     }
 
     syncViewport();
@@ -1081,8 +1082,8 @@ export function AiChatPanel({
       vv?.removeEventListener("scroll", syncViewport);
       window.removeEventListener("resize", syncViewport);
       window.removeEventListener("orientationchange", syncViewport);
-      root.style.removeProperty("--ai-vv-top");
-      root.style.removeProperty("--ai-vv-height");
+      root.style.removeProperty("--ai-keyboard-height");
+      root.classList.remove("orbit-keyboard-open");
     };
   }, [open, isMobile]);
 
@@ -1506,7 +1507,11 @@ export function AiChatPanel({
     <div
       className={`orbit-ai-overlay orbit-ai-overlay--${panelLayout}${panelVisible ? " orbit-ai-overlay--visible" : ""}`}
       role="presentation"
-      onPointerDown={onClose}
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
     >
       <aside
         ref={panelRef}
@@ -1515,7 +1520,6 @@ export function AiChatPanel({
         role="dialog"
         aria-label="Orbit AI"
         aria-modal="true"
-        onPointerDown={(event) => event.stopPropagation()}
         onTransitionEnd={handlePanelTransitionEnd}
       >
         {isSidebarLayout ? (

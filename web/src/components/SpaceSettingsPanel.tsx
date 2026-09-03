@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   computeDaysTogetherFromIso,
-  formatAnniversaryCn,
   getApiErrorMessage,
   shouldToastApiError,
   updateSpace,
@@ -72,9 +71,6 @@ export function SpaceSettingsPanel() {
                 <Card className="orbit-space-preview orbit-settings-space-preview" aria-live="polite">
                   <p className="orbit-space-preview-days">
                     在一起第 {previewDays.toLocaleString("zh-CN")} 天
-                  </p>
-                  <p className="orbit-space-preview-sub orbit-muted">
-                    自 {formatAnniversaryCn(anniversaryDate)} 起
                   </p>
                 </Card>
               ) : null}

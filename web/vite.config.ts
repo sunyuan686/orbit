@@ -1,10 +1,40 @@
+import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
+function getAppVersion(): string {
+  try {
+    const pkgPath = path.resolve(__dirname, "../package.json");
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+    return pkg.version || "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
+function getCommitHash(): string {
+  if (process.env.CF_PAGES_COMMIT_SHA) {
+    return process.env.CF_PAGES_COMMIT_SHA.slice(0, 7);
+  }
+  if (process.env.GITHUB_SHA) {
+    return process.env.GITHUB_SHA.slice(0, 7);
+  }
+  try {
+    return execSync("git rev-parse --short HEAD", { encoding: "utf-8" }).trim();
+  } catch {
+    return "";
+  }
+}
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(getAppVersion()),
+    __COMMIT_HASH__: JSON.stringify(getCommitHash()),
+  },
   envDir: "../",
   resolve: {
     alias: {

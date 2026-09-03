@@ -5,8 +5,11 @@ export interface LetterThread {
   replies: EntrySummary[];
 }
 
-/** 将平铺条目整理为主信 + 回信树（主信按日期降序） */
-export function buildLetterTree(entries: EntrySummary[]): LetterThread[] {
+/** 将平铺条目整理为主信 + 回信树（主信按 order 排序，默认降序） */
+export function buildLetterTree(
+  entries: EntrySummary[],
+  order: "asc" | "desc" = "desc"
+): LetterThread[] {
   const repliesByParent = new Map<string, EntrySummary[]>();
   const roots: EntrySummary[] = [];
 
@@ -24,7 +27,11 @@ export function buildLetterTree(entries: EntrySummary[]): LetterThread[] {
     replies.sort((a, b) => (a.entryDate ?? 0) - (b.entryDate ?? 0));
   }
 
-  roots.sort((a, b) => (b.entryDate ?? 0) - (a.entryDate ?? 0));
+  roots.sort((a, b) =>
+    order === "asc"
+      ? (a.entryDate ?? 0) - (b.entryDate ?? 0)
+      : (b.entryDate ?? 0) - (a.entryDate ?? 0)
+  );
 
   return roots.map((root) => ({
     root,

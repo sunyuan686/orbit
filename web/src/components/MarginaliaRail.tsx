@@ -1,19 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { scrollBehavior } from "../lib/motion";
 import type { CommentItem } from "../lib/api";
-import { formatDate } from "../lib/api";
+import { formatDateTime } from "../lib/api";
 import { useMinWidthXl } from "../hooks/useBreakpoint";
 import { MARGINALIA_RAIL_STORAGE_KEY, useRailExpanded } from "../lib/railPreferences";
 import { MarginaliaIcon, CloseIcon, ChevronRightIcon } from "./OrbitIcons";
 import { CommentComposer } from "./CommentComposer";
 
 function formatMarginaliaTime(ts: number): string {
-  const date = formatDate(ts);
-  const d = new Date(ts * 1000);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${date} ${hh}:${mm}`;
+  return formatDateTime(ts);
 }
+
 
 function sortByAnchor(comments: CommentItem[]): CommentItem[] {
   return [...comments].sort((left, right) => {
@@ -334,7 +331,7 @@ export function MobileMarginalia({
               className="orbit-icon-btn inline-flex p-1 cursor-pointer"
               aria-label="关闭边注"
             >
-              <CloseIcon size="md" />
+              <CloseIcon size="sm" />
             </button>
           </div>
           <div className="orbit-toc-drawer-body orbit-marginalia-drawer-body">

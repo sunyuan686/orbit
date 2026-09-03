@@ -1,9 +1,8 @@
-const BEIJING_OFFSET_SECONDS = 8 * 3600;
+import { dateKeyToEndOfDayUnix, dateKeyToUnix, getSpaceTodayKey } from "@orbit/shared";
 
-export function beijingDayRange(): { start: number; end: number } {
-  const nowSec = Math.floor(Date.now() / 1000);
-  const beijingNow = nowSec + BEIJING_OFFSET_SECONDS;
-  const dayStartBeijing = beijingNow - (beijingNow % 86400);
-  const start = dayStartBeijing - BEIJING_OFFSET_SECONDS;
-  return { start, end: start + 86400 };
+export function beijingDayRange(referenceTs?: number): { start: number; end: number } {
+  const todayKey = getSpaceTodayKey(referenceTs);
+  const start = dateKeyToUnix(todayKey);
+  const end = dateKeyToEndOfDayUnix(todayKey) + 1;
+  return { start, end };
 }

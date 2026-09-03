@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { registerSW } from "virtual:pwa-register";
+import { useCallback } from "react";
+import { usePwaUpdate } from "../hooks/usePwaUpdate";
 
 /**
  * PWA 版本更新提示（prompt 模式）。
@@ -9,67 +9,16 @@ import { registerSW } from "virtual:pwa-register";
  * 整页重载是破坏性操作（编辑中草稿、刮刮卡状态会丢失），
  * 其决策权属于用户，由用户选择安全时机执行。
  */
-
-let registered = false;
-let lastCheckTime = 0;
-const CHECK_INTERVAL_MS = 15 * 60 * 1000; // 15 分钟节流阈值
-
-function checkForUpdates(registration: ServiceWorkerRegistration) {
-  const now = Date.now();
-  if (now - lastCheckTime < CHECK_INTERVAL_MS) return;
-  lastCheckTime = now;
-  registration.update().catch((err) => {
-    console.warn("[pwa] Failed to check for SW update", err);
-  });
-}
-
 export function SwUpdatePrompt() {
-  const [needRefresh, setNeedRefresh] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
-  const updateSwRef = useRef<((reloadPage?: boolean) => Promise<void>) | undefined>(undefined);
-
-  useEffect(() => {
-    if (!import.meta.env.PROD || !("serviceWorker" in navigator) || registered) {
-      return;
-    }
-    registered = true;
-
-    const updateSW = registerSW({
-      immediate: true,
-      onRegisteredSW(_swScriptUrl, registration) {
-        if (!registration) return;
-        lastCheckTime = Date.now();
-
-        // App 从后台切回前台或聚焦时，节流检查是否有新版本
-        document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState === "visible") {
-            checkForUpdates(registration);
-          }
-        });
-        window.addEventListener("focus", () => checkForUpdates(registration));
-      },
-      onOfflineReady() {
-        console.info("[pwa] App shell cached for offline use");
-      },
-      onNeedRefresh() {
-        setNeedRefresh(true);
-        setDismissed(false);
-      },
-      onRegisterError(error) {
-        console.error("[pwa] Service worker registration failed", error);
-      },
-    });
-    updateSwRef.current = updateSW;
-  }, []);
+  const { needRefresh, dismissed, applyUpdate, setDismissed } = usePwaUpdate();
 
   const handleUpdate = useCallback(() => {
-    // 发送 SKIP_WAITING → 新 SW 激活接管 → 运行时自动整页重载
-    void updateSwRef.current?.(true);
-  }, []);
+    void applyUpdate();
+  }, [applyUpdate]);
 
   const handleClose = useCallback(() => {
     setDismissed(true);
-  }, []);
+  }, [setDismissed]);
 
   if (!needRefresh || dismissed) {
     return null;

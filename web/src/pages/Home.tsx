@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { FEED_ENTRY_TYPES } from "@orbit/shared";
+import { FEED_ENTRY_TYPES, getSpaceTodayKey } from "@orbit/shared";
+
 import {
   TYPE_LABEL,
   fetchDailyScratchCard,
@@ -102,14 +103,6 @@ function formatCoupleNames(authors: SpaceAuthor[]): string | null {
   return authors.map((a) => a.name).join(" & ");
 }
 
-function getTodayDateKey(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 export function HomePage() {
   const toast = useToast();
   const { profile, loading: spaceLoading } = useSpace();
@@ -119,7 +112,8 @@ export function HomePage() {
     setPageTitle("首页");
   }, []);
 
-  const todayDateKey = useMemo(() => getTodayDateKey(), []);
+  const todayDateKey = useMemo(() => getSpaceTodayKey(), []);
+
   const [customCard, setCustomCard] = useState<ScratchCardData | null>(null);
   const [scratchSeed, setScratchSeed] = useState<string | number>(todayDateKey);
   const [isDailyRevealed, setIsDailyRevealed] = useState(() => {

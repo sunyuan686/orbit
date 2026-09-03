@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { TYPE_LABEL, formatSpaceTagline } from "../lib/api";
+import { TYPE_LABEL } from "../lib/api";
 import { isValidEntryType, getEntryTypeLabel } from "@orbit/shared";
 import { setPageTitle } from "../lib/pageTitle";
 import { useTheme, type Theme } from "../hooks/useTheme";
-import { SpaceProvider, useSpace } from "../contexts/spaceContext";
+import { SpaceProvider } from "../contexts/spaceContext";
 import { AppSettingsProvider } from "../contexts/appSettingsContext";
 import { AiArticleProvider, useAiArticleMeta } from "../contexts/aiArticleContext";
 import { UserAccount } from "./UserAccount";
 import { SunIcon, MoonIcon, MonitorIcon, SearchIcon, MenuIcon, CloseIcon, SidebarExpandIcon, SidebarCollapseIcon, GalleryIcon, MemoriesIcon, HomeIcon, NAV_CONTENT_ICONS, type NavContentType } from "./OrbitIcons";
 import { NotificationBell } from "./NotificationBell";
+import { SearchModal } from "./SearchModal";
 import { AiChatFab } from "./AiChatFab";
 import { AiChatPanel, type AiChatContext } from "./AiChatPanel";
 import { RouteErrorBoundary } from "./RouteErrorBoundary";
@@ -56,14 +57,13 @@ function LayoutShell() {
     return saved ? Number(saved) : DEFAULT_WIDTH;
   });
   const [dragging, setDragging] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [aiMounted, setAiMounted] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
-  const { profile, loading: spaceLoading } = useSpace();
   const { meta: aiArticleMeta } = useAiArticleMeta();
   const { guideOpen, setGuideOpen } = usePwaInstall();
 
@@ -93,6 +93,31 @@ function LayoutShell() {
     setPrevPathname(location.pathname);
     setOpen(false);
   }
+
+  useEffect(() => {
+    if (!open) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+      }
+    };
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", handleResize);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -163,18 +188,12 @@ function LayoutShell() {
         const target = event.target as HTMLElement;
         if (
           target.closest('input, textarea, [contenteditable="true"]') &&
-          !target.closest(".orbit-header-search")
+          !target.closest(".orbit-search-modal-dialog")
         ) {
           return;
         }
         event.preventDefault();
-        const searchInput = searchInputRef.current;
-        if (searchInput && window.innerWidth >= 640) {
-          searchInput.focus();
-          searchInput.select();
-        } else {
-          navigate("/search");
-        }
+        setSearchOpen((prev) => !prev);
       }
     }
     window.addEventListener("keydown", handleKeyDown);
@@ -248,10 +267,12 @@ function LayoutShell() {
       <aside
         ref={sidebarRef}
         style={{ width: effectiveWidth }}
+        aria-label="主导航"
+        aria-modal={open ? "true" : undefined}
         className={`
           orbit-sidebar-panel fixed inset-y-0 left-0 z-50 border-r flex flex-col overflow-hidden
           md:static md:translate-x-0 md:shrink-0
-          ${open ? "translate-x-0" : "-translate-x-full"}
+          ${open ? "translate-x-0 orbit-sidebar-panel--open" : "-translate-x-full"}
           ${dragging ? "orbit-sidebar-panel--dragging" : ""}
         `}
       >
@@ -262,7 +283,7 @@ function LayoutShell() {
               className="orbit-icon-btn w-full flex justify-center p-1.5 cursor-pointer"
               title="展开侧边栏"
             >
-              <SidebarExpandIcon size="md" />
+              <SidebarExpandIcon size="sm" />
             </button>
           ) : (
             <>
@@ -272,9 +293,6 @@ function LayoutShell() {
                 title="首页"
               >
                 <h1 className="orbit-sidebar-title tracking-tight">Orbit</h1>
-                <p className="orbit-sidebar-tagline truncate mt-0.5">
-                  {spaceLoading ? "加载中…" : formatSpaceTagline(profile)}
-                </p>
               </Link>
               <button
                 type="button"
@@ -292,13 +310,12 @@ function LayoutShell() {
                 title="关闭菜单"
                 aria-label="关闭菜单"
               >
-                <CloseIcon size="md" />
+                <CloseIcon size="sm" />
               </button>
             </>
           )}
         </div>
 
-        {/* 导航 */}
         <nav className={`flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden ${collapsed ? "px-2" : "px-2"}`}>
           <NavLink
             to="/"
@@ -361,7 +378,6 @@ function LayoutShell() {
           </NavLink>
         </nav>
 
-        {/* 账号 */}
         <UserAccount collapsed={collapsed} />
       </aside>
 
@@ -372,11 +388,11 @@ function LayoutShell() {
 
       <div className="flex-1 flex flex-col min-w-0">
         <header
-          className={`orbit-header-bar flex items-center justify-between px-4 md:px-6 py-2.5 ${
+          className={`orbit-header-bar flex items-center justify-between px-4 md:px-6 ${
             isImmersiveRoute ? "hidden md:flex" : ""
           }`}
         >
-          <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               onClick={() => setOpen(true)}
@@ -386,38 +402,18 @@ function LayoutShell() {
               <MenuIcon size="sm" />
             </button>
             <span className="orbit-heading md:hidden text-sm font-medium shrink-0">Orbit</span>
-
-            <form
-              className="hidden sm:flex items-center gap-2 flex-1 max-w-md ml-auto mr-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const fd = new FormData(e.currentTarget);
-                const q = String(fd.get("q") ?? "").trim();
-                navigate(q ? `/search?q=${encodeURIComponent(q)}` : "/search");
-              }}
-            >
-              <SearchIcon className="orbit-search-icon" />
-              <input
-                ref={searchInputRef}
-                type="search"
-                name="q"
-                defaultValue={location.pathname === "/search" ? new URLSearchParams(location.search).get("q") ?? "" : ""}
-                key={location.pathname + location.search}
-                placeholder="搜索…"
-                className="orbit-header-search flex-1 min-w-0 bg-transparent text-sm outline-none"
-              />
-            </form>
           </div>
 
-          <div className="flex items-center gap-1 shrink-0">
-            <Link
-              to="/search"
-              className="orbit-icon-btn inline-flex sm:hidden p-1.5 cursor-pointer"
-              title="搜索"
-              aria-label="搜索"
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              className="orbit-icon-btn inline-flex p-1.5 cursor-pointer"
+              title="搜索 (⌘K)"
+              aria-label="搜索 (⌘K)"
             >
               <SearchIcon size="sm" />
-            </Link>
+            </button>
             <NotificationBell />
             <button
               onClick={() => {
@@ -446,6 +442,10 @@ function LayoutShell() {
           </RouteErrorBoundary>
         </main>
       </div>
+      <SearchModal
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+      />
       <AiChatFab
         open={aiOpen}
         onClick={() => {

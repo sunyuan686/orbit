@@ -1,7 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { getSpaceTodayKey } from "@orbit/shared";
 import { scratchSound } from "../lib/scratchSound";
 import { CloseIcon } from "./OrbitIcons";
+
 
 interface ScratchCardProps {
   onScratchComplete?: () => void;
@@ -58,7 +60,8 @@ export function ScratchCard({
     onScratchComplete?.();
   };
 
-  const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, " · ");
+  const todayStr = getSpaceTodayKey().replace(/-/g, " · ");
+
 
   return (
     <>
@@ -251,7 +254,8 @@ function ScratchModal({
 
     ctx.textAlign = "right";
     ctx.textBaseline = "bottom";
-    const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, " · ");
+    const todayStr = getSpaceTodayKey().replace(/-/g, " · ");
+
     ctx.fillText(todayStr, inset + borderW - 10, inset + borderH - 10);
 
     // 双星徽标

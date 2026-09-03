@@ -8,5 +8,6 @@ export * from "./specs/ai-model-specs.js";
 export * from "./specs/ai-model-catalog-builtin.js";
 
 // 日期、时间与生日算法
-export * from "./utils/beijing-date.js";
+export * from "./utils/date.js";
 export * from "./utils/birthday.js";
+

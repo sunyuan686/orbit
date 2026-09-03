@@ -1,27 +1,29 @@
-/** Unix 秒 → YYYY-MM-DD（本地时区） */
+import {
+  dateKeyToUnix,
+  getSpaceTodayKey,
+  parseDateKey,
+  unixToDateKey,
+} from "@orbit/shared";
+
+/** Unix 秒 → 空间基准时区 YYYY-MM-DD */
 export function toDateInput(ts: number): string {
-  const d = new Date(ts * 1000);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return unixToDateKey(ts);
 }
 
-/** YYYY-MM-DD → 当地 00:00 的 Unix 秒 */
+/** 空间 YYYY-MM-DD → 空间 00:00:00 的 Unix 秒 */
 export function fromDateInput(s: string): number {
-  const [y, m, d] = s.split("-").map(Number);
-  return Math.floor(new Date(y, m - 1, d).getTime() / 1000);
+  return dateKeyToUnix(s);
 }
 
-/** YYYY-MM-DD → Date（本地时区，仅日期部分） */
+/** YYYY-MM-DD → Date（用于 UI 日历组件渲染） */
 export function parseIsoDate(iso: string): Date | undefined {
-  if (!iso) return undefined;
-  const [y, m, d] = iso.split("-").map(Number);
-  if ([y, m, d].some((n) => Number.isNaN(n))) return undefined;
+  const valid = parseDateKey(iso);
+  if (!valid) return undefined;
+  const [y, m, d] = valid.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 
-/** Date → YYYY-MM-DD（本地时区） */
+/** Date（日历组件选择） → YYYY-MM-DD */
 export function toIsoDate(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -29,7 +31,7 @@ export function toIsoDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** 今天 YYYY-MM-DD（本地时区） */
+/** 空间今天 YYYY-MM-DD（统一空间时区） */
 export function todayIsoDate(): string {
-  return toIsoDate(new Date());
+  return getSpaceTodayKey();
 }

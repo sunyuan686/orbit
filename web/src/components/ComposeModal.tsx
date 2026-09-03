@@ -6,6 +6,7 @@ import { VoiceInputButton } from "./VoiceInputButton";
 import { VoiceNoteRecordButton } from "./VoiceNoteRecordButton";
 import { uploadAsset } from "../lib/api";
 import type { EditorHandoffState } from "../lib/editor-handoff";
+import { GalleryIcon } from "./OrbitIcons";
 
 export type ComposeFormat = "note" | "appreciation" | "link" | "quote";
 export type ComposeMode = "note" | "article";
@@ -263,7 +264,7 @@ export function ComposeModal({
                   title="展开全屏长文创作"
                   aria-label="切换长文全屏模式"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
                   </svg>
                 </button>
@@ -353,11 +354,7 @@ export function ComposeModal({
                 disabled={uploading}
                 title="添加多媒体文件 (图片/视频/音频)"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                  <circle cx="9" cy="9" r="2" />
-                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                </svg>
+                <GalleryIcon size="sm" />
                 {uploading ? "上传中…" : "添加媒体"}
               </button>
 
@@ -399,7 +396,7 @@ export function ComposeModal({
                   title={showTitle ? "隐藏标题" : "添加标题"}
                   aria-label={showTitle ? "隐藏标题" : "添加标题"}
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M4 12h16M4 6h16M4 18h10" />
                   </svg>
                   标题

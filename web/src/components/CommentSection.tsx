@@ -1,16 +1,13 @@
 import { useMemo, useState } from "react";
 import type { CommentItem } from "../lib/api";
-import { formatDate } from "../lib/api";
+import { formatDateTime } from "../lib/api";
 import { CommentComposer } from "./CommentComposer";
 import { Button } from "./ui";
 
 function formatCommentTime(ts: number): string {
-  const date = formatDate(ts);
-  const d = new Date(ts * 1000);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${date} ${hh}:${mm}`;
+  return formatDateTime(ts);
 }
+
 
 function CommentRow({
   comment,

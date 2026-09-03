@@ -5,7 +5,7 @@ export type OrbitIconSize = "sm" | "md" | "nav";
 const ICON_PX: Record<OrbitIconSize, number> = {
   sm: 16,
   md: 20,
-  nav: 20,
+  nav: 16,
 };
 
 type OrbitIconProps = SVGProps<SVGSVGElement> & {
@@ -689,6 +689,35 @@ export function RefreshIcon(props: OrbitIconProps) {
     </OrbitIcon>
   );
 }
+
+export function ListViewIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </OrbitIcon>
+  );
+}
+
+export function GridViewIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+    </OrbitIcon>
+  );
+}
+
+export function SortIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M7 15l5 5 5-5" />
+      <path d="M7 9l5-5 5 5" />
+    </OrbitIcon>
+  );
+}
+
 
 
 

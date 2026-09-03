@@ -35,6 +35,7 @@ export interface EntrySummary {
 export interface EntryListPage {
   items: EntrySummary[];
   total: number;
+  earliestYear?: number;
   limit: number;
   offset: number;
 }
@@ -91,83 +92,42 @@ export interface CommentGroups {
   inline: CommentItem[];
 }
 
-import { TYPE_LABEL, getEntryTypeLabel } from "@orbit/shared";
-export { TYPE_LABEL, getEntryTypeLabel };
+import {
+  TYPE_LABEL,
+  getEntryTypeLabel,
+  formatDate,
+  formatDateTime,
+  formatDateCn,
+  formatDateWithWeekday,
+  formatDiaryDateParts,
+  formatRelativeTime,
+  formatTime,
+  wasEdited,
+  isSameLocalDay,
+  isSameSpaceDay,
+  beijingDateParts,
+  getSpaceDateParts,
+  getSpaceTodayKey,
+} from "@orbit/shared";
 
-const BEIJING_OFFSET_SECONDS = 8 * 3600;
+export {
+  TYPE_LABEL,
+  getEntryTypeLabel,
+  formatDate,
+  formatDateTime,
+  formatDateCn,
+  formatDateWithWeekday,
+  formatDiaryDateParts,
+  formatRelativeTime,
+  formatTime,
+  wasEdited,
+  isSameLocalDay,
+  isSameSpaceDay,
+  beijingDateParts,
+  getSpaceDateParts,
+  getSpaceTodayKey,
+};
 
-export function beijingDateParts(ts: number): { y: number; m: number; day: number } {
-  const d = new Date((ts + BEIJING_OFFSET_SECONDS) * 1000);
-  return {
-    y: d.getUTCFullYear(),
-    m: d.getUTCMonth() + 1,
-    day: d.getUTCDate(),
-  };
-}
-
-/** 格式化 Unix 时间戳为 YYYY-MM-DD（北京时间日界） */
-export function formatDate(ts: number): string {
-  const { y, m, day } = beijingDateParts(ts);
-  return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
-
-/** 日记列表左栏：日 / 月 / 年（北京时间） */
-export function formatDiaryDateParts(ts: number): {
-  day: string;
-  month: string;
-  year: string;
-} {
-  const { y, m, day } = beijingDateParts(ts);
-  return {
-    day: String(day).padStart(2, "0"),
-    month: `${m}月`,
-    year: String(y),
-  };
-}
-
-/** 格式化 Unix 时间戳为 YYYY-MM-DD HH:mm（本地时区） */
-export function formatDateTime(ts: number): string {
-  const d = new Date(ts * 1000);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const h = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${y}-${m}-${day} ${h}:${min}`;
-}
-
-/** 格式化 Unix 时间戳为中文日期（北京时间日界，用于标题区展示） */
-export function formatDateCn(ts: number): string {
-  const { y, m, day } = beijingDateParts(ts);
-  return `${y} 年 ${m} 月 ${day} 日`;
-}
-
-const WEEKDAYS = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
-
-/** 格式化带星期的刊物级中文日期（用于无自定义标题时的自然封面标题） */
-export function formatDateWithWeekday(ts: number): string {
-  const { y, m, day } = beijingDateParts(ts);
-  const d = new Date(ts * 1000);
-  const weekday = WEEKDAYS[d.getDay()] || "";
-  return `${y} 年 ${m} 月 ${day} 日 · ${weekday}`;
-}
-
-/** Whether updatedAt differs meaningfully from createdAt */
-export function wasEdited(createdAt?: number, updatedAt?: number): boolean {
-  if (createdAt == null || updatedAt == null) return false;
-  return updatedAt - createdAt > 1;
-}
-
-/** Same local calendar day (for entryDate vs createdAt dedup) */
-export function isSameLocalDay(a: number, b: number): boolean {
-  const da = new Date(a * 1000);
-  const db = new Date(b * 1000);
-  return (
-    da.getFullYear() === db.getFullYear() &&
-    da.getMonth() === db.getMonth() &&
-    da.getDate() === db.getDate()
-  );
-}
 
 export class ApiError extends Error {
   status?: number;
@@ -226,17 +186,26 @@ async function assertOk(res: Response, fallback: string): Promise<void> {
   throw err;
 }
 
+export interface FetchEntriesOptions {
+  roots?: boolean;
+  limit?: number;
+  offset?: number;
+  year?: number;
+  author?: string;
+  order?: "asc" | "desc";
+}
+
 export async function fetchEntries(
   type: string,
-  opts?: { roots?: boolean }
+  opts?: { roots?: boolean; year?: number; author?: string; order?: "asc" | "desc" }
 ): Promise<EntrySummary[]>;
 export async function fetchEntries(
   type: string,
-  opts: { roots?: boolean; limit: number; offset?: number }
+  opts: { roots?: boolean; limit: number; offset?: number; year?: number; author?: string; order?: "asc" | "desc" }
 ): Promise<EntryListPage>;
 export async function fetchEntries(
   type: string,
-  opts?: { roots?: boolean; limit?: number; offset?: number }
+  opts?: FetchEntriesOptions
 ): Promise<EntrySummary[] | EntryListPage> {
   const params = new URLSearchParams({ type });
   if (opts?.roots === false) params.set("roots", "0");
@@ -244,6 +213,9 @@ export async function fetchEntries(
     params.set("limit", String(opts.limit));
     params.set("offset", String(opts.offset ?? 0));
   }
+  if (opts?.year != null) params.set("year", String(opts.year));
+  if (opts?.author) params.set("author", opts.author);
+  if (opts?.order) params.set("order", opts.order);
   const res = await fetch(`${BASE}/api/articles?${params}`, {
     credentials: "include",
     cache: "no-cache",

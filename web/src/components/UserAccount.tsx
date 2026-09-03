@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { authClient } from "../lib/api";
 import { useToast } from "../hooks/useToast";
+import { usePwaUpdate } from "../hooks/usePwaUpdate";
 import { LogoutIcon, SettingsIcon } from "./OrbitIcons";
 
 interface UserAccountProps {
@@ -19,6 +20,7 @@ function UserAvatar({ name, title }: { name: string; title?: string }) {
 export function UserAccount({ collapsed = false }: UserAccountProps) {
   const navigate = useNavigate();
   const toast = useToast();
+  const { needRefresh } = usePwaUpdate();
   const { data: session, isPending } = authClient.useSession();
   const [signingOut, setSigningOut] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -88,7 +90,7 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
       </div>
       <div className="orbit-sidebar-account-menu-divider" />
       <Link
-        to="/settings"
+        to="/settings?tab=about"
         role="menuitem"
         className="orbit-sidebar-account-menu-item"
         onClick={() => setMenuOpen(false)}
@@ -96,7 +98,16 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
         <span className="orbit-sidebar-account-menu-item-icon" aria-hidden="true">
           <SettingsIcon size="sm" />
         </span>
-        <span>设置</span>
+        <span className="flex items-center justify-between flex-1 min-w-0">
+          <span>设置</span>
+          {needRefresh ? (
+            <span
+              className="w-2 h-2 rounded-full bg-[var(--color-accent)] shrink-0 ml-1.5"
+              title="新版本可用"
+              aria-label="新版本可用"
+            />
+          ) : null}
+        </span>
       </Link>
       <div className="orbit-sidebar-account-menu-divider" />
       <button
@@ -119,7 +130,7 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
       <div className="orbit-sidebar-footer orbit-sidebar-footer--collapsed" ref={rootRef}>
         <button
           type="button"
-          className={`orbit-sidebar-account-trigger orbit-sidebar-account-trigger--collapsed${menuOpen ? " is-open" : ""}`}
+          className={`orbit-sidebar-account-trigger orbit-sidebar-account-trigger--collapsed relative${menuOpen ? " is-open" : ""}`}
           aria-expanded={menuOpen}
           aria-haspopup="menu"
           aria-controls={menuOpen ? menuId : undefined}
@@ -127,6 +138,12 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
           onClick={() => setMenuOpen((open) => !open)}
         >
           <UserAvatar name={user.name} />
+          {needRefresh ? (
+            <span
+              className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-[var(--color-accent)] ring-2 ring-[var(--color-surface)] pointer-events-none"
+              aria-hidden="true"
+            />
+          ) : null}
         </button>
         {menu}
       </div>
@@ -137,19 +154,26 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
     <div className="orbit-sidebar-footer px-2 py-2" ref={rootRef}>
       <button
         type="button"
-        className={`orbit-sidebar-account-trigger${menuOpen ? " is-open" : ""}`}
+        className={`orbit-sidebar-account-trigger relative${menuOpen ? " is-open" : ""}`}
         aria-expanded={menuOpen}
         aria-haspopup="menu"
         aria-controls={menuOpen ? menuId : undefined}
         onClick={() => setMenuOpen((open) => !open)}
       >
         <UserAvatar name={user.name} />
-        <div className="orbit-sidebar-account-meta min-w-0 text-left">
+        <div className="orbit-sidebar-account-meta min-w-0 text-left flex-1">
           <p className="orbit-sidebar-account-name truncate">{user.name}</p>
           <p className="orbit-sidebar-tagline truncate" title={user.email}>
             {user.email}
           </p>
         </div>
+        {needRefresh ? (
+          <span
+            className="w-2 h-2 rounded-full bg-[var(--color-accent)] shrink-0 self-center"
+            title="新版本可用"
+            aria-label="新版本可用"
+          />
+        ) : null}
       </button>
       {menu}
     </div>

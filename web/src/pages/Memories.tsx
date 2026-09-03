@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getSpaceYear } from "@orbit/shared";
+
 import {
   TYPE_LABEL,
   celebrateMemoryMilestones,
@@ -243,9 +245,10 @@ export function MemoriesPage() {
   const [year, setYear] = useState<number | "all">("all");
 
   const years = useMemo(() => {
-    const current = new Date().getFullYear();
+    const current = getSpaceYear();
     return [current, current - 1, current - 2, current - 3];
   }, []);
+
 
   const dismissCelebrate = useCallback(() => {
     setCelebrateItems([]);

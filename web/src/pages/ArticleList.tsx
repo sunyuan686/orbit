@@ -4,6 +4,7 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   beijingDateParts,
   fetchEntries,
+  fetchSpaceStatus,
   TYPE_LABEL,
   formatDate,
   formatDateCn,
@@ -24,6 +25,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { useToast } from "../hooks/useToast";
 import { Container } from "../components/ui";
 import { GalleryImage } from "../components/GalleryImage";
+import { GridViewIcon, ListViewIcon, SortIcon } from "../components/OrbitIcons";
 
 /** letter 仍全量拉取以拼线程树；其余类型分页 */
 const PAGE_SIZE = 30;
@@ -393,6 +395,62 @@ function AppreciationGridCard({
   );
 }
 
+function NoteListCard({ entry }: { entry: EntrySummary }) {
+  const title = entry.title?.trim() || null;
+  const hasCover = Boolean(entry.coverUrl);
+
+  return (
+    <Link to={`/note/${entry.id}`} className="orbit-memo-card">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          {title && <h3 className="orbit-memo-card-title">{title}</h3>}
+          <Snippet text={entry.snippet} />
+        </div>
+        {hasCover && entry.coverUrl && (
+          <div className="w-16 h-16 shrink-0 rounded overflow-hidden border border-[var(--color-border-light)]">
+            <CoverImg entry={entry} imgClassName="w-full h-full object-cover" />
+          </div>
+        )}
+      </div>
+      <div className="orbit-memo-card-foot">
+        {entry.author && <span className="orbit-entry-author">{entry.author}</span>}
+        {entry.entryDate != null && (
+          <span className="orbit-memo-card-updated">{formatDate(entry.entryDate)}</span>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+function AppreciationListCard({ entry }: { entry: EntrySummary }) {
+  const title = entry.title?.trim() || null;
+  const hasCover = Boolean(entry.coverUrl);
+
+  return (
+    <Link to={`/appreciation/${entry.id}`} className="orbit-memo-card">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          {title && <h3 className="orbit-memo-card-title">{title}</h3>}
+          <Snippet text={entry.snippet} />
+        </div>
+        {hasCover && entry.coverUrl && (
+          <div className="w-16 h-16 shrink-0 rounded overflow-hidden border border-[var(--color-border-light)]">
+            <CoverImg entry={entry} imgClassName="w-full h-full object-cover" />
+          </div>
+        )}
+      </div>
+      <div className="orbit-memo-card-foot">
+        <span className="orbit-entry-author">
+          {entry.author ? `来自 ${entry.author} 的感谢` : "暖心感谢"}
+        </span>
+        {entry.entryDate != null && (
+          <span className="orbit-memo-card-updated">{formatDate(entry.entryDate)}</span>
+        )}
+      </div>
+    </Link>
+  );
+}
+
 function DiaryCard({ entry }: { entry: EntrySummary }) {
   const hasCover = Boolean(entry.coverUrl);
   const parts =
@@ -729,6 +787,18 @@ function TypedEntryList({
   }
 
   if (type === "note") {
+    if (viewMode === "classic") {
+      return (
+        <ul className="orbit-list-plain orbit-memo-list">
+          {entries.map((entry) => (
+            <li key={entry.id}>
+              <NoteListCard entry={entry} />
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
     return (
       <ul className="orbit-list-plain orbit-msg-board-polaroid">
         {entries.map((entry) => (
@@ -744,6 +814,18 @@ function TypedEntryList({
   }
 
   if (type === "appreciation") {
+    if (viewMode === "classic") {
+      return (
+        <ul className="orbit-list-plain orbit-memo-list">
+          {entries.map((entry) => (
+            <li key={entry.id}>
+              <AppreciationListCard entry={entry} />
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
     return (
       <ul className="orbit-list-plain orbit-msg-board-polaroid">
         {entries.map((entry) => (
@@ -759,6 +841,18 @@ function TypedEntryList({
   }
 
   if (type === "memo") {
+    if (viewMode === "polaroid") {
+      return (
+        <ul className="orbit-list-plain orbit-msg-board-polaroid">
+          {entries.map((entry) => (
+            <li key={entry.id}>
+              <MemoCard entry={entry} />
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
     return (
       <ul className="orbit-list-plain orbit-memo-list">
         {entries.map((entry) => (
@@ -781,16 +875,144 @@ function TypedEntryList({
   );
 }
 
+interface FilterOption<T> {
+  value: T;
+  label: string;
+}
+
+function FilterChipDropdown<T extends string | number>({
+  label,
+  value,
+  options,
+  onChange,
+  allLabel = "全部",
+}: {
+  label: string;
+  value: T | null;
+  options: FilterOption<T>[];
+  onChange: (value: T | null) => void;
+  allLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    const handleTouchMove = (e: TouchEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("touchmove", handleTouchMove);
+    };
+  }, [open]);
+
+  const activeOption = options.find((o) => o.value === value);
+  const hasFilter = value !== null;
+
+  return (
+    <div ref={containerRef} className="orbit-filter-chip-wrap">
+      <button
+        type="button"
+        className={`orbit-filter-chip${hasFilter ? " is-active" : ""}`}
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+      >
+        <span>{hasFilter ? activeOption?.label ?? String(value) : label}</span>
+        {hasFilter ? (
+          <span
+            className="orbit-filter-chip-clear"
+            role="button"
+            title="清除筛选"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange(null);
+              setOpen(false);
+            }}
+          >
+            ×
+          </span>
+        ) : (
+          <span className="orbit-filter-chip-arrow" aria-hidden>
+            ▾
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="orbit-filter-popover" role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            className={`orbit-filter-menu-item${value === null ? " is-active" : ""}`}
+            onClick={() => {
+              onChange(null);
+              setOpen(false);
+            }}
+          >
+            <span>{allLabel}</span>
+            {value === null && <span className="orbit-filter-check">✓</span>}
+          </button>
+          {options.map((opt) => (
+            <button
+              key={String(opt.value)}
+              type="button"
+              role="menuitem"
+              className={`orbit-filter-menu-item${value === opt.value ? " is-active" : ""}`}
+              onClick={() => {
+                onChange(opt.value);
+                setOpen(false);
+              }}
+            >
+              <span>{opt.label}</span>
+              {value === opt.value && <span className="orbit-filter-check">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ArticleList() {
   const { type } = useParams<{ type: string }>();
   const toast = useToast();
   const toastedError = useRef<unknown>(null);
 
-  const supportsViewSwitch = type === "message" || type === "diary" || type === "timeline";
+  const statusQuery = useQuery({
+    queryKey: queryKeys.spaceStatus,
+    queryFn: fetchSpaceStatus,
+    staleTime: 5 * 60_000,
+  });
+
+  const [year, setYear] = useState<number | null>(null);
+  const [author, setAuthor] = useState<string | null>(null);
+  const [order, setOrder] = useState<"asc" | "desc">("desc");
+
+  const isLetter = type === "letter";
+  const supportsViewSwitch = !isLetter;
 
   const [viewMode, setViewMode] = useState<"classic" | "polaroid">(() => {
     const key = type ? `orbit_view_mode_${type}` : "orbit_view_mode";
-    return (localStorage.getItem(key) as "classic" | "polaroid") || "classic";
+    const saved = localStorage.getItem(key);
+    if (saved === "polaroid" || saved === "classic") return saved;
+    return type === "timeline" || type === "note" || type === "appreciation" || type === "message"
+      ? "polaroid"
+      : "classic";
   });
 
   useEffect(() => {
@@ -799,8 +1021,18 @@ export function ArticleList() {
     if (saved === "polaroid" || saved === "classic") {
       setViewMode(saved);
     } else {
-      setViewMode("classic");
+      setViewMode(
+        type === "timeline" || type === "note" || type === "appreciation" || type === "message"
+          ? "polaroid"
+          : "classic"
+      );
     }
+  }, [type]);
+
+  useEffect(() => {
+    setYear(null);
+    setAuthor(null);
+    setOrder("desc");
   }, [type]);
 
   const handleViewModeChange = (mode: "classic" | "polaroid") => {
@@ -810,10 +1042,25 @@ export function ArticleList() {
     }
   };
 
-  const isLetter = type === "letter";
   const paginated = Boolean(type) && !isLetter;
-  const letterParams = { roots: false } as const;
-  const pageParams = { pageSize: PAGE_SIZE } as const;
+  const letterParams = useMemo(
+    () => ({
+      roots: false,
+      year: year ?? undefined,
+      author: author ?? undefined,
+      order,
+    }),
+    [year, author, order]
+  );
+  const pageParams = useMemo(
+    () => ({
+      pageSize: PAGE_SIZE,
+      year: year ?? undefined,
+      author: author ?? undefined,
+      order,
+    }),
+    [year, author, order]
+  );
 
   const letterQuery = useQuery({
     queryKey: queryKeys.entries("letter", letterParams),
@@ -824,7 +1071,13 @@ export function ArticleList() {
   const pagedQuery = useInfiniteQuery({
     queryKey: queryKeys.entries(type || "diary", pageParams),
     queryFn: ({ pageParam }): Promise<EntryListPage> =>
-      fetchEntries(type!, { limit: PAGE_SIZE, offset: pageParam }),
+      fetchEntries(type!, {
+        limit: PAGE_SIZE,
+        offset: pageParam,
+        year: year ?? undefined,
+        author: author ?? undefined,
+        order,
+      }),
     initialPageParam: 0,
     getNextPageParam: (lastPage, pages) => {
       const loaded = pages.reduce((n, page) => n + page.items.length, 0);
@@ -850,65 +1103,156 @@ export function ArticleList() {
     return pagedQuery.data?.pages.flatMap((page) => page.items) ?? [];
   }, [isLetter, letterQuery.data, pagedQuery.data]);
 
+  const currentYear = new Date().getFullYear();
+  const earliestYear = useMemo(() => {
+    if (isLetter) {
+      if (!entries.length) return currentYear;
+      let minYear = currentYear;
+      for (const e of entries) {
+        if (e.entryDate) {
+          const yr = beijingDateParts(e.entryDate).y;
+          if (yr < minYear) minYear = yr;
+        }
+      }
+      return minYear;
+    }
+    return pagedQuery.data?.pages[0]?.earliestYear ?? currentYear;
+  }, [isLetter, entries, pagedQuery.data?.pages, currentYear]);
+
+  const startYear = Math.min(earliestYear, currentYear);
+
+  const years = useMemo(() => {
+    const list: number[] = [];
+    for (let y = currentYear; y >= startYear; y--) {
+      list.push(y);
+    }
+    return list;
+  }, [currentYear, startYear]);
+
+  const yearOptions = useMemo(
+    () => years.map((y) => ({ value: y, label: `${y}年` })),
+    [years]
+  );
+
+  const authorOptions = useMemo(() => {
+    const set = new Set<string>();
+    if (statusQuery.data?.authors) {
+      for (const a of statusQuery.data.authors) {
+        if (a.name) set.add(a.name);
+      }
+    }
+    for (const e of entries) {
+      if (e.author) set.add(e.author);
+    }
+    return Array.from(set).map((a) => ({ value: a, label: a }));
+  }, [statusQuery.data?.authors, entries]);
+
   const tones = useAuthorTones(entries);
   const loading = isLetter ? letterQuery.isPending : pagedQuery.isPending;
   const loadingMore = pagedQuery.isFetchingNextPage;
   const label = TYPE_LABEL[type || ""] || type;
   const letterTree = useMemo(
-    () => (isLetter ? buildLetterTree(entries) : []),
-    [isLetter, entries]
+    () => (isLetter ? buildLetterTree(entries, order) : []),
+    [isLetter, entries, order]
   );
   const hasMore = paginated && pagedQuery.hasNextPage;
+  const hasActiveFilter = year != null || author != null;
 
   return (
     <Container size="standard" className={isLetter ? "orbit-content--desk" : undefined}>
-      <div className={isLetter ? "orbit-desk-toolbar" : "flex items-center justify-between mb-4"}>
-        <h2 className="orbit-page-title">{label}</h2>
-        <Link to={`/${type}/new`} className="orbit-btn orbit-btn-primary">
-          {isLetter ? "写信" : "新建"}
-        </Link>
-      </div>
+      <header className="orbit-page-header">
+        <h1 className="orbit-page-title">{label}</h1>
+      </header>
 
-      {supportsViewSwitch && !loading && entries.length > 0 && (
-        <div className="flex items-center justify-end mb-4">
-          <div className="orbit-view-switcher" role="tablist" aria-label="视图切换">
-            <button
-              type="button"
-              className={`orbit-view-switcher-btn${viewMode === "classic" ? " is-active" : ""}`}
-              onClick={() => handleViewModeChange("classic")}
-              title="切换为经典列表模式"
-            >
-              <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                <path d="M2.5 4a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5A.75.75 0 0 1 2.5 4zm0 4a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5A.75.75 0 0 1 2.5 8zm0 4a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5a.75.75 0 0 1-.75-.75z"/>
-              </svg>
-              <span>列表</span>
-            </button>
-            <button
-              type="button"
-              className={`orbit-view-switcher-btn${viewMode === "polaroid" ? " is-active" : ""}`}
-              onClick={() => handleViewModeChange("polaroid")}
-              title="切换为卡片模式"
-            >
-              <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                <path d="M1.5 3A1.5 1.5 0 0 1 3 1.5h10A1.5 1.5 0 0 1 14.5 3v10a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 13V3zm1.5 0v7h10V3H3zm0 8.5v1.5h10v-1.5H3z"/>
-              </svg>
-              <span>卡片</span>
-            </button>
-          </div>
+      <div className="orbit-content-toolbar">
+        <div className="orbit-content-toolbar-group">
+          <FilterChipDropdown
+            label="年份"
+            value={year}
+            options={yearOptions}
+            onChange={setYear}
+            allLabel="全部"
+          />
+          <FilterChipDropdown
+            label="作者"
+            value={author}
+            options={authorOptions}
+            onChange={setAuthor}
+            allLabel="全部"
+          />
         </div>
-      )}
+
+        <div className="orbit-content-toolbar-group">
+          <button
+            type="button"
+            className="orbit-filter-action-btn orbit-filter-icon-btn"
+            onClick={() => setOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
+            title={
+              order === "desc"
+                ? "当前为最新优先，点击切换为最早优先"
+                : "当前为最早优先，点击切换为最新优先"
+            }
+            aria-label={order === "desc" ? "排序：最新优先" : "排序：最早优先"}
+          >
+            <SortIcon className="w-3.5 h-3.5" />
+          </button>
+          {supportsViewSwitch && !loading && (
+            <button
+              type="button"
+              className="orbit-filter-action-btn orbit-filter-icon-btn"
+              onClick={() => handleViewModeChange(viewMode === "polaroid" ? "classic" : "polaroid")}
+              title={viewMode === "polaroid" ? "切换为列表视图" : "切换为卡片视图"}
+              aria-label={viewMode === "polaroid" ? "切换为列表视图" : "切换为卡片视图"}
+            >
+              {viewMode === "polaroid" ? (
+                <GridViewIcon className="w-3.5 h-3.5" />
+              ) : (
+                <ListViewIcon className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
+          <Link
+            to={`/${type}/new`}
+            className="orbit-btn orbit-btn-sm"
+            title={isLetter ? "写信" : type === "timeline" ? "记录" : "新建"}
+          >
+            <span className="sm:hidden">{isLetter ? "写信" : "＋"}</span>
+            <span className="hidden sm:inline">
+              {isLetter ? "写信" : type === "timeline" ? "＋ 记录" : "＋ 新建"}
+            </span>
+          </Link>
+        </div>
+      </div>
 
       {loading ? (
         <p className="orbit-muted">加载中…</p>
       ) : entries.length === 0 ? (
         <div className="orbit-muted">
-          <p>{isLetter ? "信箱还空着。" : "还没有内容。"}</p>
-          <p>
-            <Link to={`/${type}/new`} className="orbit-text-link">
-              {isLetter ? "写下第一封信" : "写下第一篇"}
-            </Link>
-            {isLetter ? "，寄给最想念的人。" : "，记录这一刻。"}
-          </p>
+          {hasActiveFilter ? (
+            <div className="py-8 text-center space-y-2">
+              <p>所选条件下暂无内容。</p>
+              <button
+                type="button"
+                className="orbit-text-link cursor-pointer text-sm"
+                onClick={() => {
+                  setYear(null);
+                  setAuthor(null);
+                }}
+              >
+                清除筛选条件
+              </button>
+            </div>
+          ) : (
+            <>
+              <p>{isLetter ? "信箱还空着。" : "还没有内容。"}</p>
+              <p>
+                <Link to={`/${type}/new`} className="orbit-text-link">
+                  {isLetter ? "写下第一封信" : "写下第一篇"}
+                </Link>
+                {isLetter ? "，寄给最想念的人。" : "，记录这一刻。"}
+              </p>
+            </>
+          )}
         </div>
       ) : isLetter ? (
         <ul className="orbit-list-plain orbit-desk">

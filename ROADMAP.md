@@ -80,7 +80,7 @@
 | 认证与权限               | ✅   | better-auth；软删除；按类型作者归属校验                                                        |
 | 部署                  | ✅   | Node 本地 + Cloudflare 生产，push main 自动部署                                           |
 | 响应式 + 暗色主题          | ✅   | 移动端布局、主题切换                                                                       |
-| PWA                 | ✅   | 可安装 + 离线壳；安装引导见 [017-pwa-install-guidance.md](docs/features/017-pwa-install-guidance.md) |
+| PWA                 | ✅   | 可安装 + 离线壳；安装引导与更新控制见 [017-pwa-install-guidance.md](docs/features/017-pwa-install-guidance.md) 与 [019-pwa-update-controls.md](docs/features/019-pwa-update-controls.md) |
 | 文章目录 TOC            | ✅   | 见 [001-marginalia-layout.md](docs/features/001-marginalia-layout.md)                        |
 | 国际化                 | 📋  | 界面 i18n，策略待定                                                                     |
 | Design Tokens / 主题色 | ✅   | 见 [DESIGN.md](DESIGN.md)                                                         |

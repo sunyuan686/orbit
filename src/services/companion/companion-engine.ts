@@ -10,8 +10,20 @@ import { readSettingsMap } from "../../db/settings-store.js";
 import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { companionLog, entry, milestoneUnlock } from "../../db/schema.js";
 import { getSpaceAuthors } from "../space/space-authors.js";
-import { beijingTodayKey, addBeijingDays, beijingStartOfDayUnix, beijingEndOfDayUnix } from "../../lib/beijing-date.js";
+import {
+  addDays,
+  addBeijingDays,
+  dateKeyToUnix,
+  dateKeyToEndOfDayUnix,
+  beijingStartOfDayUnix,
+  beijingEndOfDayUnix,
+  beijingTodayKey,
+  getSpaceDateParts,
+  getSpaceTodayKey,
+} from "@orbit/shared";
 import { generateId } from "../../lib/id.js";
+
+
 
 // ─── 常量 ─────────────────────────────────────────────────────────────────────
 
@@ -65,10 +77,10 @@ export interface CompanionEngineResult {
 
 /** 返回当前北京时间在一天中的分钟数（0~1439） */
 function beijingCurrentMinutes(nowTs = Math.floor(Date.now() / 1000)): number {
-  const BEIJING_OFFSET_SECONDS = 8 * 3600;
-  const d = new Date((nowTs + BEIJING_OFFSET_SECONDS) * 1000);
-  return d.getUTCHours() * 60 + d.getUTCMinutes();
+  const parts = getSpaceDateParts(nowTs);
+  return parts.hours * 60 + parts.minutes;
 }
+
 
 /** 是否处于安静时段 */
 export function isQuietHours(nowTs = Math.floor(Date.now() / 1000)): boolean {
@@ -434,17 +446,18 @@ async function scanWeeklyReflection(
   nowTs: number
 ): Promise<CompanionCandidate[]> {
   // 仅周日 19:00~21:00 执行
-  const BEIJING_OFFSET_SECONDS = 8 * 3600;
-  const d = new Date((nowTs + BEIJING_OFFSET_SECONDS) * 1000);
-  const isSunday = d.getUTCDay() === 0;
+  const parts = getSpaceDateParts(nowTs);
+  const isSunday = parts.weekday === 0;
   if (!isSunday) return [];
   if (!isInTimeWindow(19, 0, 21, 0, nowTs)) return [];
 
   // 统计本周（周一~周日）所有用户的记录
-  const todayKey = beijingTodayKey(nowTs);
-  const dayOfWeek = d.getUTCDay() === 0 ? 7 : d.getUTCDay();
-  const weekStart = addBeijingDays(todayKey, -(dayOfWeek - 1));
-  const weekStartTs = beijingStartOfDayUnix(weekStart);
+  const todayKey = parts.dateKey;
+  const dayOfWeek = parts.weekday === 0 ? 7 : parts.weekday;
+  const weekStart = addDays(todayKey, -(dayOfWeek - 1));
+  const weekStartTs = dateKeyToUnix(weekStart);
+
+
 
   const rows = await db
     .select({

@@ -120,7 +120,8 @@ export function SearchPage() {
         <div className="orbit-search-bar-wrap">
           <SearchIcon size="sm" className="orbit-search-bar-icon" />
           <input
-            type="search"
+            type="text"
+            inputMode="search"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             className="orbit-search-bar-input"
