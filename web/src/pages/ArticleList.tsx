@@ -5,6 +5,7 @@ import {
   beijingDateParts,
   fetchEntries,
   fetchSpaceStatus,
+  getSpaceYear,
   TYPE_LABEL,
   formatDate,
   formatDateCn,
@@ -1103,7 +1104,7 @@ export function ArticleList() {
     return pagedQuery.data?.pages.flatMap((page) => page.items) ?? [];
   }, [isLetter, letterQuery.data, pagedQuery.data]);
 
-  const currentYear = new Date().getFullYear();
+  const currentYear = getSpaceYear();
   const earliestYear = useMemo(() => {
     if (isLetter) {
       if (!entries.length) return currentYear;

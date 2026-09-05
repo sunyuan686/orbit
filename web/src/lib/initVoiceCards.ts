@@ -3,6 +3,8 @@
  * 基于第一性原理 DOM 事件委托，兼容 TipTap 编辑器、文章详情页与卡片列表
  */
 
+import { resolveAudioDuration } from "./audioUtils";
+
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) return "0:00";
   const m = Math.floor(seconds / 60);
@@ -20,6 +22,9 @@ export function setupVoiceCardEvents() {
   document.addEventListener("click", (e) => {
     const target = e.target as HTMLElement | null;
     if (!target) return;
+
+    // TipTap 编辑器内的音频卡片由 AudioNodeView 自身自包含托管，跳过全局代理以防事件竞态
+    if (target.closest(".tiptap")) return;
 
     // 1. 点击播放/暂停按钮
     const playBtn = target.closest(".orbit-voice-play-btn") as HTMLButtonElement | null;
@@ -86,7 +91,7 @@ export function setupVoiceCardEvents() {
   // 音频事件：监听全局 audio 的 timeupdate, play, pause, ended 事件更新 UI 状态
   const updateCardUI = (audio: HTMLAudioElement) => {
     const card = audio.closest(".orbit-voice-card");
-    if (!card) return;
+    if (!card || card.closest(".tiptap")) return;
 
     const playIcon = card.querySelector(".orbit-voice-play-icon");
     const pauseIcon = card.querySelector(".orbit-voice-pause-icon");
@@ -96,6 +101,7 @@ export function setupVoiceCardEvents() {
     const isPlaying = !audio.paused;
     const current = audio.currentTime || 0;
     const total = audio.duration || 0;
+    const isFiniteTotal = typeof total === "number" && isFinite(total) && total > 0;
 
     // 更新播放/暂停图标
     if (playIcon && pauseIcon) {
@@ -110,18 +116,33 @@ export function setupVoiceCardEvents() {
 
     // 更新时间显示
     if (timeEl) {
-      timeEl.textContent = total > 0 ? `${formatTime(current)} / ${formatTime(total)}` : formatTime(current);
+      timeEl.textContent = isFiniteTotal
+        ? `${formatTime(current)} / ${formatTime(total)}`
+        : formatTime(current);
     }
 
     // 更新波形高亮进度
-    if (bars.length > 0 && total > 0) {
-      const progressRatio = current / total;
+    if (bars.length > 0 && isFiniteTotal) {
+      const progressRatio = Math.min(1, Math.max(0, current / total));
       const activeCount = Math.round(progressRatio * bars.length);
       bars.forEach((bar, idx) => {
         bar.classList.toggle("is-played", idx < activeCount);
       });
     }
   };
+
+  document.addEventListener(
+    "loadedmetadata",
+    (e) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.tagName === "AUDIO") {
+        const audio = target as HTMLAudioElement;
+        resolveAudioDuration(audio, () => updateCardUI(audio));
+        updateCardUI(audio);
+      }
+    },
+    true
+  );
 
   document.addEventListener(
     "timeupdate",

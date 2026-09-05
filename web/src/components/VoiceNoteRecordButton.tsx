@@ -118,7 +118,7 @@ export function VoiceNoteRecordButton({
       const audioBlob = await blobPromise;
       if (audioBlob && audioBlob.size > 200) {
         const file = new File([audioBlob], `voice_${Date.now()}${ext}`, { type: effectiveMime });
-        const result = await uploadAsset(file, entryId);
+        const result = await uploadAsset(file, entryId, { duration: recordingSeconds });
         onVoiceNoteCreated(result);
       }
     } catch (err) {

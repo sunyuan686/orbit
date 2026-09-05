@@ -217,7 +217,7 @@ export function combineHtmlAndAttachments(
       : "";
 
     mediaParts.push(
-      `<div data-orbit-audio="true" data-src="${a.url}" data-transcript="${a.transcript || ""}" class="orbit-prose-audio-block orbit-voice-card"><div class="orbit-voice-card-main"><button type="button" class="orbit-voice-play-btn" title="播放/暂停"><svg class="w-3.5 h-3.5 fill-current ml-0.5 orbit-voice-play-icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg><svg class="w-3.5 h-3.5 fill-current hidden orbit-voice-pause-icon" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></button><div class="orbit-voice-waveform">${waveformBars}</div><span class="orbit-voice-time">0:00</span>${transcriptToggle}</div>${transcriptBlock}<audio src="${a.url}" controls class="orbit-prose-audio hidden"></audio></div>`
+      `<div data-orbit-audio="true" data-src="${a.url}" data-transcript="${a.transcript || ""}" class="orbit-prose-audio-block orbit-voice-card"><div class="orbit-voice-card-main"><button type="button" class="orbit-voice-play-btn" title="播放/暂停"><svg class="w-3.5 h-3.5 fill-current ml-0.5 orbit-voice-play-icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg><svg class="w-3.5 h-3.5 fill-current hidden orbit-voice-pause-icon" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></button><div class="orbit-voice-waveform">${waveformBars}</div><span class="orbit-voice-time">0:00</span>${transcriptToggle}</div>${transcriptBlock}<audio src="${a.url}" controls preload="metadata" class="orbit-prose-audio hidden"></audio></div>`
     );
   }
 

@@ -4123,7 +4123,7 @@ a.orbit-settings-mobile-row {
   border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 0.625rem 0.875rem;
-  font-size: var(--type-secondary);
+  font-size: var(--type-control);
   line-height: 1.6;
   color: var(--color-text-primary);
   resize: vertical;
@@ -14386,7 +14386,7 @@ button.orbit-activity-cell:hover {
   width: 100%;
   border: 1px solid var(--color-border, oklch(0.85 0.01 80));
   background: transparent;
-  font-size: 14px;
+  font-size: var(--type-control);
   color: var(--color-text-primary);
   outline: none;
   padding: 8px 12px;
@@ -14584,7 +14584,7 @@ button.orbit-activity-cell:hover {
   width: 100%;
   border: 1px solid var(--color-border-light, oklch(0.88 0.01 80));
   background: var(--color-surface-muted, oklch(0.98 0.005 80));
-  font-size: 13px;
+  font-size: var(--type-control);
   line-height: 1.4;
   padding: 7px 10px;
   border-radius: 6px;
@@ -16378,7 +16378,7 @@ button.orbit-activity-cell:hover {
 
 .orbit-voice-textarea {
   width: 100%;
-  font-size: var(--type-xs);
+  font-size: var(--type-control);
   padding: 0.5rem;
   border-radius: 6px;
   border: 1px solid var(--color-border);

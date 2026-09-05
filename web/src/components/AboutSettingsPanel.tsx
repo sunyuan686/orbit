@@ -85,11 +85,9 @@ export function AboutSettingsPanel() {
             </div>
           </div>
 
-          <div className="orbit-settings-info-row orbit-settings-info-row--stackable">
-            <div className="flex flex-col gap-0.5">
-              <span className="orbit-settings-info-label">缓存</span>
-            </div>
-            <div className="orbit-settings-info-value">
+          <div className="orbit-settings-info-row">
+            <span className="orbit-settings-info-label">缓存</span>
+            <div className="orbit-settings-info-value shrink-0">
               <Button
                 type="button"
                 variant="secondary"
@@ -104,7 +102,7 @@ export function AboutSettingsPanel() {
 
           <div className="orbit-settings-info-row">
             <span className="orbit-settings-info-label">运行环境</span>
-            <div className="orbit-settings-info-value">
+            <div className="orbit-settings-info-value shrink-0">
               <Badge variant={isStandalone ? "accent" : "default"}>
                 {isStandalone ? "独立应用" : "浏览器网页"}
               </Badge>

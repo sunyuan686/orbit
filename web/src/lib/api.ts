@@ -108,6 +108,7 @@ import {
   beijingDateParts,
   getSpaceDateParts,
   getSpaceTodayKey,
+  getSpaceYear,
 } from "@orbit/shared";
 
 export {
@@ -126,6 +127,7 @@ export {
   beijingDateParts,
   getSpaceDateParts,
   getSpaceTodayKey,
+  getSpaceYear,
 };
 
 
@@ -330,7 +332,8 @@ export type UploadAssetResult = UploadImageResult;
 
 export async function uploadAsset(
   file: File,
-  entryId?: string
+  entryId?: string,
+  options?: { duration?: number }
 ): Promise<UploadAssetResult> {
   const form = new FormData();
   let payload: File = file;
@@ -345,6 +348,8 @@ export async function uploadAsset(
     if (meta?.width) form.append("width", String(meta.width));
     if (meta?.height) form.append("height", String(meta.height));
     if (meta?.blurhash) form.append("blurhash", meta.blurhash);
+  } else if (options?.duration && options.duration > 0) {
+    form.append("duration", String(Math.round(options.duration)));
   } else if (file.type.startsWith("audio/") || file.type.startsWith("video/")) {
     // 尝试在客户端提取音视频时长 (秒)
     try {

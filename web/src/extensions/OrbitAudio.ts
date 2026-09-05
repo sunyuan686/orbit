@@ -1,7 +1,7 @@
 import { Node, mergeAttributes, type Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
-import "../lib/initVoiceCards";
+import { resolveAudioDuration } from "../lib/audioUtils";
 
 export interface AudioOptions {
   HTMLAttributes: Record<string, any>;
@@ -142,6 +142,7 @@ class AudioNodeView {
     textarea.rows = 3;
     textarea.placeholder = "输入或修改语音转写文稿…";
     this.transcriptTextarea = textarea;
+    textarea.addEventListener("click", (e) => e.stopPropagation());
     editWrapper.appendChild(textarea);
 
     const editActions = document.createElement("div");
@@ -151,13 +152,19 @@ class AudioNodeView {
     cancelBtn.type = "button";
     cancelBtn.className = "orbit-voice-cancel-btn";
     cancelBtn.textContent = "取消";
-    cancelBtn.addEventListener("click", () => this.cancelEditing());
+    cancelBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.cancelEditing();
+    });
 
     const saveBtn = document.createElement("button");
     saveBtn.type = "button";
     saveBtn.className = "orbit-voice-transcript-edit-btn";
     saveBtn.textContent = "完成";
-    saveBtn.addEventListener("click", () => this.saveEditing());
+    saveBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.saveEditing();
+    });
 
     editActions.appendChild(cancelBtn);
     editActions.appendChild(saveBtn);
@@ -169,14 +176,27 @@ class AudioNodeView {
     const audioEl = document.createElement("audio");
     audioEl.className = "orbit-prose-audio hidden";
     audioEl.controls = true;
+    audioEl.preload = "metadata";
     this.audioEl = audioEl;
     card.appendChild(audioEl);
 
-    // Bind playback handlers
-    playBtn.addEventListener("click", () => this.togglePlay());
-    waveform.addEventListener("click", (e) => this.seekWaveform(e));
-    transcriptToggleBtn.addEventListener("click", () => this.toggleTranscript());
-    editBtn.addEventListener("click", () => this.startEditing());
+    // Bind playback handlers with event encapsulation
+    playBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.togglePlay();
+    });
+    waveform.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.seekWaveform(e);
+    });
+    transcriptToggleBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.toggleTranscript();
+    });
+    editBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.startEditing();
+    });
 
     audioEl.addEventListener("play", () => this.onPlay());
     audioEl.addEventListener("pause", () => this.onPause());
@@ -210,7 +230,7 @@ class AudioNodeView {
       document.querySelectorAll("audio").forEach((a) => {
         if (a !== this.audioEl && !a.paused) a.pause();
       });
-      this.audioEl.play().catch(() => {});
+      this.audioEl.play().catch((err) => console.error("Audio play failed:", err));
     } else {
       this.audioEl.pause();
     }
@@ -230,21 +250,29 @@ class AudioNodeView {
     this.playIcon.classList.remove("hidden");
     this.pauseIcon.classList.add("hidden");
     this.bars.forEach((bar) => bar.classList.remove("is-played"));
+    this.audioEl.currentTime = 0;
+    this.onTimeUpdate();
   }
 
   private onLoadedMetadata() {
+    resolveAudioDuration(this.audioEl, () => {
+      this.onTimeUpdate();
+    });
     this.onTimeUpdate();
   }
 
   private onTimeUpdate() {
     const current = this.audioEl.currentTime || 0;
     const total = this.audioEl.duration || 0;
+    const isFiniteTotal = typeof total === "number" && isFinite(total) && total > 0;
 
-    this.timeEl.textContent =
-      total > 0 ? `${formatTime(current)} / ${formatTime(total)}` : formatTime(current);
+    this.timeEl.textContent = isFiniteTotal
+      ? `${formatTime(current)} / ${formatTime(total)}`
+      : formatTime(current);
 
-    if (this.bars.length > 0 && total > 0) {
-      const activeCount = Math.round((current / total) * this.bars.length);
+    if (this.bars.length > 0 && isFiniteTotal) {
+      const progressRatio = Math.min(1, Math.max(0, current / total));
+      const activeCount = Math.round(progressRatio * this.bars.length);
       this.bars.forEach((bar, idx) => {
         bar.classList.toggle("is-played", idx < activeCount);
       });
@@ -443,7 +471,7 @@ export const OrbitAudio = Node.create<AudioOptions>({
 
     const mainRowNode: any = ["div", { class: "orbit-voice-card-main" }, ...rowNodeParts];
 
-    const audioElNode: any = ["audio", { src, controls: true, class: "orbit-prose-audio hidden" }];
+    const audioElNode: any = ["audio", { src, controls: true, preload: "metadata", class: "orbit-prose-audio hidden" }];
 
     if (transcript) {
       const transcriptNode: any = [

@@ -10,7 +10,7 @@
     "web:build": "npm run build --prefix web",
     "web:lint": "npm run lint --prefix web",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/date.test.ts",
+    "test": "tsx --test tests/*.test.ts",
 
 
     "db:generate": "drizzle-kit generate",

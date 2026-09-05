@@ -35,6 +35,41 @@ export function getSupportedAudioType(): AudioFormatInfo {
 }
 
 /**
+ * 校准 Chromium / MediaRecorder 录制的 WebM 音频文件缺失 Duration 头部导致 duration 为 Infinity 的问题
+ */
+export function resolveAudioDuration(
+  audio: HTMLAudioElement,
+  onResolved?: (duration: number) => void
+): void {
+  if (typeof window === "undefined" || !audio) return;
+  if (audio.duration && isFinite(audio.duration) && audio.duration > 0) {
+    onResolved?.(audio.duration);
+    return;
+  }
+
+  if (audio.duration === Infinity) {
+    const prevTime = audio.currentTime;
+    let finished = false;
+
+    const cleanup = () => {
+      if (finished) return;
+      finished = true;
+      audio.removeEventListener("timeupdate", onTime);
+      audio.currentTime = prevTime;
+      if (isFinite(audio.duration) && audio.duration > 0) {
+        onResolved?.(audio.duration);
+      }
+    };
+
+    const onTime = () => cleanup();
+
+    audio.addEventListener("timeupdate", onTime, { once: true });
+    audio.currentTime = 1e101;
+    setTimeout(cleanup, 500);
+  }
+}
+
+/**
  * 检查当前环境是否满足麦克风录音的前置安全要求（如 Secure Context）
  */
 export function checkMicrophoneSupport(): { supported: boolean; errorMessage?: string } {

@@ -273,17 +273,19 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const countQuery = page.paginate
       ? db.select({ count: sql<number>`count(*)` }).from(entry).where(where).get()
       : null;
-    const earliestRow = page.paginate
-      ? db
-          .select({ minDate: sql<number>`min(${entry.entryDate})` })
-          .from(entry)
-          .where(and(...baseConditions))
-          .get()
-      : null;
+    const earliestQuery: Promise<{ minDate: number | null } | undefined> | null =
+      page.paginate && page.offset === 0
+        ? db
+            .select({ minDate: sql<number>`min(${entry.entryDate})` })
+            .from(entry)
+            .where(and(...baseConditions))
+            .get()
+        : null;
 
-    const [entries, countRow] = await Promise.all([
+    const [entries, countRow, earliestRow] = await Promise.all([
       listQuery,
       countQuery ?? Promise.resolve(null),
+      earliestQuery ?? Promise.resolve(null),
     ]);
     const nameMap = await loadUserNameMap(
       db,
@@ -302,7 +304,9 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const minTimestamp = earliestRow?.minDate;
     const earliestYear = minTimestamp
       ? getSpaceYear(minTimestamp)
-      : getSpaceYear();
+      : earliestRow
+        ? getSpaceYear()
+        : undefined;
 
     return c.json({
       items,

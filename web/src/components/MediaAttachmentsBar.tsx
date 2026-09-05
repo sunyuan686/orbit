@@ -196,7 +196,7 @@ export function MediaAttachmentsBar({
                   )
                 )}
 
-                <audio src={item.url} controls className="orbit-prose-audio hidden" />
+                <audio src={item.url} controls preload="metadata" className="orbit-prose-audio hidden" />
               </div>
             );
           })}
