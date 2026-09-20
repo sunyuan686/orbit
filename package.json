@@ -1,6 +1,6 @@
 {
   "name": "orbit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,8 +11,6 @@
     "web:lint": "npm run lint --prefix web",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
-
-
     "db:backup": "tsx scripts/db-backup.ts",
     "db:backup:remote": "tsx scripts/db-backup-remote.ts",
     "db:restore": "tsx scripts/db-restore.ts",
