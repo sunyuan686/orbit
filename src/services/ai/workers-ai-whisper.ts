@@ -39,13 +39,15 @@ export async function transcribeAudioWithWorkersAi(
     }
   }
 
-  // 2. 如果在 Node.js 本地开发模式下（通过 CF_ACCOUNT_ID 与 CF_API_TOKEN 调用 Cloudflare REST API）
-  const accountId = env.CF_ACCOUNT_ID ?? process.env.CF_ACCOUNT_ID ?? "";
-  const apiToken = env.CF_API_TOKEN ?? process.env.CF_API_TOKEN ?? "";
+  // 2. 如果在 Node.js 本地开发模式下（通过 CLOUDFLARE_ACCOUNT_ID 与 CLOUDFLARE_API_TOKEN 调用 Cloudflare REST API）
+  const accountId =
+    env.CLOUDFLARE_ACCOUNT_ID ?? process.env.CLOUDFLARE_ACCOUNT_ID ?? "";
+  const apiToken =
+    env.CLOUDFLARE_API_TOKEN ?? process.env.CLOUDFLARE_API_TOKEN ?? "";
 
   if (!accountId.trim() || !apiToken.trim()) {
     throw new WorkersAiWhisperError(
-      "Workers AI 语音功能未配置：请设置 CF_ACCOUNT_ID 与 CF_API_TOKEN",
+      "Workers AI 语音功能未配置：请设置 CLOUDFLARE_ACCOUNT_ID 与 CLOUDFLARE_API_TOKEN",
       422
     );
   }

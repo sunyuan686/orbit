@@ -35,14 +35,7 @@ export function AiChatFab({ open, onClick }: AiChatFabProps) {
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (docked) {
-      // Tap 1 on mobile / PWA: pop out full floating ball from wall (do NOT open panel yet)
-      setDocked(false);
-      resetIdleDockTimer();
-    } else {
-      // Tap 2: open AI chat panel!
-      onClick();
-    }
+    onClick();
   };
 
   return (
@@ -56,6 +49,7 @@ export function AiChatFab({ open, onClick }: AiChatFabProps) {
       title="Orbit AI (⌘J)"
       onClick={handleClick}
       onMouseEnter={handleExpand}
+      onFocus={handleExpand}
       onMouseLeave={() => {
         if (!open) resetIdleDockTimer();
       }}

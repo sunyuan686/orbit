@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,6 +17,8 @@ import {
   MessageIcon,
 } from "./OrbitIcons";
 import { usePwaInstall } from "../hooks/usePwaInstall";
+import { useLayer } from "../hooks/useLayer";
+import { useMaxWidthMd } from "../hooks/useBreakpoint";
 
 const PWA_BELL_TIP_KEY = "orbit_pwa_bell_tip_dismissed";
 const PWA_BELL_TIP_DAYS = 14;
@@ -79,10 +82,14 @@ function NotificationTypeIcon({
 export function NotificationBell() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const { isOpen: open, open: openNotifications, close: closeNotifications } =
+    useLayer("notifications");
   const rootRef = useRef<HTMLDivElement>(null);
-  const { isStandalone, canPrompt, setGuideOpen, triggerInstall } = usePwaInstall();
+  const { isStandalone, canPrompt, openGuide, triggerInstall } = usePwaInstall();
   const [tipDismissed, setTipDismissed] = useState(isPwaTipDismissed);
+
+  const isMobile = useMaxWidthMd();
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Touch gesture state for mobile bottom sheet swipe down
   const touchStartY = useRef<number | null>(null);
@@ -108,12 +115,14 @@ export function NotificationBell() {
   useEffect(() => {
     if (!open) return;
     function handleClick(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target) || panelRef.current?.contains(target)) {
+        return;
       }
+      closeNotifications();
     }
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") closeNotifications();
     }
     document.addEventListener("pointerdown", handleClick);
     document.addEventListener("keydown", handleKeyDown);
@@ -121,7 +130,7 @@ export function NotificationBell() {
       document.removeEventListener("pointerdown", handleClick);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open]);
+  }, [open, closeNotifications]);
 
   // Lock body scroll on mobile when open
   useEffect(() => {
@@ -148,11 +157,11 @@ export function NotificationBell() {
       await markNotificationRead(item.id);
       await refreshNotifications();
     }
-    setOpen(false);
     const path = item.link.startsWith("http")
       ? new URL(item.link).pathname
       : item.link;
-    navigate(path);
+    // 层内跳页面：用 replace 把层条目换成页面条目，返回时不再浮出通知面板。
+    navigate(path, { replace: true });
   }
 
   function handleTouchStart(e: React.TouchEvent) {
@@ -163,7 +172,7 @@ export function NotificationBell() {
     if (touchStartY.current === null) return;
     const deltaY = e.changedTouches[0].clientY - touchStartY.current;
     if (deltaY > 60) {
-      setOpen(false);
+      closeNotifications();
     }
     touchStartY.current = null;
   }
@@ -176,7 +185,7 @@ export function NotificationBell() {
         title="通知"
         aria-label="通知"
         aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
+        onClick={open ? closeNotifications : openNotifications}
       >
         <BellIcon />
         {unread > 0 ? (
@@ -186,162 +195,166 @@ export function NotificationBell() {
         ) : null}
       </button>
 
-      {open ? (
-        <>
-          {/* Mobile backdrop */}
-          <div
-            className="orbit-notification-backdrop"
-            onClick={() => setOpen(false)}
-            aria-hidden="true"
-          />
-
-          <div
-            className="orbit-notification-panel"
-            role="dialog"
-            aria-label="通知列表"
-          >
-            {/* Mobile drag handle bar */}
+      {open ? (() => {
+        const panelContent = (
+          <>
+            {/* Mobile backdrop */}
             <div
-              className="orbit-notification-handle-container"
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
-            >
-              <div className="orbit-notification-handle" aria-hidden="true" />
-            </div>
+              className="orbit-notification-backdrop"
+              onClick={closeNotifications}
+              aria-hidden="true"
+            />
 
             <div
-              className="orbit-notification-panel-header"
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
+              ref={panelRef}
+              className="orbit-notification-panel"
+              role="dialog"
+              aria-label="通知列表"
             >
-              <div className="flex items-center gap-2">
-                <span className="orbit-notification-panel-title">通知</span>
-                {unread > 0 ? (
-                  <span className="orbit-notification-unread-pill">
-                    {unread} 未读
-                  </span>
-                ) : null}
+              {/* Mobile drag handle bar */}
+              <div
+                className="orbit-notification-handle-container"
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+              >
+                <div className="orbit-notification-handle" aria-hidden="true" />
               </div>
-              <div className="flex items-center gap-2">
-                {unread > 0 ? (
-                  <button
-                    type="button"
-                    className="orbit-btn orbit-btn-sm"
-                    onClick={() =>
-                      void markAllNotificationsRead().then(() =>
-                        refreshNotifications()
-                      )
-                    }
-                  >
-                    全部已读
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="orbit-icon-btn md:hidden p-1 cursor-pointer"
-                  aria-label="关闭通知面板"
-                  onClick={() => setOpen(false)}
-                >
-                  <CloseIcon size="sm" />
-                </button>
-              </div>
-            </div>
 
-            <div className="orbit-notification-panel-body">
-              {loading ? (
-                <p className="orbit-muted orbit-notification-empty">加载中…</p>
-              ) : items.length === 0 ? (
-                <p className="orbit-muted orbit-notification-empty">暂无通知</p>
-              ) : (
-                <ul className="orbit-notification-list">
-                  {items.map((item) => {
-                    const cleanBody = cleanNotificationText(item.body);
-                    return (
-                      <li key={item.id}>
-                        <button
-                          type="button"
-                          className={`orbit-notification-item${item.readAt ? "" : " orbit-notification-item--unread"}`}
-                          onClick={() => void handleOpenItem(item)}
-                        >
-                          <div className="orbit-notification-item-lead">
-                            <div className="orbit-notification-icon-wrapper">
-                              <NotificationTypeIcon
-                                type={item.type}
-                                targetType={item.targetType}
-                              />
-                            </div>
-                            {!item.readAt ? (
-                              <span
-                                className="orbit-notification-unread-dot"
-                                aria-label="未读"
-                              />
-                            ) : null}
-                          </div>
-                          <div className="orbit-notification-item-content">
-                            <div className="orbit-notification-item-header">
-                              <span className="orbit-notification-item-title">
-                                {item.title}
-                              </span>
-                              <span className="orbit-notification-item-meta">
-                                {formatRelativeTime(
-                                  item.updatedAt || item.createdAt
-                                )}
-                              </span>
-                            </div>
-                            {cleanBody ? (
-                              <span className="orbit-notification-item-body">
-                                {cleanBody}
-                              </span>
-                            ) : null}
-                          </div>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-
-            {showPwaTip ? (
-              <div className="orbit-notification-panel-footer">
-                <span className="orbit-notification-footer-text">
-                  添加到主屏幕，不错过锁屏通知
-                </span>
-                <div className="orbit-notification-footer-actions">
-                  <button
-                    type="button"
-                    className="orbit-notification-footer-action"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOpen(false);
-                      if (canPrompt) {
-                        void triggerInstall();
-                      } else {
-                        setGuideOpen(true);
+              <div
+                className="orbit-notification-panel-header"
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="orbit-notification-panel-title">通知</span>
+                  {unread > 0 ? (
+                    <span className="orbit-notification-unread-pill">
+                      {unread} 未读
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-2">
+                  {unread > 0 ? (
+                    <button
+                      type="button"
+                      className="orbit-btn orbit-btn-sm"
+                      onClick={() =>
+                        void markAllNotificationsRead().then(() =>
+                          refreshNotifications()
+                        )
                       }
-                    }}
-                  >
-                    去添加
-                  </button>
+                    >
+                      全部已读
+                    </button>
+                  ) : null}
                   <button
                     type="button"
-                    className="orbit-notification-footer-dismiss"
-                    aria-label="不再提示"
-                    title="14天内不再提示"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      markPwaTipDismissed();
-                      setTipDismissed(true);
-                    }}
+                    className="orbit-icon-btn md:hidden p-1 cursor-pointer"
+                    aria-label="关闭通知面板"
+                    onClick={closeNotifications}
                   >
                     <CloseIcon size="sm" />
                   </button>
                 </div>
               </div>
-            ) : null}
-          </div>
-        </>
-      ) : null}
+
+              <div className="orbit-notification-panel-body">
+                {loading ? (
+                  <p className="orbit-muted orbit-notification-empty">加载中…</p>
+                ) : items.length === 0 ? (
+                  <p className="orbit-muted orbit-notification-empty">暂无通知</p>
+                ) : (
+                  <ul className="orbit-notification-list">
+                    {items.map((item) => {
+                      const cleanBody = cleanNotificationText(item.body);
+                      return (
+                        <li key={item.id}>
+                          <button
+                            type="button"
+                            className={`orbit-notification-item${item.readAt ? "" : " orbit-notification-item--unread"}`}
+                            onClick={() => void handleOpenItem(item)}
+                          >
+                            <div className="orbit-notification-item-lead">
+                              <div className="orbit-notification-icon-wrapper">
+                                <NotificationTypeIcon
+                                  type={item.type}
+                                  targetType={item.targetType}
+                                />
+                              </div>
+                              {!item.readAt ? (
+                                <span
+                                  className="orbit-notification-unread-dot"
+                                  aria-label="未读"
+                                />
+                              ) : null}
+                            </div>
+                            <div className="orbit-notification-item-content">
+                              <div className="orbit-notification-item-header">
+                                <span className="orbit-notification-item-title">
+                                  {item.title}
+                                </span>
+                                <span className="orbit-notification-item-meta">
+                                  {formatRelativeTime(
+                                    item.updatedAt || item.createdAt
+                                  )}
+                                </span>
+                              </div>
+                              {cleanBody ? (
+                                <span className="orbit-notification-item-body">
+                                  {cleanBody}
+                                </span>
+                              ) : null}
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              {showPwaTip ? (
+                <div className="orbit-notification-panel-footer">
+                  <span className="orbit-notification-footer-text">
+                    添加到主屏幕，不错过锁屏通知
+                  </span>
+                  <div className="orbit-notification-footer-actions">
+                    <button
+                      type="button"
+                      className="orbit-notification-footer-action"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // 安装指引叠在通知面板之上：返回时先关指引，再关面板。
+                        if (canPrompt) void triggerInstall();
+                        else openGuide();
+                      }}
+                    >
+                      去添加
+                    </button>
+                    <button
+                      type="button"
+                      className="orbit-notification-footer-dismiss"
+                      aria-label="不再提示"
+                      title="14天内不再提示"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        markPwaTipDismissed();
+                        setTipDismissed(true);
+                      }}
+                    >
+                      <CloseIcon size="sm" />
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </>
+        );
+
+        return isMobile && typeof document !== "undefined"
+          ? createPortal(panelContent, document.body)
+          : panelContent;
+      })() : null}
     </div>
   );
 }

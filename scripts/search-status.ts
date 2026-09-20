@@ -5,11 +5,13 @@
  */
 
 import { join } from "path";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { db } from "../src/db/index.js";
+import { safeMigrate } from "../src/db/safe-migrate.js";
+import { db, sqlite } from "../src/db/index.js";
 import { getSearchIndexStatus } from "../src/services/content/search.js";
 
-migrate(db, { migrationsFolder: join(process.cwd(), "src/db/migrations") });
+await safeMigrate(sqlite, db, {
+  migrationsFolder: join(process.cwd(), "src/db/migrations"),
+});
 
 const status = await getSearchIndexStatus(db);
 

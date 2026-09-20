@@ -8,6 +8,7 @@ import {
   deleteEntry,
   fetchComments,
   fetchEntry,
+  saveEntry,
   getApiErrorMessage,
   shouldToastApiError,
   TYPE_LABEL,
@@ -26,6 +27,7 @@ import { Container, Button } from "../components/ui";
 import { CommentSection } from "../components/CommentSection";
 import { MarginaliaRail, MobileMarginalia } from "../components/MarginaliaRail";
 import { TocRail, MobileToc } from "../components/TableOfContents";
+import { useLayer } from "../hooks/useLayer";
 import { extractToc } from "../lib/toc";
 import { getCommentCapabilities, canEditContent, canDeleteContent } from "@orbit/shared";
 import { LetterThreadPanel } from "../components/LetterThreadPanel";
@@ -52,7 +54,12 @@ export function ArticleView() {
     anchorSuffix: string;
   } | null>(null);
   const [activeInlineCommentId, setActiveInlineCommentId] = useState<string | null>(null);
-  const [marginaliaOpen, setMarginaliaOpen] = useState(false);
+  // 移动端边注抽屉：返回手势必须只关抽屉、不退文章。
+  const {
+    isOpen: marginaliaOpen,
+    open: openMarginalia,
+    close: closeMarginalia,
+  } = useLayer("mobile-marginalia");
 
   const targetType = "entry";
 
@@ -83,7 +90,7 @@ export function ArticleView() {
   useEffect(() => {
     setActiveInlineCommentId(null);
     setInlineDraft(null);
-    setMarginaliaOpen(false);
+    // 边注抽屉的开关由 location 派生：换文章是一条新历史条目，层不会跟过来，无需在这里手动关。
   }, [id]);
 
   useEffect(() => {
@@ -158,7 +165,7 @@ export function ArticleView() {
       });
       setInlineDraft(null);
       setActiveInlineCommentId(result.id);
-      setMarginaliaOpen(true);
+      openMarginalia();
       await refreshComments();
     } catch (err) {
       toast.error(getApiErrorMessage(err, "添加边注失败"));
@@ -207,7 +214,7 @@ export function ArticleView() {
 
   function handleSelectInline(commentId: string) {
     setActiveInlineCommentId(commentId);
-    setMarginaliaOpen(true);
+    openMarginalia();
   }
 
   function handleCreateInlineDraft(draft: {
@@ -219,7 +226,20 @@ export function ArticleView() {
   }) {
     setInlineDraft(draft);
     setActiveInlineCommentId(null);
-    setMarginaliaOpen(true);
+    openMarginalia();
+  }
+
+  async function handleUpdateAudioTranscript({ html }: { html: string }) {
+    if (!entry) return;
+    try {
+      const updated = await saveEntry(entry.id, { body: html });
+      queryClient.setQueryData(queryKeys.entry(entry.id), updated);
+      void queryClient.invalidateQueries({ queryKey: ["entries"] });
+      toast.success("语音转写文稿已更新");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "更新转写文稿失败"));
+      throw err;
+    }
   }
 
   return (
@@ -229,7 +249,9 @@ export function ArticleView() {
         <header className="orbit-article-nav-bar">
           <button
             type="button"
-            onClick={() => (type ? navigate(`/${type}`) : navigate(-1))}
+            // 与系统返回手势同源。原先指向 `/${type}` 的显式导航会压出"幽灵条目"：
+            // 点完按钮再按返回手势，会退回到刚离开的这篇详情。
+            onClick={() => navigate(-1)}
             className="orbit-back-link"
             aria-label="返回列表"
           >
@@ -299,9 +321,11 @@ export function ArticleView() {
                   className={`flex-1 min-w-0${entry.type === "letter" ? " orbit-letter-sheet" : ""}`}
                 >
                   <TiptapEditor
-                    key={`${entry.id}-${entry.updatedAt ?? ""}`}
+                    key={entry.id}
                     defaultValue={entry.body}
                     readonly
+                    canEditAudioTranscript={canEditEntry}
+                    onUpdateAudioTranscript={handleUpdateAudioTranscript}
                     inlineComments={comments.inline}
                     enableInlineComments={capabilities.inline}
                     activeInlineCommentId={activeInlineCommentId}
@@ -346,8 +370,9 @@ export function ArticleView() {
 
       {capabilities.inline && (
         <MobileMarginalia
-          open={marginaliaOpen}
-          onOpenChange={setMarginaliaOpen}
+          isOpen={marginaliaOpen}
+          onOpen={openMarginalia}
+          onClose={closeMarginalia}
           inlineComments={comments.inline}
           activeInlineCommentId={activeInlineCommentId}
           currentAuthor={currentAuthor}

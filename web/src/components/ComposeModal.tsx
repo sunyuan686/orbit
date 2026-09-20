@@ -6,7 +6,7 @@ import { VoiceInputButton } from "./VoiceInputButton";
 import { VoiceNoteRecordButton } from "./VoiceNoteRecordButton";
 import { uploadAsset } from "../lib/api";
 import type { EditorHandoffState } from "../lib/editor-handoff";
-import { GalleryIcon } from "./OrbitIcons";
+import { GalleryIcon, ExpandIcon, TitleIcon } from "./OrbitIcons";
 
 export type ComposeFormat = "note" | "appreciation" | "link" | "quote";
 export type ComposeMode = "note" | "article";
@@ -18,12 +18,12 @@ export interface AppreciationTag {
 }
 
 export const APPRECIATION_TAGS: AppreciationTag[] = [
-  { id: "drink", icon: "☕️", label: "暖心饮品" },
-  { id: "food", icon: "🍱", label: "美味餐食" },
-  { id: "care", icon: "💪", label: "贴心照顾" },
-  { id: "listen", icon: "👂", label: "倾听安慰" },
-  { id: "surprise", icon: "🎁", label: "惊喜礼物" },
-  { id: "tacit", icon: "✨", label: "默契配合" },
+  { id: "drink", icon: "", label: "暖心饮品" },
+  { id: "food", icon: "", label: "美味餐食" },
+  { id: "care", icon: "", label: "贴心照顾" },
+  { id: "listen", icon: "", label: "倾听安慰" },
+  { id: "surprise", icon: "", label: "惊喜礼物" },
+  { id: "tacit", icon: "", label: "默契配合" },
 ];
 
 export interface ComposeModalProps {
@@ -264,9 +264,7 @@ export function ComposeModal({
                   title="展开全屏长文创作"
                   aria-label="切换长文全屏模式"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-                  </svg>
+                  <ExpandIcon size="sm" />
                 </button>
               )}
             </div>
@@ -288,7 +286,7 @@ export function ComposeModal({
                     }}
                     onClick={() => setSelectedTagId(selectedTagId === tag.id ? null : tag.id)}
                   >
-                    <span>{tag.icon}</span>
+                    {tag.icon ? <span>{tag.icon}</span> : null}
                     <span>{tag.label}</span>
                   </button>
                 ))}
@@ -368,6 +366,7 @@ export function ComposeModal({
 
               <VoiceNoteRecordButton
                 entryId={entryId}
+                onUploadStateChange={setUploading}
                 onVoiceNoteCreated={(res) => {
                   const newItem: MediaAttachmentItem = {
                     id: `audio_${Date.now()}`,
@@ -396,9 +395,7 @@ export function ComposeModal({
                   title={showTitle ? "隐藏标题" : "添加标题"}
                   aria-label={showTitle ? "隐藏标题" : "添加标题"}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 12h16M4 6h16M4 18h10" />
-                  </svg>
+                  <TitleIcon size="sm" />
                   标题
                 </button>
               )}

@@ -18,7 +18,7 @@ interface ArticleMetadataProps {
 
 export function ArticleMetadata({
   title,
-  type,
+  type: _type,
   author,
   modifiedBy,
   entryDate,
@@ -32,7 +32,6 @@ export function ArticleMetadata({
   );
   const showEntryDate =
     entryDate != null &&
-    type !== "memo" &&
     (createdAt == null || !isSameLocalDay(entryDate, createdAt));
 
   return (

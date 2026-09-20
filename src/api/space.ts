@@ -67,7 +67,11 @@ export function createSpaceRoutes(
     const session = await requireSessionAuthor(c, options.getSessionAuthor);
     if (session instanceof Response) return session;
 
-    let body: { anniversaryDate?: string | null; slogan?: string | null };
+    let body: {
+      anniversaryDate?: string | null;
+      slogan?: string | null;
+      rules?: string | null;
+    };
     try {
       body = await c.req.json();
     } catch {
@@ -101,6 +105,12 @@ export function createSpaceRoutes(
       }
       await upsertSetting(db, SPACE_SETTING_KEYS.slogan, slogan ?? "");
       changedFields.push("slogan");
+    }
+
+    if (body.rules !== undefined) {
+      const rules = typeof body.rules === "string" ? body.rules.trim() : "";
+      await upsertSetting(db, SPACE_SETTING_KEYS.rules, rules);
+      changedFields.push("rules");
     }
 
     try {

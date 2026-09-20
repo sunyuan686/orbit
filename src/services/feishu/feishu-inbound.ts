@@ -191,40 +191,21 @@ function parseWriteCommand(raw: string, defaultType: string): ParsedWrite | null
   const text = raw.trim();
   if (!text) return null;
 
-  // 1. /日记 内容
-  if (text.startsWith("/日记")) {
-    const body = text.replace(/^\/日记\s*/, "").trim();
+  // 1. /动态 内容
+  if (text.startsWith("/动态")) {
+    const body = text.replace(/^\/动态\s*/, "").trim();
     if (!body) return null;
-    return { entryType: "diary", entryDate: now(), text: body };
+    return { entryType: "moment", entryDate: now(), text: body };
   }
 
-  // 2. /留言 内容
-  if (text.startsWith("/留言")) {
-    const body = text.replace(/^\/留言\s*/, "").trim();
-    if (!body) return null;
-    return { entryType: "message", entryDate: now(), text: body };
-  }
-
-  // 3. /信 内容
+  // 2. /信 内容
   if (text.startsWith("/信")) {
     const body = text.replace(/^\/信\s*/, "").trim();
     if (!body) return null;
     return { entryType: "letter", entryDate: now(), text: body };
   }
 
-  // 4. /随想 内容
-  if (text.startsWith("/随想")) {
-    const body = text.replace(/^\/随想\s*/, "").trim();
-    if (!body) return null;
-    return { entryType: "note", entryDate: now(), text: body };
-  }
 
-  // 5. /感谢 内容
-  if (text.startsWith("/感谢")) {
-    const body = text.replace(/^\/感谢\s*/, "").trim();
-    if (!body) return null;
-    return { entryType: "appreciation", entryDate: now(), text: body };
-  }
 
   // 4. /补记 M/D 内容
   const backdate = text.match(
@@ -237,7 +218,7 @@ function parseWriteCommand(raw: string, defaultType: string): ParsedWrite | null
     if (!body) return null;
     const entryDate = beijingDateToUnix(month, day);
     if (!entryDate) return null;
-    return { entryType: "diary", entryDate, text: body };
+    return { entryType: "moment", entryDate, text: body };
   }
 
   return null;
@@ -310,11 +291,11 @@ async function handleQueryCommand(
 
   if (trimmed.toLowerCase() === "/today") {
     const { start, end } = dayRange();
-    const rows = await listEntriesInRange(ctx.db, { start, end }, "diary");
+    const rows = await listEntriesInRange(ctx.db, { start, end }, "moment");
     await replyText(
       ctx,
       message,
-      formatEntryListSummary(rows, baseUrl, "今日日记")
+      formatEntryListSummary(rows, baseUrl, "今日动态")
     );
     return;
   }
@@ -383,7 +364,7 @@ async function findMergeTarget(
   entryType: string,
   mergeWindowMs: number
 ): Promise<{ id: string; body: string | null; updatedAt: number } | null> {
-  if (mergeWindowMs <= 0 || entryType !== "diary") return null;
+  if (mergeWindowMs <= 0 || entryType !== "moment") return null;
   const { start, end } = dayRange();
   const cutoff = now() - Math.ceil(mergeWindowMs / 1000);
   const row = await db
@@ -630,7 +611,7 @@ export async function processFeishuInboundMessage(
     return;
   }
 
-  // 2. 显式写入类指令（/日记, /留言, /信, /补记）
+  // 2. 显式写入类指令（/动态, /信, /补记）
   const parsedWrite = text ? parseWriteCommand(text, ctx.config.defaultEntryType) : null;
 
   let entryId: string | null = null;
@@ -663,8 +644,7 @@ export async function processFeishuInboundMessage(
 
     // ⚡️ 核心体验升级 2：发送带跳转链接的精美交互式卡片！
     const labels: Record<string, string> = {
-      diary: "日记",
-      message: "留言",
+      moment: "动态",
       letter: "信",
     };
     const row = await ctx.db
@@ -672,7 +652,7 @@ export async function processFeishuInboundMessage(
       .from(entry)
       .where(eq(entry.id, entryId))
       .get();
-    const entryType = row?.type ?? "diary";
+    const entryType = row?.type ?? "moment";
     const label = labels[entryType] ?? "内容";
     const entryUrl = `${ctx.baseUrl.replace(/\/$/, "")}/${entryType}/${entryId}`;
     const textPreview = (text || "（飞书附件/内容）").trim().slice(0, 100);

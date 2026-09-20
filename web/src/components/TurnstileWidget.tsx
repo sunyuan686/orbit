@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Turnstile } from "@marsidev/react-turnstile";
+import { AlertIcon } from "./OrbitIcons";
 
 interface TurnstileWidgetProps {
   siteKey: string;
@@ -51,7 +52,10 @@ export function TurnstileWidget({
   if (loadError) {
     return (
       <div className="orbit-turnstile-error">
-        ⚠️ 无法加载 Cloudflare 验证服务
+        <div className="inline-flex items-center justify-center gap-1.5 mb-1 font-medium">
+          <AlertIcon size="sm" />
+          <span>无法加载 Cloudflare 验证服务</span>
+        </div>
         <br />
         <span className="orbit-turnstile-error-sub">
           请检查网络连接或关闭浏览器广告拦截插件（如 uBlock / AdGuard）后刷新页面

@@ -8,6 +8,9 @@ export const INVALID_SESSION_ERROR =
 export interface SpaceAuthor {
   id: string;
   name: string;
+  about?: string | null;
+  birthdaySolarMonth?: number | null;
+  birthdaySolarDay?: number | null;
 }
 
 export async function countUsers(db: any): Promise<number> {
@@ -17,7 +20,13 @@ export async function countUsers(db: any): Promise<number> {
 
 export async function getSpaceAuthors(db: any): Promise<SpaceAuthor[]> {
   const rows = await db
-    .select({ id: user.id, name: user.name })
+    .select({
+      id: user.id,
+      name: user.name,
+      about: user.about,
+      birthdaySolarMonth: user.birthdaySolarMonth,
+      birthdaySolarDay: user.birthdaySolarDay,
+    })
     .from(user)
     .orderBy(asc(user.createdAt))
     .limit(MAX_SPACE_USERS);
@@ -43,7 +52,13 @@ export async function getUserById(
   userId: string
 ): Promise<SpaceAuthor | null> {
   const row = await db
-    .select({ id: user.id, name: user.name })
+    .select({
+      id: user.id,
+      name: user.name,
+      about: user.about,
+      birthdaySolarMonth: user.birthdaySolarMonth,
+      birthdaySolarDay: user.birthdaySolarDay,
+    })
     .from(user)
     .where(eq(user.id, userId))
     .get();

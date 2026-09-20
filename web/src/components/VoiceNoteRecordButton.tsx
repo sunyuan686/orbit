@@ -6,10 +6,12 @@ import {
   formatMicrophoneError,
   getSupportedAudioType,
 } from "../lib/audioUtils";
+import { AudioWaveIcon } from "./OrbitIcons";
 
 export interface VoiceNoteRecordButtonProps {
   entryId?: string;
   onVoiceNoteCreated: (result: UploadAssetResult) => void;
+  onUploadStateChange?: (uploading: boolean) => void;
   disabled?: boolean;
   compact?: boolean;
   className?: string;
@@ -18,6 +20,7 @@ export interface VoiceNoteRecordButtonProps {
 export function VoiceNoteRecordButton({
   entryId,
   onVoiceNoteCreated,
+  onUploadStateChange,
   disabled = false,
   compact = false,
   className = "",
@@ -31,6 +34,7 @@ export function VoiceNoteRecordButton({
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const startTimeRef = useRef<number>(0);
 
   const stopHardware = useCallback(() => {
     if (streamRef.current) {
@@ -74,6 +78,7 @@ export function VoiceNoteRecordButton({
       };
 
       recorder.start(200);
+      startTimeRef.current = Date.now();
       setIsRecording(true);
       setRecordingSeconds(0);
 
@@ -91,8 +96,21 @@ export function VoiceNoteRecordButton({
   const stopRecording = async () => {
     if (!mediaRecorderRef.current || mediaRecorderRef.current.state === "inactive") return;
 
+    const durationMs = Date.now() - startTimeRef.current;
+
+    // 第一性原理：信息量有效性门槛。录音小于 1.5 秒判定为误触或环境噪声，直接丢弃不产生垃圾资产
+    if (durationMs < 1500) {
+      mediaRecorderRef.current.stop();
+      stopHardware();
+      setIsRecording(false);
+      setRecordingSeconds(0);
+      toast.error("说话时间太短，已取消录音");
+      return;
+    }
+
     setIsRecording(false);
     setIsUploading(true);
+    onUploadStateChange?.(true);
 
     const recorderMime = mediaRecorderRef.current.mimeType || "";
     const effectiveMime = recorderMime || getSupportedAudioType().mimeType || "audio/mp4";
@@ -127,6 +145,7 @@ export function VoiceNoteRecordButton({
     } finally {
       setIsUploading(false);
       setRecordingSeconds(0);
+      onUploadStateChange?.(false);
     }
   };
 
@@ -141,7 +160,11 @@ export function VoiceNoteRecordButton({
       <button
         type="button"
         disabled
-        className={`orbit-compose-tool-btn opacity-80 cursor-wait shrink-0 ${className}`}
+        className={
+          compact
+            ? `orbit-ai-action-icon-btn opacity-80 cursor-wait shrink-0 ${className}`
+            : `orbit-compose-tool-btn opacity-80 cursor-wait shrink-0 ${className}`
+        }
         style={{ width: "auto", color: "var(--color-accent)" }}
         title="保存录音并转写中…"
       >
@@ -172,19 +195,16 @@ export function VoiceNoteRecordButton({
       type="button"
       onClick={() => void startRecording()}
       disabled={disabled}
-      className={`orbit-compose-tool-btn text-stone-600 dark:text-stone-300 hover:text-[var(--color-accent)] transition-colors shrink-0 ${className}`}
+      className={
+        compact
+          ? `orbit-ai-action-icon-btn shrink-0 ${className}`
+          : `orbit-compose-tool-btn text-stone-600 dark:text-stone-300 hover:text-[var(--color-accent)] transition-colors shrink-0 ${className}`
+      }
       title="录音随想 (录制音频附件)"
       data-tooltip="录音"
       aria-label="录音随想"
     >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M2 10v4" />
-        <path d="M6 6v12" />
-        <path d="M10 3v18" />
-        <path d="M14 7v10" />
-        <path d="M18 5v14" />
-        <path d="M22 10v4" />
-      </svg>
+      <AudioWaveIcon size="sm" />
       {!compact && <span className="ml-1">录音附件</span>}
     </button>
   );

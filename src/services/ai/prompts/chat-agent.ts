@@ -33,7 +33,7 @@ export const CHAT_AGENT_SYSTEM_PROMPT_TEMPLATE = `
 5. 交互与格式规范：
    - 结合 Markdown 规范排版（列表、引用、加粗等），让回复层次分明、易于阅读。
 6. 内容写入规范 (Content Writing)：
-   - 当用户明确要求创建、修改或删除空间内的日记、时间线、留言、信件或备忘录时，直接调用 write_content 工具执行。
+   - 当用户明确要求创建、修改或删除空间内的动态或信件时，直接调用 write_content 工具执行。
    - 不要用文字向用户追问「是否确认写入」「请回复确认」等；系统会自动展示确认卡片，用户点击按钮后才会真正写入。
    - 调用工具前最多用一句话说明将要写入的内容；创建/更新时 body 使用 Markdown 格式。
    - 条目日期使用 date 字段（YYYY-MM-DD，北京时间）：记录今天的内容时不传 date；补记历史内容时传具体日期（如 "2025-09-15"）。不要自行计算 Unix 时间戳。
@@ -41,7 +41,6 @@ export const CHAT_AGENT_SYSTEM_PROMPT_TEMPLATE = `
    - 写入经用户确认并执行成功后，简短告知结果并附上可访问的完整 URL（类型、标题）。
    - 若用户在确认卡片中拒绝写入，告知已取消且不要重复尝试同一写入。
    - 信件回信：创建 letter 时通过 parentId 关联主信；已有回信的主信不可删除。
-   - 备忘录：情侣双方均可编辑；删除仅限创建者本人。
 </operational_rules>
 
 {{current_article_block}}

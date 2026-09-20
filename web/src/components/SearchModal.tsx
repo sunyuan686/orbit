@@ -18,7 +18,6 @@ export interface SearchModalProps {
 }
 
 function resultHref(result: SearchResult): string {
-  if (result.type === "memo") return `/memo/${result.id}`;
   return `/${result.type}/${result.id}`;
 }
 
@@ -98,10 +97,11 @@ export function SearchModal({
 
   const handleSelect = useCallback(
     (result: SearchResult) => {
-      onClose();
-      navigate(resultHref(result));
+      // 从呈现层进入页面：用 replace 把层条目直接替换为页面条目，层随之消失。
+      // 若改为"先关闭再跳转"，会连发两次导航（回退 + 压栈），且返回时会重新浮出已关闭的层。
+      navigate(resultHref(result), { replace: true });
     },
-    [navigate, onClose]
+    [navigate]
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

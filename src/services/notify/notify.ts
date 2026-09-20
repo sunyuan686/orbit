@@ -34,7 +34,7 @@ export interface DispatchNotificationInput {
   kind: NotificationEventKind;
   actorUserId: string;
   actorName: string;
-  targetType: "entry" | "memo" | "comment";
+  targetType: "entry" | "comment";
   targetId: string;
   contentType?: string;
   title: string;
@@ -53,8 +53,7 @@ export function buildContentLink(
   id: string
 ): string {
   const root = baseUrl.replace(/\/$/, "");
-  const segment =
-    contentType === "memo" ? "memo" : contentType || "diary";
+  const segment = contentType || "moment";
   return `${root}/${segment}/${id}`;
 }
 
@@ -331,7 +330,7 @@ export function notifyCommentCreated(
     actorUserId: string;
     actorName: string;
     commentId: string;
-    targetType: "entry" | "memo";
+    targetType: "entry";
     targetId: string;
     kind: "bottom" | "inline";
     body: string;

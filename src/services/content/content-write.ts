@@ -27,7 +27,7 @@ import {
 } from "../../lib/beijing-date.js";
 import type { WriteContentToolInput } from "../ai/ai-tool-approval.js";
 
-export type ContentType = "diary" | "timeline" | "message" | "letter" | "memo";
+export type ContentType = "moment" | "letter";
 
 export interface ContentWriteActor {
   userId: string;

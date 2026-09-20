@@ -1,12 +1,14 @@
 export const SPACE_SETTING_KEYS = {
   anniversaryDate: "anniversary_date",
   slogan: "space_slogan",
+  rules: "space_rules",
 } as const;
 
 export interface SpaceProfile {
   anniversaryDate: string | null;
   slogan: string | null;
   daysTogether: number | null;
+  rules: string | null;
 }
 
 const COMPACT_DATE = /^(\d{4})(\d{2})(\d{2})$/;
@@ -79,11 +81,12 @@ export function buildSpaceProfile(
     settingsMap[SPACE_SETTING_KEYS.anniversaryDate]
   );
   const slogan = normalizeSlogan(settingsMap[SPACE_SETTING_KEYS.slogan]);
+  const rules = settingsMap[SPACE_SETTING_KEYS.rules]?.trim() || null;
   const daysTogether = anniversaryDate
     ? computeDaysTogether(anniversaryDate, referenceDate)
     : null;
 
-  return { anniversaryDate, slogan, daysTogether };
+  return { anniversaryDate, slogan, daysTogether, rules };
 }
 
 export function normalizeSlogan(raw: string | null | undefined): string | null {

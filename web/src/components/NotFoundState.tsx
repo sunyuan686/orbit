@@ -25,7 +25,7 @@ export function NotFoundState({
   const displayTitle = title || "记录似乎散落在星海中";
   const displayDescription =
     description ||
-    `或许是链接输入有误，或者这篇${type ? TYPE_LABEL[type] || "内容" : "内容"}已被作者收回。没关系，在漫漫轨道上，依然有许多美好的时光值得重温。`;
+    (type ? `这篇${TYPE_LABEL[type] || "内容"}不存在或已被移除。` : "内容不存在或已被移除。");
 
   const handleBack = () => {
     if (onBack) {

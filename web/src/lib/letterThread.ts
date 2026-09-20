@@ -74,14 +74,6 @@ export function entryDisplayLabel(entry: EntrySummary): string | null {
   return null;
 }
 
-/** 火漆封印上的字：去掉昵称常见前缀后取首字（例如：Alex → A） */
-export function authorSealChar(author?: string | null): string {
-  const trimmed = author?.trim();
-  if (!trimmed) return "信";
-  const core = trimmed.length > 1 ? trimmed.replace(/^[小阿老]/, "") : trimmed;
-  return [...core][0] ?? "信";
-}
-
 export function formatReplyCount(count: number): string {
   return count === 1 ? "1 封回信" : `${count} 封回信`;
 }

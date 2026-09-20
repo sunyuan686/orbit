@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { NodeSelection } from "@tiptap/pm/state";
 import { TiptapEditor, type TiptapEditorHandle } from "./TiptapEditor";
-import { CloseIcon } from "./OrbitIcons";
+import { CloseIcon, MinimizeIcon } from "./OrbitIcons";
 import {
   clampEditorSelection,
   emptyDocJson,
@@ -145,20 +145,7 @@ export function EditorFullscreenOverlay({
             title="退出全屏文章模式"
             aria-label="退出全屏文章模式"
           >
-            <svg
-              className="orbit-editor-tool-icon"
-              viewBox="0 0 18 18"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.48"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M3 5.85h2.85V3" />
-              <path d="M15 5.85h-2.85V3" />
-              <path d="M3 12.15h2.85V15" />
-              <path d="M15 12.15h-2.85V15" />
-            </svg>
+            <MinimizeIcon size="sm" className="orbit-editor-tool-icon" />
           </button>
           {onDismiss && (
             <button

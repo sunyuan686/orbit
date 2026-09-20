@@ -148,13 +148,13 @@ function buildDeepLink(baseUrl: string, candidate: CompanionCandidate): string {
   const ctx = candidate.context;
   switch (candidate.type) {
     case "memory_echo":
-      return `${root}/${ctx.entryType ?? "diary"}/${ctx.entryId}`;
+      return `${root}/${ctx.entryType ?? "moment"}/${ctx.entryId}`;
     case "milestone":
       return `${root}/memories`;
     case "digest":
       return `${root}/letter/${ctx.entryId}`;
     case "weekly_reflection":
-      return `${root}/diary`;
+      return `${root}/`;
   }
 }
 

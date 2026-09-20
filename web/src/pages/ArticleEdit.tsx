@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, useLocation, useBlocker, type Location } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { authClient, fetchEntry, saveEntry, createEntry, fetchComments, TYPE_LABEL, formatDate, getApiErrorMessage, shouldToastApiError, type CommentItem, type CommentPositionMapping, type EntryDetail } from "../lib/api";
+import { authClient, fetchEntry, saveEntry, createEntry, deleteEntry, fetchComments, TYPE_LABEL, formatDate, getApiErrorMessage, shouldToastApiError, type CommentItem, type CommentPositionMapping, type EntryDetail } from "../lib/api";
 import { resolveEntryType, canEditContent } from "@orbit/shared";
 import { getThreadRootId } from "../lib/letterThread";
 import { resolveCommentPosition } from "../lib/anchor";
@@ -9,6 +9,8 @@ import { isEmptyBody } from "../lib/content";
 import { setPageTitle } from "../lib/pageTitle";
 import { resolveEditorAuthor } from "../lib/authors";
 import { useToast } from "../hooks/useToast";
+import { useLayer } from "../hooks/useLayer";
+import { sameUrl } from "../lib/layers";
 import { TiptapEditor, type TiptapEditorHandle } from "../components/TiptapEditor";
 import { EditorFullscreenOverlay } from "../components/EditorFullscreenOverlay";
 import { DatePicker } from "../components/DatePicker";
@@ -17,10 +19,11 @@ import { fromDateInput, toDateInput } from "../lib/dateInput";
 import { anchorLogger } from "../lib/logger";
 import { queryKeys } from "../lib/queryKeys";
 import type { EditorHandoffState } from "../lib/editor-handoff";
-import { DraftDrawer } from "../components/DraftDrawer";
 import { ActionSheetDialog } from "../components/ActionSheetDialog";
 import { useDrafts } from "../hooks/useDrafts";
-import { Container } from "../components/ui";
+import { useMomentTags } from "../hooks/useMomentTags";
+import { TagManageModal } from "../components/moment/TagManageModal";
+import { Container, FilterChipDropdown } from "../components/ui";
 
 /**
  * ArticleEdit 的路由结构：/:type/:id/edit 或 /:type/new/edit
@@ -34,6 +37,16 @@ export function ArticleEdit() {
   return <ArticleEditInner key={id || "new"} type={type ?? ""} id={id} />;
 }
 
+function formatDraftTime(ts?: number): string {
+  if (!ts) return "";
+  const now = Math.floor(Date.now() / 1000);
+  const diff = now - ts;
+  if (diff < 60) return "刚刚";
+  if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`;
+  return formatDate(ts);
+}
+
 interface ArticleEditInnerProps {
   type: string;
   id: string | undefined;
@@ -41,13 +54,16 @@ interface ArticleEditInnerProps {
 
 function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const navState = location.state as { initialBody?: string; initialTag?: string | null } | null;
   const [searchParams] = useSearchParams();
   const toast = useToast();
   const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
   const isNew = !id || id === "new" || id === "undefined";
 
-  const { count: draftCount, invalidate: invalidateDrafts } = useDrafts(type);
+  const { latestDraft, invalidate: invalidateDrafts } = useDrafts(type);
+  const [draftDismissed, setDraftDismissed] = useState(false);
 
   // ── Server data (via React Query) ────────────────────────────────────────
   // 注意：此处用独立的 ["entry-edit", id] 作为 key，不共用 queryKeys.entry(id)。
@@ -97,15 +113,22 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
   }, [entryIsError, isNew, navigate, type, toast]);
 
   // ── Local editor state ────────────────────────────────────────────────────
-  // 初始值直接从 serverEntry 读取（组件通过 key={id} 重建时 serverEntry 为 null，待 query 返回后 useEffect 注入内容）
+  // 初始值直接从 serverEntry 或跳转携带的 navState 读取
   const [title, setTitle] = useState(serverEntry?.title ?? "");
   const [showTitle, setShowTitle] = useState(Boolean(serverEntry?.title?.trim()));
-  const [body, setBody] = useState(serverEntry?.body ?? "");
+  const [body, setBody] = useState(isNew ? (navState?.initialBody ?? "") : (serverEntry?.body ?? ""));
   const [entryAuthor, setEntryAuthor] = useState<string | null>(serverEntry?.author ?? null);
   const [isDraft, setIsDraft] = useState(serverEntry?.status === "draft");
   const [entryDate, setEntryDate] = useState<number>(() =>
     serverEntry?.entryDate ?? Math.floor(Date.now() / 1000)
   );
+  const [tag, setTag] = useState<string | null>(isNew ? (navState?.initialTag ?? null) : (serverEntry?.tag ?? null));
+  const { tags } = useMomentTags();
+  const {
+    isOpen: tagManageOpen,
+    open: openTagManage,
+    close: closeTagManage,
+  } = useLayer("tags-edit");
 
   const bodyRef = useRef(body);
   const inlineCommentsRef = useRef<CommentItem[]>(serverComments?.inline ?? []);
@@ -123,6 +146,7 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
     bodyRef.current = serverEntry.body ?? "";
     setEntryAuthor(serverEntry.author ?? null);
     setIsDraft(serverEntry.status === "draft");
+    setTag(serverEntry.tag ?? null);
     if (serverEntry.entryDate) setEntryDate(serverEntry.entryDate);
     inlineCommentsRef.current = serverComments?.inline ?? [];
 
@@ -186,21 +210,25 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const displayAuthor = resolveEditorAuthor(entryAuthor, session?.user?.name);
-  const isMemo = type === "memo";
 
   // 加载状态：新建立即 ready，编辑时等待 server data
   const loaded = isNew || Boolean(serverEntry) || entryIsError;
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [saving, setSaving] = useState(false);
-  const [savingDraft, setSavingDraft] = useState(false);
-  const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const {
+    isOpen: fullscreenOpen,
+    open: openFullscreen,
+    close: closeFullscreen,
+    replaceWith: replaceFullscreenWith,
+  } = useLayer("editor-fullscreen");
   const [fullscreenHandoff, setFullscreenHandoff] = useState<EditorHandoffState | null>(null);
-  const [draftDrawerOpen, setDraftDrawerOpen] = useState(false);
   /** 关闭时「保存草稿？」弹窗 */
-  const [showCloseDialog, setShowCloseDialog] = useState(false);
-  /** 草稿图标二次确认弹窗 */
-  const [showSaveDraftDialog, setShowSaveDraftDialog] = useState(false);
+  const {
+    isOpen: showCloseDialog,
+    open: openDraftPrompt,
+    close: closeDraftPrompt,
+  } = useLayer("draft-prompt");
 
   // ── Actions ───────────────────────────────────────────────────────────────
   const applyFullscreenClose = useCallback((detail: {
@@ -215,7 +243,6 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
     if (detail.title && detail.title.trim().length > 0) {
       setShowTitle(true);
     }
-    setFullscreenOpen(false);
     setFullscreenHandoff(null);
     requestAnimationFrame(() => {
       editorRef.current?.setEditorState(detail.json, detail.selection);
@@ -227,12 +254,16 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
     const state = editorRef.current?.getEditorState();
     if (!state) return;
     setFullscreenHandoff(state);
-    setFullscreenOpen(true);
-  }, []);
+    openFullscreen();
+  }, [openFullscreen]);
 
+  // 只回填编辑器状态；是否关闭全屏层由各调用方决定（见下方 onSave / onDismiss 的注释）。
   const handleFullscreenClose = useCallback((detail: Parameters<typeof applyFullscreenClose>[0]) => {
     applyFullscreenClose(detail);
-  }, [applyFullscreenClose]);
+    closeFullscreen();
+  }, [applyFullscreenClose, closeFullscreen]);
+
+  const isSubmittingRef = useRef(false);
 
   const handleSave = async () => {
     if (!displayAuthor) {
@@ -248,15 +279,17 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
       return;
     }
     setSaving(true);
+    isSubmittingRef.current = true;
     try {
       if (isNew) {
         const result = await createEntry({
-          type: resolveEntryType(type, "diary"),
+          type: resolveEntryType(type, "moment"),
           title,
           body: bodyRef.current,
-          entryDate: isMemo ? undefined : entryDate,
+          entryDate,
           parentId: isLetterReply ? replyParentId : undefined,
           status: "published",
+          tag: type === "moment" ? tag : undefined,
         });
         if (!result?.id) {
           toast.error("创建失败：服务器未返回有效内容 ID");
@@ -275,8 +308,9 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
         const updatedDetail = await saveEntry(id!, {
           title,
           body: bodyRef.current,
-          entryDate: isMemo ? undefined : entryDate,
+          entryDate,
           status: "published",
+          tag: type === "moment" ? tag : undefined,
         });
         queryClient.setQueryData(queryKeys.entry(id!), updatedDetail);
         await Promise.all([
@@ -333,8 +367,9 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
         const updatedDetail = await saveEntry(id!, {
           title,
           body: bodyRef.current,
-          entryDate: isMemo ? undefined : entryDate,
+          entryDate,
           commentMappings,
+          tag: type === "moment" ? tag : undefined,
         });
 
         if (commentMappings && commentMappings.length > 0) {
@@ -359,6 +394,7 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
         navigate(`/${type}/${id}`);
       }
     } catch (err) {
+      isSubmittingRef.current = false;
       toast.error(getApiErrorMessage(err, "保存失败，请稍后重试"));
     } finally {
       setSaving(false);
@@ -366,12 +402,14 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
   };
 
   const doClose = useCallback(() => {
+    // 显式目的路由 + replace：编辑器是从详情页/列表页进入的一次性页面，不该留在前进栈里
+    // （否则从详情页再返回会重新进入编辑器）；同时也让「保存草稿？」层条目被就地替换掉。
     if (!isNew && id) {
-      navigate(`/${type}/${id}`);
+      navigate(`/${type}/${id}`, { replace: true });
       return;
     }
     if (type) {
-      navigate(`/${type}`);
+      navigate(`/${type}`, { replace: true });
       return;
     }
     navigate(-1);
@@ -382,87 +420,131 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
     return !isEmptyBody(currentBody) || Boolean(title.trim());
   }, [body, title]);
 
-  const doSaveDraft = useCallback(async (opts?: { thenOpenDrawer?: boolean; thenClose?: boolean }) => {
-    if (!type) return;
+  const saveDraftContent = useCallback(async (): Promise<boolean> => {
+    if (!type) return false;
     const hasText = checkHasContent();
     if (!hasText && !isDraft) {
-      if (opts?.thenOpenDrawer) setDraftDrawerOpen(true);
-      return;
+      return true;
     }
 
-    setSavingDraft(true);
     try {
       if (isNew) {
         const result = await createEntry({
-          type: resolveEntryType(type, "diary"),
+          type: resolveEntryType(type, "moment"),
           title,
           body: bodyRef.current || undefined,
-          entryDate: isMemo ? undefined : entryDate,
+          entryDate,
           status: "draft",
+          tag: type === "moment" ? tag : undefined,
         });
         if (!result?.id) {
           toast.error("草稿保存失败");
-          return;
+          return false;
         }
       } else {
         await saveEntry(id!, {
           title,
           body: bodyRef.current || undefined,
-          entryDate: isMemo ? undefined : entryDate,
+          entryDate,
           status: "draft",
+          tag: type === "moment" ? tag : undefined,
         });
       }
       await invalidateDrafts();
       toast.success("草稿已保存");
-
-      setTitle("");
-      setShowTitle(false);
-      setBody("");
-      bodyRef.current = "";
-      editorRef.current?.getEditor()?.commands.setContent("");
-      setIsDraft(false);
-
-      if (opts?.thenClose) {
-        doClose();
-        return;
-      }
-      navigate(`/${type}/new/edit`, { replace: true });
-      if (opts?.thenOpenDrawer) setDraftDrawerOpen(true);
+      return true;
     } catch (err) {
       toast.error(getApiErrorMessage(err, "草稿保存失败"));
-    } finally {
-      setSavingDraft(false);
+      return false;
     }
-  }, [type, checkHasContent, isDraft, isNew, id, title, isMemo, entryDate, navigate, toast, invalidateDrafts, doClose]);
+  }, [type, checkHasContent, isDraft, isNew, id, title, entryDate, toast, invalidateDrafts, tag]);
+
+  const needsDraftPrompt = useCallback(
+    () => checkHasContent() || isDraft,
+    [checkHasContent, isDraft],
+  );
+
+  const shouldBlock = useCallback(
+    ({ currentLocation, nextLocation }: { currentLocation: Location; nextLocation: Location }) => {
+      if (isSubmittingRef.current) return false;
+      if (sameUrl(currentLocation) === sameUrl(nextLocation)) return false;
+      return needsDraftPrompt();
+    },
+    [needsDraftPrompt],
+  );
+
+  const blocker = useBlocker(shouldBlock);
+
+  const isPromptOpen = showCloseDialog || blocker.state === "blocked";
+
+  const handlePromptSave = useCallback(async () => {
+    isSubmittingRef.current = true;
+    const saved = await saveDraftContent();
+    if (!saved) {
+      isSubmittingRef.current = false;
+      return;
+    }
+    if (blocker.state === "blocked") {
+      blocker.proceed();
+    } else {
+      closeDraftPrompt();
+      doClose();
+    }
+  }, [saveDraftContent, blocker, closeDraftPrompt, doClose]);
+
+  const handlePromptDiscard = useCallback(() => {
+    isSubmittingRef.current = true;
+    if (blocker.state === "blocked") {
+      blocker.proceed();
+    } else {
+      closeDraftPrompt();
+      doClose();
+    }
+  }, [blocker, closeDraftPrompt, doClose]);
+
+  const handlePromptCancel = useCallback(() => {
+    if (blocker.state === "blocked") {
+      blocker.reset();
+    } else {
+      closeDraftPrompt();
+    }
+  }, [blocker, closeDraftPrompt]);
 
   const handleClose = useCallback(() => {
-    if (checkHasContent() || isDraft) {
-      setShowCloseDialog(true);
+    if (needsDraftPrompt()) {
+      openDraftPrompt();
       return;
     }
     doClose();
-  }, [checkHasContent, isDraft, doClose]);
+  }, [needsDraftPrompt, doClose, openDraftPrompt]);
 
-  const handleDraftIconClick = useCallback(() => {
-    if (!type) return;
-    const hasText = checkHasContent();
-    if (hasText || isDraft) {
-      // 有内容：先弹二次确认
-      setShowSaveDraftDialog(true);
-    } else {
-      // 无内容：直接打开草稿箱
-      setDraftDrawerOpen(true);
+  const handleRestoreDraft = useCallback(() => {
+    if (!latestDraft) return;
+    isSubmittingRef.current = true;
+    navigate(`/${type}/${latestDraft.id}/edit`, { replace: true });
+  }, [latestDraft, type, navigate]);
+
+  const handleDiscardDraft = useCallback(async () => {
+    if (!latestDraft) return;
+    try {
+      await deleteEntry(latestDraft.id);
+      await invalidateDrafts();
+      setDraftDismissed(true);
+      toast.success("草稿已丢弃");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "丢弃草稿失败"));
     }
-  }, [type, checkHasContent, isDraft]);
+  }, [latestDraft, invalidateDrafts, toast]);
 
   const hasContent = checkHasContent();
+  const showDraftPrompt = isNew && !draftDismissed && Boolean(latestDraft) && !hasContent;
 
   if (!loaded || isFetching && !serverEntry) return <p className="orbit-muted">加载中…</p>;
 
   return (
     <>
       <Container size="narrow" className="orbit-editor-layout">
-        {/* 顶部导航控制栏：只保留关闭按钮以及草稿箱与保存主操作 */}
+        {/* 顶部导航控制栏：只保留返回按钮与保存/发布主操作 */}
         <div className="orbit-editor-header flex items-center justify-between mb-3 gap-3">
           <div className="flex items-center gap-2">
             <button
@@ -476,20 +558,6 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
             </button>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {/* 点击图标在有内容时存草稿+清空+开草稿箱，无内容时直接开草稿箱 */}
-            <button
-              type="button"
-              onClick={() => void handleDraftIconClick()}
-              disabled={savingDraft}
-              className="orbit-icon-btn orbit-icon-btn--sm relative"
-              aria-label="草稿箱"
-              title={hasContent || isDraft ? "保存草稿并打开草稿箱" : "查看草稿箱"}
-            >
-              <DraftBoxIcon size="sm" />
-              {draftCount > 0 && (
-                <span className="orbit-draft-count-badge orbit-draft-count-badge--overlay">{draftCount}</span>
-              )}
-            </button>
             <button
               type="button"
               onClick={() => void handleSave()}
@@ -500,6 +568,36 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
             </button>
           </div>
         </div>
+
+        {/* 单草稿按需唤醒条幅：仅在空白新建且存在草稿时温和提示 */}
+        {showDraftPrompt && latestDraft && (
+          <div className="orbit-draft-restore-banner flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[var(--color-surface-raised)] border border-[var(--color-border-light)] text-xs text-[var(--color-text-secondary)] mb-3">
+            <div className="flex items-center gap-2 min-w-0 mr-3">
+              <DraftBoxIcon size="sm" className="shrink-0 text-[var(--color-text-secondary)]" />
+              <span className="truncate">
+                检测到上次未完成的{type === "letter" ? "信件" : "动态"}草稿
+                {latestDraft.updatedAt ? `（${formatDraftTime(latestDraft.updatedAt)}）` : ""}
+              </span>
+            </div>
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={handleRestoreDraft}
+                className="font-medium text-[var(--color-primary)] hover:underline cursor-pointer"
+              >
+                恢复
+              </button>
+              <span className="text-[var(--color-border-light)] select-none">|</span>
+              <button
+                type="button"
+                onClick={() => void handleDiscardDraft()}
+                className="text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] cursor-pointer"
+              >
+                丢弃
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 内联元信息栏：作者、日期、回复上下文下沉至正文头部展示，解决顶栏拥挤重叠 */}
         <div className="flex items-center flex-wrap gap-2 text-xs orbit-editor-meta-bar mb-3">
@@ -516,22 +614,38 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
               作者：{displayAuthor}
             </span>
           )}
-          {!isMemo && (
-            <>
-              {displayAuthor && <span className="orbit-meta-divider">•</span>}
-              <DatePicker
-                id="entry-date"
-                value={toDateInput(entryDate)}
-                onChange={(value) => setEntryDate(fromDateInput(value))}
-                variant="inline"
-                aria-label="选择日期"
-              />
-            </>
-          )}
+          {displayAuthor && <span className="orbit-meta-divider">•</span>}
+          <DatePicker
+            id="entry-date"
+            value={toDateInput(entryDate)}
+            onChange={(value) => setEntryDate(fromDateInput(value))}
+            variant="inline"
+            aria-label="选择日期"
+          />
           {isDraft && (
             <>
               <span className="orbit-meta-divider">•</span>
               <span className="orbit-draft-label">草稿</span>
+            </>
+          )}
+          {type === "moment" && (
+            <>
+              <span className="orbit-meta-divider">•</span>
+              <FilterChipDropdown
+                label="# 标签"
+                value={tag}
+                variant="inline"
+                allLabel="无标签"
+                options={tags.map((item) => ({
+                  value: item.id,
+                  label: `# ${item.name}`,
+                }))}
+                onChange={(val) => setTag(val)}
+                footerAction={{
+                  label: "+ 管理标签",
+                  onClick: openTagManage,
+                }}
+              />
             </>
           )}
         </div>
@@ -577,73 +691,49 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
         saving={saving}
         onClose={handleFullscreenClose}
         onSave={(detail) => {
-          applyFullscreenClose(detail);
+          handleFullscreenClose(detail);
           void handleSave();
         }}
         onDismiss={(detail) => {
           applyFullscreenClose(detail);
-          handleClose();
+          // 退出全屏后若还需询问「保存到草稿？」，把询问就地替换为栈顶：
+          // 写成「先关全屏层再压询问层」会让同一 tick 内的 go(-1) 与 pushState 互相打架
+          // （前者异步、后者同步），结果是询问层刚压入就被回退弹掉。
+          if (needsDraftPrompt()) replaceFullscreenWith("draft-prompt");
+          else doClose();
         }}
-      />
-
-      <DraftDrawer
-        open={draftDrawerOpen}
-        onClose={() => setDraftDrawerOpen(false)}
-        type={type ?? ""}
       />
 
       {/* 关闭时「是否保存草稿？」三选一弹窗，对齐 Jant */}
       <ActionSheetDialog
-        open={showCloseDialog}
+        open={isPromptOpen}
         title="保存到草稿？"
-        description="保存草稿，之后可以继续编辑和发布。"
-        onDismiss={() => setShowCloseDialog(false)}
+        onDismiss={handlePromptCancel}
         actions={[
           {
             label: "保存",
             bold: true,
             onClick: () => {
-              setShowCloseDialog(false);
-              void doSaveDraft({ thenClose: true });
+              void handlePromptSave();
             },
           },
           {
             label: "不保存",
             variant: "destructive",
-            onClick: () => {
-              setShowCloseDialog(false);
-              doClose();
-            },
+            onClick: handlePromptDiscard,
           },
           {
             label: "取消",
             variant: "muted",
-            onClick: () => setShowCloseDialog(false),
+            onClick: handlePromptCancel,
           },
         ]}
       />
 
-      {/* 草稿图标点击时的二次确认弹窗 */}
-      <ActionSheetDialog
-        open={showSaveDraftDialog}
-        title="保存到草稿箱？"
-        description="当前内容将保存到草稿箱，可随时返回继续编辑。"
-        onDismiss={() => setShowSaveDraftDialog(false)}
-        actions={[
-          {
-            label: "保存",
-            bold: true,
-            onClick: () => {
-              setShowSaveDraftDialog(false);
-              void doSaveDraft({ thenOpenDrawer: true });
-            },
-          },
-          {
-            label: "取消",
-            variant: "muted",
-            onClick: () => setShowSaveDraftDialog(false),
-          },
-        ]}
+      <TagManageModal
+        isOpen={tagManageOpen}
+        onClose={closeTagManage}
+        onTagCreated={(newId) => setTag(newId)}
       />
     </>
   );

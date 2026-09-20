@@ -1,6 +1,7 @@
 import { useState } from "react";
 import "../lib/initVoiceCards";
 import { resolveMediaType } from "../lib/content";
+import { PlayIcon, PauseIcon, CloseIcon, MessageIcon } from "./OrbitIcons";
 
 export interface MediaAttachmentItem {
   id: string;
@@ -78,13 +79,8 @@ export function MediaAttachmentsBar({
                     className="orbit-voice-play-btn"
                     title="播放/暂停预听"
                   >
-                    <svg className="w-3.5 h-3.5 fill-current ml-0.5 orbit-voice-play-icon" viewBox="0 0 24 24">
-                      <polygon points="5 3 19 12 5 21 5 3" />
-                    </svg>
-                    <svg className="w-3.5 h-3.5 fill-current hidden orbit-voice-pause-icon" viewBox="0 0 24 24">
-                      <rect x="6" y="4" width="4" height="16" rx="1" />
-                      <rect x="14" y="4" width="4" height="16" rx="1" />
-                    </svg>
+                    <PlayIcon className="w-3.5 h-3.5 fill-current ml-0.5 orbit-voice-play-icon" />
+                    <PauseIcon className="w-3.5 h-3.5 fill-current hidden orbit-voice-pause-icon" />
                   </button>
 
                   <div className="orbit-voice-waveform">
@@ -107,7 +103,7 @@ export function MediaAttachmentsBar({
                       className="orbit-voice-transcript-toggle"
                       title="展开/折叠转写文稿"
                     >
-                      <span className="select-none">💬</span>
+                      <MessageIcon size="sm" />
                       <span>文稿</span>
                     </button>
                   ) : (
@@ -132,10 +128,7 @@ export function MediaAttachmentsBar({
                     title="删除此语音附件"
                     aria-label="删除此语音附件"
                   >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
+                    <CloseIcon className="w-3 h-3" />
                   </button>
                 </div>
 
@@ -220,7 +213,7 @@ export function MediaAttachmentsBar({
                       className="w-full h-full object-cover opacity-80"
                     />
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-white/90">
-                      <span className="text-base drop-shadow-sm">🎬</span>
+                      <PlayIcon size="md" className="drop-shadow-sm" />
                       {item.duration ? (
                         <span className="text-[9px] font-mono mt-0.5 bg-black/60 px-1 py-0.2 rounded">
                           {Math.floor(item.duration / 60)}:{String(item.duration % 60).padStart(2, "0")}
@@ -240,10 +233,7 @@ export function MediaAttachmentsBar({
                 aria-label="删除媒体"
                 title="删除媒体"
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                <CloseIcon className="w-3 h-3" />
               </button>
               <button
                 type="button"

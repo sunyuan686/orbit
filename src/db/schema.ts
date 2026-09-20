@@ -3,6 +3,7 @@ import {
   text,
   integer,
   index,
+  uniqueIndex,
   check,
   primaryKey,
 } from "drizzle-orm/sqlite-core";
@@ -32,6 +33,8 @@ export const user = sqliteTable("user", {
   notificationPreferences: text("notification_preferences"),
   /** 个人语音转写模式（smooth | raw | bullets | formal） */
   voiceTranscribeMode: text("voice_transcribe_mode").default("smooth"),
+  /** 关于我 / 个人生活备忘（喜好、尺码、生活小档案） */
+  about: text("about"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
@@ -99,8 +102,8 @@ export const spaceInvite = sqliteTable(
 
 /**
  * 核心内容表
- * type: diary（日记事件）| timeline（里程碑）| message（留言板）| letter（信件）| memo（备忘录）
- * parentId: letter 用于关联同轮回信（一封可有多条回信）；message 用于链式回复
+ * type: moment（动态）| letter（信件）
+ * parentId: letter 用于关联同轮回信（一封可有多条回信）
  * status: draft（草稿，仅作者可见）| published（已发布）
  */
 export const entry = sqliteTable(
@@ -122,6 +125,8 @@ export const entry = sqliteTable(
     ),
     /** 发布状态：draft（草稿）| published（已发布） */
     status: text("status").notNull().default("published"),
+    /** 规范单标签（如 milestone 足迹、appreciation 感谢等） */
+    tag: text("tag"),
     createdAt: integer("created_at")
       .notNull()
       .default(sql`(unixepoch())`),
@@ -136,6 +141,7 @@ export const entry = sqliteTable(
       sql`${t.status} IN ('draft', 'published')`
     ),
     index("idx_entry_type_date").on(t.type, t.entryDate),
+    index("idx_entry_type_tag").on(t.type, t.tag, t.entryDate),
     index("idx_entry_parent").on(t.parentId),
     index("idx_entry_status_user").on(t.status, t.userId),
   ]
@@ -174,7 +180,7 @@ export const asset = sqliteTable(
 
 /**
  * 内容正文对图片的引用关系（相册 linked/orphan 与删除保护的事实源）
- * sourceType: entry.type（diary/timeline/memo/...）
+ * sourceType: entry.type（moment/letter）
  */
 export const assetReference = sqliteTable(
   "asset_reference",
@@ -186,6 +192,62 @@ export const assetReference = sqliteTable(
   (t) => [
     primaryKey({ columns: [t.storageKey, t.sourceType, t.sourceId] }),
     index("idx_asset_reference_source").on(t.sourceType, t.sourceId),
+  ]
+);
+
+/**
+ * 相册表（画册）
+ */
+export const album = sqliteTable(
+  "album",
+  {
+    id: text("id").primaryKey(),
+    title: text("title").notNull(),
+    description: text("description"),
+    coverStorageKey: text("cover_storage_key"),
+    createdByUserId: text("created_by_user_id").references(() => user.id),
+    author: text("author").notNull().default(""),
+    isDefault: integer("is_default", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: integer("created_at")
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .default(sql`(unixepoch())`),
+    deletedAt: integer("deleted_at"),
+  },
+  (t) => [
+    index("idx_album_created").on(t.createdAt),
+    index("idx_album_sort").on(t.sortOrder),
+  ]
+);
+
+/**
+ * 相册与图片资产关联表（多对多，保留顺序和说明）
+ */
+export const albumAsset = sqliteTable(
+  "album_asset",
+  {
+    id: text("id").primaryKey(),
+    albumId: text("album_id")
+      .notNull()
+      .references(() => album.id, { onDelete: "cascade" }),
+    assetId: text("asset_id")
+      .notNull()
+      .references(() => asset.id, { onDelete: "cascade" }),
+    caption: text("caption"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: integer("created_at")
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [
+    index("idx_album_asset_album").on(t.albumId, t.sortOrder),
+    index("idx_album_asset_asset").on(t.assetId),
+    uniqueIndex("uniq_album_asset").on(t.albumId, t.assetId),
   ]
 );
 
@@ -500,3 +562,28 @@ export const pushSubscription = sqliteTable(
   },
   (t) => [index("idx_push_subscription_user").on(t.userId)]
 );
+
+/**
+ * 动态标签表 (Tags)
+ * 用于动态分类打标（如足迹、感谢、留言等），支持自定义增删改名称与颜色
+ */
+export const tags = sqliteTable(
+  "tags",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    color: text("color").notNull().default("amber"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: integer("created_at")
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [index("idx_tags_sort").on(t.sortOrder, t.createdAt)]
+);
+
+export type Tag = typeof tags.$inferSelect;
+export type InsertTag = typeof tags.$inferInsert;
+

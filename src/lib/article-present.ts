@@ -11,6 +11,7 @@ export async function presentEntrySummary(
     entryDate: number | null;
     createdAt: number;
     parentId: string | null;
+    tag?: string | null;
   }
 ) {
   const map = await loadUserNameMap(db, [row.userId]);
@@ -25,6 +26,7 @@ export async function presentEntrySummary(
     entryDate: row.entryDate,
     createdAt: row.createdAt,
     parentId: row.parentId,
+    tag: row.tag ?? null,
   };
 }
 
@@ -41,6 +43,7 @@ export async function presentEntryDetail(
     body: string | null;
     entryDate: number | null;
     parentId: string | null;
+    tag?: string | null;
     createdAt: number;
     updatedAt: number;
   }
@@ -65,6 +68,7 @@ export async function presentEntryDetail(
     body: row.body ?? "",
     entryDate: row.entryDate,
     parentId: row.parentId,
+    tag: row.tag ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

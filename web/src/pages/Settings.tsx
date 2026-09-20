@@ -35,6 +35,7 @@ import {
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../hooks/useToast";
 import { usePwaUpdate } from "../hooks/usePwaUpdate";
+import { useTheme, type Theme } from "../hooks/useTheme";
 import { ApiTokenSettingsPanel } from "../components/ApiTokenSettingsPanel";
 import { AiProvidersSettingsPanel } from "../components/AiProvidersSettingsPanel";
 import { FeishuIntegrationPanel } from "../components/FeishuIntegrationPanel";
@@ -43,6 +44,7 @@ import { AboutSettingsPanel } from "../components/AboutSettingsPanel";
 import {
   AiIcon,
   BellIcon,
+  CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   EyeIcon,
@@ -51,7 +53,10 @@ import {
   KeyIcon,
   MemoriesIcon,
   MessageIcon,
+  MonitorIcon,
+  MoonIcon,
   PaletteIcon,
+  SunIcon,
   TimelineIcon,
   UserIcon,
 } from "../components/OrbitIcons";
@@ -204,9 +209,16 @@ function resolveSettingsTab(value: string | null): SettingsTab | null {
   return isSettingsTab(value) ? value : null;
 }
 
+const APPEARANCE_MODES: { id: Theme; label: string; icon: typeof SunIcon }[] = [
+  { id: "light", label: "浅色模式", icon: SunIcon },
+  { id: "dark", label: "深色模式", icon: MoonIcon },
+  { id: "system", label: "跟随系统", icon: MonitorIcon },
+];
+
 export function SettingsPage() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { theme, setTheme } = useTheme();
   const { data: session, refetch: refetchSession } = authClient.useSession();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -220,9 +232,12 @@ export function SettingsPage() {
 
   const [accentPreset, setAccentPreset] = useState<AccentTheme>(() => getSavedAccentTheme());
 
+  const [signingOut, setSigningOut] = useState(false);
+
   const [email, setEmail] = useState("");
   const [emailDirty, setEmailDirty] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
+
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -283,7 +298,11 @@ export function SettingsPage() {
   }, [activeTab]);
 
   function setTab(tab: SettingsTab) {
-    setSearchParams({ tab }, { replace: true });
+    // 两种布局的历史语义不同：
+    // - 桌面端左侧导航与右侧面板同屏，切换只是换面板，不该进历史（replace）；
+    // - 移动端是「菜单 → 二级面板」的真实层级推进，必须 push，
+    //   这样系统返回手势与面板内的返回按钮都能退回菜单，而不是跳过一层离开设置页。
+    setSearchParams({ tab }, { replace: !isMobile });
   }
 
   const [canvasBg, setCanvasBgState] = useState<CanvasBg>(() => getSavedCanvasBg());
@@ -292,7 +311,21 @@ export function SettingsPage() {
   const [fontSize, setFontSizeState] = useState<ReadingFontSize>(() => getSavedFontSize());
 
   function backToMobileMenu() {
-    setSearchParams({}, { replace: true });
+    // 与系统返回手势同源：弹掉 push 进来的面板条目，回到菜单条目。
+    navigate(-1);
+  }
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await authClient.signOut({ fetchOptions: { credentials: "include" } });
+      toast.success("已退出登录");
+      navigate("/login", { replace: true });
+    } catch {
+      toast.error("退出失败，请稍后重试");
+    } finally {
+      setSigningOut(false);
+    }
   }
 
   function handleAccentSelect(preset: AccentTheme) {
@@ -495,46 +528,65 @@ export function SettingsPage() {
         ) : null}
 
         {showMobileMenu ? (
-          <nav className="orbit-settings-mobile-menu" aria-label="设置分类">
-            {SETTINGS_NAV_GROUPS.map((group) => (
-              <div key={group.id} className="orbit-settings-mobile-nav-group">
-                <p className="orbit-settings-mobile-group-label">{group.label}</p>
-                <ul className="orbit-settings-mobile-group">
-                  {group.tabs.map((tab) => {
-                    const descId = `settings-tab-desc-${tab.id}`;
-                    return (
-                      <li key={tab.id}>
-                        <button
-                          type="button"
-                          className="orbit-settings-mobile-row"
-                          aria-describedby={descId}
-                          onClick={() => setTab(tab.id)}
-                        >
-                          <span className="orbit-settings-mobile-row-body">
-                            <span className="orbit-settings-mobile-row-label flex items-center gap-1.5">
-                              <span>{tab.label}</span>
-                              {tab.id === "about" && needRefresh ? (
-                                <span
-                                  className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] shrink-0"
-                                  title="新版本可用"
-                                  aria-label="新版本可用"
-                                />
-                              ) : null}
+          <>
+            <nav className="orbit-settings-mobile-menu" aria-label="设置分类">
+              {SETTINGS_NAV_GROUPS.map((group) => (
+                <div key={group.id} className="orbit-settings-mobile-nav-group">
+                  <p className="orbit-settings-mobile-group-label">{group.label}</p>
+                  <ul className="orbit-settings-mobile-group">
+                    {group.tabs.map((tab) => {
+                      const descId = `settings-tab-desc-${tab.id}`;
+                      return (
+                        <li key={tab.id}>
+                          <button
+                            type="button"
+                            className="orbit-settings-mobile-row"
+                            aria-describedby={descId}
+                            onClick={() => setTab(tab.id)}
+                          >
+                            <span className="orbit-settings-mobile-row-body">
+                              <span className="orbit-settings-mobile-row-label flex items-center gap-1.5">
+                                <span>{tab.label}</span>
+                                {tab.id === "about" && needRefresh ? (
+                                  <span
+                                    className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] shrink-0"
+                                    title="新版本可用"
+                                    aria-label="新版本可用"
+                                  />
+                                ) : null}
+                              </span>
+                              <span id={descId} className="orbit-settings-mobile-row-desc">
+                                {tab.description}
+                              </span>
                             </span>
-                            <span id={descId} className="orbit-settings-mobile-row-desc">
-                              {tab.description}
-                            </span>
-                          </span>
-                          <ChevronRightIcon size="sm" className="orbit-settings-mobile-row-chevron" />
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-          </nav>
+                            <ChevronRightIcon size="sm" className="orbit-settings-mobile-row-chevron" />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </nav>
+
+            <div className="mt-6 mb-6">
+              <ul className="orbit-settings-mobile-group">
+                <li>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    disabled={signingOut}
+                    className="orbit-settings-mobile-row justify-center font-medium cursor-pointer disabled:opacity-50"
+                    style={{ color: "var(--color-danger)" }}
+                  >
+                    {signingOut ? "退出中…" : "退出登录"}
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </>
         ) : null}
+
 
         {(!isMobile || showMobileDetail) ? (
         <div
@@ -547,10 +599,40 @@ export function SettingsPage() {
                 <h2 className="orbit-settings-panel-title">主题与外观</h2>
               </header>
 
+              {/* 0. 外观模式（深浅色） */}
+              <Section title="外观模式">
+                <div
+                  className="orbit-appearance-segmented"
+                  role="radiogroup"
+                  aria-label="外观模式"
+                >
+                  {APPEARANCE_MODES.map((mode) => {
+                    const isSelected = theme === mode.id;
+                    const Icon = mode.icon;
+                    return (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        className={`orbit-appearance-segment-btn${isSelected ? " orbit-appearance-segment-btn--active" : ""}`}
+                        onClick={() => {
+                          setTheme(mode.id);
+                          toast.success(`外观已切换为「${mode.label}」`);
+                        }}
+                      >
+                        <Icon size="sm" />
+                        <span>{mode.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Section>
+
               {/* 1. 品牌主题色 */}
               <Section title="主题色">
                 <div
-                  className="orbit-settings-theme-grid"
+                  className="orbit-theme-swatches"
                   role="radiogroup"
                   aria-label="主题色"
                 >
@@ -562,18 +644,17 @@ export function SettingsPage() {
                         type="button"
                         role="radio"
                         aria-checked={isSelected}
-                        className={`orbit-theme-card${isSelected ? " orbit-theme-card--active" : ""}`}
+                        aria-label={preset.label}
+                        className={`orbit-theme-swatch-item${isSelected ? " orbit-theme-swatch-item--active" : ""}`}
                         onClick={() => handleAccentSelect(preset.id)}
                       >
-                        <div className="orbit-theme-card-header">
-                          <span
-                            className="orbit-theme-card-dot"
-                            style={{ backgroundColor: preset.colorPreview }}
-                            aria-hidden="true"
-                          />
-                          <span className="orbit-theme-card-title">{preset.label}</span>
-                        </div>
-                        <span className="orbit-theme-card-desc">{preset.subLabel}</span>
+                        <span
+                          className="orbit-theme-swatch-circle"
+                          style={{ backgroundColor: preset.colorPreview }}
+                        >
+                          {isSelected && <CheckIcon size="sm" className="orbit-theme-swatch-check" />}
+                        </span>
+                        <span className="orbit-theme-swatch-label">{preset.label}</span>
                       </button>
                     );
                   })}
@@ -598,15 +679,15 @@ export function SettingsPage() {
                         className={`orbit-canvas-card${isSelected ? " orbit-canvas-card--active" : ""}`}
                         onClick={() => handleCanvasBgSelect(bg.id)}
                       >
-                        <div className="orbit-canvas-card-meta">
-                          <span
-                            className="orbit-canvas-card-swatch"
-                            style={{ backgroundColor: bg.colorPreview }}
-                            aria-hidden="true"
-                          />
+                        <span
+                          className="orbit-canvas-card-swatch"
+                          style={{ backgroundColor: bg.colorPreview }}
+                          aria-hidden="true"
+                        />
+                        <div className="orbit-canvas-card-info">
                           <span className="orbit-canvas-card-title">{bg.label}</span>
+                          <span className="orbit-canvas-card-desc">{bg.desc}</span>
                         </div>
-                        <span className="orbit-canvas-card-desc">{bg.desc}</span>
                       </button>
                     );
                   })}
@@ -631,10 +712,9 @@ export function SettingsPage() {
                         className={`orbit-font-card${isSelected ? " orbit-font-card--active" : ""}`}
                         onClick={() => handleFontModeSelect(mode.id)}
                       >
-                        <div className="orbit-font-card-meta">
-                          <span className="orbit-font-card-title">{mode.label}</span>
-                          <span className="orbit-font-card-badge">{mode.subLabel}</span>
-                        </div>
+                        <span className={`orbit-font-card-title orbit-font-card-title--${mode.id}`}>
+                          {mode.label}
+                        </span>
                         <span className="orbit-font-card-desc">{mode.desc}</span>
                       </button>
                     );

@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { CloseIcon } from "../OrbitIcons";
 
 export interface ModalProps {
@@ -7,6 +8,7 @@ export interface ModalProps {
   title: string;
   subtitle?: string;
   maxWidth?: string;
+  maxHeight?: string;
   children: ReactNode;
   footer?: ReactNode;
 }
@@ -17,6 +19,7 @@ export function Modal({
   title,
   subtitle,
   maxWidth = "32rem",
+  maxHeight,
   children,
   footer,
 }: ModalProps) {
@@ -36,11 +39,11 @@ export function Modal({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="orbit-ui-modal-backdrop" onClick={onClose}>
       <div
         className="orbit-ui-modal-dialog"
-        style={{ maxWidth }}
+        style={{ maxWidth, maxHeight }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -69,6 +72,7 @@ export function Modal({
 
         {footer && <div className="orbit-ui-modal-footer">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

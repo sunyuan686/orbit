@@ -1,4 +1,5 @@
 import { useCallback, useSyncExternalStore } from "react";
+import { useLayer } from "./useLayer";
 
 export interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -12,7 +13,6 @@ export interface BeforeInstallPromptEvent extends Event {
 export interface PwaState {
   hasPrompt: boolean;
   isStandalone: boolean;
-  guideModalOpen: boolean;
 }
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
@@ -29,13 +29,11 @@ export function isRunningStandalone(): boolean {
 let state: PwaState = {
   hasPrompt: false,
   isStandalone: isRunningStandalone(),
-  guideModalOpen: false,
 };
 
 const serverState: PwaState = {
   hasPrompt: false,
   isStandalone: false,
-  guideModalOpen: false,
 };
 
 const listeners = new Set<() => void>();
@@ -77,12 +75,15 @@ function subscribe(callback: () => void) {
 const getSnapshot = () => state;
 const getServerSnapshot = () => serverState;
 
-export function setPwaGuideModalOpen(open: boolean) {
-  updateState({ guideModalOpen: open });
-}
-
 export function usePwaInstall() {
   const store = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  // 安装指引是一个可被返回手势关闭的浮层，因此它的开关必须是一条历史条目，
+  // 而不是这个 store 里的第二个布尔量。useLayer 由 location 派生，多处调用共享同一真相。
+  const {
+    isOpen: guideOpen,
+    open: openGuide,
+    close: closeGuide,
+  } = useLayer("pwa-guide");
 
   // 环境特征检测（会话生命周期内恒定）
   const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
@@ -107,25 +108,22 @@ export function usePwaInstall() {
         }
       } catch (err) {
         console.warn("[pwa] Prompt invocation failed, showing guide", err);
-        updateState({ guideModalOpen: true });
+        openGuide();
       }
     } else {
-      updateState({ guideModalOpen: true });
+      openGuide();
     }
-  }, []);
-
-  const setGuideOpen = useCallback((open: boolean) => {
-    updateState({ guideModalOpen: open });
-  }, []);
+  }, [openGuide]);
 
   return {
     isStandalone: store.isStandalone,
     canPrompt: store.hasPrompt,
-    guideOpen: store.guideModalOpen,
+    guideOpen,
+    openGuide,
+    closeGuide,
     isIOS,
     isSafari,
     isInAppBrowser,
-    setGuideOpen,
     triggerInstall,
   };
 }

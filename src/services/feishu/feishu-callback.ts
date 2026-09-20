@@ -36,11 +36,8 @@ interface OrbitCardAction {
 }
 
 const CONTENT_TYPE_LABEL: Record<string, string> = {
-  diary: "日记",
-  timeline: "时间线",
-  message: "留言",
+  moment: "动态",
   letter: "信",
-  memo: "备忘",
 };
 
 function parseActionValue(value: unknown): OrbitCardAction | null {
@@ -226,7 +223,7 @@ async function handleCardAction(
       return toast("success", "已收到");
     case "orbit:open_entry":
       if (action.entryId) {
-        const segment = action.contentType || "diary";
+        const segment = action.contentType || "moment";
         return toast("info", `打开 ${CONTENT_TYPE_LABEL[segment] ?? "内容"}`);
       }
       return toast("info", "请在浏览器中打开链接");
@@ -254,7 +251,7 @@ function parseOrbitContentPath(
   if (parsed.origin !== base.origin) return null;
 
   const match = parsed.pathname.match(
-    /^\/(diary|timeline|message|letter|memo)\/([^/]+)\/?$/
+    /^\/(moment|letter)\/([^/]+)\/?$/
   );
   if (!match) return null;
   return { contentType: match[1], id: match[2] };

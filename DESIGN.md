@@ -104,3 +104,10 @@ rounded:
 
 ## 3. 背景纸质微颗粒感 (Grain Texture)
 - 通过轻量级 SVG `feTurbulence` 噪点叠加在 `body::before` 上，默认强度为 5.0%，支持在设置中 0% ~ 15% 自由调节。
+
+## 4. 图标系统与动效哲学 (Iconography)
+详见专项指南 [docs/guides/icon-system.md](docs/guides/icon-system.md)：
+- **唯一真相源**：全站统一由 `OrbitIcons.tsx` 集中维护，零外部 npm 库依赖，严禁业务组件内联散落 `<svg>`；
+- **单色墨水规范**：`24x24` 网格、`strokeWidth={1.5}` 细描边、继承父级 `currentColor`、`16px / 20px` 物理尺寸阶梯；
+- **动效第一性原理**：拒绝装饰性动效与动画胶水代码（不引入 Lottie）。除承载状态必要性的 `LoadingIcon`（通信旋转）与 `VoiceInputButton`（拾音呼吸）外，全站图标 100% 保持纯静态。
+

@@ -159,9 +159,11 @@ export function createAssetsRoutes(
       .where(eq(asset.storageKey, filename))
       .get();
 
+    let assetId: string;
     if (!existingAsset) {
+      assetId = generateId("ast");
       await db.insert(asset).values({
-        id: generateId("ast"),
+        id: assetId,
         entryId: entryId || null,
         storageKey: filename,
         mimeType,
@@ -175,6 +177,7 @@ export function createAssetsRoutes(
         createdAt: Math.floor(Date.now() / 1000),
       });
     } else {
+      assetId = existingAsset.id;
       width = existingAsset.width ?? width;
       height = existingAsset.height ?? height;
       blurhash = existingAsset.blurhash ?? blurhash;
@@ -189,7 +192,7 @@ export function createAssetsRoutes(
       hasThumb = Number(existingAsset.hasThumb) === 1 || hasThumb ? 1 : 0;
     }
 
-    return c.json({ url, filename, mimeType, width, height, blurhash, duration, transcript });
+    return c.json({ id: assetId, url, filename, mimeType, width, height, blurhash, duration, transcript });
   });
 
   return assets;

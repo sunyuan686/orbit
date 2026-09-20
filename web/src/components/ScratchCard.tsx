@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { getSpaceTodayKey } from "@orbit/shared";
 import { scratchSound } from "../lib/scratchSound";
 import { CloseIcon } from "./OrbitIcons";
+import { useLayer } from "../hooks/useLayer";
 
 
 interface ScratchCardProps {
@@ -11,6 +12,7 @@ interface ScratchCardProps {
   seed: number | string;
   isAlreadyRevealed?: boolean;
   coverText?: string;
+  /** 换卡等外部动作抽到未揭晓的新卡时，自动展开刮卡层。 */
   autoOpenModal?: boolean;
   onModalClose?: () => void;
 }
@@ -24,7 +26,8 @@ export function ScratchCard({
   autoOpenModal = false,
   onModalClose,
 }: ScratchCardProps) {
-  const [isModalOpen, setIsModalOpen] = useState(autoOpenModal);
+  const { isOpen: isScratchOpen, open: openScratch, close: closeScratch } =
+    useLayer("scratch");
   const [isRevealed, setIsRevealed] = useState(isAlreadyRevealed);
 
   // 同步外部揭晓状态与漫游种子
@@ -32,27 +35,20 @@ export function ScratchCard({
     setIsRevealed(isAlreadyRevealed);
   }, [isAlreadyRevealed]);
 
+  // 换卡后自动展开。仅在 seed 变化（抽到新卡）时触发，刷新时代入的 layers 会被启动时剥离，
+  // 因此瞬时层不会在刷新后自行弹开。
   useEffect(() => {
-    if (autoOpenModal && !isAlreadyRevealed) {
-      setIsModalOpen(true);
-    }
-  }, [seed, autoOpenModal, isAlreadyRevealed]);
+    if (autoOpenModal && !isAlreadyRevealed) openScratch();
+  }, [seed, autoOpenModal, isAlreadyRevealed, openScratch]);
 
   const handleOpenModal = () => {
-    if (!isRevealed) {
-      setIsModalOpen(true);
-    }
+    if (!isRevealed) openScratch();
   };
 
   const handleCloseModal = () => {
-    setIsModalOpen(false);
+    closeScratch();
     scratchSound.stop();
     onModalClose?.();
-  };
-
-  const handleDirectReveal = () => {
-    setIsRevealed(true);
-    onScratchComplete?.();
   };
 
   const handleScratchSuccess = () => {
@@ -107,12 +103,11 @@ export function ScratchCard({
       )}
 
       {/* 沉浸式刮卡弹窗：刮开后保留在弹窗内展示完整回忆，由用户主动阅读 */}
-      {isModalOpen && (
+      {isScratchOpen && (
         <ScratchModal
           onClose={handleCloseModal}
           isRevealed={isRevealed}
           onScratchSuccess={handleScratchSuccess}
-          onDirectReveal={handleDirectReveal}
           coverText={coverText}
         >
           {children}
@@ -126,7 +121,6 @@ interface ScratchModalProps {
   onClose: () => void;
   isRevealed: boolean;
   onScratchSuccess: () => void;
-  onDirectReveal: () => void;
   coverText?: string;
   children: React.ReactNode;
 }
@@ -135,7 +129,6 @@ function ScratchModal({
   onClose,
   isRevealed,
   onScratchSuccess,
-  onDirectReveal,
   coverText,
   children,
 }: ScratchModalProps) {
@@ -147,9 +140,10 @@ function ScratchModal({
   const probeInkRef = useRef<HTMLSpanElement | null>(null);
 
   const [isCanvasCleared, setIsCanvasCleared] = useState(isRevealed);
-  const [hasStartedScratching, setHasStartedScratching] = useState(false);
+  const [showGuide, setShowGuide] = useState(true);
   const isScratchingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const canvasRectRef = useRef<DOMRect | null>(null);
   const lastCheckTimeRef = useRef(0);
 
   useEffect(() => {
@@ -216,7 +210,7 @@ function ScratchModal({
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
 
-    // 票券齿孔内边框
+    // 票券齿孔内边框（与外框 20px 大圆角保持同心平行）
     const inset = 12;
     const borderW = width - inset * 2;
     const borderH = height - inset * 2;
@@ -225,25 +219,10 @@ function ScratchModal({
     ctx.strokeStyle = inkColor;
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
-    ctx.strokeRect(inset, inset, borderW, borderH);
-    ctx.setLineDash([]);
-
-    // 四角 L 标线
-    const markLen = 10;
     ctx.beginPath();
-    ctx.moveTo(inset, inset + markLen);
-    ctx.lineTo(inset, inset);
-    ctx.lineTo(inset + markLen, inset);
-    ctx.moveTo(inset + borderW - markLen, inset);
-    ctx.lineTo(inset + borderW, inset);
-    ctx.lineTo(inset + borderW, inset + markLen);
-    ctx.moveTo(inset, inset + borderH - markLen);
-    ctx.lineTo(inset, inset + borderH);
-    ctx.lineTo(inset + markLen, inset + borderH);
-    ctx.moveTo(inset + borderW - markLen, inset + borderH);
-    ctx.lineTo(inset + borderW, inset + borderH);
-    ctx.lineTo(inset + borderW, inset + borderH - markLen);
+    ctx.roundRect(inset, inset, borderW, borderH, 8);
     ctx.stroke();
+    ctx.setLineDash([]);
 
     // 档案标识与时间
     ctx.fillStyle = inkColor;
@@ -260,7 +239,7 @@ function ScratchModal({
 
     // 双星徽标
     const cx = width / 2;
-    const cy = height / 2 - 14;
+    const cy = height / 2 - 18;
 
     ctx.save();
     ctx.translate(cx, cy);
@@ -292,10 +271,10 @@ function ScratchModal({
     // 主标题
     const labelText = coverText || "拂 开 旧 时 光";
     ctx.fillStyle = inkColor;
-    ctx.font = '500 16px "Source Serif 4", "Songti SC", "Noto Serif SC", STSong, serif';
+    ctx.font = '500 15px "Source Serif 4", "Songti SC", "Noto Serif SC", STSong, serif';
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(labelText, cx, cy + 34);
+    ctx.fillText(labelText, cx, cy + 38);
 
     ctx.restore();
   }, [coverText, isRevealed]);
@@ -339,7 +318,7 @@ function ScratchModal({
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      const rect = canvas.getBoundingClientRect();
+      const rect = canvasRectRef.current ?? canvas.getBoundingClientRect();
       const x1 = fromX - rect.left;
       const y1 = fromY - rect.top;
       const x2 = toX - rect.left;
@@ -360,7 +339,7 @@ function ScratchModal({
       scratchSound.scratch(dist || 16);
 
       const now = Date.now();
-      if (now - lastCheckTimeRef.current > 120) {
+      if (now - lastCheckTimeRef.current > 240) {
         lastCheckTimeRef.current = now;
         checkProgress();
       }
@@ -370,9 +349,8 @@ function ScratchModal({
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (isCanvasCleared || isRevealed) return;
-    if (!hasStartedScratching) {
-      setHasStartedScratching(true);
-    }
+    if (showGuide) setShowGuide(false);
+    canvasRectRef.current = e.currentTarget.getBoundingClientRect();
     isScratchingRef.current = true;
     lastPointRef.current = { x: e.clientX, y: e.clientY };
     scratchStroke(e.clientX, e.clientY, e.clientX, e.clientY);
@@ -403,11 +381,6 @@ function ScratchModal({
     }
     isScratchingRef.current = false;
     lastPointRef.current = null;
-  };
-
-  const handleDirectClick = () => {
-    setIsCanvasCleared(true);
-    onDirectReveal();
   };
 
   return createPortal(
@@ -453,16 +426,17 @@ function ScratchModal({
             />
           )}
 
-          {/* 拟态手势滑动引导 (触碰即隐) */}
-          {!hasStartedScratching && !isCanvasCleared && !isRevealed && (
-            <div className="orbit-scratch-guide-cue" aria-hidden>
-              <div className="orbit-scratch-guide-hand">
+          {/* 纯动作引导（避开中心图腾，触碰即隐） */}
+          {showGuide && !isCanvasCleared && !isRevealed && (
+            <div className="orbit-scratch-motion-cue" aria-hidden>
+              <div className="orbit-scratch-motion-track" />
+              <div className="orbit-scratch-motion-hand">
                 <svg
                   viewBox="0 0 24 24"
-                  className="orbit-scratch-guide-svg"
+                  className="orbit-scratch-motion-svg"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="1.8"
+                  strokeWidth="1.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
@@ -471,24 +445,10 @@ function ScratchModal({
                   <path d="M14 11v-1a1.5 1.5 0 0 1 3 0v4.5" />
                   <path d="M17 12.5a1.5 1.5 0 0 1 3 0v4a6 6 0 0 1-6 6h-2a6 6 0 0 1-4.24-1.76l-4.24-4.24a1.5 1.5 0 0 1 2.12-2.12L8 16.5" />
                 </svg>
-                <span className="orbit-scratch-guide-ripple" />
               </div>
             </div>
           )}
         </div>
-
-        {/* 底部辅助操作（未揭晓时提供直接翻开） */}
-        {!isRevealed && !isCanvasCleared && (
-          <div className="orbit-scratch-modal-footer">
-            <button
-              type="button"
-              className="orbit-scratch-modal-reveal-btn"
-              onClick={handleDirectClick}
-            >
-              直接翻开回忆
-            </button>
-          </div>
-        )}
       </div>
     </div>,
     document.body

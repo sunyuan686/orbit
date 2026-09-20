@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
     <title>Orbit</title>
     <meta name="description" content="Orbit — 两个人的时间轨道" />
     <meta name="application-name" content="Orbit" />
@@ -27,6 +28,13 @@
             theme === "dark" ||
             (!theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
           d.classList.toggle("dark", dark);
+          d.style.colorScheme = dark ? "dark" : "light";
+
+          var metas = document.querySelectorAll('meta[name="theme-color"]');
+          var themeColor = dark ? "#131315" : "#fafaf9";
+          for (var i = 0; i < metas.length; i++) {
+            metas[i].setAttribute("content", themeColor);
+          }
 
           var accent = localStorage.getItem("orbit-accent-theme");
           if (accent === "dusk") accent = "indigo";
@@ -58,20 +66,47 @@
 
     <!-- App shell 启动屏：JS 执行前的品牌化首屏。
          位于 #root 之外的唯一 DOM 实例，由 React 渲染出首个有效帧后经 lib/bootScreen.ts 淡出移除，
-         冷启动全程无卸载重建。颜色引用 Design Tokens 变量（由上方内联脚本 + 打包 CSS 解析），不硬编码。 -->
+         冷启动全程无卸载重建。首帧关键令牌内联自包含，与 DESIGN.md 严格对齐，禁止依赖打包 CSS 解析。 -->
     <style>
+      :root {
+        --color-bg: oklch(0.985 0.002 250);
+        --color-border: oklch(0.90 0.003 250);
+        --color-text-primary: oklch(0.18 0.01 250);
+        --color-text-muted: oklch(0.66 0.008 250);
+        color-scheme: light;
+      }
+      html.dark {
+        --color-bg: #131315;
+        --color-border: #2c2c31;
+        --color-text-primary: #f4f4f6;
+        --color-text-muted: #71717a;
+        color-scheme: dark;
+      }
+      [data-bg="studio"] { --color-bg: #f4f4f6; }
+      [data-bg="mist"] { --color-bg: oklch(0.985 0.004 165); }
+      [data-bg="warm-linen"] { --color-bg: oklch(0.982 0.008 75); }
+      html.dark[data-bg] { --color-bg: #131315; }
+
       html, body {
         margin: 0;
         padding: 0;
         width: 100%;
         height: var(--viewport-height, 100vh);
         overflow: hidden;
-        background: var(--color-bg, #fafaf9);
+        background-color: #fafaf9;
+        background-color: var(--color-bg);
+      }
+      html.dark, html.dark body {
+        background-color: #131315;
       }
       #root {
         width: 100%;
         height: var(--viewport-height, 100vh);
-        background: var(--color-bg, #fafaf9);
+        background-color: #fafaf9;
+        background-color: var(--color-bg);
+      }
+      html.dark #root {
+        background-color: #131315;
       }
       .orbit-boot {
         position: fixed;
@@ -83,16 +118,14 @@
         align-items: center;
         justify-content: center;
         gap: 22px;
-        background: var(--color-bg, #fafaf9);
-        opacity: 0;
-        animation: orbit-boot-in 0.5s ease 0.15s both;
+        background: var(--color-bg);
         z-index: 99999;
       }
       .orbit-boot-orbit {
         position: relative;
         width: 46px;
         height: 46px;
-        border: 1px solid var(--color-border, #e7e5e4);
+        border: 1px solid var(--color-border);
         border-radius: 50%;
         animation: orbit-boot-spin 4.5s linear infinite;
       }
@@ -104,7 +137,7 @@
         height: 7px;
         margin-left: -3.5px;
         border-radius: 50%;
-        background: var(--color-text-primary, #292524);
+        background: var(--color-text-primary);
       }
       .orbit-boot-name {
         margin: 0;
@@ -112,7 +145,7 @@
         font-size: 15px;
         letter-spacing: 0.32em;
         text-indent: 0.32em;
-        color: var(--color-text-muted, #a8a29e);
+        color: var(--color-text-muted);
       }
       .orbit-boot--leave {
         pointer-events: none;
@@ -123,24 +156,12 @@
           transform: rotate(360deg);
         }
       }
-      @keyframes orbit-boot-in {
-        from {
-          opacity: 0;
-        }
-        to {
-          opacity: 1;
-        }
-      }
       @keyframes orbit-boot-out {
         to {
           opacity: 0;
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        .orbit-boot {
-          animation: none;
-          opacity: 1;
-        }
         .orbit-boot-orbit {
           animation: none;
         }

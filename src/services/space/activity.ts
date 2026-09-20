@@ -9,7 +9,10 @@ import {
   beijingTodayKey,
 } from "../../lib/beijing-date.js";
 
-export const ACTIVITY_ENTRY_TYPES = ["diary", "timeline", "message", "letter"] as const;
+export const ACTIVITY_ENTRY_TYPES = [
+  "moment",
+  "letter",
+] as const;
 
 export type ActivityEntryType = (typeof ACTIVITY_ENTRY_TYPES)[number];
 

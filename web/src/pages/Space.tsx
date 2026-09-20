@@ -59,9 +59,6 @@ export function SpacePage() {
     <div className="orbit-content" data-page="space">
       <header className="mb-8">
         <h1 className="orbit-page-title">我们的空间</h1>
-        <p className="orbit-muted mt-2 text-sm">
-          记录你们在一起的日子。侧栏会展示相处天数。
-        </p>
       </header>
 
       {loading && !profile ? (
@@ -133,8 +130,8 @@ export function SpacePage() {
             >
               {saving ? "保存中…" : "保存修改"}
             </button>
-            <Link to="/diary" className="orbit-text-link text-sm">
-              返回日记
+            <Link to="/" className="orbit-text-link text-sm">
+              返回首页
             </Link>
           </div>
         </form>

@@ -24,17 +24,17 @@ export const AI_TOOL_METADATA = {
   search_entries: {
     displayName: "空间搜索",
     icon: "🔍",
-    description: "搜索空间内的日记、时间线、留言、信件与备忘录",
+    description: "搜索空间内的动态与信件",
   },
   get_entry: {
     displayName: "读取文章",
     icon: "📖",
-    description: "按 ID 读取单篇文章或备忘录正文",
+    description: "按 ID 读取单篇内容正文",
   },
   write_content: {
     displayName: "写入内容",
     icon: "✍️",
-    description: "创建、修改或删除空间日记/信件/备忘录",
+    description: "创建、修改或删除空间动态或信件",
   },
   web_search: {
     displayName: "联网搜索",
@@ -91,11 +91,11 @@ export function createAiTools(
   return {
     search_entries: tool({
       description:
-        "搜索情侣空间内的日记、时间线、留言、信件与备忘录。返回标题、日期与摘要片段。",
+        "搜索情侣空间内的动态与信件。返回标题、日期与摘要片段。",
       inputSchema: z.object({
         query: z.string().min(1),
         type: z
-          .enum(["diary", "timeline", "message", "letter", "memo"])
+          .enum(["moment", "letter"])
           .optional(),
         limit: z.number().int().min(1).max(10).optional(),
       }),
@@ -157,11 +157,11 @@ export function createAiTools(
 
     write_content: tool({
       description:
-        "创建、更新或删除情侣空间内的日记、时间线、留言、信件与备忘录。创建与更新时 body 为 Markdown 正文；删除仅软删除且只能删除自己创建的内容。",
+        "创建、更新或删除情侣空间内的动态与信件。创建与更新时 body 为 Markdown 正文；删除仅软删除且只能删除自己创建的内容。",
       inputSchema: z.object({
         action: z.enum(["create", "update", "delete"]).describe("操作类型"),
         type: z
-          .enum(["diary", "timeline", "message", "letter", "memo"])
+          .enum(["moment", "letter"])
           .optional()
           .describe("内容类型；create 时必填"),
         id: z.string().optional().describe("内容 ID；update/delete 时必填"),

@@ -128,7 +128,7 @@ export async function buildMonthAiSummary(
     })
     .join("\n\n");
 
-  if (!aiEnv?.AI && !aiEnv?.CF_API_TOKEN) {
+  if (!aiEnv?.AI && !aiEnv?.CLOUDFLARE_API_TOKEN) {
     return formatEntryListSummary(rows, baseUrl, `${year}年${month}月回顾`);
   }
 

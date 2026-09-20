@@ -32,11 +32,13 @@ import { formatWriteContentApprovalSummary, applyToolApprovalResponse } from "..
 import { useAppSettings } from "../contexts/appSettingsContext";
 import { useMaxWidthMd } from "../hooks/useBreakpoint";
 import { useConfirm } from "../hooks/useConfirm";
+import { useLayer } from "../hooks/useLayer";
 import { useToast } from "../hooks/useToast";
 import { AiConversationList } from "./AiConversationList";
 import { AiLayoutMenu, type AiPanelLayout } from "./AiLayoutMenu";
 import { AiModelPicker } from "./AiModelPicker";
 import { VoiceInputButton } from "./VoiceInputButton";
+import { openMultiImageLightbox } from "../lib/lightbox";
 import {
   resolveEffectiveModelSpec,
   REASONING_LEVELS,
@@ -44,6 +46,7 @@ import {
 } from "@orbit/shared";
 import {
   AiIcon,
+  AlertIcon,
   ArrowUpIcon,
   ChevronDownIcon,
   ChevronRightIcon,
@@ -645,39 +648,6 @@ function ReasoningAccordion({
   );
 }
 
-function AiImageLightbox({
-  src,
-  onClose,
-}: {
-  src: string;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
-
-  return (
-    <div
-      className="orbit-ai-lightbox-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label="查看大图"
-      onClick={onClose}
-    >
-      <img
-        src={src}
-        alt="大图预览"
-        className="orbit-ai-lightbox-img"
-        onClick={(e) => e.stopPropagation()}
-      />
-    </div>
-  );
-}
-
 // Renders a message's parts in order (AI SDK v7 best practice): consecutive
 // text parts are grouped into a markdown bubble, images and tool parts become cards.
 function MessageBody({
@@ -830,9 +800,13 @@ export function AiChatPanel({
   const [shared, setShared] = useState(false);
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<PendingAiAttachment[]>([]);
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
+  // 会话历史是压在本面板之上的子层：本面板条目仍在栈上，返回手势先退历史再退面板。
+  const {
+    isOpen: showHistory,
+    open: openHistory,
+    close: closeHistory,
+  } = useLayer("ai-history");
   const [panelMounted, setPanelMounted] = useState(open);
   const [panelVisible, setPanelVisible] = useState(false);
   const [panelWidth, setPanelWidth] = useState(readStoredAiPanelWidth);
@@ -944,7 +918,7 @@ export function AiChatPanel({
             parts: [
               {
                 type: "text",
-                text: "⚠️ 已达本轮工具调用上限，任务可能未完成，可继续追问。",
+                text: "已达本轮工具调用上限，任务可能未完成，可继续追问。",
               },
             ],
           },
@@ -1004,7 +978,7 @@ export function AiChatPanel({
     setChatSession(nextSession);
     setIsOwner(true);
     setShared(false);
-    setShowHistory(false);
+    // 会话历史已是导航层：路由变化会让新条目不再携带层，历史随之自然关闭，无需在此重置。
     clearError();
   }, [open, effectiveContext.articleId, effectiveContext.mode, clearError]);
 
@@ -1030,14 +1004,14 @@ export function AiChatPanel({
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       if (showHistory) {
-        setShowHistory(false);
+        closeHistory();
         return;
       }
       onClose();
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [panelMounted, open, onClose, showHistory]);
+  }, [panelMounted, open, onClose, showHistory, closeHistory]);
 
   useEffect(() => {
     if (!open) return;
@@ -1220,7 +1194,7 @@ export function AiChatPanel({
   const isSidebarLayout = panelLayout === "sidebar";
 
   async function loadConversation(id: string) {
-    setShowHistory(false);
+    closeHistory();
     setDetailLoading(true);
     clearError();
     try {
@@ -1248,13 +1222,13 @@ export function AiChatPanel({
     setChatSession(nextSession);
     setIsOwner(true);
     setShared(false);
-    setShowHistory(false);
+    closeHistory();
     clearError();
   }
 
   function handleSuggestion(text: string) {
     setInput(text);
-    setShowHistory(false);
+    closeHistory();
     inputRef.current?.focus();
   }
 
@@ -1542,7 +1516,7 @@ export function AiChatPanel({
               aria-label={showHistory ? "关闭历史" : "打开历史"}
               aria-expanded={showHistory}
               title={showHistory ? "关闭历史" : "历史"}
-              onClick={() => setShowHistory((value) => !value)}
+              onClick={showHistory ? closeHistory : openHistory}
             >
               {showHistory ? <CloseIcon size="sm" /> : <MenuIcon size="sm" />}
             </button>
@@ -1624,9 +1598,6 @@ export function AiChatPanel({
                       <AiIcon size="md" />
                     </div>
                     <h2 className="orbit-ai-welcome-title">Orbit AI</h2>
-                    <p className="orbit-ai-welcome-desc">
-                      可以帮你查找、总结和整理空间里的内容，随便问点什么吧。
-                    </p>
                     <div className="orbit-ai-suggestions">
                       {suggestions.map((suggestion) => (
                         <button
@@ -1684,7 +1655,7 @@ export function AiChatPanel({
                         isStreaming={isStreamingMessage}
                         onApprove={(approvalId) => handleToolApproval(approvalId, true)}
                         onDeny={(approvalId) => handleToolApproval(approvalId, false)}
-                        onPreviewImage={(src) => setLightboxUrl(src)}
+                        onPreviewImage={(src) => openMultiImageLightbox(src)}
                       />
                       {message.role === "assistant" &&
                       !isStreamingMessage &&
@@ -1793,8 +1764,9 @@ export function AiChatPanel({
                 ) : null}
 
                 {attachments.length > 0 && !currentSupportsVision ? (
-                  <div className="orbit-ai-vision-tip">
-                    <span>⚠️ 当前模型未声明视觉理解能力，建议切换至多模态模型。</span>
+                  <div className="orbit-ai-vision-tip flex items-center gap-1.5">
+                    <AlertIcon size="sm" className="shrink-0" />
+                    <span>当前模型未声明视觉理解能力，建议切换至多模态模型。</span>
                   </div>
                 ) : null}
 
@@ -1876,10 +1848,6 @@ export function AiChatPanel({
           </div>
         </div>
       </aside>
-
-      {lightboxUrl ? (
-        <AiImageLightbox src={lightboxUrl} onClose={() => setLightboxUrl(null)} />
-      ) : null}
     </div>
   );
 }

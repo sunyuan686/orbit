@@ -17,6 +17,9 @@ export interface EntrySummary {
   userId?: string | null;
   entryDate: number | null;
   parentId: string | null;
+  tag?: string | null;
+  /** 是否包含音频内容（第一性原理结构化字段） */
+  hasAudio?: boolean;
   /** draft | published */
   status?: string;
   /** 最后更新时间（草稿列表用） */
@@ -50,6 +53,7 @@ export interface EntryDetail {
   body: string;
   entryDate: number | null;
   parentId: string | null;
+  tag?: string | null;
   /** draft | published */
   status?: string;
   createdAt?: number;
@@ -195,15 +199,16 @@ export interface FetchEntriesOptions {
   year?: number;
   author?: string;
   order?: "asc" | "desc";
+  tag?: string;
 }
 
 export async function fetchEntries(
   type: string,
-  opts?: { roots?: boolean; year?: number; author?: string; order?: "asc" | "desc" }
+  opts?: { roots?: boolean; year?: number; author?: string; order?: "asc" | "desc"; tag?: string }
 ): Promise<EntrySummary[]>;
 export async function fetchEntries(
   type: string,
-  opts: { roots?: boolean; limit: number; offset?: number; year?: number; author?: string; order?: "asc" | "desc" }
+  opts: { roots?: boolean; limit: number; offset?: number; year?: number; author?: string; order?: "asc" | "desc"; tag?: string }
 ): Promise<EntryListPage>;
 export async function fetchEntries(
   type: string,
@@ -218,6 +223,7 @@ export async function fetchEntries(
   if (opts?.year != null) params.set("year", String(opts.year));
   if (opts?.author) params.set("author", opts.author);
   if (opts?.order) params.set("order", opts.order);
+  if (opts?.tag) params.set("tag", opts.tag);
   const res = await fetch(`${BASE}/api/articles?${params}`, {
     credentials: "include",
     cache: "no-cache",
@@ -251,6 +257,7 @@ export async function saveEntry(
     body?: string;
     entryDate?: number;
     status?: "draft" | "published";
+    tag?: string | null;
     /** 边注位置重映射（文章编辑后同步更新） */
     commentMappings?: CommentPositionMapping[];
   }
@@ -272,6 +279,7 @@ export async function createEntry(data: {
   entryDate?: number;
   parentId?: string | null;
   status?: "draft" | "published";
+  tag?: string | null;
 }): Promise<{ id: string; status?: string }> {
   const res = await fetch(`${BASE}/api/articles`, {
     method: "POST",
@@ -318,6 +326,7 @@ export async function fetchSearch(
 }
 
 export interface UploadImageResult {
+  id?: string;
   url: string;
   filename: string;
   mimeType?: string;
@@ -380,6 +389,7 @@ export async function uploadAsset(
   await assertOk(res, "文件上传失败");
   const data = await res.json();
   return {
+    id: data.id as string | undefined,
     url: data.url as string,
     filename: data.filename as string,
     mimeType: data.mimeType,
@@ -499,7 +509,6 @@ export async function deleteGalleryImage(storageKey: string): Promise<void> {
 }
 
 export function gallerySourceHref(source: GallerySource): string {
-  if (source.type === "memo") return `/memo/${source.id}`;
   return `/${source.type}/${source.id}`;
 }
 
@@ -565,11 +574,15 @@ export interface SpaceProfile {
   anniversaryDate: string | null;
   slogan: string | null;
   daysTogether: number | null;
+  rules?: string | null;
 }
 
 export interface SpaceAuthor {
   id: string;
   name: string;
+  about?: string | null;
+  birthdaySolarMonth?: number | null;
+  birthdaySolarDay?: number | null;
 }
 
 export interface SpaceStatus {
@@ -610,6 +623,7 @@ export interface AccountProfile {
   name: string;
   birthday: AccountBirthday | null;
   voiceTranscribeMode: VoiceTranscribeMode;
+  about?: string | null;
 }
 
 export async function fetchAccountProfile(): Promise<AccountProfile> {
@@ -647,6 +661,20 @@ export async function updateVoiceTranscribeMode(
     body: JSON.stringify({ voiceTranscribeMode }),
   });
   await assertOk(res, "更新语音偏好失败");
+  return res.json();
+}
+
+export async function updateAccountAbout(
+  about: string | null,
+  userId?: string
+): Promise<AccountProfile> {
+  const res = await fetch(`${BASE}/api/account/profile`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ about, userId }),
+  });
+  await assertOk(res, "更新个人档案失败");
   return res.json();
 }
 
@@ -701,6 +729,7 @@ export async function fetchSpace(): Promise<SpaceProfile> {
 export async function updateSpace(data: {
   anniversaryDate?: string | null;
   slogan?: string | null;
+  rules?: string | null;
 }): Promise<SpaceProfile> {
   const res = await fetch(`${BASE}/api/space`, {
     method: "PUT",
@@ -711,6 +740,175 @@ export async function updateSpace(data: {
   await assertOk(res, "保存空间档案失败");
   return res.json();
 }
+
+// ─── 相册 (Albums) 客户端接口 ──────────────────────────────────────────────────
+
+export interface AlbumSummary {
+  id: string;
+  title: string;
+  description: string | null;
+  coverUrl: string | null;
+  coverStorageKey: string | null;
+  photoCount: number;
+  author: string;
+  authorName: string;
+  createdByUserId: string | null;
+  isDefault: boolean;
+  sortOrder: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AlbumPhotoItem {
+  id: string;
+  assetId: string;
+  storageKey: string;
+  url: string;
+  thumbUrl: string;
+  width: number | null;
+  height: number | null;
+  blurhash: string | null;
+  caption: string | null;
+  createdAt: number;
+}
+
+export interface AlbumDetail extends AlbumSummary {
+  photos: AlbumPhotoItem[];
+}
+
+export async function fetchAlbums(): Promise<AlbumSummary[]> {
+  const res = await fetch(`${BASE}/api/albums`, { credentials: "include" });
+  await assertOk(res, "加载相册失败");
+  return res.json();
+}
+
+export async function fetchAlbum(id: string): Promise<AlbumDetail> {
+  const res = await fetch(`${BASE}/api/albums/${encodeURIComponent(id)}`, { credentials: "include" });
+  await assertOk(res, "加载相册详情失败");
+  return res.json();
+}
+
+export async function createAlbum(data: {
+  title: string;
+  description?: string | null;
+  coverStorageKey?: string | null;
+}): Promise<{ id: string }> {
+  const res = await fetch(`${BASE}/api/albums`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  await assertOk(res, "创建相册失败");
+  return res.json();
+}
+
+export async function updateAlbum(
+  id: string,
+  data: {
+    title?: string;
+    description?: string | null;
+    coverStorageKey?: string | null;
+  }
+): Promise<void> {
+  const res = await fetch(`${BASE}/api/albums/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  await assertOk(res, "更新相册失败");
+}
+
+export async function deleteAlbum(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/albums/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  await assertOk(res, "删除相册失败");
+}
+
+export async function addAlbumAssets(id: string, assetIds: string[]): Promise<void> {
+  const res = await fetch(`${BASE}/api/albums/${encodeURIComponent(id)}/assets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ assetIds }),
+  });
+  await assertOk(res, "添加照片失败");
+}
+
+export async function removeAlbumAsset(albumId: string, assetId: string): Promise<void> {
+  const res = await fetch(
+    `${BASE}/api/albums/${encodeURIComponent(albumId)}/assets/${encodeURIComponent(assetId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    }
+  );
+  await assertOk(res, "移除照片失败");
+}
+
+// ─── 动态标签 API ─────────────────────────────────────────────────────────
+
+export interface TagItem {
+  id: string;
+  name: string;
+  color: string;
+  sortOrder: number;
+  count?: number;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export async function fetchTags(): Promise<TagItem[]> {
+  const res = await fetch(`${BASE}/api/tags`, { credentials: "include" });
+  await assertOk(res, "加载标签列表失败");
+  return res.json();
+}
+
+export async function createTag(data: {
+  id?: string;
+  name: string;
+  color?: string;
+  sortOrder?: number;
+}): Promise<TagItem> {
+  const res = await fetch(`${BASE}/api/tags`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  await assertOk(res, "创建标签失败");
+  return res.json();
+}
+
+export async function updateTag(
+  id: string,
+  data: {
+    name?: string;
+    color?: string;
+    sortOrder?: number;
+  }
+): Promise<TagItem> {
+  const res = await fetch(`${BASE}/api/tags/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  await assertOk(res, "更新标签失败");
+  return res.json();
+}
+
+export async function deleteTag(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/tags/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  await assertOk(res, "删除标签失败");
+}
+
 
 export const ACCENT_PRESETS = [
   "sage",
@@ -868,7 +1066,7 @@ export interface FeishuConfigPublic {
   hasEncryptKey: boolean;
   verificationToken: string;
   authorOpenIds: Record<string, string>;
-  defaultEntryType: "diary";
+  defaultEntryType: "moment";
   allowedGroupChatIds: string[];
   mergeWindowMs: number;
   homeChatId: string;

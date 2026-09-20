@@ -127,21 +127,21 @@ export const MILESTONE_DEFINITIONS: MilestoneDefinition[] = [
     category: "creation",
   },
   {
-    key: "diary_10",
-    title: "第 10 篇日记",
+    key: "moment_10",
+    title: "第 10 条动态",
     description: "日常一点点堆成回忆",
     category: "creation",
   },
   {
-    key: "diary_50",
-    title: "第 50 篇日记",
-    description: "半百篇悄悄话",
+    key: "moment_50",
+    title: "第 50 条动态",
+    description: "半百个真实瞬间",
     category: "creation",
   },
   {
-    key: "diary_100",
-    title: "第 100 篇日记",
-    description: "一百篇日记，一百个瞬间",
+    key: "moment_100",
+    title: "第 100 条动态",
+    description: "一百个瞬间，一路相伴",
     category: "creation",
   },
   {
@@ -420,12 +420,8 @@ export async function getMemorySummary(db: any): Promise<MemorySummary> {
   ]);
 
   const byType: Record<string, number> = {
-    diary: 0,
-    timeline: 0,
-    message: 0,
+    moment: 0,
     letter: 0,
-    note: 0,
-    appreciation: 0,
   };
   let totalNodes = 0;
   for (const row of typeRows) {
@@ -496,7 +492,7 @@ async function evaluateReachedKeys(db: any): Promise<Set<string>> {
     settingsMap,
     letterCount,
     replyCount,
-    diaryCount,
+    momentCount,
     activity,
     galleryCount,
     letterAuthors,
@@ -504,7 +500,7 @@ async function evaluateReachedKeys(db: any): Promise<Set<string>> {
     readSettingsMap(db),
     countEntriesByType(db, "letter"),
     countLetterReplies(db),
-    countEntriesByType(db, "diary"),
+    countEntriesByType(db, "moment"),
     getActivityStats(db, { days: 365 }),
     countGalleryImages(db),
     db
@@ -530,7 +526,7 @@ async function evaluateReachedKeys(db: any): Promise<Set<string>> {
   if (replyCount >= 1) reached.add("first_letter_reply");
 
   for (const n of [10, 50, 100]) {
-    if (diaryCount >= n) reached.add(`diary_${n}`);
+    if (momentCount >= n) reached.add(`moment_${n}`);
   }
 
   const streakBest = Math.max(activity.streak.current, activity.streak.longest);
@@ -546,7 +542,7 @@ async function evaluateReachedKeys(db: any): Promise<Set<string>> {
   if (reached.has("first_letter") && reached.has("first_letter_reply")) {
     reached.add("constellation_penpals");
   }
-  if (reached.has("diary_50") && reached.has("streak_7")) {
+  if (reached.has("moment_50") && reached.has("streak_7")) {
     reached.add("constellation_habit");
   }
   if (reached.has("days_365")) reached.add("constellation_orbit_year");

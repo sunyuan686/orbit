@@ -30,11 +30,8 @@ export interface ScratchCardItem {
 }
 
 const TYPE_LABEL_MAP: Record<string, string> = {
-  diary: "日记",
-  timeline: "时光轴",
-  message: "留言板",
+  moment: "动态",
   letter: "书信",
-  memo: "备忘录",
 };
 
 const DAILY_COUPLE_PROMPTS = [
@@ -183,7 +180,7 @@ export async function getDailyScratchCard(
       and(
         isNull(entry.deletedAt),
         eq(entry.status, "published"),
-        inArray(entry.type, ["diary", "timeline", "message", "letter", "memo"]),
+        inArray(entry.type, ["moment", "letter"]),
         sql`strftime('%m-%d', datetime(coalesce(${entry.entryDate}, ${entry.createdAt}), 'unixepoch', '+8 hours')) = ${targetMonthDay}`,
         sql`cast(strftime('%Y', datetime(coalesce(${entry.entryDate}, ${entry.createdAt}), 'unixepoch', '+8 hours')) as integer) < ${targetYear}`
       )
@@ -259,7 +256,7 @@ export async function getDailyScratchCard(
       and(
         isNull(entry.deletedAt),
         eq(entry.status, "published"),
-        inArray(entry.type, ["diary", "timeline", "message", "letter", "memo"]),
+        inArray(entry.type, ["moment", "letter"]),
         sql`coalesce(${entry.entryDate}, ${entry.createdAt}) <= ${sevenDaysAgoUnix}`
       )
     )
@@ -289,9 +286,9 @@ export async function getDailyScratchCard(
     title: prompt.title,
     meta: "双人互动小话题",
     quote: prompt.quote,
-    link: "/message",
-    linkText: "去写下回答 ➔",
-    type: "message",
+    link: "/",
+    linkText: "去写下动态 ➔",
+    type: "moment",
     mode: "daily",
     dateKey: todayKey,
   };
@@ -324,7 +321,7 @@ export async function getRandomScratchCard(
       and(
         isNull(entry.deletedAt),
         eq(entry.status, "published"),
-        inArray(entry.type, ["diary", "timeline", "message", "letter", "memo"]),
+        inArray(entry.type, ["moment", "letter"]),
         excludeEntryId ? sql`${entry.id} != ${excludeEntryId}` : sql`1=1`
       )
     )
@@ -373,9 +370,9 @@ export async function getRandomScratchCard(
     title: prompt.title,
     meta: "双人互动小话题",
     quote: prompt.quote,
-    link: "/message",
-    linkText: "去写下回答 ➔",
-    type: "message",
+    link: "/",
+    linkText: "去写下动态 ➔",
+    type: "moment",
     mode: "roam",
   };
 }

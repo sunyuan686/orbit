@@ -128,16 +128,35 @@ export function AppreciationIcon(props: OrbitIconProps) {
   );
 }
 
-export type NavContentType = "diary" | "note" | "appreciation" | "timeline" | "message" | "letter" | "memo";
+export function MomentIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z" />
+    </OrbitIcon>
+  );
+}
+
+export function UsIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+    </OrbitIcon>
+  );
+}
+
+export const AlbumIcon = GalleryIcon;
+
+export type NavContentType =
+  | "moment"
+  | "letter"
+  | "album"
+  | "us";
 
 export const NAV_CONTENT_ICONS = {
-  diary: DiaryIcon,
-  note: NoteIcon,
-  appreciation: AppreciationIcon,
-  timeline: TimelineIcon,
-  message: MessageIcon,
+  moment: MomentIcon,
   letter: LetterIcon,
-  memo: MemoIcon,
+  album: GalleryIcon,
+  us: UsIcon,
 } as const satisfies Record<NavContentType, (props: OrbitIconProps) => React.ReactElement>;
 
 export function SettingsIcon(props: OrbitIconProps) {
@@ -443,6 +462,15 @@ export function PlusIcon(props: OrbitIconProps) {
   );
 }
 
+export function PanelLeftIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <rect x="4" y="5" width="16" height="14" rx="2" />
+      <path d="M9 5v14" />
+    </OrbitIcon>
+  );
+}
+
 export function PanelSidebarIcon(props: OrbitIconProps) {
   return (
     <OrbitIcon {...props}>
@@ -709,15 +737,133 @@ export function GridViewIcon(props: OrbitIconProps) {
   );
 }
 
-export function SortIcon(props: OrbitIconProps) {
+export function ArrowDownIcon(props: OrbitIconProps) {
   return (
     <OrbitIcon {...props}>
-      <path d="M7 15l5 5 5-5" />
-      <path d="M7 9l5-5 5 5" />
+      <path d="M12 5v14" />
+      <path d="m19 12-7 7-7-7" />
     </OrbitIcon>
   );
 }
 
+export const SortDescIcon = ArrowDownIcon;
+export const SortAscIcon = ArrowUpIcon;
 
+export function SortIcon({
+  order = "desc",
+  ...props
+}: OrbitIconProps & { order?: "asc" | "desc" }) {
+  return order === "asc" ? <SortAscIcon {...props} /> : <SortDescIcon {...props} />;
+}
+
+export function EditIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </OrbitIcon>
+  );
+}
+
+export const PenIcon = EditIcon;
+
+export function ExpandIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+    </OrbitIcon>
+  );
+}
+
+export function AudioWaveIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M2 10v4" />
+      <path d="M6 6v12" />
+      <path d="M10 3v18" />
+      <path d="M14 7v10" />
+      <path d="M18 5v14" />
+      <path d="M22 10v4" />
+    </OrbitIcon>
+  );
+}
+
+export function HashIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <line x1="4" y1="9" x2="20" y2="9" />
+      <line x1="4" y1="15" x2="20" y2="15" />
+      <line x1="10" y1="3" x2="8" y2="21" />
+      <line x1="16" y1="3" x2="14" y2="21" />
+    </OrbitIcon>
+  );
+}
+
+export function MicIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="22" />
+    </OrbitIcon>
+  );
+}
+
+export function TitleIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M4 7V5h16v2" />
+      <path d="M12 5v14" />
+      <path d="M9 19h6" />
+    </OrbitIcon>
+  );
+}
+
+export function UploadIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </OrbitIcon>
+  );
+}
+
+export function MinimizeIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7" />
+    </OrbitIcon>
+  );
+}
+
+export const CollapseIcon = MinimizeIcon;
+
+export function LoadingIcon({ className, ...props }: OrbitIconProps) {
+  return (
+    <OrbitIcon className={`orbit-spin ${className || ""}`} {...props}>
+      <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="8" />
+    </OrbitIcon>
+  );
+}
+
+export const SpinnerIcon = LoadingIcon;
+
+export function PlayIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <polygon points="5 3 19 12 5 21 5 3" fill="currentColor" stroke="none" />
+    </OrbitIcon>
+  );
+}
+
+export function PauseIcon(props: OrbitIconProps) {
+  return (
+    <OrbitIcon {...props}>
+      <rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none" />
+      <rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none" />
+    </OrbitIcon>
+  );
+}
 
 

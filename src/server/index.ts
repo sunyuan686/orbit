@@ -3,7 +3,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { safeMigrate } from "../db/safe-migrate.js";
 import { join } from "path";
 import { articles } from "./routes/articles.js";
 import { assets } from "./routes/assets.js";
@@ -16,6 +16,8 @@ import { ai } from "./routes/ai.js";
 import { integrations } from "./routes/integrations.js";
 import { notifications } from "./routes/notifications.js";
 import { gallery } from "./routes/gallery.js";
+import { albums } from "./routes/albums.js";
+import { tags } from "./routes/tags.js";
 import { invite } from "./routes/invite.js";
 import { account } from "./routes/account.js";
 import { auth } from "./auth.js";
@@ -33,10 +35,10 @@ import { scanTestCandidate } from "../services/companion/companion-engine.js";
 
 const bootLog = createLogger("server");
 
-// 启动时自动执行迁移，保证 DB schema 最新
-sqlite.pragma("foreign_keys = OFF");
-migrate(db, { migrationsFolder: join(process.cwd(), "src/db/migrations") });
-sqlite.pragma("foreign_keys = ON");
+// 启动时自动执行安全迁移（若检测到新迁移，将先自动物理快照备份）
+await safeMigrate(sqlite, db, {
+  migrationsFolder: join(process.cwd(), "src/db/migrations"),
+});
 
 const app = new Hono();
 
@@ -132,6 +134,10 @@ app.use("/api/notifications/*", requireSession);
 app.use("/api/notifications", requireSession);
 app.use("/api/gallery/*", requireAuth);
 app.use("/api/gallery", requireAuth);
+app.use("/api/albums/*", requireAuth);
+app.use("/api/albums", requireAuth);
+app.use("/api/tags/*", requireAuth);
+app.use("/api/tags", requireAuth);
 app.use("/api/stats/*", requireAuth);
 app.use("/api/stats", requireAuth);
 app.use("/api/memories/*", requireAuth);
@@ -164,6 +170,8 @@ app.route("/api/ai", ai);
 app.route("/api/integrations", integrations);
 app.route("/api/notifications", notifications);
 app.route("/api/gallery", gallery);
+app.route("/api/albums", albums);
+app.route("/api/tags", tags);
 app.route("/api/stats/activity", activity);
 app.route("/api/memories", memories);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 export type Theme = "light" | "dark" | "system";
 
@@ -8,14 +8,22 @@ function getSystemDark(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
-function applyDark(dark: boolean) {
+function applyDark(dark: boolean, isInitial = false) {
   const root = document.documentElement;
+  const isDarkNow = root.classList.contains("dark");
+
+  if (isInitial && isDarkNow === dark) {
+    // 首帧已由 index.html 同步脚本注入，避免初次挂载时无谓触发 data-theme-switching 重排
+    return;
+  }
+
   root.setAttribute("data-theme-switching", "");
   root.classList.toggle("dark", dark);
+  root.style.colorScheme = dark ? "dark" : "light";
 
   const themeColorMetas = document.querySelectorAll('meta[name="theme-color"]');
   themeColorMetas.forEach((meta) => {
-    meta.setAttribute("content", dark ? "#1c1917" : "#fafaf9");
+    meta.setAttribute("content", dark ? "#131315" : "#fafaf9");
   });
 
   requestAnimationFrame(() => {
@@ -30,14 +38,14 @@ export function useTheme() {
     const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
     return stored || "system";
   });
+  const initialApplied = useRef(false);
 
   // 应用主题
   const apply = useCallback((t: Theme) => {
-    if (t === "system") {
-      applyDark(getSystemDark());
-    } else {
-      applyDark(t === "dark");
-    }
+    const dark = t === "system" ? getSystemDark() : t === "dark";
+    const isInitial = !initialApplied.current;
+    initialApplied.current = true;
+    applyDark(dark, isInitial);
   }, []);
 
   // 初始化 + theme 变化时应用

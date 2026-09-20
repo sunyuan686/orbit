@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
   fetchEntry,
@@ -8,73 +8,38 @@ import {
   type EntrySummary,
 } from "../lib/api";
 import {
-  authorSealChar,
   buildThreadTimeline,
   entryDisplayLabel,
   entryToSummary,
   getThreadRootId,
 } from "../lib/letterThread";
-
-function authorTone(timeline: EntrySummary[]): Map<string, "a" | "b"> {
-  const tones = new Map<string, "a" | "b">();
-  for (const item of timeline) {
-    const key = item.author ?? item.id;
-    if (!tones.has(key)) tones.set(key, tones.size % 2 === 0 ? "a" : "b");
-  }
-  return tones;
-}
+import { queryKeys } from "../lib/queryKeys";
 
 export function LetterThreadPanel({
   entry,
 }: {
   entry: EntryDetail;
 }) {
-  const [timeline, setTimeline] = useState<EntrySummary[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const resolvedRootId = getThreadRootId(entry);
 
-  useEffect(() => {
-    let cancelled = false;
-    const resolvedRootId = getThreadRootId(entry);
-
-    async function load() {
-      setLoading(true);
-      try {
-        const rootEntry =
-          entry.parentId != null
-            ? await fetchEntry(entry.parentId)
-            : entry;
-        const replies = await fetchReplies(resolvedRootId);
-        if (cancelled) return;
-        const rootSummary = entryToSummary(rootEntry);
-        setTimeline(buildThreadTimeline(rootSummary, replies));
-      } catch {
-        if (!cancelled) {
-          setTimeline(null);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [entry]);
-
-  if (loading) {
-    return (
-      <section className="orbit-letter-thread-panel" aria-label="往来信件">
-        <p className="orbit-muted orbit-letter-thread-panel-loading">加载往来信件…</p>
-      </section>
-    );
-  }
+  const { data: timeline } = useQuery({
+    queryKey: ["letter-thread-timeline", resolvedRootId],
+    queryFn: async () => {
+      const rootEntry =
+        entry.parentId != null
+          ? await fetchEntry(entry.parentId)
+          : entry;
+      const replies = await fetchReplies(resolvedRootId);
+      const rootSummary = entryToSummary(rootEntry);
+      return buildThreadTimeline(rootSummary, replies);
+    },
+    staleTime: 60_000,
+  });
 
   if (!timeline || timeline.length <= 1) {
     return null;
   }
-
-  const tones = authorTone(timeline);
 
   return (
     <section className="orbit-letter-thread-panel" aria-label="往来信件">
@@ -89,7 +54,6 @@ export function LetterThreadPanel({
         {timeline.map((item) => {
           const isCurrent = item.id === entry.id;
           const label = entryDisplayLabel(item);
-          const tone = tones.get(item.author ?? item.id) ?? "a";
 
           return (
             <li
@@ -100,12 +64,6 @@ export function LetterThreadPanel({
                   : "orbit-letter-timeline-item"
               }
             >
-              <span
-                className={`orbit-letter-timeline-seal orbit-seal--${tone}`}
-                aria-hidden="true"
-              >
-                {authorSealChar(item.author)}
-              </span>
               {isCurrent ? (
                 <div className="orbit-letter-timeline-card">
                   <LetterTimelineMeta item={item} current />
@@ -116,6 +74,12 @@ export function LetterThreadPanel({
               ) : (
                 <Link
                   to={`/letter/${item.id}`}
+                  onMouseEnter={() => {
+                    void queryClient.prefetchQuery({
+                      queryKey: queryKeys.entry(item.id),
+                      queryFn: () => fetchEntry(item.id),
+                    });
+                  }}
                   className="orbit-letter-timeline-card orbit-letter-timeline-card--link"
                 >
                   <LetterTimelineMeta item={item} />

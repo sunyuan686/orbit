@@ -8,50 +8,28 @@ import {
   getSpaceYear,
   TYPE_LABEL,
   formatDate,
-  formatDateCn,
-  formatDiaryDateParts,
   getApiErrorMessage,
   shouldToastApiError,
   type EntryListPage,
   type EntrySummary,
 } from "../lib/api";
 import {
-  authorSealChar,
   buildLetterTree,
   entryDisplayLabel,
-  formatReplySummary,
   type LetterThread,
 } from "../lib/letterThread";
 import { queryKeys } from "../lib/queryKeys";
 import { useToast } from "../hooks/useToast";
-import { Container } from "../components/ui";
+import { useInfiniteScroll } from "../hooks";
+import { Container, FilterChipDropdown, InfiniteScrollSentinel } from "../components/ui";
 import { GalleryImage } from "../components/GalleryImage";
-import { GridViewIcon, ListViewIcon, SortIcon } from "../components/OrbitIcons";
+import { LetterIcon, SortIcon } from "../components/OrbitIcons";
+import { LetterComposeCard } from "../components/letter/LetterComposeCard";
 
 /** letter 仍全量拉取以拼线程树；其余类型分页 */
 const PAGE_SIZE = 30;
 
-function authorToneKey(entry: EntrySummary): string {
-  return entry.userId || entry.author || entry.id;
-}
 
-function useAuthorTones(entries: EntrySummary[]): Map<string, "a" | "b"> {
-  return useMemo(() => {
-    const order: string[] = [];
-    for (const entry of entries) {
-      const key = authorToneKey(entry);
-      if (!order.includes(key)) order.push(key);
-    }
-    return new Map(
-      order.map((key, index) => [key, index % 2 === 0 ? "a" : "b"])
-    );
-  }, [entries]);
-}
-
-function Snippet({ text, className }: { text?: string | null; className?: string }) {
-  if (!text) return null;
-  return <p className={className ?? "orbit-entry-snippet"}>{text}</p>;
-}
 
 function CoverImg({
   entry,
@@ -100,595 +78,81 @@ function EntryRow({ entry, type }: { entry: EntrySummary; type: string }) {
   );
 }
 
-function MessageCard({
-  entry,
-  tone,
-  tilt,
-}: {
-  entry: EntrySummary;
-  tone: "a" | "b";
-  tilt: "a" | "b" | "none";
-}) {
-  const body = entry.snippet || entry.title || "（无内容）";
-  const hasCover = Boolean(entry.coverUrl);
-  const className = [
-    "orbit-msg-card",
-    `orbit-msg-card--${tone}`,
-    tilt !== "none" ? `orbit-msg-card--tilt-${tilt}` : "",
-    hasCover ? "orbit-msg-card--has-cover" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
 
-  return (
-    <Link to={`/message/${entry.id}`} className={className}>
-      <p className="orbit-msg-card-body">{body}</p>
-      <CoverImg entry={entry} className="orbit-msg-card-cover" />
-      <div className="orbit-msg-card-meta">
-        {entry.author && (
-          <span className="orbit-msg-card-author">{entry.author}</span>
-        )}
-        {entry.entryDate != null && (
-          <span className="orbit-entry-date">{formatDate(entry.entryDate)}</span>
-        )}
-      </div>
-    </Link>
-  );
-}
-
-function PolaroidMessageCard({
-  entry,
-  tone,
-}: {
-  entry: EntrySummary;
-  tone: "a" | "b";
-}) {
-  const body = entry.snippet || entry.title || "（无内容）";
-  const hasCover = Boolean(entry.coverUrl);
-  const initial = entry.author ? entry.author.charAt(0) : "★";
-  const className = [
-    "orbit-polaroid-card",
-    `orbit-polaroid-card--${tone}`,
-    hasCover ? "orbit-polaroid-card--has-cover" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return (
-    <Link to={`/message/${entry.id}`} className={className}>
-      <div className="orbit-polaroid-header">
-        <div className="orbit-polaroid-user">
-          <span className={`orbit-polaroid-avatar orbit-polaroid-avatar--${tone}`}>
-            {initial}
-          </span>
-          {entry.author && (
-            <span className="orbit-polaroid-author">{entry.author}</span>
-          )}
-        </div>
-        {entry.entryDate != null && (
-          <span className="orbit-polaroid-date">{formatDate(entry.entryDate)}</span>
-        )}
-      </div>
-
-      <p className="orbit-polaroid-body">{body}</p>
-
-      {hasCover && entry.coverUrl && (
-        <div className="orbit-polaroid-frame">
-          <CoverImg entry={entry} imgClassName="orbit-polaroid-img" />
-        </div>
-      )}
-    </Link>
-  );
-}
-
-function DiaryGridCard({
-  entry,
-  tone,
-}: {
-  entry: EntrySummary;
-  tone: "a" | "b";
-}) {
+function LetterEnvelope({ entry }: { entry: EntrySummary }) {
   const customTitle = entry.title?.trim() || null;
   const snippet = entry.snippet?.trim() || "";
-  const hasCover = Boolean(entry.coverUrl);
-  const initial = entry.author ? entry.author.charAt(0) : "日";
-  const className = [
-    "orbit-polaroid-card",
-    `orbit-polaroid-card--${tone}`,
-    hasCover ? "orbit-polaroid-card--has-cover" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return (
-    <Link to={`/diary/${entry.id}`} className={className}>
-      <div className="orbit-polaroid-header">
-        <div className="orbit-polaroid-user">
-          <span className={`orbit-polaroid-avatar orbit-polaroid-avatar--${tone}`}>
-            {initial}
-          </span>
-          {entry.author && (
-            <span className="orbit-polaroid-author">{entry.author}</span>
-          )}
-        </div>
-        {entry.entryDate != null && (
-          <span className="orbit-polaroid-date">{formatDate(entry.entryDate)}</span>
-        )}
-      </div>
-
-      <div className="orbit-polaroid-content">
-        {customTitle ? (
-          <>
-            <h3 className="orbit-polaroid-title">{customTitle}</h3>
-            {snippet && <p className="orbit-polaroid-body orbit-polaroid-body--has-title">{snippet}</p>}
-          </>
-        ) : (
-          <p className="orbit-polaroid-body">{snippet || "（查看日记内容）"}</p>
-        )}
-      </div>
-
-      {hasCover && entry.coverUrl && (
-        <div className="orbit-polaroid-frame">
-          <CoverImg entry={entry} imgClassName="orbit-polaroid-img" />
-        </div>
-      )}
-    </Link>
-  );
-}
-
-function TimelineGridCard({
-  entry,
-  tone,
-}: {
-  entry: EntrySummary;
-  tone: "a" | "b";
-}) {
-  const customTitle = entry.title?.trim() || null;
-  const snippet = entry.snippet?.trim() || "";
-  const hasCover = Boolean(entry.coverUrl);
-  const initial = entry.author ? entry.author.charAt(0) : "轨";
-  const className = [
-    "orbit-polaroid-card",
-    `orbit-polaroid-card--${tone}`,
-    hasCover ? "orbit-polaroid-card--has-cover" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return (
-    <Link to={`/timeline/${entry.id}`} className={className}>
-      <div className="orbit-polaroid-header">
-        <div className="orbit-polaroid-user">
-          <span className={`orbit-polaroid-avatar orbit-polaroid-avatar--${tone}`}>
-            {initial}
-          </span>
-          {entry.author ? (
-            <span className="orbit-polaroid-author">{entry.author}</span>
-          ) : (
-            <span className="orbit-polaroid-author">时间线</span>
-          )}
-        </div>
-        {entry.entryDate != null && (
-          <span className="orbit-polaroid-date">{formatDate(entry.entryDate)}</span>
-        )}
-      </div>
-
-      <div className="orbit-polaroid-content">
-        {customTitle ? (
-          <>
-            <h3 className="orbit-polaroid-title">{customTitle}</h3>
-            {snippet && <p className="orbit-polaroid-body orbit-polaroid-body--has-title">{snippet}</p>}
-          </>
-        ) : (
-          <p className="orbit-polaroid-body">{snippet || "（查看时刻详情）"}</p>
-        )}
-      </div>
-
-      {hasCover && entry.coverUrl && (
-        <div className="orbit-polaroid-frame">
-          <CoverImg entry={entry} imgClassName="orbit-polaroid-img" />
-        </div>
-      )}
-    </Link>
-  );
-}
-
-function NoteGridCard({
-  entry,
-  tone,
-}: {
-  entry: EntrySummary;
-  tone: "a" | "b";
-}) {
-  const customTitle = entry.title?.trim() || null;
-  const snippet = entry.snippet?.trim() || "";
-  const hasCover = Boolean(entry.coverUrl);
-  const initial = entry.author ? entry.author.charAt(0) : "随";
-  const className = [
-    "orbit-polaroid-card",
-    `orbit-polaroid-card--${tone}`,
-    hasCover ? "orbit-polaroid-card--has-cover" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return (
-    <Link to={`/note/${entry.id}`} className={className}>
-      <div className="orbit-polaroid-header">
-        <div className="orbit-polaroid-user">
-          <span className={`orbit-polaroid-avatar orbit-polaroid-avatar--${tone}`}>
-            {initial}
-          </span>
-          {entry.author && (
-            <span className="orbit-polaroid-author">{entry.author}</span>
-          )}
-        </div>
-        {entry.entryDate != null && (
-          <span className="orbit-polaroid-date">{formatDate(entry.entryDate)}</span>
-        )}
-      </div>
-
-      <div className="orbit-polaroid-content">
-        {customTitle ? (
-          <>
-            <h3 className="orbit-polaroid-title">{customTitle}</h3>
-            {snippet && <p className="orbit-polaroid-body orbit-polaroid-body--has-title">{snippet}</p>}
-          </>
-        ) : (
-          <p className="orbit-polaroid-body">{snippet || "（查看随想内容）"}</p>
-        )}
-      </div>
-
-      {hasCover && entry.coverUrl && (
-        <div className="orbit-polaroid-frame">
-          <CoverImg entry={entry} imgClassName="orbit-polaroid-img" />
-        </div>
-      )}
-    </Link>
-  );
-}
-
-function AppreciationGridCard({
-  entry,
-  tone,
-}: {
-  entry: EntrySummary;
-  tone: "a" | "b";
-}) {
-  const customTitle = entry.title?.trim() || null;
-  const snippet = entry.snippet?.trim() || "";
-  const hasCover = Boolean(entry.coverUrl);
-  const initial = entry.author ? entry.author.charAt(0) : "谢";
-
-  return (
-    <Link to={`/appreciation/${entry.id}`} className="orbit-appreciation-card">
-      <div className="orbit-appreciation-header">
-        <div className="orbit-polaroid-user">
-          <span className={`orbit-polaroid-avatar orbit-polaroid-avatar--${tone}`}>
-            {initial}
-          </span>
-          <span className="orbit-polaroid-author">
-            {entry.author ? `来自 ${entry.author} 的感谢` : "暖心感谢"}
-          </span>
-        </div>
-        {entry.entryDate != null && (
-          <span className="orbit-polaroid-date">{formatDate(entry.entryDate)}</span>
-        )}
-      </div>
-
-      <div className="orbit-polaroid-content">
-        {customTitle ? (
-          <>
-            <h3 className="orbit-appreciation-title">{customTitle}</h3>
-            {snippet && <p className="orbit-polaroid-body orbit-polaroid-body--has-title">{snippet}</p>}
-          </>
-        ) : (
-          <p className="orbit-polaroid-body">{snippet || "（查看感谢详情）"}</p>
-        )}
-      </div>
-
-      {hasCover && entry.coverUrl && (
-        <div className="orbit-polaroid-frame">
-          <CoverImg entry={entry} imgClassName="orbit-polaroid-img" />
-        </div>
-      )}
-    </Link>
-  );
-}
-
-function NoteListCard({ entry }: { entry: EntrySummary }) {
-  const title = entry.title?.trim() || null;
-  const hasCover = Boolean(entry.coverUrl);
-
-  return (
-    <Link to={`/note/${entry.id}`} className="orbit-memo-card">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          {title && <h3 className="orbit-memo-card-title">{title}</h3>}
-          <Snippet text={entry.snippet} />
-        </div>
-        {hasCover && entry.coverUrl && (
-          <div className="w-16 h-16 shrink-0 rounded overflow-hidden border border-[var(--color-border-light)]">
-            <CoverImg entry={entry} imgClassName="w-full h-full object-cover" />
-          </div>
-        )}
-      </div>
-      <div className="orbit-memo-card-foot">
-        {entry.author && <span className="orbit-entry-author">{entry.author}</span>}
-        {entry.entryDate != null && (
-          <span className="orbit-memo-card-updated">{formatDate(entry.entryDate)}</span>
-        )}
-      </div>
-    </Link>
-  );
-}
-
-function AppreciationListCard({ entry }: { entry: EntrySummary }) {
-  const title = entry.title?.trim() || null;
-  const hasCover = Boolean(entry.coverUrl);
-
-  return (
-    <Link to={`/appreciation/${entry.id}`} className="orbit-memo-card">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          {title && <h3 className="orbit-memo-card-title">{title}</h3>}
-          <Snippet text={entry.snippet} />
-        </div>
-        {hasCover && entry.coverUrl && (
-          <div className="w-16 h-16 shrink-0 rounded overflow-hidden border border-[var(--color-border-light)]">
-            <CoverImg entry={entry} imgClassName="w-full h-full object-cover" />
-          </div>
-        )}
-      </div>
-      <div className="orbit-memo-card-foot">
-        <span className="orbit-entry-author">
-          {entry.author ? `来自 ${entry.author} 的感谢` : "暖心感谢"}
-        </span>
-        {entry.entryDate != null && (
-          <span className="orbit-memo-card-updated">{formatDate(entry.entryDate)}</span>
-        )}
-      </div>
-    </Link>
-  );
-}
-
-function DiaryCard({ entry }: { entry: EntrySummary }) {
-  const hasCover = Boolean(entry.coverUrl);
-  const parts =
-    entry.entryDate != null ? formatDiaryDateParts(entry.entryDate) : null;
-
-  return (
-    <Link
-      to={`/diary/${entry.id}`}
-      className={`orbit-diary-card${hasCover ? " orbit-diary-card--has-cover" : ""}`}
-    >
-      <div className="orbit-diary-card-date">
-        {parts ? (
-          <>
-            <span className="orbit-diary-card-day">{parts.day}</span>
-            <span className="orbit-diary-card-month">{parts.month}</span>
-            <span className="orbit-diary-card-year">{parts.year}</span>
-          </>
-        ) : (
-          <span className="orbit-diary-card-month">—</span>
-        )}
-      </div>
-      {hasCover && (
-        <div className="orbit-diary-card-cover-wrap">
-          <CoverImg entry={entry} className="orbit-diary-card-cover" />
-        </div>
-      )}
-      <div className="orbit-diary-card-body">
-        {entry.title && <h3 className="orbit-diary-card-title">{entry.title}</h3>}
-        <Snippet text={entry.snippet} />
-        {entry.author && (
-          <div className="orbit-diary-card-meta">
-            <span className="orbit-entry-author">{entry.author}</span>
-          </div>
-        )}
-      </div>
-    </Link>
-  );
-}
-
-function TimelineCard({ entry }: { entry: EntrySummary }) {
-  const hasCover = Boolean(entry.coverUrl);
-
-  return (
-    <div className="orbit-tl-item">
-      <Link
-        to={`/timeline/${entry.id}`}
-        className={`orbit-tl-card${hasCover ? " orbit-tl-card--has-cover" : ""}`}
-      >
-        <div className="orbit-tl-card-body">
-          {entry.entryDate != null && (
-            <div className="orbit-tl-card-date">{formatDate(entry.entryDate)}</div>
-          )}
-          {entry.title && <h3 className="orbit-tl-card-title">{entry.title}</h3>}
-          <Snippet text={entry.snippet} />
-        </div>
-        <CoverImg entry={entry} className="orbit-tl-card-cover" />
-      </Link>
-    </div>
-  );
-}
-
-function MemoCard({ entry }: { entry: EntrySummary }) {
-  const isCustomKey = Boolean(entry.key && !entry.key.startsWith("memo-"));
-  const title = entry.title?.trim() || null;
-
-  return (
-    <Link to={`/memo/${entry.id}`} className="orbit-memo-card">
-      {isCustomKey && <div className="orbit-memo-card-key">{entry.key}</div>}
-      {title && <h3 className="orbit-memo-card-title">{title}</h3>}
-      <Snippet text={entry.snippet} />
-      <div className="orbit-memo-card-foot">
-        {entry.author && (
-          <span className="orbit-entry-author">{entry.author}</span>
-        )}
-        {entry.entryDate != null && (
-          <span className="orbit-memo-card-updated">
-            更新于 {formatDate(entry.entryDate)}
-          </span>
-        )}
-      </div>
-    </Link>
-  );
-}
-
-function formatPostmark(ts: number): { day: string; year: string } {
-  const { y, m, day } = beijingDateParts(ts);
-  return { day: `${m}·${day}`, year: String(y) };
-}
-
-function LetterEnvelope({
-  entry,
-  tone,
-}: {
-  entry: EntrySummary;
-  tone: "a" | "b";
-}) {
-  const customTitle = entry.title?.trim() || null;
-  const snippet = entry.snippet?.trim() || "";
-  const postmark = entry.entryDate != null ? formatPostmark(entry.entryDate) : null;
 
   return (
     <Link to={`/letter/${entry.id}`} className="orbit-env">
-      <span className="orbit-env-flap" aria-hidden="true" />
-      <span className={`orbit-env-seal orbit-seal--${tone}`} aria-hidden="true">
-        {authorSealChar(entry.author)}
-      </span>
-      {postmark && (
-        <span className="orbit-env-postmark" aria-hidden="true">
-          <span className="orbit-env-postmark-day">{postmark.day}</span>
-          <span className="orbit-env-postmark-year">{postmark.year}</span>
-        </span>
-      )}
+      <div className="orbit-env-head">
+        <div className="orbit-env-badge">
+          <LetterIcon size="sm" className="w-3.5 h-3.5 text-[var(--color-text-muted)] shrink-0" />
+          {entry.author && (
+            <span className="orbit-env-author">{entry.author}</span>
+          )}
+        </div>
+        {entry.entryDate != null && (
+          <span className="orbit-entry-date shrink-0">
+            {formatDate(entry.entryDate)}
+          </span>
+        )}
+      </div>
+
+      <div className="orbit-env-main">
+        {customTitle ? (
+          <>
+            <h3 className="orbit-env-title">{customTitle}</h3>
+            {snippet && <p className="orbit-env-body orbit-env-body--has-title">{snippet}</p>}
+          </>
+        ) : (
+          <p className="orbit-env-body">{snippet || "（查看信件内容）"}</p>
+        )}
+      </div>
+
       {entry.coverUrl && (
-        <span className="orbit-env-stamp" aria-hidden="true">
+        <div className="orbit-env-cover">
           <CoverImg entry={entry} />
-        </span>
+        </div>
       )}
-      {entry.entryDate != null && (
-        <span className="sr-only">{formatDateCn(entry.entryDate)}</span>
-      )}
-      {customTitle ? (
-        <>
-          <h3 className="orbit-env-title">{customTitle}</h3>
-          {snippet && <p className="orbit-env-body orbit-env-body--has-title">{snippet}</p>}
-        </>
-      ) : (
-        <p className="orbit-env-body">{snippet || "（查看信件内容）"}</p>
-      )}
+
       {entry.author && <span className="orbit-env-sign">— {entry.author}</span>}
-    </Link>
-  );
-}
-
-function LetterReplyMini({
-  reply,
-  tone,
-  tilt,
-}: {
-  reply: EntrySummary;
-  tone: "a" | "b";
-  tilt: "a" | "b";
-}) {
-  const text = reply.title?.trim() || reply.snippet?.trim() || "回信";
-
-  return (
-    <Link
-      to={`/letter/${reply.id}`}
-      className={`orbit-reply-mini orbit-reply-mini--tilt-${tilt}`}
-    >
-      <span className="orbit-reply-mini-flap" aria-hidden="true" />
-      <span
-        className={`orbit-reply-mini-seal orbit-seal--${tone}`}
-        aria-hidden="true"
-      >
-        {authorSealChar(reply.author)}
-      </span>
-      {reply.author && (
-        <span className="orbit-reply-mini-author">{reply.author}</span>
-      )}
-      <p className="orbit-reply-mini-snip">{text}</p>
-      {reply.entryDate != null && (
-        <span className="orbit-reply-mini-date">{formatDate(reply.entryDate)}</span>
-      )}
     </Link>
   );
 }
 
 function LetterThreadItem({
   thread,
-  tones,
 }: {
   thread: LetterThread;
-  tones: Map<string, "a" | "b">;
 }) {
   const { root, replies } = thread;
-  const [expanded, setExpanded] = useState(false);
   const hasReplies = replies.length > 0;
-  const peekReplies = replies.slice(0, 3);
 
   return (
-    <article className="orbit-letter-thread">
-      <div
-        className={`orbit-letter-stack${hasReplies && !expanded ? " orbit-letter-stack--has-peeks" : ""}`}
-      >
-        <LetterEnvelope
-          entry={root}
-          tone={tones.get(authorToneKey(root)) ?? "a"}
-        />
-
-        {hasReplies && !expanded && (
-          <button
-            type="button"
-            className="orbit-reply-peeks"
-            aria-expanded={false}
-            aria-label={formatReplySummary(replies)}
-            onClick={() => setExpanded(true)}
-          >
-            {peekReplies.map((reply, index) => (
-              <span
-                key={reply.id}
-                className="orbit-reply-peek"
-                style={{ ["--peek-i" as string]: index }}
+    <article
+      className={`orbit-letter-thread${hasReplies ? " orbit-letter-thread--has-replies" : ""}`}
+    >
+      <div className="orbit-letter-stack">
+        {/* 选项 2：底层自然微错位信纸（有回信时真实呈现厚度） */}
+        {hasReplies && (
+          <>
+            {replies.length >= 2 && (
+              <div
+                className="orbit-letter-deck-layer orbit-letter-deck-layer--deep"
                 aria-hidden="true"
-              >
-                <span
-                  className={`orbit-reply-peek-seal orbit-seal--${tones.get(authorToneKey(reply)) ?? "b"}`}
-                >
-                  {authorSealChar(reply.author)}
-                </span>
-              </span>
-            ))}
-            <span className="orbit-reply-peeks-label">
-              {replies.length === 1 ? "1 封回信" : `${replies.length} 封回信`}
-            </span>
-          </button>
-        )}
-      </div>
-
-      {hasReplies && expanded && (
-        <div className="orbit-reply-nest">
-          {replies.map((reply, index) => (
-            <LetterReplyMini
-              key={reply.id}
-              reply={reply}
-              tone={tones.get(authorToneKey(reply)) ?? "b"}
-              tilt={index % 2 === 0 ? "a" : "b"}
+              />
+            )}
+            <div
+              className="orbit-letter-deck-layer orbit-letter-deck-layer--mid"
+              aria-hidden="true"
             />
-          ))}
-          <button
-            type="button"
-            className="orbit-reply-nest-collapse"
-            onClick={() => setExpanded(false)}
-          >
-            收起回信
-          </button>
-        </div>
-      )}
+          </>
+        )}
+
+        {/* 主信卡片 */}
+        <LetterEnvelope entry={root} />
+      </div>
     </article>
   );
 }
@@ -696,175 +160,10 @@ function LetterThreadItem({
 function TypedEntryList({
   type,
   entries,
-  viewMode = "classic",
 }: {
   type: string;
   entries: EntrySummary[];
-  viewMode?: "classic" | "polaroid";
 }) {
-  const tones = useAuthorTones(entries);
-
-  if (type === "message") {
-    if (viewMode === "polaroid") {
-      return (
-        <ul className="orbit-list-plain orbit-msg-board-polaroid">
-          {entries.map((entry) => (
-            <li key={entry.id}>
-              <PolaroidMessageCard
-                entry={entry}
-                tone={tones.get(authorToneKey(entry)) ?? "a"}
-              />
-            </li>
-          ))}
-        </ul>
-      );
-    }
-
-    return (
-      <ul className="orbit-list-plain orbit-msg-board">
-        {entries.map((entry, index) => (
-          <li key={entry.id}>
-            <MessageCard
-              entry={entry}
-              tone={tones.get(authorToneKey(entry)) ?? "a"}
-              tilt={index % 2 === 0 ? "a" : "b"}
-            />
-          </li>
-        ))}
-      </ul>
-    );
-  }
-
-  if (type === "diary") {
-    if (viewMode === "polaroid") {
-      return (
-        <ul className="orbit-list-plain orbit-msg-board-polaroid">
-          {entries.map((entry) => (
-            <li key={entry.id}>
-              <DiaryGridCard
-                entry={entry}
-                tone={tones.get(authorToneKey(entry)) ?? "a"}
-              />
-            </li>
-          ))}
-        </ul>
-      );
-    }
-
-    return (
-      <ul className="orbit-list-plain orbit-diary-list">
-        {entries.map((entry) => (
-          <li key={entry.id}>
-            <DiaryCard entry={entry} />
-          </li>
-        ))}
-      </ul>
-    );
-  }
-
-  if (type === "timeline") {
-    if (viewMode === "polaroid") {
-      return (
-        <ul className="orbit-list-plain orbit-msg-board-polaroid">
-          {entries.map((entry) => (
-            <li key={entry.id}>
-              <TimelineGridCard
-                entry={entry}
-                tone={tones.get(authorToneKey(entry)) ?? "a"}
-              />
-            </li>
-          ))}
-        </ul>
-      );
-    }
-
-    return (
-      <div className="orbit-tl-wrap">
-        {entries.map((entry) => (
-          <TimelineCard key={entry.id} entry={entry} />
-        ))}
-      </div>
-    );
-  }
-
-  if (type === "note") {
-    if (viewMode === "classic") {
-      return (
-        <ul className="orbit-list-plain orbit-memo-list">
-          {entries.map((entry) => (
-            <li key={entry.id}>
-              <NoteListCard entry={entry} />
-            </li>
-          ))}
-        </ul>
-      );
-    }
-
-    return (
-      <ul className="orbit-list-plain orbit-msg-board-polaroid">
-        {entries.map((entry) => (
-          <li key={entry.id}>
-            <NoteGridCard
-              entry={entry}
-              tone={tones.get(authorToneKey(entry)) ?? "a"}
-            />
-          </li>
-        ))}
-      </ul>
-    );
-  }
-
-  if (type === "appreciation") {
-    if (viewMode === "classic") {
-      return (
-        <ul className="orbit-list-plain orbit-memo-list">
-          {entries.map((entry) => (
-            <li key={entry.id}>
-              <AppreciationListCard entry={entry} />
-            </li>
-          ))}
-        </ul>
-      );
-    }
-
-    return (
-      <ul className="orbit-list-plain orbit-msg-board-polaroid">
-        {entries.map((entry) => (
-          <li key={entry.id}>
-            <AppreciationGridCard
-              entry={entry}
-              tone={tones.get(authorToneKey(entry)) ?? "a"}
-            />
-          </li>
-        ))}
-      </ul>
-    );
-  }
-
-  if (type === "memo") {
-    if (viewMode === "polaroid") {
-      return (
-        <ul className="orbit-list-plain orbit-msg-board-polaroid">
-          {entries.map((entry) => (
-            <li key={entry.id}>
-              <MemoCard entry={entry} />
-            </li>
-          ))}
-        </ul>
-      );
-    }
-
-    return (
-      <ul className="orbit-list-plain orbit-memo-list">
-        {entries.map((entry) => (
-          <li key={entry.id}>
-            <MemoCard entry={entry} />
-          </li>
-        ))}
-      </ul>
-    );
-  }
-
   return (
     <ul className="orbit-list-plain orbit-entry-list">
       {entries.map((entry) => (
@@ -873,119 +172,6 @@ function TypedEntryList({
         </li>
       ))}
     </ul>
-  );
-}
-
-interface FilterOption<T> {
-  value: T;
-  label: string;
-}
-
-function FilterChipDropdown<T extends string | number>({
-  label,
-  value,
-  options,
-  onChange,
-  allLabel = "全部",
-}: {
-  label: string;
-  value: T | null;
-  options: FilterOption<T>[];
-  onChange: (value: T | null) => void;
-  allLabel?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handlePointerDown = (e: PointerEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    const handleTouchMove = (e: TouchEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("touchmove", handleTouchMove, { passive: false });
-    return () => {
-      window.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("touchmove", handleTouchMove);
-    };
-  }, [open]);
-
-  const activeOption = options.find((o) => o.value === value);
-  const hasFilter = value !== null;
-
-  return (
-    <div ref={containerRef} className="orbit-filter-chip-wrap">
-      <button
-        type="button"
-        className={`orbit-filter-chip${hasFilter ? " is-active" : ""}`}
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-      >
-        <span>{hasFilter ? activeOption?.label ?? String(value) : label}</span>
-        {hasFilter ? (
-          <span
-            className="orbit-filter-chip-clear"
-            role="button"
-            title="清除筛选"
-            onClick={(e) => {
-              e.stopPropagation();
-              onChange(null);
-              setOpen(false);
-            }}
-          >
-            ×
-          </span>
-        ) : (
-          <span className="orbit-filter-chip-arrow" aria-hidden>
-            ▾
-          </span>
-        )}
-      </button>
-
-      {open && (
-        <div className="orbit-filter-popover" role="menu">
-          <button
-            type="button"
-            role="menuitem"
-            className={`orbit-filter-menu-item${value === null ? " is-active" : ""}`}
-            onClick={() => {
-              onChange(null);
-              setOpen(false);
-            }}
-          >
-            <span>{allLabel}</span>
-            {value === null && <span className="orbit-filter-check">✓</span>}
-          </button>
-          {options.map((opt) => (
-            <button
-              key={String(opt.value)}
-              type="button"
-              role="menuitem"
-              className={`orbit-filter-menu-item${value === opt.value ? " is-active" : ""}`}
-              onClick={() => {
-                onChange(opt.value);
-                setOpen(false);
-              }}
-            >
-              <span>{opt.label}</span>
-              {value === opt.value && <span className="orbit-filter-check">✓</span>}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -1005,43 +191,6 @@ export function ArticleList() {
   const [order, setOrder] = useState<"asc" | "desc">("desc");
 
   const isLetter = type === "letter";
-  const supportsViewSwitch = !isLetter;
-
-  const [viewMode, setViewMode] = useState<"classic" | "polaroid">(() => {
-    const key = type ? `orbit_view_mode_${type}` : "orbit_view_mode";
-    const saved = localStorage.getItem(key);
-    if (saved === "polaroid" || saved === "classic") return saved;
-    return type === "timeline" || type === "note" || type === "appreciation" || type === "message"
-      ? "polaroid"
-      : "classic";
-  });
-
-  useEffect(() => {
-    if (!type) return;
-    const saved = localStorage.getItem(`orbit_view_mode_${type}`);
-    if (saved === "polaroid" || saved === "classic") {
-      setViewMode(saved);
-    } else {
-      setViewMode(
-        type === "timeline" || type === "note" || type === "appreciation" || type === "message"
-          ? "polaroid"
-          : "classic"
-      );
-    }
-  }, [type]);
-
-  useEffect(() => {
-    setYear(null);
-    setAuthor(null);
-    setOrder("desc");
-  }, [type]);
-
-  const handleViewModeChange = (mode: "classic" | "polaroid") => {
-    setViewMode(mode);
-    if (type) {
-      localStorage.setItem(`orbit_view_mode_${type}`, mode);
-    }
-  };
 
   const paginated = Boolean(type) && !isLetter;
   const letterParams = useMemo(
@@ -1070,7 +219,7 @@ export function ArticleList() {
   });
 
   const pagedQuery = useInfiniteQuery({
-    queryKey: queryKeys.entries(type || "diary", pageParams),
+    queryKey: queryKeys.entries(type || "moment", pageParams),
     queryFn: ({ pageParam }): Promise<EntryListPage> =>
       fetchEntries(type!, {
         limit: PAGE_SIZE,
@@ -1146,9 +295,8 @@ export function ArticleList() {
       if (e.author) set.add(e.author);
     }
     return Array.from(set).map((a) => ({ value: a, label: a }));
-  }, [statusQuery.data?.authors, entries]);
+  }, [statusQuery.data, entries]);
 
-  const tones = useAuthorTones(entries);
   const loading = isLetter ? letterQuery.isPending : pagedQuery.isPending;
   const loadingMore = pagedQuery.isFetchingNextPage;
   const label = TYPE_LABEL[type || ""] || type;
@@ -1158,6 +306,34 @@ export function ArticleList() {
   );
   const hasMore = paginated && pagedQuery.hasNextPage;
   const hasActiveFilter = year != null || author != null;
+  const showLetterComposeCard = isLetter && !hasActiveFilter && order === "desc";
+
+  const { leftLetterTree, rightLetterTree } = useMemo(() => {
+    if (!isLetter) return { leftLetterTree: [], rightLetterTree: [] };
+    const left: LetterThread[] = [];
+    const right: LetterThread[] = [];
+
+    letterTree.forEach((thread, index) => {
+      // 若首位展示新建信笺卡（showLetterComposeCard），新建卡占左列第1格，
+      // 首封信件 (index 0) 排入右列第1格，实现自然交替：左(新建)->右(0)->左(1)->右(2)...
+      const goesToLeft = showLetterComposeCard ? index % 2 === 1 : index % 2 === 0;
+      if (goesToLeft) {
+        left.push(thread);
+      } else {
+        right.push(thread);
+      }
+    });
+
+    return { leftLetterTree: left, rightLetterTree: right };
+  }, [isLetter, letterTree, showLetterComposeCard]);
+
+  const { sentinelRef, retry } = useInfiniteScroll({
+    hasNextPage: Boolean(hasMore),
+    isFetchingNextPage: loadingMore,
+    fetchNextPage: () => pagedQuery.fetchNextPage(),
+    isError: Boolean(pagedQuery.error),
+    enabled: paginated && !loading,
+  });
 
   return (
     <Container size="standard" className={isLetter ? "orbit-content--desk" : undefined}>
@@ -1168,7 +344,7 @@ export function ArticleList() {
       <div className="orbit-content-toolbar">
         <div className="orbit-content-toolbar-group">
           <FilterChipDropdown
-            label="年份"
+            label="时间"
             value={year}
             options={yearOptions}
             onChange={setYear}
@@ -1186,7 +362,7 @@ export function ArticleList() {
         <div className="orbit-content-toolbar-group">
           <button
             type="button"
-            className="orbit-filter-action-btn orbit-filter-icon-btn"
+            className={`orbit-filter-action-btn orbit-filter-icon-btn${order === "asc" ? " is-active" : ""}`}
             onClick={() => setOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
             title={
               order === "desc"
@@ -1195,33 +371,18 @@ export function ArticleList() {
             }
             aria-label={order === "desc" ? "排序：最新优先" : "排序：最早优先"}
           >
-            <SortIcon className="w-3.5 h-3.5" />
+            <SortIcon order={order} className="w-3.5 h-3.5" />
           </button>
-          {supportsViewSwitch && !loading && (
-            <button
-              type="button"
-              className="orbit-filter-action-btn orbit-filter-icon-btn"
-              onClick={() => handleViewModeChange(viewMode === "polaroid" ? "classic" : "polaroid")}
-              title={viewMode === "polaroid" ? "切换为列表视图" : "切换为卡片视图"}
-              aria-label={viewMode === "polaroid" ? "切换为列表视图" : "切换为卡片视图"}
+          {!isLetter && (
+            <Link
+              to={`/${type}/new`}
+              className="orbit-btn orbit-btn-sm orbit-btn-primary"
+              title="新建"
             >
-              {viewMode === "polaroid" ? (
-                <GridViewIcon className="w-3.5 h-3.5" />
-              ) : (
-                <ListViewIcon className="w-3.5 h-3.5" />
-              )}
-            </button>
+              <span className="sm:hidden">＋</span>
+              <span className="hidden sm:inline">＋ 新建</span>
+            </Link>
           )}
-          <Link
-            to={`/${type}/new`}
-            className="orbit-btn orbit-btn-sm"
-            title={isLetter ? "写信" : type === "timeline" ? "记录" : "新建"}
-          >
-            <span className="sm:hidden">{isLetter ? "写信" : "＋"}</span>
-            <span className="hidden sm:inline">
-              {isLetter ? "写信" : type === "timeline" ? "＋ 记录" : "＋ 新建"}
-            </span>
-          </Link>
         </div>
       </div>
 
@@ -1255,28 +416,44 @@ export function ArticleList() {
             </>
           )}
         </div>
-      ) : isLetter ? (
-        <ul className="orbit-list-plain orbit-desk">
-          {letterTree.map((thread) => (
-            <li key={thread.root.id} className="orbit-desk-item">
-              <LetterThreadItem thread={thread} tones={tones} />
-            </li>
-          ))}
-        </ul>
       ) : (
         <>
-          <TypedEntryList type={type || "diary"} entries={entries} viewMode={viewMode} />
-          {hasMore && (
-            <div className="mt-6 flex justify-center">
-              <button
-                type="button"
-                className="orbit-btn-ghost"
-                disabled={loadingMore}
-                onClick={() => void pagedQuery.fetchNextPage()}
-              >
-                {loadingMore ? "加载中…" : "加载更多"}
-              </button>
+          {isLetter ? (
+            <div className="orbit-desk">
+              <div className="orbit-desk-col">
+                {showLetterComposeCard && (
+                  <div className="orbit-desk-item">
+                    <LetterComposeCard />
+                  </div>
+                )}
+                {leftLetterTree.map((thread) => (
+                  <div key={thread.root.id} className="orbit-desk-item">
+                    <LetterThreadItem thread={thread} />
+                  </div>
+                ))}
+              </div>
+              <div className="orbit-desk-col">
+                {rightLetterTree.map((thread) => (
+                  <div key={thread.root.id} className="orbit-desk-item">
+                    <LetterThreadItem thread={thread} />
+                  </div>
+                ))}
+              </div>
             </div>
+          ) : (
+            <TypedEntryList type={type || "moment"} entries={entries} />
+          )}
+
+          {!loading && (
+            <InfiniteScrollSentinel
+              sentinelRef={paginated ? sentinelRef : undefined}
+              hasNextPage={Boolean(hasMore)}
+              isFetchingNextPage={loadingMore}
+              isError={Boolean(error)}
+              onRetry={isLetter ? () => letterQuery.refetch() : retry}
+              itemCount={entries.length}
+              className="mt-6"
+            />
           )}
         </>
       )}

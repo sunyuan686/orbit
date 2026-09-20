@@ -17,6 +17,7 @@ import {
 } from "../app-settings.js";
 import { AuditResourceType, recordAudit } from "../services/space/audit.js";
 import { updateUserDisplayName } from "../services/space/user-signup.js";
+import { isSpaceUserId } from "../services/space/space-authors.js";
 import { getRequestId } from "../lib/request-context.js";
 import type { SessionAuthor } from "./session-author.js";
 import { INVALID_SESSION_ERROR } from "./session-author.js";
@@ -37,6 +38,7 @@ export interface AccountProfile {
   name: string;
   birthday: AccountBirthday | null;
   voiceTranscribeMode: VoiceTranscribeMode;
+  about: string | null;
 }
 
 async function requireSessionAuthor(
@@ -76,6 +78,7 @@ async function loadAccountProfile(
       birthdayLunarLeapMonth: user.birthdayLunarLeapMonth,
       birthdayRemindCalendar: user.birthdayRemindCalendar,
       voiceTranscribeMode: user.voiceTranscribeMode,
+      about: user.about,
     })
     .from(user)
     .where(eq(user.id, userId))
@@ -90,6 +93,7 @@ async function loadAccountProfile(
     name: row.name,
     birthday: presentBirthday(birthdayFromRow(row)),
     voiceTranscribeMode,
+    about: row.about ?? null,
   };
 }
 
@@ -113,7 +117,13 @@ export function createAccountRoutes(
     const session = await requireSessionAuthor(c, options.getSessionAuthor);
     if (session instanceof Response) return session;
 
-    let body: { name?: string; birthday?: unknown; voiceTranscribeMode?: unknown };
+    let body: {
+      name?: string;
+      birthday?: unknown;
+      voiceTranscribeMode?: unknown;
+      about?: unknown;
+      userId?: string;
+    };
     try {
       body = await c.req.json();
     } catch {
@@ -123,8 +133,9 @@ export function createAccountRoutes(
     const hasName = typeof body.name === "string";
     const hasBirthday = body.birthday !== undefined;
     const hasVoiceMode = typeof body.voiceTranscribeMode === "string";
-    if (!hasName && !hasBirthday && !hasVoiceMode) {
-      return c.json({ error: "请提供爱称、生日或语音偏好" }, 400);
+    const hasAbout = body.about !== undefined;
+    if (!hasName && !hasBirthday && !hasVoiceMode && !hasAbout) {
+      return c.json({ error: "请提供要修改的个人信息" }, 400);
     }
 
     const db = await getDb(c);
@@ -177,6 +188,25 @@ export function createAccountRoutes(
         } else {
           return c.json({ error: "语音转写模式无效" }, 400);
         }
+      }
+
+      if (hasAbout) {
+        const aboutVal =
+          typeof body.about === "string"
+            ? body.about.trim()
+            : null;
+        const targetUserId =
+          body.userId && (await isSpaceUserId(db, body.userId))
+            ? body.userId
+            : session.userId;
+        await db
+          .update(user)
+          .set({
+            about: aboutVal,
+            updatedAt: new Date(),
+          })
+          .where(eq(user.id, targetUserId));
+        changed.push("about");
       }
 
       if (changed.length > 0) {

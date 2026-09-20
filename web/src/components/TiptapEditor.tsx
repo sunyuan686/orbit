@@ -44,6 +44,7 @@ import {
 } from "../lib/editor-handoff";
 import { VoiceInputButton } from "./VoiceInputButton";
 import { VoiceNoteRecordButton } from "./VoiceNoteRecordButton";
+import { GalleryIcon, TitleIcon, ExpandIcon } from "./OrbitIcons";
 
 const INLINE_DRAFT_MARK_ID = "__draft__";
 
@@ -82,6 +83,10 @@ interface Props {
   onToggleTitle?: () => void;
   /** 编辑器就绪后回调，用于父组件访问 editor 实例 */
   onEditorCreate?: (editor: Editor) => void;
+  /** 是否允许编辑音频转写文稿（只读详情页时由父组件传入 canEditEntry 控制） */
+  canEditAudioTranscript?: boolean;
+  /** 语音转写文稿就地更新回调（详情页模式下触发后端持久化） */
+  onUpdateAudioTranscript?: (options: { src: string; transcript: string; html: string }) => Promise<void> | void;
 }
 
 export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function TiptapEditor(
@@ -107,6 +112,8 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
     onSubmitInlineComment,
     onSelectInlineComment,
     onEditorCreate,
+    canEditAudioTranscript,
+    onUpdateAudioTranscript,
   },
   ref,
 ) {
@@ -127,6 +134,17 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
   } | null>(null);
   const [draftPopover, setDraftPopover] = useState<{ top: number; left: number } | null>(null);
   const startingInlineDraftRef = useRef(false);
+  const lastDefaultValueRef = useRef<string | undefined>(defaultValue);
+
+  const canEditAudioTranscriptRef = useRef(canEditAudioTranscript);
+  useEffect(() => {
+    canEditAudioTranscriptRef.current = canEditAudioTranscript;
+  }, [canEditAudioTranscript]);
+
+  const onUpdateAudioTranscriptRef = useRef(onUpdateAudioTranscript);
+  useEffect(() => {
+    onUpdateAudioTranscriptRef.current = onUpdateAudioTranscript;
+  }, [onUpdateAudioTranscript]);
 
   const inlineCommentKey = useMemo(
     () =>
@@ -147,6 +165,18 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
           }
         } catch (err) {
           toast.error(getApiErrorMessage(err, "视频上传失败"));
+        }
+        return;
+      }
+
+      if (mediaType === "audio") {
+        try {
+          const res = await uploadAsset(file, entryId);
+          if (!ed.isDestroyed) {
+            ed.chain().focus().setAudio({ src: res.url, transcript: res.transcript ?? undefined }).run();
+          }
+        } catch (err) {
+          toast.error(getApiErrorMessage(err, "音频上传失败"));
         }
         return;
       }
@@ -288,7 +318,25 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
         HTMLAttributes: { class: "orbit-prose-img" },
       }),
       OrbitImageDeck,
-      OrbitAudio,
+      OrbitAudio.configure({
+        canEdit: () => {
+          if (canEditAudioTranscriptRef.current !== undefined) {
+            return canEditAudioTranscriptRef.current;
+          }
+          return !readonly;
+        },
+        onSaveTranscript: async ({ src, transcript, html }) => {
+          const finalHtml = html || editorRef.current?.getHTML() || "";
+          lastDefaultValueRef.current = finalHtml;
+          if (onUpdateAudioTranscriptRef.current) {
+            await onUpdateAudioTranscriptRef.current({
+              src,
+              transcript,
+              html: finalHtml,
+            });
+          }
+        },
+      }),
       OrbitVideo,
       Placeholder.configure({
         placeholder: mode === "note" ? "记录这一刻的随手记与思想…" : "开始写作，或输入 '/' 唤起快捷菜单…",
@@ -385,7 +433,10 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
     }
   }, [editor, onEditorCreate]);
 
-  const lastDefaultValueRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.view.dispatch(editor.view.state.tr);
+  }, [editor, canEditAudioTranscript, readonly]);
 
   useEffect(() => {
     if (!editor || editor.isDestroyed || defaultJson) return;
@@ -918,11 +969,7 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
               data-tooltip="图片"
               aria-label="上传媒体/图片"
             >
-              <svg className="orbit-editor-tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                <circle cx="9" cy="9" r="2" />
-                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-              </svg>
+              <GalleryIcon size="sm" className="orbit-editor-tool-icon" />
             </button>
 
             <VoiceInputButton
@@ -984,11 +1031,7 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
                 data-tooltip={showTitle ? "隐藏标题" : "添加标题"}
                 aria-label={showTitle ? "隐藏标题" : "添加标题"}
               >
-                <svg className="orbit-editor-tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 7V5h16v2" />
-                  <path d="M12 5v14" />
-                  <path d="M9 19h6" />
-                </svg>
+                <TitleIcon size="sm" className="orbit-editor-tool-icon" />
               </button>
             )}
           </div>
@@ -1003,12 +1046,7 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
                 data-tooltip="全屏编辑"
                 aria-label="切换全屏文章模式"
               >
-                <svg className="orbit-editor-tool-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.48" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5.85 3H3v2.85" />
-                  <path d="M12.15 3H15v2.85" />
-                  <path d="M3 12.15V15h2.85" />
-                  <path d="M15 12.15V15h-2.85" />
-                </svg>
+                <ExpandIcon size="sm" className="orbit-editor-tool-icon" />
               </button>
             </div>
           )}

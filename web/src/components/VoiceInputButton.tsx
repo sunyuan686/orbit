@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useRealtimeVoiceStream } from "../hooks/useRealtimeVoiceStream";
 import { useAccountProfile } from "../hooks/useAccountProfile";
 import { useToast } from "../hooks/useToast";
+import { MicIcon } from "./OrbitIcons";
 
 export interface VoiceInputButtonProps {
   /** 实时打字回调：收到最新的全量识别文本时传给编辑器覆盖写入 */
@@ -75,20 +76,7 @@ export function VoiceInputButton({
             <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
           </span>
         ) : (
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-            <line x1="12" y1="19" x2="12" y2="22" />
-          </svg>
+          <MicIcon size="sm" />
         )}
       </button>
     );
@@ -126,21 +114,7 @@ export function VoiceInputButton({
         </span>
       ) : (
         <span className="flex flex-row items-center gap-1.5 whitespace-nowrap shrink-0">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="shrink-0"
-          >
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-            <line x1="12" y1="19" x2="12" y2="22" />
-          </svg>
+          <MicIcon size="sm" className="shrink-0" />
           <span className="text-xs font-medium whitespace-nowrap">语音打字</span>
         </span>
       )}

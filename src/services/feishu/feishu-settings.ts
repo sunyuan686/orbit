@@ -16,7 +16,7 @@ export interface FeishuConfigStored {
   appId: string;
   verificationToken: string;
   authorOpenIds: FeishuAuthorOpenIds;
-  defaultEntryType: "diary";
+  defaultEntryType: "moment";
   allowedGroupChatIds: string[];
   mergeWindowMs: number;
   homeChatId: string;
@@ -48,7 +48,7 @@ export interface FeishuConfigPublic {
   hasEncryptKey: boolean;
   verificationToken: string;
   authorOpenIds: FeishuAuthorOpenIds;
-  defaultEntryType: "diary";
+  defaultEntryType: "moment";
   allowedGroupChatIds: string[];
   mergeWindowMs: number;
   homeChatId: string;
@@ -71,7 +71,7 @@ const DEFAULT_CONFIG: FeishuConfigStored = {
   appId: "",
   verificationToken: "",
   authorOpenIds: {},
-  defaultEntryType: "diary",
+  defaultEntryType: "moment",
   allowedGroupChatIds: [],
   mergeWindowMs: 2000,
   homeChatId: "",
@@ -93,7 +93,7 @@ export function parseFeishuConfig(raw: string | undefined): FeishuConfigStored {
           ? parsed.verificationToken.trim()
           : "",
       authorOpenIds: parseAuthorOpenIds(parsed.authorOpenIds),
-      defaultEntryType: "diary",
+      defaultEntryType: "moment",
       allowedGroupChatIds: Array.isArray(parsed.allowedGroupChatIds)
         ? parsed.allowedGroupChatIds
             .filter((id): id is string => typeof id === "string")

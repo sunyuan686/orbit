@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  computeDaysTogetherFromIso,
   getApiErrorMessage,
   shouldToastApiError,
   updateSpace,
@@ -8,13 +7,14 @@ import {
 import { useSpace } from "../contexts/spaceContext";
 import { useToast } from "../hooks/useToast";
 import { DatePicker } from "./DatePicker";
-import { Button, Input, Field, Stack, Card, Section } from "./ui";
+import { Button, Input, Textarea, Field, Section } from "./ui";
 
 export function SpaceSettingsPanel() {
   const toast = useToast();
   const { profile, loading, setProfile } = useSpace();
   const [anniversaryDate, setAnniversaryDate] = useState("");
   const [slogan, setSlogan] = useState("");
+  const [rules, setRules] = useState("");
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
@@ -22,6 +22,7 @@ export function SpaceSettingsPanel() {
     if (!profile) return;
     setAnniversaryDate(profile.anniversaryDate ?? "");
     setSlogan(profile.slogan ?? "");
+    setRules(profile.rules ?? "");
     setDirty(false);
   }, [profile]);
 
@@ -32,6 +33,7 @@ export function SpaceSettingsPanel() {
       const next = await updateSpace({
         anniversaryDate: anniversaryDate || null,
         slogan: slogan.trim() || null,
+        rules: rules.trim() || null,
       });
       setProfile(next);
       setDirty(false);
@@ -44,11 +46,6 @@ export function SpaceSettingsPanel() {
       setSaving(false);
     }
   }
-
-  const previewDays = anniversaryDate
-    ? computeDaysTogetherFromIso(anniversaryDate)
-    : null;
-  const hasAnniversary = Boolean(anniversaryDate);
 
   return (
     <>
@@ -66,37 +63,24 @@ export function SpaceSettingsPanel() {
           }}
         >
           <Section title="起始日">
-            <Stack gap="md">
-              {hasAnniversary && previewDays != null && previewDays > 0 ? (
-                <Card className="orbit-space-preview orbit-settings-space-preview" aria-live="polite">
-                  <p className="orbit-space-preview-days">
-                    在一起第 {previewDays.toLocaleString("zh-CN")} 天
-                  </p>
-                </Card>
-              ) : null}
-              <Field
-                label="开始日期"
-                htmlFor="settings-space-anniversary"
-              >
-                <DatePicker
-                  id="settings-space-anniversary"
-                  value={anniversaryDate}
-                  onChange={(value) => {
-                    setAnniversaryDate(value);
-                    setDirty(true);
-                  }}
-                  allowClear
-                  className="orbit-settings-input-date"
-                  placeholder="选择起始日"
-                  aria-label="选择起始日"
-                />
-              </Field>
-            </Stack>
+            <Field htmlFor="settings-space-anniversary">
+              <DatePicker
+                id="settings-space-anniversary"
+                value={anniversaryDate}
+                onChange={(value) => {
+                  setAnniversaryDate(value);
+                  setDirty(true);
+                }}
+                allowClear
+                className="orbit-settings-control"
+                placeholder="选择起始日"
+                aria-label="选择起始日"
+              />
+            </Field>
           </Section>
 
           <Section title="侧栏展示">
             <Field
-              label="一句话"
               htmlFor="settings-space-slogan"
             >
               <Input
@@ -104,8 +88,28 @@ export function SpaceSettingsPanel() {
                 value={slogan}
                 maxLength={80}
                 placeholder="两个人的时间轨道"
+                aria-label="侧栏展示"
+                className="orbit-settings-control"
                 onChange={(event) => {
                   setSlogan(event.target.value);
+                  setDirty(true);
+                }}
+              />
+            </Field>
+          </Section>
+
+          <Section title="我们的约定">
+            <Field
+              htmlFor="settings-space-rules"
+            >
+              <Textarea
+                id="settings-space-rules"
+                value={rules}
+                rows={8}
+                placeholder="写下属于两个人的约定，例如：不可以冷暴力、吵架不过夜..."
+                aria-label="我们的约定"
+                onChange={(event) => {
+                  setRules(event.target.value);
                   setDirty(true);
                 }}
               />

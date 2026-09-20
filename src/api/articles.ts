@@ -135,6 +135,8 @@ function mapEntrySummary(
     createdAt: number;
     parentId: string | null;
     snippetRaw?: string | null;
+    tag?: string | null;
+    hasAudio?: number | boolean | null;
   },
   nameMap: Map<string, string>,
   covers?: Map<string, EntryCover>
@@ -151,7 +153,9 @@ function mapEntrySummary(
     entryDate: row.entryDate,
     createdAt: row.createdAt,
     parentId: row.parentId,
+    tag: row.tag ?? null,
     snippet: truncateListSnippet(row.snippetRaw),
+    hasAudio: Boolean(row.hasAudio),
     coverUrl: cover?.url ?? null,
     coverBlurhash: cover?.blurhash ?? null,
     coverWidth: cover?.width ?? null,
@@ -163,7 +167,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
   const { getSessionAuthor, getNotifyRuntime, waitUntil } = options;
   const articles = new Hono();
 
-  // GET /api/articles?type=diary|timeline|message|letter|memo
+  // GET /api/articles?type=moment|letter
   // ?status=draft  仅返回当前用户的草稿（需登录）
   // 默认只返回 published；letter 默认只返回主信（parentId=null）；?roots=0 返回全部
   // 无 limit：仍返回数组（兼容）；有 limit：{ items, total, limit, offset }
@@ -175,6 +179,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const year = parseIntParam(c.req.query("year") ?? undefined);
     const author = c.req.query("author");
     const order = c.req.query("order") === "asc" ? "asc" : "desc";
+    const tagParam = c.req.query("tag");
     const page = parseOptionalPage(c);
     if (!page.ok) return page.response;
 
@@ -192,6 +197,9 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       if (type && type !== "all") {
         conditions.push(eq(entry.type, type));
       }
+      if (tagParam) {
+        conditions.push(eq(entry.tag, tagParam));
+      }
       const where = and(...conditions);
 
       const drafts = await db
@@ -206,11 +214,14 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
           updatedAt: entry.updatedAt,
           parentId: entry.parentId,
           status: entry.status,
+          tag: entry.tag,
           snippetRaw: sql<string>`substr(coalesce(${entry.bodyText}, ''), 1, 160)`,
+          hasAudio: sql<number>`CASE WHEN ${entry.body} LIKE '%data-orbit-audio%' OR ${entry.body} LIKE '%<audio%' THEN 1 ELSE 0 END`,
         })
         .from(entry)
         .where(where)
-        .orderBy(desc(entry.updatedAt));
+        .orderBy(desc(entry.updatedAt))
+        .limit(1);
 
       const nameMap = await loadUserNameMap(
         db,
@@ -232,6 +243,9 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     if (type === "letter" && rootsOnly) {
       baseConditions.push(isNull(entry.parentId));
     }
+    if (tagParam) {
+      baseConditions.push(eq(entry.tag, tagParam));
+    }
 
     const conditions = [...baseConditions];
     if (year != null) {
@@ -246,10 +260,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const where = and(...conditions);
 
     const orderFn = order === "asc" ? asc : desc;
-    const orderClause =
-      type === "memo"
-        ? [orderFn(entry.updatedAt), orderFn(entry.createdAt)]
-        : [orderFn(entry.entryDate), orderFn(entry.createdAt)];
+    const orderClause = [orderFn(entry.entryDate), orderFn(entry.createdAt)];
 
     const baseQuery = db
       .select({
@@ -261,7 +272,9 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
         entryDate: entry.entryDate,
         createdAt: entry.createdAt,
         parentId: entry.parentId,
+        tag: entry.tag,
         snippetRaw: sql<string>`substr(coalesce(${entry.bodyText}, ''), 1, 160)`,
+        hasAudio: sql<number>`CASE WHEN ${entry.body} LIKE '%data-orbit-audio%' OR ${entry.body} LIKE '%<audio%' THEN 1 ELSE 0 END`,
       })
       .from(entry)
       .where(where)
@@ -332,6 +345,9 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
         entryDate: entry.entryDate,
         createdAt: entry.createdAt,
         parentId: entry.parentId,
+        tag: entry.tag,
+        snippetRaw: sql<string>`substr(coalesce(${entry.bodyText}, ''), 1, 160)`,
+        hasAudio: sql<number>`CASE WHEN ${entry.body} LIKE '%data-orbit-audio%' OR ${entry.body} LIKE '%<audio%' THEN 1 ELSE 0 END`,
       })
       .from(entry)
       .where(and(eq(entry.parentId, parentId), isNull(entry.deletedAt)))
@@ -364,13 +380,14 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     if (sessionResult instanceof Response) return sessionResult;
     const sessionAuthor = sessionResult as SessionAuthor;
 
-    const { type, title, body, entryDate, parentId, status } = await c.req.json<{
+    const { type, title, body, entryDate, parentId, status, tag } = await c.req.json<{
       type: string;
       title?: string;
       body?: string;
       entryDate?: number;
       parentId?: string | null;
       status?: "draft" | "published";
+      tag?: string | null;
     }>();
 
     const effectiveStatus: "draft" | "published" =
@@ -379,6 +396,43 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     // 草稿允许空 body（先占位），published 必须有内容
     if (effectiveStatus === "published" && isEmptyBody(body)) {
       return bodyRequiredResponse(c);
+    }
+
+    // 单草稿模型：同类型已存在草稿时就地原子更新，杜绝草稿垃圾堆积
+    if (effectiveStatus === "draft" && sessionAuthor.userId) {
+      const existingDraft = await db
+        .select({ id: entry.id })
+        .from(entry)
+        .where(
+          and(
+            isNull(entry.deletedAt),
+            eq(entry.type, type),
+            eq(entry.status, "draft"),
+            eq(entry.userId, sessionAuthor.userId)
+          )
+        )
+        .orderBy(desc(entry.updatedAt))
+        .limit(1);
+
+      if (existingDraft.length > 0) {
+        const existingId = existingDraft[0].id;
+        const bodyValue = body ?? "";
+        await db
+          .update(entry)
+          .set({
+            title: title?.trim() || null,
+            body: bodyValue,
+            bodyText: bodyValue ? toPlainText(bodyValue) : "",
+            entryDate: entryDate ?? now(),
+            parentId: parentId ?? null,
+            tag: tag?.trim() || null,
+            updatedAt: now(),
+            ...editorWriteFields(sessionAuthor),
+          })
+          .where(eq(entry.id, existingId));
+        await syncAssetReferences(db, type, existingId, bodyValue);
+        return c.json({ id: existingId });
+      }
     }
 
     const id = generateId("ent");
@@ -392,6 +446,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       entryDate: entryDate ?? now(),
       parentId: parentId ?? null,
       status: effectiveStatus,
+      tag: tag?.trim() || null,
       createdAt: now(),
       updatedAt: now(),
       ...authorWriteFields(sessionAuthor),
@@ -404,6 +459,7 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       bodyLength: bodyValue.length,
       entryDate: entryDate ?? null,
       parentId: parentId ?? null,
+      tag: tag?.trim() || null,
     });
 
     // 草稿不触发通知
@@ -435,11 +491,12 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     const sessionAuthor = sessionResult as SessionAuthor;
 
     const id = c.req.param("id");
-    const { title, body, entryDate, commentMappings, status } = await c.req.json<{
+    const { title, body, entryDate, commentMappings, status, tag } = await c.req.json<{
       title?: string;
       body?: string;
       entryDate?: number;
       status?: "draft" | "published";
+      tag?: string | null;
       /** 边注位置重映射数组 */
       commentMappings?: { id: string; anchorFrom: number; anchorTo: number }[];
     }>();
@@ -480,6 +537,9 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     if (body !== undefined) {
       entryUpdates.body = body;
       entryUpdates.bodyText = body ? toPlainText(body) : "";
+    }
+    if (tag !== undefined) {
+      entryUpdates.tag = tag ? tag.trim() : null;
     }
 
     await db.update(entry).set(entryUpdates).where(eq(entry.id, id));

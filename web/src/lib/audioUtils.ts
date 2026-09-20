@@ -48,14 +48,20 @@ export function resolveAudioDuration(
   }
 
   if (audio.duration === Infinity) {
-    const prevTime = audio.currentTime;
+    const prevTime = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
     let finished = false;
 
     const cleanup = () => {
       if (finished) return;
       finished = true;
       audio.removeEventListener("timeupdate", onTime);
-      audio.currentTime = prevTime;
+      if (Number.isFinite(prevTime)) {
+        try {
+          audio.currentTime = prevTime;
+        } catch {
+          // ignore
+        }
+      }
       if (isFinite(audio.duration) && audio.duration > 0) {
         onResolved?.(audio.duration);
       }
@@ -64,7 +70,11 @@ export function resolveAudioDuration(
     const onTime = () => cleanup();
 
     audio.addEventListener("timeupdate", onTime, { once: true });
-    audio.currentTime = 1e101;
+    try {
+      audio.currentTime = 1e101;
+    } catch {
+      cleanup();
+    }
     setTimeout(cleanup, 500);
   }
 }

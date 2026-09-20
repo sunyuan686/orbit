@@ -272,8 +272,9 @@ export function MarginaliaRail({
 }
 
 export function MobileMarginalia({
-  open,
-  onOpenChange,
+  isOpen,
+  onOpen,
+  onClose,
   inlineComments,
   activeInlineCommentId,
   currentAuthor,
@@ -281,21 +282,22 @@ export function MobileMarginalia({
   onDelete,
   onSelectInline,
 }: MarginaliaContentProps & {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
 }) {
   const isXlUp = useMinWidthXl();
   const count = inlineComments.length;
   const visible = count > 0;
 
   useEffect(() => {
-    if (!open || !activeInlineCommentId) return;
+    if (!isOpen || !activeInlineCommentId) return;
     window.requestAnimationFrame(() => {
       document
         .getElementById(`marginalia-card-${activeInlineCommentId}`)
         ?.scrollIntoView({ behavior: scrollBehavior(), block: "nearest" });
     });
-  }, [open, activeInlineCommentId]);
+  }, [isOpen, activeInlineCommentId]);
 
   if (isXlUp || !visible) {
     return null;
@@ -307,18 +309,18 @@ export function MobileMarginalia({
         className="orbit-marginalia-fab xl:hidden"
         count={count}
         ariaLabel={count > 0 ? `打开边注，共 ${count} 条` : "写边注"}
-        onClick={() => onOpenChange(true)}
+        onClick={onOpen}
       />
 
       <div
         className={`orbit-overlay-scrim fixed inset-0 z-40 xl:hidden${
-          open ? " orbit-overlay-scrim--visible" : ""
+          isOpen ? " orbit-overlay-scrim--visible" : ""
         }`}
-        onClick={() => onOpenChange(false)}
-        aria-hidden={!open}
+        onClick={onClose}
+        aria-hidden={!isOpen}
       />
 
-      <div className={`orbit-toc-drawer xl:hidden${open ? " orbit-toc-drawer--open" : ""}`}>
+      <div className={`orbit-toc-drawer xl:hidden${isOpen ? " orbit-toc-drawer--open" : ""}`}>
         <div className="orbit-toc-drawer-panel">
           <div className="orbit-toc-drawer-header">
             <div className="flex items-center gap-3">
@@ -327,7 +329,7 @@ export function MobileMarginalia({
             </div>
             <button
               type="button"
-              onClick={() => onOpenChange(false)}
+              onClick={onClose}
               className="orbit-icon-btn inline-flex p-1 cursor-pointer"
               aria-label="关闭边注"
             >

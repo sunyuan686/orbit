@@ -13,7 +13,6 @@ import { setPageTitle } from "../lib/pageTitle";
 import { SearchIcon, CloseIcon } from "../components/OrbitIcons";
 
 function resultHref(result: SearchResult): string {
-  if (result.type === "memo") return `/memo/${result.id}`;
   return `/${result.type}/${result.id}`;
 }
 

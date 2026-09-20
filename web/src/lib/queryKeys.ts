@@ -18,4 +18,5 @@ export const queryKeys = {
   drafts: (type: string) => ["drafts", type] as const,
   search: (q: string) => ["search", q] as const,
   scratchCard: (date?: string) => ["scratch-card", date ?? "today"] as const,
+  tags: ["tags"] as const,
 };

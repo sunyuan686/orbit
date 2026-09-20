@@ -37,15 +37,17 @@ npm run server     # 仅后端
 npm run web        # 仅前端
 ```
 
-**数据库**
+**数据库运维与安全发布**
 
-服务启动时会自动运行 SQLite 数据库迁移并创建 `data/orbit.db`，无需手动初始化。
+本地启动服务会自动触发 `safeMigrate`（检测到增量迁移时会自动先做物理备份）。常用高频命令如下：
 
-可选维护命令：
-
-```bash
-npm run db:search-status   # 检查全文搜索索引
-```
+| 命令 | 场景 | 说明 |
+| :--- | :--- | :--- |
+| `npm run db:backup` | 本地备份 | 刷盘并导出本地 SQLite 物理快照至 `data/backups/` |
+| `npm run db:restore` | 本地还原 | 查看备份列表；后接备份文件路径一键无损还原 |
+| `npm run db:backup:remote` | 线上备份 | 导出 Cloudflare D1 生产库全部实体表 SQL 快照 |
+| `npm run db:migrate:remote`| 线上发布 | **安全迁移**：强制先自动导出远程快照，再应用 D1 迁移 |
+| `npm run db:search-status` | 索引诊断 | 检查全文搜索 FTS5 索引健康状态 |
 
 **常用检查**
 

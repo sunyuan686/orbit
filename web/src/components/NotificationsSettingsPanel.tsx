@@ -14,7 +14,7 @@ import { usePwaInstall } from "../hooks/usePwaInstall";
 import { Button, Input, Toggle, Field, Section } from "./ui";
 
 const EVENT_LABELS: Record<NotificationEventKind, string> = {
-  entry: "新日记 / 时间线 / 留言",
+  entry: "新动态",
   comment: "新评论 / 边注",
   letter: "新回信",
 };
@@ -55,7 +55,7 @@ export function NotificationsSettingsPanel() {
   const [pushBusy, setPushBusy] = useState(false);
   const { sub, setSub } = useWebPushState();
 
-  const { isStandalone, canPrompt, isIOS, setGuideOpen, triggerInstall } = usePwaInstall();
+  const { isStandalone, canPrompt, isIOS, openGuide, triggerInstall } = usePwaInstall();
   const pushSupported = "PushManager" in window && "serviceWorker" in navigator;
   const showPushSection = pushSupported || isIOS || !isStandalone;
 
@@ -228,7 +228,7 @@ export function NotificationsSettingsPanel() {
                   if (canPrompt) {
                     void triggerInstall();
                   } else {
-                    setGuideOpen(true);
+                    openGuide();
                   }
                 }}
               >

@@ -27,6 +27,7 @@ export function useDrafts(type: string | undefined) {
 
   return {
     drafts: query.data ?? [],
+    latestDraft: query.data?.[0] ?? null,
     count: query.data?.length ?? 0,
     isLoading: query.isLoading,
     isError: query.isError,

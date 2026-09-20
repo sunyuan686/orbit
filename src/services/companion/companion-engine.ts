@@ -207,7 +207,7 @@ async function scanMemoryEcho(
           isNull(entry.deletedAt),
           gte(entry.entryDate, dayStart),
           sql`${entry.entryDate} <= ${dayEnd}`,
-          sql`${entry.type} IN ('diary', 'timeline', 'letter')`
+          sql`${entry.type} IN ('moment', 'letter')`
         )
       )
       .orderBy(desc(entry.createdAt))
@@ -256,7 +256,7 @@ async function scanMemoryEcho(
         and(
           isNull(entry.deletedAt),
           sql`${entry.entryDate} <= ${thirtyDaysAgoTs}`,
-          sql`${entry.type} IN ('diary', 'timeline', 'letter')`,
+          sql`${entry.type} IN ('moment', 'letter')`,
           sql`length(coalesce(${entry.bodyText}, '')) > 100`
         )
       )
@@ -470,7 +470,7 @@ async function scanWeeklyReflection(
         isNull(entry.deletedAt),
         gte(entry.createdAt, weekStartTs),
         sql`${entry.createdAt} <= ${nowTs}`,
-        sql`${entry.type} IN ('diary', 'timeline', 'letter', 'message')`
+        sql`${entry.type} IN ('moment', 'letter')`
       )
     );
 
@@ -629,7 +629,7 @@ export async function scanTestCandidate(
     score: 100,
     context: {
       entryId: "test",
-      entryType: "diary",
+      entryType: "moment",
       title: "测试主动陪伴推送",
       excerpt: "这是一条测试陪伴卡片。主动陪伴引擎会自动关联历史记忆与恋爱契机，在合适的时间通过飞书与站内为你送上温暖的提示与回忆。",
       anchorKey: "测试推送",

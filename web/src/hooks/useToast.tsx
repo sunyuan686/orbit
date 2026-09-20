@@ -8,9 +8,9 @@ import {
   type ReactNode,
 } from "react";
 import { MOTION_SLOW_MS } from "../lib/motion";
-import { CheckIcon, AlertIcon, CloseIcon } from "../components/OrbitIcons";
+import { Toast, ToastStack, type ToastVariant } from "../components/ui/Toast";
 
-type ToastKind = "success" | "error";
+export type ToastKind = ToastVariant;
 
 interface ToastItem {
   id: number;
@@ -18,9 +18,10 @@ interface ToastItem {
   message: string;
 }
 
-interface ToastContextValue {
+export interface ToastContextValue {
   success: (message: string) => void;
   error: (message: string) => void;
+  info?: (message: string) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -28,21 +29,16 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 const AUTO_DISMISS_MS: Record<ToastKind, number> = {
   success: 2800,
   error: 4200,
+  info: 3200,
 };
 
-function ToastStack({ items, onDismiss }: { items: ToastItem[]; onDismiss: (id: number) => void }) {
-  if (items.length === 0) return null;
-
-  return (
-    <div className="orbit-toast-stack" aria-live="polite">
-      {items.map((item) => (
-        <Toast key={item.id} item={item} onDismiss={onDismiss} />
-      ))}
-    </div>
-  );
-}
-
-function Toast({ item, onDismiss }: { item: ToastItem; onDismiss: (id: number) => void }) {
+function ToastHostItem({
+  item,
+  onDismiss,
+}: {
+  item: ToastItem;
+  onDismiss: (id: number) => void;
+}) {
   const [visible, setVisible] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -67,25 +63,33 @@ function Toast({ item, onDismiss }: { item: ToastItem; onDismiss: (id: number) =
   }, [item.kind, isHovered, dismiss]);
 
   return (
-    <div
-      className={`orbit-toast orbit-toast--${item.kind}${visible ? " orbit-toast--visible" : ""}`}
-      role="status"
+    <Toast
+      variant={item.kind}
+      visible={visible}
+      onDismiss={dismiss}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <span className="orbit-toast-icon" aria-hidden>
-        {item.kind === "success" ? <CheckIcon size="sm" /> : <AlertIcon size="sm" />}
-      </span>
-      <span className="orbit-toast-message">{item.message}</span>
-      <button
-        type="button"
-        className="orbit-toast-dismiss"
-        onClick={dismiss}
-        aria-label="关闭通知"
-      >
-        <CloseIcon size="sm" />
-      </button>
-    </div>
+      {item.message}
+    </Toast>
+  );
+}
+
+function ToastHost({
+  items,
+  onDismiss,
+}: {
+  items: ToastItem[];
+  onDismiss: (id: number) => void;
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <ToastStack>
+      {items.map((item) => (
+        <ToastHostItem key={item.id} item={item} onDismiss={onDismiss} />
+      ))}
+    </ToastStack>
   );
 }
 
@@ -102,17 +106,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const success = useCallback((message: string) => push("success", message), [push]);
   const error = useCallback((message: string) => push("error", message), [push]);
+  const info = useCallback((message: string) => push("info", message), [push]);
 
   const onDismiss = useCallback((id: number) => {
     setItems((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const value = useMemo(() => ({ success, error }), [success, error]);
+  const value = useMemo(() => ({ success, error, info }), [success, error, info]);
 
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <ToastStack items={items} onDismiss={onDismiss} />
+      <ToastHost items={items} onDismiss={onDismiss} />
     </ToastContext.Provider>
   );
 }
@@ -126,6 +131,11 @@ const fallbackToast: ToastContextValue = {
   error: (msg: string) => {
     if (import.meta.env.DEV) {
       console.warn("[useToast] ToastProvider missing, error message:", msg);
+    }
+  },
+  info: (msg: string) => {
+    if (import.meta.env.DEV) {
+      console.warn("[useToast] ToastProvider missing, info message:", msg);
     }
   },
 };

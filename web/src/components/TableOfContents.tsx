@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, type CSSProperties } from "react";
 import { scrollBehavior } from "../lib/motion";
 import { TOC_RAIL_STORAGE_KEY, useRailExpanded } from "../lib/railPreferences";
+import { useLayer } from "../hooks/useLayer";
 import type { TocItem } from "../lib/toc";
 import { TocIcon, CloseIcon, ChevronLeftIcon } from "./OrbitIcons";
 
@@ -50,22 +51,60 @@ function useScrollHighlight(items: TocItem[]) {
     const main = document.querySelector("main");
     if (!main || items.length === 0) return;
 
-    const onScroll = () => {
-      const editor = document.querySelector(".ProseMirror") ?? document.querySelector(".milkdown-wrapper .milkdown .editor");
-      if (!editor) return;
-      const headings = editor.querySelectorAll("h1, h2, h3, h4");
-      let current = "";
-      for (let i = 0; i < headings.length && i < items.length; i++) {
-        const rect = headings[i].getBoundingClientRect();
-        if (rect.top <= 120) {
-          current = items[i]?.id || "";
-        }
-      }
-      if (current) setActiveId(current);
-    };
+    const editor =
+      document.querySelector(".ProseMirror") ??
+      document.querySelector(".milkdown-wrapper .milkdown .editor");
+    if (!editor) return;
 
-    main.addEventListener("scroll", onScroll, { passive: true });
-    return () => main.removeEventListener("scroll", onScroll);
+    const headings = Array.from(editor.querySelectorAll("h1, h2, h3, h4"));
+    if (headings.length === 0) return;
+
+    const visibleHeadings = new Set<Element>();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            visibleHeadings.add(entry.target);
+          } else {
+            visibleHeadings.delete(entry.target);
+          }
+        }
+
+        if (visibleHeadings.size > 0) {
+          const firstVisible = headings.find((h) => visibleHeadings.has(h));
+          if (firstVisible) {
+            const idx = headings.indexOf(firstVisible);
+            if (idx !== -1 && items[idx]) {
+              setActiveId(items[idx].id);
+              return;
+            }
+          }
+        }
+
+        // 当没有标题处于判定带时，取最后退出视口上方的标题保持高亮
+        for (const entry of entries) {
+          if (
+            !entry.isIntersecting &&
+            entry.rootBounds &&
+            entry.boundingClientRect.top < entry.rootBounds.top
+          ) {
+            const idx = headings.indexOf(entry.target as HTMLElement);
+            if (idx !== -1 && items[idx]) {
+              setActiveId(items[idx].id);
+            }
+          }
+        }
+      },
+      {
+        root: main,
+        rootMargin: "-60px 0px -75% 0px",
+        threshold: 0,
+      }
+    );
+
+    headings.forEach((h) => observer.observe(h));
+    return () => observer.disconnect();
   }, [items]);
 
   return { activeId, handleClick };
@@ -174,7 +213,8 @@ export function TocRail({ items }: Props) {
 }
 
 export function MobileToc({ items }: Props) {
-  const [open, setOpen] = useState(false);
+  // 移动端目录是带遮罩的底部抽屉，返回手势必须只关抽屉、不退文章，因此开关走导航层。
+  const { isOpen: open, open: openToc, close: closeToc } = useLayer("toc");
   const { activeId, handleClick } = useScrollHighlight(items);
 
   if (items.length === 0) return null;
@@ -183,7 +223,7 @@ export function MobileToc({ items }: Props) {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openToc}
         className="orbit-toc-fab xl:hidden"
         aria-label="打开目录"
       >
@@ -194,7 +234,7 @@ export function MobileToc({ items }: Props) {
         className={`orbit-overlay-scrim fixed inset-0 z-40 xl:hidden${
           open ? " orbit-overlay-scrim--visible" : ""
         }`}
-        onClick={() => setOpen(false)}
+        onClick={closeToc}
         aria-hidden={!open}
       />
 
@@ -207,7 +247,7 @@ export function MobileToc({ items }: Props) {
             </div>
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={closeToc}
               className="orbit-icon-btn inline-flex p-1 cursor-pointer"
               aria-label="关闭目录"
             >
@@ -220,7 +260,7 @@ export function MobileToc({ items }: Props) {
               items={items}
               activeId={activeId}
               onItemClick={(item, index) =>
-                handleClick(item, index, () => setOpen(false))
+                handleClick(item, index, closeToc)
               }
             />
           </div>

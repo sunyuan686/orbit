@@ -28,6 +28,8 @@ import { createNotificationsRoutes } from "./api/notifications.js";
 import { createInviteRoutes } from "./api/invite.js";
 import { createAccountRoutes } from "./api/account.js";
 import { createGalleryRoutes } from "./api/gallery.js";
+import { createAlbumsRoutes } from "./api/albums.js";
+import { createTagsRoutes } from "./api/tags.js";
 import { createApiTokenRoutes } from "./api/api-tokens.js";
 import { createActivityRoutes } from "./api/activity.js";
 import { createMemoriesRoutes } from "./api/memories.js";
@@ -47,8 +49,8 @@ export interface Env {
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
   TURNSTILE_SECRET_KEY?: string;
-  CF_ACCOUNT_ID?: string;
-  CF_API_TOKEN?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
+  CLOUDFLARE_API_TOKEN?: string;
   TAVILY_API_KEY?: string;
   BRAVE_SEARCH_API_KEY?: string;
   LANGFUSE_PUBLIC_KEY?: string;
@@ -181,8 +183,8 @@ function getNotifyRuntime(c: Context<HonoEnv>): NotifyRuntime {
     aiEnv: {
       AI: c.env.AI,
       BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET,
-      CF_ACCOUNT_ID: c.env.CF_ACCOUNT_ID,
-      CF_API_TOKEN: c.env.CF_API_TOKEN,
+      CLOUDFLARE_ACCOUNT_ID: c.env.CLOUDFLARE_ACCOUNT_ID,
+      CLOUDFLARE_API_TOKEN: c.env.CLOUDFLARE_API_TOKEN,
       TAVILY_API_KEY: c.env.TAVILY_API_KEY,
       BRAVE_SEARCH_API_KEY: c.env.BRAVE_SEARCH_API_KEY,
       LANGFUSE_PUBLIC_KEY: c.env.LANGFUSE_PUBLIC_KEY,
@@ -202,6 +204,8 @@ app.use("/api/notifications/*", requireSession);
 app.use("/api/notifications", requireSession);
 app.use("/api/gallery/*", requireAuth);
 app.use("/api/gallery", requireAuth);
+app.use("/api/tags/*", requireAuth);
+app.use("/api/tags", requireAuth);
 app.use("/api/stats/*", requireAuth);
 app.use("/api/stats", requireAuth);
 app.use("/api/memories/*", requireAuth);
@@ -291,8 +295,8 @@ app.route("/api/ai", createAiRoutes(getDb, {
   getEnv: (c) => ({
     AI: c.env.AI,
     BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET,
-    CF_ACCOUNT_ID: c.env.CF_ACCOUNT_ID,
-    CF_API_TOKEN: c.env.CF_API_TOKEN,
+    CLOUDFLARE_ACCOUNT_ID: c.env.CLOUDFLARE_ACCOUNT_ID,
+    CLOUDFLARE_API_TOKEN: c.env.CLOUDFLARE_API_TOKEN,
     TAVILY_API_KEY: c.env.TAVILY_API_KEY,
     BRAVE_SEARCH_API_KEY: c.env.BRAVE_SEARCH_API_KEY,
     LANGFUSE_PUBLIC_KEY: c.env.LANGFUSE_PUBLIC_KEY,
@@ -358,6 +362,34 @@ app.route(
       await c.env.R2.delete(thumbStorageKey(storageKey));
       return true;
     },
+  })
+);
+app.route(
+  "/api/albums",
+  createAlbumsRoutes(getDb, {
+    getSessionAuthor: (c) =>
+      getSessionAuthor(
+        c,
+        createAuth(getDb(c), {
+          secret: c.env.BETTER_AUTH_SECRET,
+          baseURL: c.env.BETTER_AUTH_URL,
+        }),
+        getDb
+      ),
+  })
+);
+app.route(
+  "/api/tags",
+  createTagsRoutes(getDb, {
+    getSessionAuthor: (c) =>
+      getSessionAuthor(
+        c,
+        createAuth(getDb(c), {
+          secret: c.env.BETTER_AUTH_SECRET,
+          baseURL: c.env.BETTER_AUTH_URL,
+        }),
+        getDb
+      ),
   })
 );
 app.route("/api/stats/activity", createActivityRoutes(getDb));
@@ -428,8 +460,8 @@ app.post("/api/companion/test", requireSession, async (c) => {
   const aiEnv = {
     AI: c.env.AI,
     BETTER_AUTH_SECRET: c.env.BETTER_AUTH_SECRET,
-    CF_ACCOUNT_ID: c.env.CF_ACCOUNT_ID,
-    CF_API_TOKEN: c.env.CF_API_TOKEN,
+    CLOUDFLARE_ACCOUNT_ID: c.env.CLOUDFLARE_ACCOUNT_ID,
+    CLOUDFLARE_API_TOKEN: c.env.CLOUDFLARE_API_TOKEN,
   };
 
   const candidate = await scanTestCandidate(db, sessionAuthor.userId, nowTs);

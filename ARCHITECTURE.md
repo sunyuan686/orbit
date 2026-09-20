@@ -51,8 +51,12 @@
 表定义：`src/db/schema.ts`
 
 ```
-entry      — 日记、时间线、留言、信件、备忘录（软删除）
+entry      — 动态、信件（软删除）
 asset      — 图片 / 文件（关联 entry）
+asset_reference — 内容正文对图片的引用关系（相册与删除保护事实源）
+album      — 主题相册（首卡系统全量流 + 自建主题画册）
+album_asset — 相册与图片资产关联表（多对多）
+tags       — 动态标签表（足迹、感谢等自定义分类与颜色）
 comment    — 底部评论 + 行内边注
 settings   — 全局配置（纪念日、主题色 accent 等）；空间档案 `GET/PUT /api/space`，偏好 `GET/PUT /api/settings`
 audit_log  — 操作审计（创建 / 编辑 / 删除 / 评论 / 空间与设置变更 / API Token）；`GET /api/audit`
@@ -69,17 +73,18 @@ user / session / account / verification  — better-auth 标准表
 
 | 字段 | 说明 |
 |------|------|
-| `type` | `diary` \| `timeline` \| `message` \| `letter` \| `memo` |
+| `type` | `moment` \| `letter` |
 | `userId` | **作者身份**（`user.id`）；权限与通知关联以此为准 |
 | `author` | 冗余爱称（写入时同步 `user.name`）；FTS / 兼容用；**展示**由 `userId` → `user.name` resolve，见 [009-space-onboarding.md](./features/009-space-onboarding.md) |
 | `modifiedByUserId` | 最后编辑者身份 |
 | `modifiedBy` | 冗余爱称；展示由 `modifiedByUserId` → `user.name` resolve |
-| `title` | 标题 |
+| `title` | 标题（信件有标题，动态通常无标题） |
 | `body` | TipTap 输出的 HTML / Markdown |
 | `bodyText` | 纯文本，供 FTS 索引 |
 | `entryDate` | 记录日期（Unix 时间戳） |
-| `parentId` | 信件回信链 / 留言回复链 |
+| `parentId` | 信件回信链（关联主信 entry.id） |
 | `status` | `draft` \| `published` |
+| `tag` | 规范单标签（如 `footprint` 足迹、`appreciation` 感谢等） |
 | `createdAt` / `updatedAt` / `deletedAt` | 时间戳 |
 
 ### asset

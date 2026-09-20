@@ -93,27 +93,33 @@ export function useRealtimeVoiceStream(
 
       const bufferLength = analyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
+      let lastVolumeUpdate = 0;
 
       const updateVolume = () => {
         if (!isStreamingRef.current) return;
 
-        analyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < bufferLength; i++) {
-          sum += dataArray[i];
+        const now = performance.now();
+        if (now - lastVolumeUpdate >= 66) {
+          lastVolumeUpdate = now;
+          analyser.getByteFrequencyData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < bufferLength; i++) {
+            sum += dataArray[i];
+          }
+          const avg = sum / bufferLength;
+          const norm = Math.min(Math.max(avg / 128, 0.25), 1.4);
+
+          const bars = [
+            Math.min(Math.max(norm * 0.7, 0.2), 1.2),
+            Math.min(Math.max(norm * 1.1, 0.35), 1.4),
+            Math.min(Math.max(norm * 1.3, 0.4), 1.5),
+            Math.min(Math.max(norm * 0.9, 0.3), 1.3),
+            Math.min(Math.max(norm * 1.0, 0.25), 1.25),
+          ];
+
+          setVolumeBars(bars);
         }
-        const avg = sum / bufferLength;
-        const norm = Math.min(Math.max(avg / 128, 0.25), 1.4);
 
-        const bars = [
-          Math.min(Math.max(norm * 0.7, 0.2), 1.2),
-          Math.min(Math.max(norm * 1.1, 0.35), 1.4),
-          Math.min(Math.max(norm * 1.3, 0.4), 1.5),
-          Math.min(Math.max(norm * 0.9, 0.3), 1.3),
-          Math.min(Math.max(norm * 1.0, 0.25), 1.25),
-        ];
-
-        setVolumeBars(bars);
         animFrameRef.current = requestAnimationFrame(updateVolume);
       };
 

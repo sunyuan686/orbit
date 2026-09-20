@@ -1,6 +1,7 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef } from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { openMultiImageLightbox, type LightboxImageItem } from "../lib/lightbox";
+import { GalleryIcon, ChevronLeftIcon, ChevronRightIcon } from "./OrbitIcons";
 
 export interface MultiImageDeckItem extends LightboxImageItem {
   src: string;
@@ -25,34 +26,30 @@ export function MultiImageDeck({
   const [currentIndex, setCurrentIndex] = useState(
     Math.max(0, Math.min(initialIndex, images.length - 1))
   );
-  const [touchDeltaX, setTouchDeltaX] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
+  const frontCardRef = useRef<HTMLDivElement>(null);
+  const touchDeltaXRef = useRef(0);
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
-  if (!images || images.length === 0) return null;
+  const total = images?.length ?? 0;
+  const currentImage = images?.[currentIndex];
 
-  const total = images.length;
-  const currentImage = images[currentIndex];
+  const handlePrev = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (total <= 0) return;
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : total - 1));
+  };
 
-  const handlePrev = useCallback(
-    (e?: React.MouseEvent) => {
-      e?.stopPropagation();
-      setCurrentIndex((prev) => (prev > 0 ? prev - 1 : total - 1));
-    },
-    [total]
-  );
+  const handleNext = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (total <= 0) return;
+    setCurrentIndex((prev) => (prev < total - 1 ? prev + 1 : 0));
+  };
 
-  const handleNext = useCallback(
-    (e?: React.MouseEvent) => {
-      e?.stopPropagation();
-      setCurrentIndex((prev) => (prev < total - 1 ? prev + 1 : 0));
-    },
-    [total]
-  );
+  if (!images || images.length === 0 || !currentImage) return null;
 
   const handleImageClick = () => {
     // If was dragging/swiping, don't trigger click
-    if (Math.abs(touchDeltaX) > 10) return;
+    if (Math.abs(touchDeltaXRef.current) > 10) return;
     if (onOpenLightbox) {
       onOpenLightbox(currentIndex);
     } else {
@@ -71,8 +68,10 @@ export function MultiImageDeck({
       y: e.touches[0].clientY,
       time: Date.now(),
     };
-    setIsSwiping(true);
-    setTouchDeltaX(0);
+    touchDeltaXRef.current = 0;
+    if (frontCardRef.current) {
+      frontCardRef.current.style.transition = "none";
+    }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -85,24 +84,61 @@ export function MultiImageDeck({
       return;
     }
 
-    setTouchDeltaX(deltaX * 0.75);
+    const appliedX = deltaX * 0.75;
+    touchDeltaXRef.current = appliedX;
+    if (frontCardRef.current) {
+      frontCardRef.current.style.transform = `translateX(${appliedX}px) rotate(${appliedX * 0.04}deg)`;
+    }
   };
 
   const handleTouchEnd = () => {
     if (!touchStartRef.current) return;
     const duration = Date.now() - touchStartRef.current.time;
     touchStartRef.current = null;
-    setIsSwiping(false);
 
-    const absX = Math.abs(touchDeltaX);
-    if (absX > 40 || (absX > 20 && duration < 250)) {
-      if (touchDeltaX < 0) {
-        handleNext();
+    const appliedX = touchDeltaXRef.current;
+    const absX = Math.abs(appliedX);
+    touchDeltaXRef.current = 0;
+
+    if (total > 1 && (absX > 40 || (absX > 20 && duration < 250))) {
+      if (appliedX < 0) {
+        if (frontCardRef.current) {
+          frontCardRef.current.style.transition = "transform 0.18s var(--motion-ease, cubic-bezier(0.16, 1, 0.3, 1)), opacity 0.18s ease";
+          frontCardRef.current.style.transform = "translateX(-120%) rotate(-8deg)";
+          frontCardRef.current.style.opacity = "0";
+        }
+        setTimeout(() => {
+          handleNext();
+          if (frontCardRef.current) {
+            frontCardRef.current.style.transition = "none";
+            frontCardRef.current.style.transform = "";
+            frontCardRef.current.style.opacity = "";
+          }
+        }, 180);
+        return;
       } else {
-        handlePrev();
+        if (frontCardRef.current) {
+          frontCardRef.current.style.transition = "transform 0.18s var(--motion-ease, cubic-bezier(0.16, 1, 0.3, 1)), opacity 0.18s ease";
+          frontCardRef.current.style.transform = "translateX(120%) rotate(8deg)";
+          frontCardRef.current.style.opacity = "0";
+        }
+        setTimeout(() => {
+          handlePrev();
+          if (frontCardRef.current) {
+            frontCardRef.current.style.transition = "none";
+            frontCardRef.current.style.transform = "";
+            frontCardRef.current.style.opacity = "";
+          }
+        }, 180);
+        return;
       }
     }
-    setTouchDeltaX(0);
+
+    if (frontCardRef.current) {
+      frontCardRef.current.style.transition = "transform 0.22s var(--motion-ease, cubic-bezier(0.16, 1, 0.3, 1)), opacity 0.22s ease";
+      frontCardRef.current.style.transform = "";
+      frontCardRef.current.style.opacity = "";
+    }
   };
 
   // Stacked background cards info (next 1~2 items)
@@ -151,17 +187,12 @@ export function MultiImageDeck({
 
         {/* Layer 0: Front active card */}
         <div
+          ref={frontCardRef}
           className="orbit-image-deck-card orbit-image-deck-card--front group cursor-pointer"
           onClick={handleImageClick}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          style={{
-            transform: touchDeltaX
-              ? `translateX(${touchDeltaX}px) rotate(${touchDeltaX * 0.04}deg)`
-              : undefined,
-            transition: isSwiping ? "none" : "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
-          }}
         >
           <img
             src={currentImage.src}
@@ -173,19 +204,7 @@ export function MultiImageDeck({
 
           {/* Top Badge: Photo count pill */}
           <div className="orbit-image-deck-badge">
-            <svg
-              className="w-3 h-3 text-white/90 mr-1"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <polyline points="21 15 16 10 5 21" />
-            </svg>
+            <GalleryIcon className="w-3 h-3 text-white/90 mr-1" />
             <span>
               {currentIndex + 1} / {total}
             </span>
@@ -200,18 +219,7 @@ export function MultiImageDeck({
               title="上一张"
               aria-label="上一张图片"
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
+              <ChevronLeftIcon size="sm" />
             </button>
             <button
               type="button"
@@ -220,18 +228,7 @@ export function MultiImageDeck({
               title="下一张"
               aria-label="下一张图片"
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
+              <ChevronRightIcon size="sm" />
             </button>
           </div>
 

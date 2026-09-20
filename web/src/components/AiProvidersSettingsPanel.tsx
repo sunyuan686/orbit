@@ -36,8 +36,8 @@ import {
 import { useAppSettings } from "../contexts/appSettingsContext";
 import { useToast } from "../hooks/useToast";
 import { safeRandomUUID } from "../lib/uuid";
-import { ChevronDownIcon, CloseIcon, EyeIcon, SearchIcon, SparklesIcon, WrenchIcon } from "./OrbitIcons";
-import { Button, Input, Modal, Textarea, Toggle, Section, Field, Stack } from "./ui";
+import { CheckIcon, ChevronDownIcon, CloseIcon, EyeIcon, ListIcon, MicIcon, NoteIcon, SearchIcon, SparklesIcon, WrenchIcon } from "./OrbitIcons";
+import { Button, Input, Modal, Textarea, Toggle, Section, Field, Stack, Badge } from "./ui";
 
 function formatContextWindow(tokens: number): string {
   if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
@@ -966,12 +966,13 @@ export function AiProvidersSettingsPanel() {
         >
           <div className="orbit-voice-mode-grid">
             {[
-              { mode: "smooth", icon: "✨", label: "智能润色 (推荐)", desc: "自动去口癖词、自动改口替换与补充标点" },
-              { mode: "raw", icon: "🎙️", label: "保持原文", desc: "100% 还原真实口语转写，不使用 AI 润色" },
-              { mode: "bullets", icon: "📝", label: "要点列表", desc: "自动整理为 Markdown 结构要点清单" },
-              { mode: "formal", icon: "💼", label: "正式书面", desc: "重构为严密专业的公文与邮件正文体" },
+              { mode: "smooth", icon: SparklesIcon, label: "智能润色", desc: "自动去口癖词、自动改口替换与补充标点" },
+              { mode: "raw", icon: MicIcon, label: "保持原文", desc: "100% 还原真实口语转写，不使用 AI 润色" },
+              { mode: "bullets", icon: ListIcon, label: "要点列表", desc: "自动整理为 Markdown 结构要点清单" },
+              { mode: "formal", icon: NoteIcon, label: "正式书面", desc: "重构为严密专业的公文与邮件正文体" },
             ].map((item) => {
               const isSelected = selectedVoiceMode === item.mode;
+              const Icon = item.icon;
               return (
                 <button
                   key={item.mode}
@@ -990,9 +991,9 @@ export function AiProvidersSettingsPanel() {
                   className={`orbit-voice-mode-card ${isSelected ? "orbit-voice-mode-card--active" : ""}`}
                 >
                   <div className="orbit-voice-mode-title">
-                    <span>{item.icon}</span>
+                    <Icon size="sm" className="orbit-voice-mode-icon" />
                     <span>{item.label}</span>
-                    {isSelected && <span style={{ marginLeft: "auto", color: "var(--color-accent)", fontWeight: 500 }}>✓</span>}
+                    {isSelected && <CheckIcon size="sm" className="orbit-voice-mode-check" />}
                   </div>
                   <p className="orbit-voice-mode-desc">
                     {item.desc}
@@ -1006,280 +1007,279 @@ export function AiProvidersSettingsPanel() {
 
       <Section title="供应商">
         <Stack gap="lg">
-          <Field
-            label="API 来源"
-          >
-            <div className="orbit-settings-supplier-list">
-              <article className="orbit-settings-supplier-card">
-                <div className="orbit-settings-connection-block-head">
-                  <span className="orbit-settings-connection-block-title">
+          <div className="orbit-ai-providers-list">
+            {/* Cloudflare Workers AI */}
+            <article className="orbit-ai-provider-card">
+              <div className="orbit-ai-provider-header">
+                <div className="orbit-ai-provider-info">
+                  <span className="orbit-ai-provider-name">
                     Cloudflare Workers AI
                   </span>
+                  <Badge variant="accent">开箱即用</Badge>
                 </div>
-                <p className="orbit-settings-connection-block-hint">
-                  在 Cloudflare 边缘推理，无需 API Key。模型目录由平台自动同步。
-                </p>
-                <div className="orbit-settings-supplier-credential">
-                  <span className="orbit-settings-supplier-credential-label">
-                    API Key
-                  </span>
-                  <div className="orbit-settings-supplier-credential-summary">
-                    <span
-                      className="orbit-settings-key-dot orbit-settings-key-dot--on"
-                      aria-hidden="true"
-                    />
-                    <span>无需 Key</span>
-                  </div>
-                </div>
-              </article>
+                <span className="orbit-ai-provider-managed-tag">平台托管</span>
+              </div>
+              <p className="orbit-ai-provider-desc">
+                在 Cloudflare 边缘推理，模型目录由平台自动同步，无需配置密钥。
+              </p>
+            </article>
 
-              <article className="orbit-settings-supplier-card">
-                <div className="orbit-settings-connection-block-head">
-                  <span className="orbit-settings-connection-block-title">
+            {/* DeepSeek */}
+            <article className="orbit-ai-provider-card">
+              <div className="orbit-ai-provider-header">
+                <div className="orbit-ai-provider-info">
+                  <span className="orbit-ai-provider-name">
                     DeepSeek
                   </span>
+                  {settings?.hasDeepseekKey ? (
+                    <Badge variant="accent">已就绪</Badge>
+                  ) : (
+                    <Badge variant="default">未配置</Badge>
+                  )}
                 </div>
-                <p className="orbit-settings-connection-block-hint">
-                  官方 DeepSeek API 接口服务（
-                  <a
-                    href="https://platform.deepseek.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="orbit-text-link"
-                  >
-                    platform.deepseek.com
-                  </a>
-                  ）
-                </p>
-
-                <div className="orbit-settings-supplier-credential">
-                  <span className="orbit-settings-supplier-credential-label">
-                    API Key
-                  </span>
-                  {showDeepseekKeyInput ? (
-                    <div className="orbit-settings-supplier-credential-edit">
-                      <div className="orbit-settings-key-row">
-                        <Input
-                          type="password"
-                          mono
-                          value={deepseekKey}
-                          autoComplete="off"
-                          placeholder={
-                            settings?.hasDeepseekKey
-                              ? "粘贴新 Key"
-                              : "sk-..."
-                          }
-                          onChange={(event) =>
-                            setDeepseekKey(event.target.value)
-                          }
-                        />
+                {!showDeepseekKeyInput && (
+                  <div className="orbit-ai-provider-actions">
+                    {settings?.hasDeepseekKey ? (
+                      <>
                         <Button
                           type="button"
                           variant="secondary"
                           size="sm"
-                          disabled={
-                            testingDeepseek ||
-                            (!deepseekKey.trim() && !settings?.hasDeepseekKey)
-                          }
+                          disabled={testingDeepseek}
                           loading={testingDeepseek}
                           onClick={() => void handleTestDeepseek()}
                         >
                           检测
                         </Button>
-                        {isKeyDirty ? (
-                          <Button
-                            type="button"
-                            variant="primary"
-                            size="sm"
-                            disabled={savingAi}
-                            loading={savingAi}
-                            onClick={() => void handleSaveDeepseekKey()}
-                          >
-                            保存
-                          </Button>
-                        ) : null}
-                        {settings?.hasDeepseekKey ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            disabled={savingAi}
-                            onClick={() => {
-                              setEditingDeepseekKey(false);
-                              setDeepseekKey("");
-                            }}
-                          >
-                            取消
-                          </Button>
-                        ) : null}
-                      </div>
-                      {!settings?.hasDeepseekKey ? (
-                        <p className="orbit-settings-supplier-credential-hint">
-                          未配置 · 填写 Key 后点保存
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div className="orbit-settings-supplier-credential-summary">
-                      <span
-                        className="orbit-settings-key-dot orbit-settings-key-dot--on"
-                        aria-hidden="true"
-                      />
-                      <span>已配置</span>
-                      <div className="orbit-settings-supplier-credential-actions">
-                        <button
-                          type="button"
-                          className="orbit-text-link"
-                          onClick={() => setEditingDeepseekKey(true)}
-                        >
-                          更换
-                        </button>
-                        <button
-                          type="button"
-                          className="orbit-text-link"
-                          disabled={testingDeepseek}
-                          onClick={() => void handleTestDeepseek()}
-                        >
-                          {testingDeepseek ? "检测中…" : "检测"}
-                        </button>
-                        <button
-                          type="button"
-                          className="orbit-text-link orbit-settings-key-clear"
-                          disabled={savingAi}
-                          onClick={() => void handleClearDeepseekKey()}
-                        >
-                          清除
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </article>
-
-              <article className="orbit-settings-supplier-card">
-                <div className="orbit-settings-connection-block-head">
-                  <span className="orbit-settings-connection-block-title">
-                    阿里百炼 (通义千问)
-                  </span>
-                </div>
-                <p className="orbit-settings-connection-block-hint">
-                  官方 DashScope API 接口服务（
-                  <a
-                    href="https://bailian.console.aliyun.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="orbit-text-link"
-                  >
-                    bailian.console.aliyun.com
-                  </a>
-                  ）
-                </p>
-
-                <div className="orbit-settings-supplier-credential">
-                  <span className="orbit-settings-supplier-credential-label">
-                    API Key
-                  </span>
-                  {showAlibabaKeyInput ? (
-                    <div className="orbit-settings-supplier-credential-edit">
-                      <div className="orbit-settings-key-row">
-                        <Input
-                          type="password"
-                          mono
-                          value={alibabaKey}
-                          autoComplete="off"
-                          placeholder={
-                            settings?.hasAlibabaKey
-                              ? "粘贴新 Key"
-                              : "sk-..."
-                          }
-                          onChange={(event) =>
-                            setAlibabaKey(event.target.value)
-                          }
-                        />
                         <Button
                           type="button"
                           variant="secondary"
                           size="sm"
-                          disabled={
-                            testingAlibaba ||
-                            (!alibabaKey.trim() && !settings?.hasAlibabaKey)
-                          }
+                          onClick={() => setEditingDeepseekKey(true)}
+                        >
+                          更换
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={savingAi}
+                          onClick={() => void handleClearDeepseekKey()}
+                        >
+                          清除
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        onClick={() => setEditingDeepseekKey(true)}
+                      >
+                        配置密钥
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <p className="orbit-ai-provider-desc">
+                官方 DeepSeek API 接口服务 · <span className="orbit-ai-provider-domain">platform.deepseek.com</span>
+              </p>
+
+              {showDeepseekKeyInput && (
+                <div className="orbit-ai-provider-edit">
+                  <div className="orbit-settings-key-row">
+                    <Input
+                      type="password"
+                      mono
+                      value={deepseekKey}
+                      autoComplete="off"
+                      placeholder={
+                        settings?.hasDeepseekKey
+                          ? "粘贴新 Key"
+                          : "sk-..."
+                      }
+                      onChange={(event) =>
+                        setDeepseekKey(event.target.value)
+                      }
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={
+                        testingDeepseek ||
+                        (!deepseekKey.trim() && !settings?.hasDeepseekKey)
+                      }
+                      loading={testingDeepseek}
+                      onClick={() => void handleTestDeepseek()}
+                    >
+                      检测
+                    </Button>
+                    {isKeyDirty ? (
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        disabled={savingAi}
+                        loading={savingAi}
+                        onClick={() => void handleSaveDeepseekKey()}
+                      >
+                        保存
+                      </Button>
+                    ) : null}
+                    {settings?.hasDeepseekKey ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={savingAi}
+                        onClick={() => {
+                          setEditingDeepseekKey(false);
+                          setDeepseekKey("");
+                        }}
+                      >
+                        取消
+                      </Button>
+                    ) : null}
+                  </div>
+                  {!settings?.hasDeepseekKey ? (
+                    <p className="orbit-ai-provider-hint">
+                      未配置 · 填写 Key 后点保存
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </article>
+
+            {/* 阿里百炼 */}
+            <article className="orbit-ai-provider-card">
+              <div className="orbit-ai-provider-header">
+                <div className="orbit-ai-provider-info">
+                  <span className="orbit-ai-provider-name">
+                    阿里百炼 (通义千问)
+                  </span>
+                  {settings?.hasAlibabaKey ? (
+                    <Badge variant="accent">已就绪</Badge>
+                  ) : (
+                    <Badge variant="default">未配置</Badge>
+                  )}
+                </div>
+                {!showAlibabaKeyInput && (
+                  <div className="orbit-ai-provider-actions">
+                    {settings?.hasAlibabaKey ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          disabled={testingAlibaba}
                           loading={testingAlibaba}
                           onClick={() => void handleTestAlibaba()}
                         >
                           检测
                         </Button>
-                        {isAlibabaKeyDirty ? (
-                          <Button
-                            type="button"
-                            variant="primary"
-                            size="sm"
-                            disabled={savingAi}
-                            loading={savingAi}
-                            onClick={() => void handleSaveAlibabaKey()}
-                          >
-                            保存
-                          </Button>
-                        ) : null}
-                        {settings?.hasAlibabaKey ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            disabled={savingAi}
-                            onClick={() => {
-                              setEditingAlibabaKey(false);
-                              setAlibabaKey("");
-                            }}
-                          >
-                            取消
-                          </Button>
-                        ) : null}
-                      </div>
-                      {!settings?.hasAlibabaKey ? (
-                        <p className="orbit-settings-supplier-credential-hint">
-                          未配置 · 填写 Key 后点保存
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div className="orbit-settings-supplier-credential-summary">
-                      <span
-                        className="orbit-settings-key-dot orbit-settings-key-dot--on"
-                        aria-hidden="true"
-                      />
-                      <span>已配置</span>
-                      <div className="orbit-settings-supplier-credential-actions">
-                        <button
+                        <Button
                           type="button"
-                          className="orbit-text-link"
+                          variant="secondary"
+                          size="sm"
                           onClick={() => setEditingAlibabaKey(true)}
                         >
                           更换
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
-                          className="orbit-text-link"
-                          disabled={testingAlibaba}
-                          onClick={() => void handleTestAlibaba()}
-                        >
-                          {testingAlibaba ? "检测中…" : "检测"}
-                        </button>
-                        <button
-                          type="button"
-                          className="orbit-text-link orbit-settings-key-clear"
+                          variant="ghost"
+                          size="sm"
                           disabled={savingAi}
                           onClick={() => void handleClearAlibabaKey()}
                         >
                           清除
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        onClick={() => setEditingAlibabaKey(true)}
+                      >
+                        配置密钥
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <p className="orbit-ai-provider-desc">
+                官方 DashScope API 接口服务 · <span className="orbit-ai-provider-domain">bailian.console.aliyun.com</span>
+              </p>
+
+              {showAlibabaKeyInput && (
+                <div className="orbit-ai-provider-edit">
+                  <div className="orbit-settings-key-row">
+                    <Input
+                      type="password"
+                      mono
+                      value={alibabaKey}
+                      autoComplete="off"
+                      placeholder={
+                        settings?.hasAlibabaKey
+                          ? "粘贴新 Key"
+                          : "sk-..."
+                      }
+                      onChange={(event) =>
+                        setAlibabaKey(event.target.value)
+                      }
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={
+                        testingAlibaba ||
+                        (!alibabaKey.trim() && !settings?.hasAlibabaKey)
+                      }
+                      loading={testingAlibaba}
+                      onClick={() => void handleTestAlibaba()}
+                    >
+                      检测
+                    </Button>
+                    {isAlibabaKeyDirty ? (
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        disabled={savingAi}
+                        loading={savingAi}
+                        onClick={() => void handleSaveAlibabaKey()}
+                      >
+                        保存
+                      </Button>
+                    ) : null}
+                    {settings?.hasAlibabaKey ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={savingAi}
+                        onClick={() => {
+                          setEditingAlibabaKey(false);
+                          setAlibabaKey("");
+                        }}
+                      >
+                        取消
+                      </Button>
+                    ) : null}
+                  </div>
+                  {!settings?.hasAlibabaKey ? (
+                    <p className="orbit-ai-provider-hint">
+                      未配置 · 填写 Key 后点保存
+                    </p>
+                  ) : null}
                 </div>
-              </article>
-            </div>
-          </Field>
+              )}
+            </article>
+          </div>
 
           <Field
             label="自定义供应商"
@@ -1318,7 +1318,7 @@ export function AiProvidersSettingsPanel() {
                   {(settings?.aiConnections ?? []).map((connection) => (
                   <article
                     key={connection.id}
-                    className="orbit-settings-supplier-card orbit-settings-supplier-card--listed"
+                    className="orbit-settings-connection-block orbit-settings-connection-block--listed"
                   >
                     <div className="orbit-settings-connection-block-head">
                       <span className="orbit-settings-connection-block-title">
@@ -1379,7 +1379,7 @@ export function AiProvidersSettingsPanel() {
                 ))}
 
                 {connectionDraft ? (
-                  <article className="orbit-settings-supplier-card orbit-settings-supplier-card--editor">
+                  <article className="orbit-settings-connection-block orbit-settings-connection-block--editor">
                     <div className="orbit-settings-connection-form">
                       <label className="orbit-settings-connection-field">
                         <span>供应商名称</span>
@@ -1871,7 +1871,7 @@ export function AiProvidersSettingsPanel() {
                     <span className="orbit-spec-category-label">INPUT (输入能力)</span>
                     <div className="orbit-spec-switch-list">
                       <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
-                        <span>👁️ Vision (Image) - 图片输入</span>
+                        <span>Vision (Image) - 图片输入</span>
                         <Toggle
                           checked={newModelDraft.supportsVision}
                           onChange={(checked) => setNewModelDraft({ ...newModelDraft, supportsVision: checked })}
@@ -1879,7 +1879,7 @@ export function AiProvidersSettingsPanel() {
                         />
                       </div>
                       <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
-                        <span>☁️ File Input - 文档文件输入</span>
+                        <span>File Input - 文档文件输入</span>
                         <Toggle
                           checked={newModelDraft.supportsFileInput}
                           onChange={(checked) => setNewModelDraft({ ...newModelDraft, supportsFileInput: checked })}
@@ -1894,7 +1894,7 @@ export function AiProvidersSettingsPanel() {
                     <span className="orbit-spec-category-label">OUTPUT (输出能力)</span>
                     <div className="orbit-spec-switch-list">
                       <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
-                        <span>🎨 Image Gen - 图片生成输出</span>
+                        <span>Image Gen - 图片生成输出</span>
                         <Toggle
                           checked={newModelDraft.supportsImageOutput}
                           onChange={(checked) => setNewModelDraft({ ...newModelDraft, supportsImageOutput: checked })}
@@ -1902,7 +1902,7 @@ export function AiProvidersSettingsPanel() {
                         />
                       </div>
                       <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
-                        <span>🎬 Video Gen - 视频生成输出</span>
+                        <span>Video Gen - 视频生成输出</span>
                         <Toggle
                           checked={newModelDraft.supportsVideoOutput}
                           onChange={(checked) => setNewModelDraft({ ...newModelDraft, supportsVideoOutput: checked })}
@@ -1917,7 +1917,7 @@ export function AiProvidersSettingsPanel() {
                     <span className="orbit-spec-category-label">FEATURES (模型特性)</span>
                     <div className="orbit-spec-switch-list">
                       <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
-                        <span>🧠 Reasoning - 深度思考推理</span>
+                        <span>Reasoning - 深度思考推理</span>
                         <Toggle
                           checked={newModelDraft.reasoning}
                           onChange={(checked) => setNewModelDraft({ ...newModelDraft, reasoning: checked })}
@@ -1925,7 +1925,7 @@ export function AiProvidersSettingsPanel() {
                         />
                       </div>
                       <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
-                        <span>🛠 Tool Use - 工具/函数调用</span>
+                        <span>Tool Use - 工具/函数调用</span>
                         <Toggle
                           checked={newModelDraft.supportsToolCalling}
                           onChange={(checked) => setNewModelDraft({ ...newModelDraft, supportsToolCalling: checked })}
@@ -1933,7 +1933,7 @@ export function AiProvidersSettingsPanel() {
                         />
                       </div>
                       <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
-                        <span>🔍 Web Search - 联网搜索能力</span>
+                        <span>Web Search - 联网搜索能力</span>
                         <Toggle
                           checked={newModelDraft.supportsWebSearch}
                           onChange={(checked) => setNewModelDraft({ ...newModelDraft, supportsWebSearch: checked })}
@@ -2038,7 +2038,7 @@ export function AiProvidersSettingsPanel() {
                         <span className="orbit-spec-category-label">INPUT (输入能力)</span>
                         <div className="orbit-spec-switch-list">
                           <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
-                            <span>👁️ Vision (Image) - 图片输入</span>
+                            <span>Vision (Image) - 图片输入</span>
                             <Toggle
                               checked={specDraft.supportsVision ?? false}
                               onChange={(checked) => setSpecDraft({ ...specDraft, supportsVision: checked })}
@@ -2046,7 +2046,7 @@ export function AiProvidersSettingsPanel() {
                             />
                           </div>
                           <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
-                            <span>☁️ File Input - 文档文件输入</span>
+                            <span>File Input - 文档文件输入</span>
                             <Toggle
                               checked={specDraft.supportsFileInput ?? true}
                               onChange={(checked) => setSpecDraft({ ...specDraft, supportsFileInput: checked })}
@@ -2061,7 +2061,7 @@ export function AiProvidersSettingsPanel() {
                         <span className="orbit-spec-category-label">OUTPUT (输出能力)</span>
                         <div className="orbit-spec-switch-list">
                           <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
-                            <span>🎨 Image Gen - 图片生成输出</span>
+                            <span>Image Gen - 图片生成输出</span>
                             <Toggle
                               checked={specDraft.supportsImageOutput ?? false}
                               onChange={(checked) => setSpecDraft({ ...specDraft, supportsImageOutput: checked })}
@@ -2069,7 +2069,7 @@ export function AiProvidersSettingsPanel() {
                             />
                           </div>
                           <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
-                            <span>🎬 Video Gen - 视频生成输出</span>
+                            <span>Video Gen - 视频生成输出</span>
                             <Toggle
                               checked={specDraft.supportsVideoOutput ?? false}
                               onChange={(checked) => setSpecDraft({ ...specDraft, supportsVideoOutput: checked })}
@@ -2084,7 +2084,7 @@ export function AiProvidersSettingsPanel() {
                         <span className="orbit-spec-category-label">FEATURES (模型特性)</span>
                         <div className="orbit-spec-switch-list">
                           <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
-                            <span>🧠 Reasoning - 深度思考推理</span>
+                            <span>Reasoning - 深度思考推理</span>
                             <Toggle
                               checked={specDraft.reasoning}
                               onChange={(checked) => setSpecDraft({ ...specDraft, reasoning: checked })}
@@ -2092,7 +2092,7 @@ export function AiProvidersSettingsPanel() {
                             />
                           </div>
                           <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
-                            <span>🛠 Tool Use - 工具/函数调用</span>
+                            <span>Tool Use - 工具/函数调用</span>
                             <Toggle
                               checked={specDraft.supportsToolCalling ?? true}
                               onChange={(checked) => setSpecDraft({ ...specDraft, supportsToolCalling: checked })}
@@ -2100,7 +2100,7 @@ export function AiProvidersSettingsPanel() {
                             />
                           </div>
                           <div className="orbit-settings-model-spec-field orbit-settings-model-spec-field--switch">
-                            <span>🔍 Web Search - 联网搜索能力</span>
+                            <span>Web Search - 联网搜索能力</span>
                             <Toggle
                               checked={specDraft.supportsWebSearch ?? false}
                               onChange={(checked) => setSpecDraft({ ...specDraft, supportsWebSearch: checked })}

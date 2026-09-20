@@ -88,7 +88,7 @@ async function resolveContentType(db: any, _targetType: string, targetId: string
 }
 
 function normalizeTargetType(value: string | undefined | null): TargetType | null {
-  if (value === "entry" || value === "memo") return "entry";
+  if (value === "entry") return "entry";
   return null;
 }
 

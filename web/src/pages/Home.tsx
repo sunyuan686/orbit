@@ -1,454 +1,363 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { useQueries, useQuery } from "@tanstack/react-query";
-import { FEED_ENTRY_TYPES, getSpaceTodayKey } from "@orbit/shared";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
-  TYPE_LABEL,
-  fetchDailyScratchCard,
   fetchEntries,
-  fetchGallery,
-  fetchMemorySummary,
-  fetchRandomScratchCard,
   fetchSpaceStatus,
-  formatAnniversaryCn,
-  formatDate,
-  formatSpaceTagline,
   getApiErrorMessage,
+  getSpaceYear,
   shouldToastApiError,
-  type EntryListPage,
   type EntrySummary,
-  type ScratchCardData,
-  type SpaceAuthor,
 } from "../lib/api";
-import { entryDisplayLabel } from "../lib/letterThread";
-import { useSpace } from "../contexts/spaceContext";
 import { queryKeys } from "../lib/queryKeys";
 import { setPageTitle } from "../lib/pageTitle";
 import { useToast } from "../hooks/useToast";
-import { GalleryImage } from "../components/GalleryImage";
-import { ScratchCard } from "../components/ScratchCard";
-import { Container, Stack } from "../components/ui";
+import { MomentCard } from "../components/MomentCard";
+import { MomentComposeCard } from "../components/moment/MomentComposeCard";
+import { QuickComposeSheet } from "../components/layout/QuickComposeSheet";
 import {
-  DiaryIcon,
-  TimelineIcon,
-  MessageIcon,
-  LetterIcon,
-  MemoIcon,
-  GalleryIcon,
-  MemoriesIcon,
-  ChevronRightIcon,
-  RefreshIcon,
-} from "../components/OrbitIcons";
-
-type RecentItem = EntrySummary & { contentType: string };
-
-const NAV_CARDS = [
-  {
-    to: "/diary",
-    label: TYPE_LABEL.diary,
-    desc: "记录每天的点滴",
-    Icon: DiaryIcon,
-  },
-  {
-    to: "/timeline",
-    label: TYPE_LABEL.timeline,
-    desc: "里程碑与重要时刻",
-    Icon: TimelineIcon,
-  },
-  {
-    to: "/message",
-    label: TYPE_LABEL.message,
-    desc: "留给对方的话",
-    Icon: MessageIcon,
-  },
-  {
-    to: "/letter",
-    label: TYPE_LABEL.letter,
-    desc: "往来书信",
-    Icon: LetterIcon,
-  },
-  {
-    to: "/memo",
-    label: TYPE_LABEL.memo,
-    desc: "共同维护的备忘",
-    Icon: MemoIcon,
-  },
-  {
-    to: "/gallery",
-    label: "相册",
-    desc: "一起留下的照片",
-    Icon: GalleryIcon,
-  },
-  {
-    to: "/memories",
-    label: "记忆",
-    desc: "星图与图鉴",
-    Icon: MemoriesIcon,
-  },
-] as const;
-
-const QUICK_ACTIONS = [
-  { to: "/diary/new", label: "写日记" },
-  { to: "/letter/new", label: "写信" },
-  { to: "/message/new", label: "留言" },
-] as const;
-
-function entryLabel(entry: EntrySummary): string {
-  return entryDisplayLabel(entry) ?? "无标题";
-}
-
-function formatCoupleNames(authors: SpaceAuthor[]): string | null {
-  if (authors.length === 0) return null;
-  return authors.map((a) => a.name).join(" & ");
-}
+  Container,
+  FilterChipDropdown,
+  InfiniteScrollSentinel,
+  Stack,
+} from "../components/ui";
+import { useInfiniteScroll } from "../hooks";
+import { useLayer } from "../hooks/useLayer";
+import { useMomentTags } from "../hooks/useMomentTags";
+import { TagManageModal } from "../components/moment/TagManageModal";
+import { GridViewIcon, ListViewIcon, SortIcon } from "../components/OrbitIcons";
 
 export function HomePage() {
   const toast = useToast();
-  const { profile, loading: spaceLoading } = useSpace();
+  const queryClient = useQueryClient();
   const toastedError = useRef<unknown>(null);
+  const { tags } = useMomentTags();
+
+  const {
+    isOpen: composeOpen,
+    open: openCompose,
+    close: closeCompose,
+    // 与外壳底栏的同名组件是两个独立挂载点（本处 showLetterOption=false），
+    // 必须用不同的层 key：同一 key 被两处渲染会让两个抽屉同时打开。
+  } = useLayer("compose-card");
+  const [year, setYear] = useState<number | null>(null);
+  const [author, setAuthor] = useState<string | null>(null);
+  const [tag, setTag] = useState<string | null>(null);
+  const [order, setOrder] = useState<"asc" | "desc">("desc");
+  const {
+    isOpen: tagManageOpen,
+    open: openTagManage,
+    close: closeTagManage,
+  } = useLayer("tags-home");
+
+  const [viewMode, setViewMode] = useState<"card" | "list">(() => {
+    const saved = localStorage.getItem("orbit_view_mode_moment");
+    if (saved === "card" || saved === "list") return saved;
+    return "card";
+  });
+
+  const handleViewModeChange = (mode: "card" | "list") => {
+    setViewMode(mode);
+    localStorage.setItem("orbit_view_mode_moment", mode);
+  };
 
   useEffect(() => {
-    setPageTitle("首页");
+    setPageTitle("动态");
   }, []);
-
-  const todayDateKey = useMemo(() => getSpaceTodayKey(), []);
-
-  const [customCard, setCustomCard] = useState<ScratchCardData | null>(null);
-  const [scratchSeed, setScratchSeed] = useState<string | number>(todayDateKey);
-  const [isDailyRevealed, setIsDailyRevealed] = useState(() => {
-    try {
-      return (
-        localStorage.getItem(`orbit_scratch_revealed_${todayDateKey}`) ===
-        "true"
-      );
-    } catch {
-      return false;
-    }
-  });
-  const [isRoamRevealed, setIsRoamRevealed] = useState(false);
-  const [isDrawingRoam, setIsDrawingRoam] = useState(false);
-
-  const homeEntryParams = { limit: 8, offset: 0 } as const;
-  const feedTypes = FEED_ENTRY_TYPES;
-  const entryQueries = useQueries({
-    queries: feedTypes.map((t) => ({
-      queryKey: queryKeys.entries(t, t === "letter" ? { roots: true, limit: 8, offset: 0 } : homeEntryParams),
-      queryFn: (): Promise<EntryListPage> =>
-        fetchEntries(t, t === "letter" ? { roots: true, limit: 8, offset: 0 } : homeEntryParams),
-    })),
-  });
 
   const statusQuery = useQuery({
     queryKey: queryKeys.spaceStatus,
     queryFn: fetchSpaceStatus,
-  });
-  const galleryQuery = useQuery({
-    queryKey: queryKeys.gallery("all", homeEntryParams),
-    queryFn: () => fetchGallery({ filter: "all", ...homeEntryParams }),
-  });
-  const memoriesQuery = useQuery({
-    queryKey: queryKeys.memorySummary,
-    queryFn: fetchMemorySummary,
-  });
-  const scratchCardQuery = useQuery({
-    queryKey: queryKeys.scratchCard(todayDateKey),
-    queryFn: () => fetchDailyScratchCard(todayDateKey),
+    staleTime: 5 * 60_000,
   });
 
-  const feedQueries = [
-    ...entryQueries,
-    statusQuery,
-    galleryQuery,
-    memoriesQuery,
-    scratchCardQuery,
-  ];
-  const loadingFeed = feedQueries.some((q) => q.isPending);
-  const feedError = feedQueries.find((q) => q.error)?.error;
+  const pageSize = 15;
+  const pagedMomentsQuery = useInfiniteQuery({
+    queryKey: queryKeys.entries("moment", {
+      tag: tag ?? undefined,
+      year: year ?? undefined,
+      author: author ?? undefined,
+      order,
+    }),
+    queryFn: ({ pageParam = 0 }) =>
+      fetchEntries("moment", {
+        limit: pageSize,
+        offset: pageParam,
+        tag: tag ?? undefined,
+        year: year ?? undefined,
+        author: author ?? undefined,
+        order,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.reduce((n, p) => n + p.items.length, 0);
+      return loaded < lastPage.total ? loaded : undefined;
+    },
+  });
+
+  const {
+    data: pagedData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: loadingMoments,
+    error: momentsError,
+  } = pagedMomentsQuery;
+
+  const { sentinelRef, retry } = useInfiniteScroll({
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+    isError: Boolean(momentsError),
+  });
 
   useEffect(() => {
-    if (!feedError || toastedError.current === feedError) return;
-    toastedError.current = feedError;
-    if (shouldToastApiError(feedError)) {
-      toast.error(getApiErrorMessage(feedError, "首页加载失败"));
+    if (!momentsError || toastedError.current === momentsError) return;
+    toastedError.current = momentsError;
+    if (shouldToastApiError(momentsError)) {
+      toast.error(getApiErrorMessage(momentsError, "数据加载失败"));
     }
-  }, [feedError, toast]);
+  }, [momentsError, toast]);
 
-  const authors: SpaceAuthor[] = statusQuery.data?.authors ?? [];
-  const photos = galleryQuery.data?.items ?? [];
+  const moments = useMemo(() => {
+    return pagedData?.pages.flatMap((page) => page.items) ?? [];
+  }, [pagedData]);
 
-  const currentCard: ScratchCardData | null =
-    customCard ?? scratchCardQuery.data?.card ?? null;
-  const isCurrentCardDaily = !customCard;
-  const isCurrentRevealed = isCurrentCardDaily
-    ? isDailyRevealed
-    : isRoamRevealed;
+  const currentYear = getSpaceYear();
+  const earliestYear = pagedData?.pages[0]?.earliestYear ?? currentYear;
+  const startYear = Math.min(earliestYear, currentYear);
 
-  const handleScratchComplete = () => {
-    if (isCurrentCardDaily) {
-      setIsDailyRevealed(true);
-      try {
-        localStorage.setItem(`orbit_scratch_revealed_${todayDateKey}`, "true");
-      } catch {
-        // ignore
+  const years = useMemo(() => {
+    const list: number[] = [];
+    for (let y = currentYear; y >= startYear; y--) {
+      list.push(y);
+    }
+    return list;
+  }, [currentYear, startYear]);
+
+  const yearOptions = useMemo(
+    () => years.map((y) => ({ value: y, label: `${y}年` })),
+    [years]
+  );
+
+  const authorOptions = useMemo(() => {
+    const set = new Set<string>();
+    if (statusQuery.data?.authors) {
+      for (const a of statusQuery.data.authors) {
+        if (a.name) set.add(a.name);
       }
-    } else {
-      setIsRoamRevealed(true);
     }
-  };
-
-  const handleDrawRoamCard = async () => {
-    if (isDrawingRoam) return;
-    setIsDrawingRoam(true);
-    try {
-      const res = await fetchRandomScratchCard(currentCard?.id);
-      setCustomCard(res.card);
-      setScratchSeed(`${res.card.id}-${Date.now()}`);
-      setIsRoamRevealed(false);
-    } catch {
-      toast.error("抽取失败，请重试");
-    } finally {
-      setIsDrawingRoam(false);
+    for (const e of moments) {
+      if (e.author) set.add(e.author);
     }
-  };
+    return Array.from(set).map((a) => ({ value: a, label: a }));
+  }, [statusQuery.data, moments]);
 
-  const recent = useMemo(() => {
-    if (entryQueries.some((q) => !q.data)) return [];
-    const merged: RecentItem[] = entryQueries.flatMap((q, idx) => {
-      const t = feedTypes[idx];
-      return (q.data?.items ?? []).map((e) => ({ ...e, contentType: t }));
+  const tagOptions = useMemo(() => {
+    return tags.map((t) => ({ value: t.id, label: t.name }));
+  }, [tags]);
+
+  const hasActiveFilter = year != null || author != null || tag != null;
+  const showComposeCard = !hasActiveFilter && order === "desc";
+
+  const { leftColMoments, rightColMoments } = useMemo(() => {
+    const left: EntrySummary[] = [];
+    const right: EntrySummary[] = [];
+
+    moments.forEach((item, index) => {
+      // 若首位展示速记卡（showComposeCard），速记卡占左列第1格，
+      // 首条动态 (index 0) 排入右列第1格，实现自然交替：左(速记)->右(0)->左(1)->右(2)...
+      const goesToLeft = showComposeCard ? index % 2 === 1 : index % 2 === 0;
+      if (goesToLeft) {
+        left.push(item);
+      } else {
+        right.push(item);
+      }
     });
-    merged.sort((a, b) => (b.entryDate ?? 0) - (a.entryDate ?? 0));
-    return merged.slice(0, 6);
-  }, [entryQueries, feedTypes]);
 
-  const coupleNames = useMemo(() => formatCoupleNames(authors), [authors]);
-  const tagline = formatSpaceTagline(profile);
-  const hasAnniversary = profile?.daysTogether != null && profile.daysTogether > 0;
+    return { leftColMoments: left, rightColMoments: right };
+  }, [moments, showComposeCard]);
 
   return (
-    <Container size="standard" className="orbit-home" data-page="home">
-      <Stack gap="2xl">
-        <section className="orbit-home-hero" aria-labelledby="home-hero-title">
-        <svg
-          className="orbit-home-hero-orbit"
-          viewBox="0 0 200 120"
-          aria-hidden
-        >
-          <ellipse cx="100" cy="60" rx="92" ry="44" />
-          <circle className="orbit-home-hero-planet orbit-home-hero-planet--a" cx="100" cy="16" r="4" />
-          <circle className="orbit-home-hero-planet orbit-home-hero-planet--b" cx="100" cy="104" r="4" />
-        </svg>
-        <div className="orbit-home-hero-main">
-          {spaceLoading ? (
-            <p className="orbit-muted">加载中…</p>
-          ) : hasAnniversary ? (
-            <>
-              <p className="orbit-home-hero-eyebrow" id="home-hero-title">
-                {coupleNames ?? "我们的空间"}
-              </p>
-              <p
-                className="orbit-home-hero-days"
-                aria-label={`在一起第 ${profile!.daysTogether} 天`}
+    <Container size="narrow" className="orbit-home" data-page="home">
+      <Stack gap="md">
+        <section className="orbit-home-section" aria-label="动态流筛选与内容">
+          {/* 综合过滤工具栏 */}
+          <div className="orbit-content-toolbar">
+            <div className="orbit-content-toolbar-group">
+              <FilterChipDropdown
+                label="时间"
+                value={year}
+                options={yearOptions}
+                onChange={setYear}
+                allLabel="全部"
+              />
+              <FilterChipDropdown
+                label="作者"
+                value={author}
+                options={authorOptions}
+                onChange={setAuthor}
+                allLabel="全部"
+              />
+              <FilterChipDropdown
+                label="标签"
+                value={tag}
+                options={tagOptions}
+                onChange={setTag}
+                allLabel="全部"
+                footerAction={{
+                  label: "管理标签...",
+                  onClick: openTagManage,
+                }}
+              />
+            </div>
+
+            <div className="orbit-content-toolbar-group">
+              <button
+                type="button"
+                className={`orbit-filter-action-btn orbit-filter-icon-btn${order === "asc" ? " is-active" : ""}`}
+                onClick={() => setOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
+                title={
+                  order === "desc"
+                    ? "当前为最新优先，点击切换为最早优先"
+                    : "当前为最早优先，点击切换为最新优先"
+                }
+                aria-label={order === "desc" ? "排序：最新优先" : "排序：最早优先"}
               >
-                {profile!.daysTogether!.toLocaleString("zh-CN")}
-                <span className="orbit-home-hero-days-unit">天</span>
+                <SortIcon order={order} className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                className={`orbit-filter-action-btn orbit-filter-icon-btn${viewMode === "card" ? " is-active" : ""}`}
+                onClick={() =>
+                  handleViewModeChange(viewMode === "card" ? "list" : "card")
+                }
+                title={
+                  viewMode === "card"
+                    ? "当前为双列卡片视图，点击切换为列表视图"
+                    : "当前为单列列表视图，点击切换为双列卡片视图"
+                }
+                aria-label={
+                  viewMode === "card"
+                    ? "当前为双列卡片视图，点击切换为列表视图"
+                    : "当前为单列列表视图，点击切换为双列卡片视图"
+                }
+              >
+                {viewMode === "card" ? (
+                  <GridViewIcon className="w-3.5 h-3.5" />
+                ) : (
+                  <ListViewIcon className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* 动态内容：单列列表 / 双列小红书卡片 / 时间线 */}
+          {loadingMoments ? (
+            <div className="py-12 text-center text-sm text-[var(--color-text-muted)]">
+              加载动态中…
+            </div>
+          ) : moments.length === 0 ? (
+            <div className="text-center py-12 px-4 rounded-xl border border-dashed border-[var(--color-border)] bg-[var(--color-surface)]">
+              <p className="text-sm text-[var(--color-text-secondary)] mb-3">
+                {hasActiveFilter
+                  ? "所选筛选条件下暂无动态。"
+                  : "还没有动态，记录今天的美好吧。"}
               </p>
-              {profile?.anniversaryDate && (
-                <p className="orbit-home-hero-sub">
-                  自 {formatAnniversaryCn(profile.anniversaryDate)} 起，一直在一起
-                </p>
+              {hasActiveFilter ? (
+                <button
+                  type="button"
+                  className="orbit-text-link cursor-pointer text-sm"
+                  onClick={() => {
+                    setYear(null);
+                    setAuthor(null);
+                    setTag(null);
+                  }}
+                >
+                  清除筛选条件
+                </button>
+              ) : (
+                <Link
+                  to="/moment/new"
+                  className="orbit-btn orbit-btn-sm orbit-btn-primary"
+                >
+                  记录第一条动态
+                </Link>
               )}
-            </>
+            </div>
           ) : (
             <>
-              <p className="orbit-home-hero-eyebrow" id="home-hero-title">
-                {coupleNames ?? "我们的空间"}
-              </p>
-              <p className="orbit-home-hero-greeting">{profile?.slogan ?? tagline}</p>
-              <p className="orbit-home-hero-sub">
-                <Link to="/settings?tab=space" className="orbit-text-link">
-                  设置纪念日
-                </Link>
-                ，让每一天都有计数
-              </p>
+              {viewMode === "list" ? (
+                <div className="flex flex-col gap-3 sm:gap-3.5">
+                  {showComposeCard && (
+                    <MomentComposeCard
+                      layout="list"
+                      onClick={openCompose}
+                    />
+                  )}
+                  {moments.map((item) => (
+                    <MomentCard key={item.id} entry={item} layout="list" />
+                  ))}
+                </div>
+              ) : tag === "milestone" ? (
+                <div className="orbit-tl-wrap">
+                  {moments.map((item) => (
+                    <MomentCard key={item.id} entry={item} layout="timeline" />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex gap-2.5 sm:gap-3.5 items-start">
+                  <div className="flex-1 min-w-0 flex flex-col gap-2.5 sm:gap-3.5">
+                    {showComposeCard && (
+                      <MomentComposeCard
+                        layout="feed"
+                        onClick={openCompose}
+                      />
+                    )}
+                    {leftColMoments.map((item) => (
+                      <MomentCard key={item.id} entry={item} layout="feed" />
+                    ))}
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col gap-2.5 sm:gap-3.5">
+                    {rightColMoments.map((item) => (
+                      <MomentCard key={item.id} entry={item} layout="feed" />
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
-          {hasAnniversary && profile?.slogan && (
-            <p className="orbit-home-hero-slogan">{profile.slogan}</p>
-          )}
-        </div>
-        <div className="orbit-home-hero-side">
-          <div className="orbit-home-quick-actions" aria-label="快速记录">
-            {QUICK_ACTIONS.map((action) => (
-              <Link
-                key={action.to}
-                to={action.to}
-                className={`orbit-btn orbit-btn-sm${action.to === "/diary/new" ? " orbit-btn-primary" : ""}`}
-              >
-                {action.label}
-              </Link>
-            ))}
-          </div>
-          <Link to="/settings?tab=space" className="orbit-home-hero-link">
-            空间档案
-            <ChevronRightIcon size="sm" />
-          </Link>
-        </div>
-      </section>
 
-      {(scratchCardQuery.isLoading || currentCard) && (
-        <section className="orbit-home-section" aria-label="时光记忆卡">
-          <div className="orbit-scratch-card" data-type={currentCard?.type}>
-            {scratchCardQuery.isLoading && !currentCard ? (
-              <div className="orbit-scratch-skeleton" aria-hidden />
-            ) : currentCard ? (
-              <>
-                {isCurrentRevealed && (
-                  <button
-                    type="button"
-                    className={`orbit-scratch-float-btn${isDrawingRoam ? " is-spinning" : ""}`}
-                    onClick={handleDrawRoamCard}
-                    disabled={isDrawingRoam}
-                    title="换一段记忆"
-                    aria-label="换一段记忆"
-                  >
-                    <RefreshIcon size="sm" />
-                  </button>
-                )}
-                <ScratchCard
-                  seed={scratchSeed}
-                  isAlreadyRevealed={isCurrentRevealed}
-                  onScratchComplete={handleScratchComplete}
-                  coverText={isCurrentCardDaily ? "拂 开 旧 时 光" : "时 光 漫 游"}
-                  autoOpenModal={!isCurrentRevealed && Boolean(customCard)}
-                >
-                  <div className="orbit-scratch-card-body">
-                    <div className="orbit-scratch-card-top">
-                      {currentCard.badge && (
-                        <span className="orbit-scratch-badge">{currentCard.badge}</span>
-                      )}
-                      {currentCard.meta && (
-                        <span className="orbit-scratch-meta">{currentCard.meta}</span>
-                      )}
-                    </div>
-                    {currentCard.title && (
-                      <h3 className="orbit-scratch-title">{currentCard.title}</h3>
-                    )}
-                    <blockquote className="orbit-scratch-quote">
-                      “{currentCard.quote}”
-                    </blockquote>
-                    <Link to={currentCard.link} className="orbit-scratch-link">
-                      {currentCard.linkText}
-                    </Link>
-                  </div>
-                </ScratchCard>
-              </>
-            ) : null}
-          </div>
+          {/* 无限滚动哨兵与状态反馈 */}
+          <InfiniteScrollSentinel
+            sentinelRef={sentinelRef}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            isError={Boolean(momentsError)}
+            onRetry={retry}
+            itemCount={moments.length}
+            className="mt-6"
+          />
         </section>
-      )}
-
-      {/* 📷 最近照片流 */}
-      {!loadingFeed && photos.length > 0 && (
-        <section className="orbit-home-section" aria-labelledby="home-photos-title">
-          <div className="orbit-home-section-header">
-            <h2 className="orbit-home-section-title" id="home-photos-title">
-              最近照片
-            </h2>
-            <Link to="/gallery" className="orbit-text-link orbit-home-section-link">
-              全部相册
-            </Link>
-          </div>
-          <div className="orbit-home-photos">
-            {photos.map((item) => (
-              <Link
-                key={item.storageKey}
-                to="/gallery"
-                className="orbit-home-photo"
-                title="查看相册"
-              >
-              <GalleryImage
-                  src={item.thumbUrl ?? item.url}
-                  blurhash={item.blurhash}
-                  width={item.width}
-                  height={item.height}
-                  variant="home"
-                />
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* 🎨 探索 Bento Canvas 大棋盘 */}
-      <section className="orbit-home-section" aria-labelledby="home-nav-title">
-        <div className="orbit-home-section-header">
-          <h2 className="orbit-home-section-title" id="home-nav-title">
-            探索
-          </h2>
-        </div>
-        <div className="orbit-home-bento-grid">
-          {NAV_CARDS.map(({ to, label, desc, Icon }) => (
-            <Link key={to} to={to} className="orbit-home-bento-tile" data-type={to.slice(1)}>
-              <div className="orbit-home-bento-icon-box">
-                <Icon size="md" className="orbit-home-bento-icon" />
-              </div>
-              <div className="orbit-home-bento-content">
-                <span className="orbit-home-bento-title">{label}</span>
-                <span className="orbit-home-bento-desc">{desc}</span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* 💬 最近动态 Story Stream */}
-      <section className="orbit-home-section" aria-labelledby="home-recent-title">
-        <div className="orbit-home-section-header">
-          <h2 className="orbit-home-section-title" id="home-recent-title">
-            最近动态
-          </h2>
-        </div>
-        {loadingFeed ? (
-          <p className="orbit-muted">加载中…</p>
-        ) : recent.length === 0 ? (
-          <div className="orbit-home-empty">
-            <p>还没有内容，从第一篇日记开始吧。</p>
-            <Link to="/diary/new" className="orbit-btn orbit-btn-sm">
-              写日记
-            </Link>
-          </div>
-        ) : (
-          <div className="orbit-home-story-stream">
-            {recent.map((item) => (
-              <Link
-                key={`${item.contentType}-${item.id}`}
-                to={`/${item.contentType}/${item.id}`}
-                className="orbit-home-story-card"
-                data-type={item.contentType}
-              >
-                <div className="orbit-home-story-header">
-                  <span className="orbit-home-story-badge">
-                    {TYPE_LABEL[item.contentType] ?? item.contentType}
-                  </span>
-                  {item.author && (
-                    <>
-                      <span className="orbit-muted" aria-hidden="true">·</span>
-                      <span className="orbit-home-story-author">@{item.author}</span>
-                    </>
-                  )}
-                  {item.entryDate && (
-                    <span className="orbit-home-story-date">{formatDate(item.entryDate)}</span>
-                  )}
-                </div>
-                <h3 className="orbit-home-story-title">{entryLabel(item)}</h3>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
       </Stack>
+
+      <TagManageModal
+        isOpen={tagManageOpen}
+        onClose={closeTagManage}
+      />
+      <QuickComposeSheet
+        isOpen={composeOpen}
+        onClose={closeCompose}
+        showLetterOption={false}
+        onPosted={() => {
+          queryClient.invalidateQueries({ queryKey: queryKeys.entries("moment") });
+          pagedMomentsQuery.refetch();
+          // 停留在首页：原地关层即可，不需要额外导航。
+          closeCompose();
+        }}
+      />
     </Container>
   );
 }
+

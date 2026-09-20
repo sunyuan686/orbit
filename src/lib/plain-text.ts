@@ -23,36 +23,79 @@ export function toPlainText(input: string): string {
       const tagContent = input.slice(i + 1, tagEnd).trim();
       const lowerTag = tagContent.toLowerCase();
 
-      // 判断音频卡片数据块
+      // 判断音频卡片数据块（第一性原理：跳过整个包含控件的 DOM 容器，仅保留人类语义转写文稿）
       if (lowerTag.includes("data-orbit-audio") || lowerTag.includes("orbit-prose-audio-block")) {
         let transcript = "";
-        const attrKey = 'data-transcript="';
-        const attrIdx = tagContent.indexOf(attrKey);
+        const attrKeyDouble = 'data-transcript="';
+        const attrKeySingle = "data-transcript='";
+        let attrIdx = tagContent.indexOf(attrKeyDouble);
+        let quoteChar = '"';
+        let attrKeyLen = attrKeyDouble.length;
+        if (attrIdx === -1) {
+          attrIdx = tagContent.indexOf(attrKeySingle);
+          quoteChar = "'";
+          attrKeyLen = attrKeySingle.length;
+        }
         if (attrIdx !== -1) {
-          const start = attrIdx + attrKey.length;
-          const end = tagContent.indexOf('"', start);
+          const start = attrIdx + attrKeyLen;
+          const end = tagContent.indexOf(quoteChar, start);
           if (end !== -1) {
             transcript = tagContent.slice(start, end);
           }
         }
 
-        const blockEndIndex = input.indexOf("</div>", tagEnd);
-        if (blockEndIndex !== -1) {
-          if (!transcript) {
-            const transcriptStart = input.indexOf('class="orbit-voice-transcript"', tagEnd);
-            if (transcriptStart !== -1 && transcriptStart < blockEndIndex) {
-              const textStart = input.indexOf(">", transcriptStart) + 1;
-              const textEnd = input.indexOf("</p>", textStart);
-              if (textEnd !== -1) {
-                transcript = input.slice(textStart, textEnd).trim();
+        // 字符级深度计数状态机：配对外层卡片真正闭合的 </div>，跳过所有内部子元素（波形、0:00、文稿按钮等）
+        let depth = 1;
+        let p = tagEnd + 1;
+        while (p < len && depth > 0) {
+          if (input[p] === "<") {
+            const nextFive = input.slice(p + 1, p + 6).toLowerCase();
+            if (nextFive.startsWith("/div")) {
+              const afterDiv = input[p + 5];
+              if (afterDiv === ">" || afterDiv === " " || afterDiv === "\t" || afterDiv === "\n") {
+                depth--;
+                const closeEnd = input.indexOf(">", p);
+                if (closeEnd !== -1) {
+                  p = closeEnd + 1;
+                  if (depth === 0) break;
+                  continue;
+                }
+              }
+            } else if (nextFive.startsWith("div")) {
+              const afterDiv = input[p + 4];
+              if (afterDiv === ">" || afterDiv === " " || afterDiv === "\t" || afterDiv === "\n" || afterDiv === "/") {
+                depth++;
+                const openEnd = input.indexOf(">", p);
+                if (openEnd !== -1) {
+                  p = openEnd + 1;
+                  continue;
+                }
               }
             }
           }
-          i = blockEndIndex + 6;
-          result.push(transcript ? ` 🎙️ [语音] ${transcript} ` : " 🎙️ [语音] ");
-          isLineStart = false;
-          continue;
+          p++;
         }
+
+        // 若属性中未取到文稿，尝试从内部 <p>...</p> 中提取
+        if (!transcript) {
+          const pStart = input.indexOf("<p", tagEnd);
+          if (pStart !== -1 && pStart < p) {
+            const pTextStart = input.indexOf(">", pStart) + 1;
+            const pEnd = input.indexOf("</p>", pTextStart);
+            if (pEnd !== -1 && pEnd < p) {
+              transcript = input.slice(pTextStart, pEnd).trim();
+            }
+          }
+        }
+
+        i = p;
+        if (transcript) {
+          result.push(" ");
+          result.push(transcript);
+          result.push(" ");
+        }
+        isLineStart = false;
+        continue;
       }
 
       // 块级标签终结，追加空格

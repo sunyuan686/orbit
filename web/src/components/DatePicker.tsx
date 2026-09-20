@@ -1,7 +1,8 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { DayPicker } from "react-day-picker";
 import { zhCN } from "date-fns/locale";
 import { parseIsoDate, toIsoDate } from "../lib/dateInput";
+import { useLayer } from "../hooks/useLayer";
 import {
   CalendarIcon,
   ChevronLeftIcon,
@@ -53,8 +54,22 @@ export function DatePicker({
   const popoverId = `${triggerId}-popover`;
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const [open, setOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("day");
+
+  // 移动端本弹层是带遮罩的底部抽屉，返回手势必须只关抽屉、不退页面，因此开关走导航层。
+  // key 绑定触发点 id：同一页面可挂多个日期选择器而不互相顶掉。
+  const {
+    isOpen: open,
+    open: openPicker,
+    close: closePicker,
+  } = useLayer(`date-picker:${triggerId}`);
+  const closePickerToDay = useCallback(
+    (nextView: ViewMode = "day") => {
+      closePicker();
+      setViewMode(nextView);
+    },
+    [closePicker],
+  );
 
   const selected = parseIsoDate(value);
 
@@ -98,15 +113,11 @@ export function DatePicker({
       const target = event.target;
       if (!(target instanceof Node)) return;
       if (rootRef.current?.contains(target)) return;
-      setOpen(false);
-      setViewMode("day");
+      closePickerToDay();
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-        setViewMode("day");
-      }
+      if (event.key === "Escape") closePickerToDay();
     }
 
     document.addEventListener("pointerdown", handlePointerDown);
@@ -115,25 +126,24 @@ export function DatePicker({
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open]);
+  }, [open, closePickerToDay]);
 
   function selectDate(date: Date) {
     const iso = toIsoDate(date);
     onChange(iso);
     setMonth(date);
-    setOpen(false);
-    setViewMode("day");
+    closePickerToDay();
   }
 
   function handleClear(e: React.MouseEvent) {
     e.stopPropagation();
     onChange("");
-    setOpen(false);
-    setViewMode("day");
+    closePickerToDay();
   }
 
   function handleTriggerClick() {
-    setOpen((prev) => !prev);
+    if (open) closePickerToDay();
+    else openPicker();
   }
 
   const currentYear = month.getFullYear();
@@ -203,8 +213,7 @@ export function DatePicker({
             aria-hidden="true"
             onClick={(e) => {
               e.stopPropagation();
-              setOpen(false);
-              setViewMode("day");
+              closePickerToDay();
             }}
           />
           <div
@@ -429,8 +438,7 @@ export function DatePicker({
                   className="orbit-date-picker-footer-btn orbit-date-picker-footer-btn--muted"
                   onClick={() => {
                     onChange("");
-                    setOpen(false);
-                    setViewMode("day");
+                    closePickerToDay();
                   }}
                 >
                   清除

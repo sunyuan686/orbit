@@ -170,8 +170,16 @@ function sortModels(models: WorkersAiModelOption[]): WorkersAiModelOption[] {
 export function getWorkersAiModelCredentials(
   env: AiRuntimeEnv = process.env as AiRuntimeEnv
 ): { accountId: string; apiToken: string } | null {
-  const accountId = (env.CF_ACCOUNT_ID ?? process.env.CF_ACCOUNT_ID ?? "").trim();
-  const apiToken = (env.CF_API_TOKEN ?? process.env.CF_API_TOKEN ?? "").trim();
+  const accountId = (
+    env.CLOUDFLARE_ACCOUNT_ID ??
+    process.env.CLOUDFLARE_ACCOUNT_ID ??
+    ""
+  ).trim();
+  const apiToken = (
+    env.CLOUDFLARE_API_TOKEN ??
+    process.env.CLOUDFLARE_API_TOKEN ??
+    ""
+  ).trim();
   if (!accountId || !apiToken) return null;
   return { accountId, apiToken };
 }

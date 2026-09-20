@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { usePwaUpdate } from "../hooks/usePwaUpdate";
+import { CloseIcon } from "./OrbitIcons";
 
 /**
  * PWA 版本更新提示（prompt 模式）。
@@ -10,7 +11,7 @@ import { usePwaUpdate } from "../hooks/usePwaUpdate";
  * 其决策权属于用户，由用户选择安全时机执行。
  */
 export function SwUpdatePrompt() {
-  const { needRefresh, dismissed, applyUpdate, setDismissed } = usePwaUpdate();
+  const { needRefresh, dismissed, refreshing, applyUpdate, setDismissed } = usePwaUpdate();
 
   const handleUpdate = useCallback(() => {
     void applyUpdate();
@@ -58,8 +59,9 @@ export function SwUpdatePrompt() {
         type="button"
         className="orbit-btn orbit-btn-primary orbit-btn-sm"
         onClick={handleUpdate}
+        disabled={refreshing}
       >
-        立即刷新
+        {refreshing ? "刷新中…" : "立即刷新"}
       </button>
       <button
         type="button"
@@ -69,14 +71,7 @@ export function SwUpdatePrompt() {
         title="暂不更新"
         style={{ flexShrink: 0 }}
       >
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-          <path
-            d="M2 2l10 10M12 2L2 12"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-        </svg>
+        <CloseIcon size="sm" />
       </button>
     </div>
   );

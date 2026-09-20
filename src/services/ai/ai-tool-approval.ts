@@ -8,11 +8,8 @@ import { formatWriteContentDateLabel } from "../../lib/beijing-date.js";
 export const WRITE_CONTENT_APPROVAL_TOOL = "write_content";
 
 const CONTENT_TYPE_LABEL: Record<string, string> = {
-  diary: "日记",
-  timeline: "时间线",
-  message: "留言",
+  moment: "动态",
   letter: "信件",
-  memo: "备忘录",
 };
 
 const ACTION_LABEL: Record<string, string> = {
@@ -23,7 +20,7 @@ const ACTION_LABEL: Record<string, string> = {
 
 export interface WriteContentToolInput {
   action?: "create" | "update" | "delete";
-  type?: "diary" | "timeline" | "message" | "letter" | "memo";
+  type?: "moment" | "letter";
   id?: string;
   title?: string;
   body?: string;

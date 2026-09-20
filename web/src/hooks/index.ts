@@ -8,3 +8,5 @@ export * from "./useRealtimeVoiceStream";
 export * from "./useStreamingSpeech";
 export * from "./useAccountProfile";
 export * from "./usePwaInstall";
+export * from "./useInfiniteScroll";
+export * from "./useScrollRestoration";

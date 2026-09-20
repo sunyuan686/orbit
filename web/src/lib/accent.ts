@@ -6,7 +6,7 @@ export type ReadingFontSize = "normal" | "medium" | "large";
 export interface AccentPresetMeta {
   id: AccentTheme;
   label: string;
-  subLabel: string;
+  subLabel?: string;
   colorPreview: string;
 }
 
@@ -20,7 +20,6 @@ export interface CanvasBgMeta {
 export interface FontModeMeta {
   id: FontMode;
   label: string;
-  subLabel: string;
   desc: string;
 }
 
@@ -34,31 +33,26 @@ export const ACCENT_PRESET_LIST: AccentPresetMeta[] = [
   {
     id: "sage",
     label: "鼠尾草绿",
-    subLabel: "推荐",
     colorPreview: "oklch(0.48 0.095 150)",
   },
   {
     id: "amber",
     label: "暖琥珀",
-    subLabel: "暖光",
     colorPreview: "oklch(0.58 0.16 65)",
   },
   {
     id: "rose",
     label: "玫瑰粉",
-    subLabel: "浪漫",
     colorPreview: "oklch(0.50 0.11 18)",
   },
   {
     id: "indigo",
     label: "深海靛",
-    subLabel: "沉静",
     colorPreview: "oklch(0.48 0.095 250)",
   },
   {
     id: "cola",
     label: "可乐橙",
-    subLabel: "明朗",
     colorPreview: "#f1752d",
   },
 ];
@@ -67,25 +61,25 @@ export const CANVAS_BG_LIST: CanvasBgMeta[] = [
   {
     id: "moonstone",
     label: "月石清白",
-    desc: "纯净通透，默认推荐",
+    desc: "纯净通透",
     colorPreview: "oklch(0.985 0.002 250)",
   },
   {
     id: "studio",
     label: "画廊冷灰",
-    desc: "现代冷调，专注阅读",
+    desc: "现代冷调",
     colorPreview: "#f4f4f6",
   },
   {
     id: "mist",
     label: "冷杉薄雾",
-    desc: "微冷杉绿，护眼清爽",
+    desc: "微冷杉青",
     colorPreview: "oklch(0.985 0.004 165)",
   },
   {
     id: "warm-linen",
     label: "暖石燕麦",
-    desc: "暖羊绒纸，怀旧复古",
+    desc: "暖羊绒纸",
     colorPreview: "oklch(0.982 0.008 75)",
   },
 ];
@@ -94,26 +88,23 @@ export const FONT_MODE_LIST: FontModeMeta[] = [
   {
     id: "editorial",
     label: "刊物文学",
-    subLabel: "推荐",
     desc: "宋体标题 + 黑体正文",
   },
   {
     id: "sans",
     label: "现代极简",
-    subLabel: "清爽",
     desc: "全站统一无衬线黑体",
   },
   {
     id: "handwriting",
     label: "温情手书",
-    subLabel: "书信",
     desc: "宋体标题 + 楷体正文",
   },
 ];
 
 export const FONT_SIZE_LIST: FontSizeMeta[] = [
   { id: "normal", label: "标准", desc: "15px" },
-  { id: "medium", label: "适中", desc: "16px · 推荐" },
+  { id: "medium", label: "适中", desc: "16px" },
   { id: "large", label: "大号", desc: "17.5px" },
 ];
 

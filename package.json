@@ -13,6 +13,10 @@
     "test": "tsx --test tests/*.test.ts",
 
 
+    "db:backup": "tsx scripts/db-backup.ts",
+    "db:backup:remote": "tsx scripts/db-backup-remote.ts",
+    "db:restore": "tsx scripts/db-restore.ts",
+    "db:migrate:remote": "tsx scripts/db-migrate-remote.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:search-status": "tsx scripts/search-status.ts",

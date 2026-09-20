@@ -33,8 +33,8 @@ export interface AiRuntimeEnv {
   ALIBABA_API_KEY?: string;
   DASHSCOPE_API_KEY?: string;
   DASHSCOPE_BASE_URL?: string;
-  CF_ACCOUNT_ID?: string;
-  CF_API_TOKEN?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
+  CLOUDFLARE_API_TOKEN?: string;
   TAVILY_API_KEY?: string;
   BRAVE_SEARCH_API_KEY?: string;
   LANGFUSE_PUBLIC_KEY?: string;
@@ -149,13 +149,13 @@ export async function resolveModel(
     const workersai = env.AI
       ? createWorkersAI({ binding: env.AI })
       : createWorkersAI({
-          accountId: env.CF_ACCOUNT_ID ?? process.env.CF_ACCOUNT_ID ?? "",
-          apiKey: env.CF_API_TOKEN ?? process.env.CF_API_TOKEN ?? "",
+          accountId: env.CLOUDFLARE_ACCOUNT_ID ?? process.env.CLOUDFLARE_ACCOUNT_ID ?? "",
+          apiKey: env.CLOUDFLARE_API_TOKEN ?? process.env.CLOUDFLARE_API_TOKEN ?? "",
         });
 
-    if (!env.AI && !(env.CF_ACCOUNT_ID ?? process.env.CF_ACCOUNT_ID)?.trim()) {
+    if (!env.AI && !(env.CLOUDFLARE_ACCOUNT_ID ?? process.env.CLOUDFLARE_ACCOUNT_ID)?.trim()) {
       throw new AiModelConfigError(
-        "Workers AI 未配置：请设置 CF_ACCOUNT_ID 与 CF_API_TOKEN，或使用 wrangler dev"
+        "Workers AI 未配置：请设置 CLOUDFLARE_ACCOUNT_ID 与 CLOUDFLARE_API_TOKEN，或使用 wrangler dev"
       );
     }
 

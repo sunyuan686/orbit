@@ -27,10 +27,8 @@ import { GalleryImage } from "../components/GalleryImage";
 
 const TYPE_TABS = [
   { key: "all", label: "全部" },
+  { key: "moment", label: TYPE_LABEL.moment },
   { key: "letter", label: TYPE_LABEL.letter },
-  { key: "diary", label: TYPE_LABEL.diary },
-  { key: "message", label: TYPE_LABEL.message },
-  { key: "timeline", label: TYPE_LABEL.timeline },
 ] as const;
 
 interface DayCluster {
@@ -204,9 +202,6 @@ function MemoryHeader({ summary }: { summary: MemorySummary | null }) {
     <header className="orbit-memory-header">
       <div className="orbit-memory-header-main">
         <h1 className="orbit-page-title">恋爱记忆</h1>
-        <p className="orbit-muted orbit-memory-subtitle">
-          我们一起记下的光点，点一点就能回到那天
-        </p>
       </div>
       {summary ? (
         <div className="orbit-memory-summary" aria-label="记忆概览">
@@ -419,7 +414,6 @@ export function MemoriesPage() {
             {/* 2. 记忆档案馆（亲密性：筛选控制器与档案列表紧密聚合） */}
             <Section
               title={`回忆档案${archiveLoading ? "" : ` · ${archiveTotal}`}`}
-              description="按类型与年份检索我们共同留下的每一个瞬间"
             >
               <div className="orbit-memory-filters">
                 <div className="orbit-memory-filter-row" role="tablist" aria-label="类型">
@@ -520,7 +514,6 @@ export function MemoriesPage() {
             {milestones.length > 0 ? (
               <Section
                 title={`相伴成就与里程碑 · ${milestones.length}`}
-                description="记录共同走过的每一个重要时刻"
               >
                 <ul className="orbit-memory-milestone-list">
                   {milestones.map((item) => (
@@ -543,7 +536,6 @@ export function MemoriesPage() {
             {activityQuery.data?.days ? (
               <Section
                 title="总体记录热力"
-                description="过去一年的记录轨迹"
               >
                 <Card>
                   <CardBody>

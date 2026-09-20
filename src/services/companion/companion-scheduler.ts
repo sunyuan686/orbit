@@ -80,8 +80,8 @@ export interface CompanionSchedulerEnv {
   AI: Ai;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
-  CF_ACCOUNT_ID?: string;
-  CF_API_TOKEN?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
+  CLOUDFLARE_API_TOKEN?: string;
 }
 
 export class CompanionScheduler extends DurableObject<CompanionSchedulerEnv> {
@@ -128,8 +128,8 @@ export class CompanionScheduler extends DurableObject<CompanionSchedulerEnv> {
       const aiEnv = {
         AI: this.env.AI,
         BETTER_AUTH_SECRET: this.env.BETTER_AUTH_SECRET,
-        CF_ACCOUNT_ID: this.env.CF_ACCOUNT_ID,
-        CF_API_TOKEN: this.env.CF_API_TOKEN,
+        CLOUDFLARE_ACCOUNT_ID: this.env.CLOUDFLARE_ACCOUNT_ID,
+        CLOUDFLARE_API_TOKEN: this.env.CLOUDFLARE_API_TOKEN,
       };
 
       try {

@@ -1,11 +1,8 @@
 export type CommentKind = "bottom" | "inline";
-export type CommentableContentType = "diary" | "timeline" | "memo" | "message" | "letter";
+export type CommentableContentType = "moment" | "letter";
 
 export const commentCapabilities: Record<CommentableContentType, Record<CommentKind, boolean>> = {
-  diary: { bottom: true, inline: true },
-  timeline: { bottom: true, inline: true },
-  memo: { bottom: true, inline: true },
-  message: { bottom: false, inline: false },
+  moment: { bottom: true, inline: true },
   letter: { bottom: false, inline: true },
 };
 

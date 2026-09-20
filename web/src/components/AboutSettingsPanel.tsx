@@ -5,8 +5,8 @@ import { useToast } from "../hooks/useToast";
 import { Badge, Button, Section } from "./ui";
 
 export function AboutSettingsPanel() {
-  const { isStandalone, canPrompt, setGuideOpen, triggerInstall } = usePwaInstall();
-  const { needRefresh, checking, checkForUpdate, applyUpdate, forceRefresh } = usePwaUpdate();
+  const { isStandalone, canPrompt, openGuide, triggerInstall } = usePwaInstall();
+  const { needRefresh, checking, refreshing, checkForUpdate, applyUpdate, forceRefresh } = usePwaUpdate();
   const toast = useToast();
   const [clearing, setClearing] = useState(false);
 
@@ -67,9 +67,10 @@ export function AboutSettingsPanel() {
                   type="button"
                   variant="primary"
                   size="sm"
+                  loading={refreshing}
                   onClick={() => void handleApplyUpdate()}
                 >
-                  立即更新
+                  {refreshing ? "刷新中…" : "立即更新"}
                 </Button>
               ) : (
                 <Button
@@ -116,7 +117,7 @@ export function AboutSettingsPanel() {
                     if (canPrompt) {
                       void triggerInstall();
                     } else {
-                      setGuideOpen(true);
+                      openGuide();
                     }
                   }}
                 >

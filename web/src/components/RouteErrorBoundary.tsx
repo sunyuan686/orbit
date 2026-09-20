@@ -54,8 +54,8 @@ export class RouteErrorBoundary extends Component<
           <button type="button" className="orbit-btn" onClick={this.handleRetry}>
             重试
           </button>
-          <Link to="/diary" className="orbit-btn orbit-btn-primary" onClick={this.handleRetry}>
-            返回日记
+          <Link to="/" className="orbit-btn orbit-btn-primary" onClick={this.handleRetry}>
+            返回首页
           </Link>
         </div>
       </div>

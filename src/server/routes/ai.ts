@@ -21,8 +21,8 @@ const ai = createAiRoutes(() => db, {
   },
   getEnv: () => ({
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
-    CF_ACCOUNT_ID: process.env.CF_ACCOUNT_ID,
-    CF_API_TOKEN: process.env.CF_API_TOKEN,
+    CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID,
+    CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
