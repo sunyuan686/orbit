@@ -8,6 +8,44 @@
 
 ---
 
+## [0.3.0](https://github.com/sunyuan686/orbit-space/compare/v0.2.0...v0.3.0) (2026-09-20)
+
+
+### 新功能
+
+* add list thumbs, image decks, daily scratch cards, and pwa install ([4cc173e](https://github.com/sunyuan686/orbit-space/commit/4cc173e403269a5d683c596afd521ad721137e4e))
+* **ai:** add max agent step limit and summary instructions ([5696ec9](https://github.com/sunyuan686/orbit-space/commit/5696ec9e9ac49c341c2798e7dc702f488c986da3))
+* **ai:** add multimodal chat attachments and pwa lifecycle updates ([cf0ace9](https://github.com/sunyuan686/orbit-space/commit/cf0ace9e2f408a3a3d34895deea4677dba8d031e))
+* **content:** converge content types to moments and letters with albums and mobile architecture ([d40be81](https://github.com/sunyuan686/orbit-space/commit/d40be8131db7503b5214e3aae53c220fbeae2cdc))
+* **memories:** redesign memory atlas with asset highlights, scratch cards and activity heatmap ([39c1e66](https://github.com/sunyuan686/orbit-space/commit/39c1e662bcbb9a8fd313f6086f667a621d219bf3))
+* **ui:** centralize ai prompts, redesign settings infotips, and polish mobile interactions ([c934f43](https://github.com/sunyuan686/orbit-space/commit/c934f43c1a43a09be88be1637048b81ab24412ff))
+* **ui:** polish pwa lifecycle, responsive notifications, and search bar ([d05a2f7](https://github.com/sunyuan686/orbit-space/commit/d05a2f7182f07bc8a13ef8720bbbd5bf4321aa60))
+* unify space timezone, pwa update controls, content filters, and mobile polish ([5ca8504](https://github.com/sunyuan686/orbit-space/commit/5ca850449fad9517c7de5523f0d782ae49e3f67c))
+
+
+### 修复
+
+* **auth:** add account issuer column and migration for better-auth 1.7.0 ([9ff9bf7](https://github.com/sunyuan686/orbit-space/commit/9ff9bf7e639336992bb8b0fae8fb57f6151266e1))
+* **ci:** anchor root ignore paths to restore tracked content services ([744c3ff](https://github.com/sunyuan686/orbit-space/commit/744c3ffae40817592a701d2275b39ebfad68149d))
+* **plain-text:** extract clean plain text using state machine scanner without markdown markers ([e721c15](https://github.com/sunyuan686/orbit-space/commit/e721c155c5c1a2c6622bb117d16dd08bc02e32d0))
+* resolve audio playback conflicts, articles earliest year query, and mobile layout issues ([d793792](https://github.com/sunyuan686/orbit-space/commit/d793792d70b9cd04db6c6f3e5217ee192403cef0))
+* **settings:** 完善修改密码流程 ([#13](https://github.com/sunyuan686/orbit-space/issues/13)) ([829bbc2](https://github.com/sunyuan686/orbit-space/commit/829bbc2c2c30da174f0fa625e5e87b239d95bbfc))
+
+
+### 重构
+
+* **arch:** reorganize domain services, extract shared core, and restructure frontend ([f6d6ff8](https://github.com/sunyuan686/orbit-space/commit/f6d6ff8cade6aee9f3b78c273d25d0d811a44fac))
+* **memo:** consolidate memo table into entry and clean up dual query branches ([b55dee8](https://github.com/sunyuan686/orbit-space/commit/b55dee8afaf63f7adebf08fd1f986e21d70576e8))
+
+
+### 文档
+
+* add componentization and zero-patch engineering rules to 020 spec ([ac57845](https://github.com/sunyuan686/orbit-space/commit/ac5784516d81b30feef52d3d4b0e29549ec84c81))
+* add content types and architecture refactor spec (020) ([a394030](https://github.com/sunyuan686/orbit-space/commit/a394030cc84ec746dc4d2c7967a4f24cbaf12cd1))
+* add design consistency constraints to 020 spec ([9a3c94a](https://github.com/sunyuan686/orbit-space/commit/9a3c94a1dada4465652d7539504f221c83c98a16))
+* **agents:** reorganize documentation structure according to agent rules ([16ae048](https://github.com/sunyuan686/orbit-space/commit/16ae048bb01bab9866e18287a86ea2fbe1110047))
+* **guides:** extract db migration guide to docs/guides ([cc62834](https://github.com/sunyuan686/orbit-space/commit/cc628348eb61d00fbda0dba2d3b576c4c65459e1))
+
 ## [0.2.0](https://github.com/sunyuan686/orbit/compare/v0.1.0...v0.2.0) (2026-08-08)
 
 
