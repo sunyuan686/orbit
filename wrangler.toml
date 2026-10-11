@@ -23,7 +23,7 @@ run_worker_first = ["/api/*", "/assets/*", "!/assets/*.js", "!/assets/*.css"]
 [[d1_databases]]
 binding = "DB"
 database_name = "orbit-db"
-database_id = "REPLACE_DATABASE_ID"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
 migrations_dir = "src/db/migrations"
 
 # R2 存储桶
