@@ -19,7 +19,7 @@ not_found_handling = "single-page-application"
 # API 与 R2 媒体走 Worker；排除 Vite 打包的 js/css，避免与 /assets/* 路径冲突
 run_worker_first = ["/api/*", "/assets/*", "!/assets/*.js", "!/assets/*.css"]
 
-# D1 数据库（替换 database_id 为实际值）
+# 通用模板：npm run deploy:config 从环境参数生成 wrangler.local.toml
 [[d1_databases]]
 binding = "DB"
 database_name = "orbit-db"
@@ -33,15 +33,15 @@ bucket_name = "orbit-media"
 
 # 自定义域名（deploy 时 Cloudflare 自动创建 DNS + 证书）
 [[routes]]
-pattern = "example.com"
+pattern = "REPLACE_WITH_YOUR_DOMAIN"
 custom_domain = true
 
 [vars]
-BETTER_AUTH_URL = "https://example.com"
+BETTER_AUTH_URL = "REPLACE_WITH_YOUR_SITE_URL"
 # 在 wrangler secret put 中设置：BETTER_AUTH_SECRET
 # Workers AI 模型目录（设置页下拉）：CLOUDFLARE_ACCOUNT_ID、CLOUDFLARE_API_TOKEN
 # Web Push VAPID：VAPID_PRIVATE_KEY 用 secret put；公钥明文填在下方
-VAPID_PUBLIC_KEY = ""
+VAPID_PUBLIC_KEY = "REPLACE_WITH_YOUR_VAPID_PUBLIC_KEY"
 
 [ai]
 binding = "AI"

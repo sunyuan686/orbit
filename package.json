@@ -11,6 +11,8 @@
     "web:lint": "npm run lint --prefix web",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
+    "deploy:config": "tsx scripts/deploy-config.ts",
+    "deploy": "npm run deploy:config && wrangler deploy --config wrangler.local.toml",
     "db:backup": "tsx scripts/db-backup.ts",
     "db:backup:remote": "tsx scripts/db-backup-remote.ts",
     "db:restore": "tsx scripts/db-restore.ts",

@@ -24,6 +24,7 @@ web/dist/
 .dev.vars
 *.local
 credentials.local.md
+/wrangler.local.toml
 
 # ─── 迁移失败日志 ────────────────────────────────────────────────────────────
 migration_failed.txt

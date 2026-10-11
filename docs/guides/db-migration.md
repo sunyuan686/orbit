@@ -17,6 +17,8 @@
 
 ## 二、生产与远程 Cloudflare D1 发布规范（强制前置 Export）
 
+先在 `.env.deploy.local` 或运行环境中配置 `ORBIT_D1_DATABASE_ID`、`ORBIT_SITE_URL` 和可选的 `ORBIT_VAPID_PUBLIC_KEY`。下列 npm 脚本自动生成 `wrangler.local.toml`，备份与迁移使用同一份配置；不要直接使用通用 `wrangler.toml` 模板操作远程数据库。
+
 严禁直接裸跑 `wrangler d1 migrations apply`！必须使用内置安全机制的命令：
 
 1. **线上安全迁移发布**：

@@ -7,6 +7,7 @@
  */
 
 import { spawnSync } from "child_process";
+import { prepareDeployConfig } from "./deploy-config.js";
 import {
   existsSync,
   mkdirSync,
@@ -18,6 +19,7 @@ import { join } from "path";
 import { createListThumbWebp } from "../src/lib/image-metadata-node.js";
 import { canMakeListThumb, thumbStorageKey } from "../src/lib/gallery-keys.js";
 
+const DEPLOY_CONFIG = prepareDeployConfig();
 const D1_NAME = "orbit-db";
 const R2_BUCKET = "orbit-media";
 const ASSETS_DIR = join(process.cwd(), "data", "assets");
@@ -37,7 +39,7 @@ function sqlLiteral(value: unknown): string {
 function wranglerD1Json(command: string): unknown[] {
   const result = spawnSync(
     "npx",
-    ["wrangler", "d1", "execute", D1_NAME, "--remote", "--command", command, "--json"],
+    ["wrangler", "--config", DEPLOY_CONFIG, "d1", "execute", D1_NAME, "--remote", "--command", command, "--json"],
     { cwd: process.cwd(), encoding: "utf8" }
   );
   if (result.status !== 0) {
@@ -50,7 +52,7 @@ function wranglerD1Json(command: string): unknown[] {
 function executeSqlFile(file: string, label: string): void {
   const result = spawnSync(
     "npx",
-    ["wrangler", "d1", "execute", D1_NAME, "--file", file, "--remote", "-y"],
+    ["wrangler", "--config", DEPLOY_CONFIG, "d1", "execute", D1_NAME, "--file", file, "--remote", "-y"],
     { cwd: process.cwd(), encoding: "utf8" }
   );
   if (result.status !== 0) {
@@ -78,7 +80,7 @@ async function readImageBytes(
 
   const result = spawnSync(
     "npx",
-    ["wrangler", "r2", "object", "get", `${R2_BUCKET}/${storageKey}`, "--remote", "--pipe"],
+    ["wrangler", "--config", DEPLOY_CONFIG, "r2", "object", "get", `${R2_BUCKET}/${storageKey}`, "--remote", "--pipe"],
     { cwd: process.cwd(), encoding: "buffer", maxBuffer: 50 * 1024 * 1024 }
   );
   if (result.status !== 0 || !result.stdout?.length) return null;
@@ -93,6 +95,8 @@ function putRemoteThumb(storageKey: string, body: Buffer): boolean {
     "npx",
     [
       "wrangler",
+      "--config",
+      DEPLOY_CONFIG,
       "r2",
       "object",
       "put",

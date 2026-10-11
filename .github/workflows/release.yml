@@ -12,9 +12,29 @@ permissions:
 jobs:
   release-please:
     name: Release Please
+    if: ${{ vars.ENABLE_RELEASE == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Create or update release PR
+        id: release
         uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout release PR
+        if: ${{ steps.release.outputs.pr != '' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ fromJSON(steps.release.outputs.pr).headBranchName }}
+
+      - name: Normalize shared changelog
+        if: ${{ steps.release.outputs.pr != '' }}
+        run: |
+          node scripts/normalize-changelog.mjs
+          if ! git diff --quiet -- CHANGELOG.md; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add CHANGELOG.md
+            git commit -m "docs(changelog): remove repository-specific history links"
+            git push
+          fi

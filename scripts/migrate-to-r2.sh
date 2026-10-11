@@ -27,6 +27,8 @@ if [ ! -d "$ASSETS_DIR" ]; then
   exit 1
 fi
 
+npm run deploy:config
+
 echo "→ 开始上传 $ASSETS_DIR 到 R2 bucket: $BUCKET"
 echo ""
 
@@ -43,7 +45,7 @@ for filepath in "$ASSETS_DIR"/*; do
     *)        mime="application/octet-stream" ;;
   esac
 
-  if npx wrangler r2 object put "$BUCKET/$filename" \
+  if npx wrangler --config wrangler.local.toml r2 object put "$BUCKET/$filename" \
       --remote \
       --file "$filepath" \
       --content-type "$mime" \

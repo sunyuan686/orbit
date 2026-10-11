@@ -4,11 +4,14 @@
  * 解决 D1 官方 export 命令遇到 FTS5 等 Virtual Tables 时报错的问题：
  * 自动查询所有普通实体数据表，排除虚拟索引表及内部影子表后，安全导出所有业务真实数据。
  */
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
+import { prepareDeployConfig } from "./deploy-config.js";
 
-export function getExportableTables(databaseName = "orbit-db"): string[] {
-  const output = execSync(
-    `npx wrangler d1 execute ${databaseName} --remote --json --command "SELECT name, sql FROM sqlite_master WHERE type='table';"`
+export function getExportableTables(databaseName = "orbit-db", config = prepareDeployConfig()): string[] {
+  const output = execFileSync(
+    "npx",
+    ["wrangler", "d1", "execute", databaseName, "--remote", "--json", "--config", config,
+      "--command", "SELECT name, sql FROM sqlite_master WHERE type='table';"]
   ).toString();
 
   const jsonStart = output.indexOf("[");
@@ -36,15 +39,21 @@ export function getExportableTables(databaseName = "orbit-db"): string[] {
     });
 }
 
-export function exportRemoteD1Backup(outputFile: string, databaseName = "orbit-db"): void {
-  const tables = getExportableTables(databaseName);
+export function exportRemoteD1Backup(
+  outputFile: string,
+  databaseName = "orbit-db",
+  config = prepareDeployConfig(),
+): void {
+  const tables = getExportableTables(databaseName, config);
   if (tables.length === 0) {
     throw new Error("未检测到可导出的实体数据表");
   }
 
-  const tableArgs = tables.map((t) => `--table ${t}`).join(" ");
-  execSync(
-    `npx wrangler d1 export ${databaseName} --remote --output "${outputFile}" ${tableArgs} -y`,
+  const tableArgs = tables.flatMap((table) => ["--table", table]);
+  execFileSync(
+    "npx",
+    ["wrangler", "d1", "export", databaseName, "--remote", "--config", config,
+      "--output", outputFile, ...tableArgs, "-y"],
     { stdio: "inherit" }
   );
 }

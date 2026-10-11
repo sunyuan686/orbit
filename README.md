@@ -59,9 +59,21 @@ npm run web:lint
 
 **部署到 Cloudflare（生产环境）**
 
-公开版本默认不执行自动部署。配置 `wrangler.toml` 中的数据库 ID、域名和 `BETTER_AUTH_URL`，按需填写自己生成的 VAPID 公钥，并设置下列 Secrets 后，将仓库变量 `ENABLE_DEPLOY` 设为 `true`，即可在 push 到 `main` 时自动部署。
+所有仓库使用相同的 `wrangler.toml` 模板和 workflow，不把实际部署参数写入 Git。
 
-首次部署需在 `wrangler.toml` 中替换 `REPLACE_WITH_YOUR_D1_DATABASE_ID`，并通过 `wrangler secret put BETTER_AUTH_SECRET` 设置密钥。
+GitHub Actions 配置：
+
+| 位置 | 参数 |
+| --- | --- |
+| Repository Variables | `ORBIT_D1_DATABASE_ID`、`ORBIT_SITE_URL`（HTTPS 域名地址）、`ORBIT_VAPID_PUBLIC_KEY`（不启用 Web Push 时留空） |
+| Repository Secrets | `CF_ACCOUNT_ID`、`CF_API_TOKEN`、`VITE_TURNSTILE_SITE_KEY` |
+| 执行开关 | 部署仓库设置 `ENABLE_DEPLOY=true`；唯一发版仓库设置 `ENABLE_RELEASE=true`，其余仓库保持关闭 |
+
+启用部署后，push 到 `main` 会生成被 Git 忽略的 `wrangler.local.toml`，完成前端构建、D1 前置备份与增量迁移，再发布 Worker。Worker 密钥（如 `BETTER_AUTH_SECRET`、`TURNSTILE_SECRET_KEY`、`VAPID_PRIVATE_KEY`）通过 Cloudflare Secrets 配置。
+
+本地部署：将 `.env.example` 中的三个 `ORBIT_*` 参数填写到 `.env.deploy.local`，依次运行 `npm run web:build`、`npm run db:migrate:remote` 和 `npm run deploy`。单独生成配置用 `npm run deploy:config`；手动 Wrangler 命令须加 `--config wrangler.local.toml`。远程数据库 npm 脚本会自动生成并使用该配置。
+
+发版沿用 private 作为唯一来源，public 同步版本文件。release-please 自动生成 CHANGELOG 后，会移除依赖特定仓库提交、PR 和比较页面的链接，保留版本与变更说明；同步时不再改写文件。
 
 ---
 

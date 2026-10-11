@@ -5,8 +5,9 @@
  */
 import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { exportRemoteD1Backup } from "./d1-backup-helper.js";
+import { prepareDeployConfig } from "./deploy-config.js";
 
 function getTimestampString(): string {
   const now = new Date();
@@ -17,6 +18,7 @@ function getTimestampString(): string {
 }
 
 async function main() {
+  const config = prepareDeployConfig();
   console.log("── 开始执行线上 Cloudflare D1 安全迁移流程 ──\n");
 
   // Step 1: 强制前置备份
@@ -30,7 +32,7 @@ async function main() {
 
   console.log("Step 1/2: 正在执行强制前置备份 (导出全部实体表数据)...");
   try {
-    exportRemoteD1Backup(outputFile);
+    exportRemoteD1Backup(outputFile, "orbit-db", config);
     console.log(`\x1b[32m✅ 线上前置备份成功，已落盘至: ${outputFile}\x1b[0m\n`);
   } catch (err) {
     console.error(
@@ -43,8 +45,9 @@ async function main() {
   // Step 2: 正式应用迁移
   console.log("Step 2/2: 正在应用远程 D1 数据库迁移 (wrangler d1 migrations apply)...");
   try {
-    execSync(
-      `npx wrangler d1 migrations apply orbit-db --remote`,
+    execFileSync(
+      "npx",
+      ["wrangler", "d1", "migrations", "apply", "orbit-db", "--remote", "--config", config],
       { stdio: "inherit" }
     );
     console.log(`\n\x1b[32m🎉 线上 D1 数据库迁移全部顺利完成！\x1b[0m\n`);

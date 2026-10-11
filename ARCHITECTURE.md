@@ -25,7 +25,8 @@
 
 - **共享 API**：`src/api/`，Node.js Server 与 Worker 复用同一套路由
 - **认证**：`better-auth`，邮箱 + 密码，最多 2 个账号（情侣专属）；开通与署名见 [009-space-onboarding.md](./features/009-space-onboarding.md)
-- **部署**：push 到 `main` → GitHub Actions 自动 `wrangler deploy`（见 `.github/workflows/deploy.yml`）
+- **部署**：`ENABLE_DEPLOY=true` 的仓库在 push 到 `main` 后，从仓库 Variables 生成被忽略的 `wrangler.local.toml`，完成备份、迁移与部署；源码只保存通用模板（见 `.github/workflows/deploy.yml`）。
+- **发版**：仅 private 设置 `ENABLE_RELEASE=true`，统一生成不含仓库历史链接的 CHANGELOG；public 同步相同版本文件。
 
 ---
 
