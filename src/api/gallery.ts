@@ -32,8 +32,8 @@ export function createGalleryRoutes(
     const filter = parseFilter(c.req.query("filter"));
     const limitParam = c.req.query("limit");
     const offsetParam = c.req.query("offset");
-    const limit = limitParam ? parseInt(limitParam, 10) : 48;
-    const offset = offsetParam ? parseInt(offsetParam, 10) : 0;
+    const limit = Math.min(Math.max(1, limitParam ? parseInt(limitParam, 10) || 48 : 48), 100);
+    const offset = Math.max(0, offsetParam ? parseInt(offsetParam, 10) || 0 : 0);
 
     try {
       const { items, total } = await listGalleryItems(db, {

@@ -47,6 +47,7 @@ export async function executeTavilySearch(
       search_depth: "basic",
       max_results: 5,
     }),
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!res.ok) {
@@ -81,6 +82,7 @@ export async function executeBraveSearch(
       Accept: "application/json",
       "X-Subscription-Token": apiKey,
     },
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!res.ok) {

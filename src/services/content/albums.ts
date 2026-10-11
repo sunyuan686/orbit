@@ -1,8 +1,9 @@
 import { and, asc, count, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { album, albumAsset, asset, user } from "../../db/schema.js";
 import { generateId } from "../../lib/id.js";
-import { listImageUrl, publicAssetUrl } from "../../lib/gallery-keys.js";
+import { listImageUrl, normalizeStorageKey, publicAssetUrl } from "../../lib/gallery-keys.js";
 import { loadUserNameMap, resolveUserName } from "../../lib/author-present.js";
+import { loadSourcesForKeys, type GallerySource } from "./gallery.js";
 
 export const SYSTEM_ALL_ALBUM_ID = "all";
 
@@ -38,6 +39,7 @@ export interface AlbumPhotoItem {
   blurhash: string | null;
   caption: string | null;
   createdAt: number;
+  sources?: GallerySource[];
 }
 
 export interface AlbumDetail extends AlbumSummary {
@@ -45,7 +47,7 @@ export interface AlbumDetail extends AlbumSummary {
 }
 
 export async function listAlbums(db: any): Promise<AlbumSummary[]> {
-  // 1. 统计全量图片类 asset，构造置顶的系统默认相册《生活留影》
+  // 1. 统计全量图片类 asset，构造置顶的系统默认相册《全部照片》
   const totalRes = await db
     .select({ total: count(asset.id) })
     .from(asset)
@@ -66,7 +68,7 @@ export async function listAlbums(db: any): Promise<AlbumSummary[]> {
   const firstLatest = latestAsset[0];
   const systemAlbum: AlbumSummary = {
     id: SYSTEM_ALL_ALBUM_ID,
-    title: "生活留影",
+    title: "全部照片",
     description: null,
     coverUrl: firstLatest ? listImageUrl(firstLatest.storageKey, firstLatest.hasThumb) : null,
     coverStorageKey: firstLatest?.storageKey ?? null,
@@ -188,6 +190,9 @@ export async function getAlbum(db: any, albumId: string): Promise<AlbumDetail | 
       .where(imageAssetCondition)
       .orderBy(desc(asset.createdAt));
 
+    const keys = photoRows.map((p: any) => p.storageKey);
+    const sourcesByKey = await loadSourcesForKeys(db, keys);
+
     const photos: AlbumPhotoItem[] = photoRows.map((p: any) => ({
       id: p.assetId,
       assetId: p.assetId,
@@ -199,6 +204,7 @@ export async function getAlbum(db: any, albumId: string): Promise<AlbumDetail | 
       blurhash: p.blurhash,
       caption: null,
       createdAt: p.createdAt,
+      sources: sourcesByKey.get(normalizeStorageKey(p.storageKey)) ?? [],
     }));
 
     const coverUrl = photos.length > 0 ? photos[0].thumbUrl : null;
@@ -206,7 +212,7 @@ export async function getAlbum(db: any, albumId: string): Promise<AlbumDetail | 
 
     return {
       id: SYSTEM_ALL_ALBUM_ID,
-      title: "生活留影",
+      title: "全部照片",
       description: null,
       coverUrl,
       coverStorageKey,
@@ -250,6 +256,9 @@ export async function getAlbum(db: any, albumId: string): Promise<AlbumDetail | 
   const nameMap = await loadUserNameMap(db, [row.createdByUserId]);
   const authorName = resolveUserName(nameMap, row.createdByUserId, row.author) || row.author || "";
 
+  const customKeys = photoRows.map((p: any) => p.storageKey);
+  const customSourcesByKey = await loadSourcesForKeys(db, customKeys);
+
   const photos: AlbumPhotoItem[] = photoRows.map((p: any) => ({
     id: p.linkId,
     assetId: p.assetId,
@@ -261,6 +270,7 @@ export async function getAlbum(db: any, albumId: string): Promise<AlbumDetail | 
     blurhash: p.blurhash,
     caption: p.caption,
     createdAt: p.createdAt,
+    sources: customSourcesByKey.get(normalizeStorageKey(p.storageKey)) ?? [],
   }));
 
   let coverUrl: string | null = null;

@@ -163,7 +163,7 @@ API：`/api/memories/*`（summary / nodes / milestones / themes 等），见 [01
 | `payload` | 候选上下文 JSON |
 | `status` | `sent` \| `skipped` \| `failed` |
 
-调度：生产环境使用 Cloudflare Durable Object Alarm（`CompanionScheduler`）动态排程，配置由 `settings` 表保存，设置页为 `/settings?tab=companion`。
+调度：生产环境使用无状态 Cloudflare Workers Cron Trigger（`0 * * * *` 每小时定时触发），配置由 `settings` 表保存，Worker 按时区和配额判断投递窗口，设置页为 `/settings?tab=companion`。
 
 ### ai_message
 

@@ -76,7 +76,7 @@ async function selectInChunks<T>(
   return out;
 }
 
-async function loadSourcesForKeys(
+export async function loadSourcesForKeys(
   db: any,
   storageKeys: string[]
 ): Promise<Map<string, GallerySource[]>> {

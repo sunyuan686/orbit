@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 
 const XL_MEDIA = "(min-width: 1280px)";
 const MD_MAX_MEDIA = "(max-width: 767px)";
+const SM_MAX_MEDIA = "(max-width: 639px)";
 
-function useMediaQuery(query: string): boolean {
+export function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(() => {
     if (typeof window === "undefined") {
       return false;
@@ -20,6 +21,10 @@ function useMediaQuery(query: string): boolean {
   }, [query]);
 
   return matches;
+}
+
+export function useIsMobileView(): boolean {
+  return useMediaQuery(SM_MAX_MEDIA);
 }
 
 export function useMaxWidthMd(): boolean {

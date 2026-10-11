@@ -19,7 +19,7 @@
 ## 2. 唯一真相源架构 (Single Source of Truth)
 
 全站所有系统操作、功能按钮与业务内容图标，**100% 集中收纳于唯一入口组件**：
-[`web/src/components/OrbitIcons.tsx`](file:///Users/sunyuan/Desktop/project/orbit/web/src/components/OrbitIcons.tsx)。
+[`web/src/components/OrbitIcons.tsx`](../../web/src/components/OrbitIcons.tsx)。
 
 ### 技术与样式铁律
 

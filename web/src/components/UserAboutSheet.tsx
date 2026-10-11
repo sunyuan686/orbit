@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Modal } from "./ui/Modal";
 import { Button, Textarea } from "./ui";
 import { updateAccountAbout, type SpaceAuthor } from "../lib/api";
+import { getDefaultAvatar } from "../lib/presetAvatars";
 import { useToast } from "../hooks/useToast";
 
 export interface UserAboutSheetProps {
@@ -100,6 +101,16 @@ export function UserAboutSheet({
         ) : undefined
       }
     >
+      <div className="flex justify-center mb-4">
+        <img
+          src={author.image || getDefaultAvatar(author.id)}
+          alt={author.name}
+          className="w-14 h-14 rounded-full object-cover bg-[var(--color-surface-raised)] border border-[var(--color-border-light)] shadow-xs"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = getDefaultAvatar(author.id);
+          }}
+        />
+      </div>
       {isEditing ? (
         <div className="space-y-3">
           <Textarea

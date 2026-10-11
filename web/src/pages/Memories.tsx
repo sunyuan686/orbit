@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getSpaceYear } from "@orbit/shared";
-
 import {
   TYPE_LABEL,
   celebrateMemoryMilestones,
   fetchActivityStats,
   fetchMemoryMilestones,
-  fetchMemoryNodes,
+  fetchMemorySky,
   fetchMemorySummary,
   formatDate,
   getApiErrorMessage,
   shouldToastApiError,
-  type MemoryNode,
+  type MemorySkyDay,
+  type MemorySkyEntry,
   type MemorySummary,
   type MilestoneUnlock,
 } from "../lib/api";
@@ -23,20 +22,13 @@ import { useToast } from "../hooks/useToast";
 import { MilestoneCelebrate } from "../components/MilestoneCelebrate";
 import { ActivityHeatmap } from "../components/ActivityHeatmap";
 import { Container, Section, Card, CardBody, Stack } from "../components/ui";
-import { GalleryImage } from "../components/GalleryImage";
-
-const TYPE_TABS = [
-  { key: "all", label: "全部" },
-  { key: "moment", label: TYPE_LABEL.moment },
-  { key: "letter", label: TYPE_LABEL.letter },
-] as const;
 
 interface DayCluster {
   date: string;
   count: number;
   weight: number;
   dominantType: string;
-  nodes: MemoryNode[];
+  entries: MemorySkyEntry[];
   /** 星在天幕里的坐标（百分比）：x 按时间从左到右，y 伪随机散布 */
   x: number;
   y: number;
@@ -46,8 +38,6 @@ interface DayCluster {
 
 interface SkyModel {
   days: DayCluster[];
-  /** 年份刻度（天幕底部的淡淡坐标） */
-  yearTicks: { label: string; x: number }[];
 }
 
 /** 稳定伪随机：同一日期永远落在同一位置 */
@@ -60,26 +50,24 @@ function hash01(seed: string, salt = 0): number {
   return ((h >>> 0) % 1000) / 1000;
 }
 
-function nodeLabel(node: MemoryNode): string {
-  return node.title?.trim() || node.snippet || formatDate(node.occurredAt);
+function entryLabel(entry: MemorySkyEntry): string {
+  return entry.title?.trim() || entry.snippet || formatDate(entry.occurredAt);
 }
 
 const DAY_MS = 86_400_000;
 
 /**
- * 斥力松弛：把挤在一起的星推开到最小间距。
+ * 斥力松弛：基于真实物理画布比例，把挤在一起的星推开到舒适间距。
  */
-function relaxOverlaps(days: DayCluster[]) {
-  const PX_X = 6.6;
-  const PX_Y = 3.8;
-  const MIN_DIST = 21;
-  for (let iter = 0; iter < 4; iter++) {
+function relaxOverlaps(days: DayCluster[], pxX = 3.6, pxY = 3.2) {
+  const MIN_DIST = 22; // 像素级最小间距（30 颗星拥有充足留白，22px 保证每颗星从容呼吸）
+  for (let iter = 0; iter < 6; iter++) {
     for (let i = 0; i < days.length; i++) {
       for (let j = i + 1; j < days.length; j++) {
         const a = days[i];
         const b = days[j];
-        let dx = (a.x - b.x) * PX_X;
-        let dy = (a.y - b.y) * PX_Y;
+        let dx = (a.x - b.x) * pxX;
+        let dy = (a.y - b.y) * pxY;
         let dist = Math.hypot(dx, dy);
         if (dist >= MIN_DIST) continue;
         if (dist < 0.01) {
@@ -88,73 +76,96 @@ function relaxOverlaps(days: DayCluster[]) {
           dist = Math.hypot(dx, dy);
         }
         const push = (MIN_DIST - dist) / 2 / dist;
-        a.x = Math.min(97, Math.max(3, a.x + (dx * push * 0.5) / PX_X));
-        b.x = Math.min(97, Math.max(3, b.x - (dx * push * 0.5) / PX_X));
-        a.y = Math.min(86, Math.max(8, a.y + (dy * push) / PX_Y));
-        b.y = Math.min(86, Math.max(8, b.y - (dy * push) / PX_Y));
+        a.x = Math.min(96, Math.max(4, a.x + (dx * push * 0.7) / pxX));
+        b.x = Math.min(96, Math.max(4, b.x - (dx * push * 0.7) / pxX));
+        a.y = Math.min(88, Math.max(14, a.y + (dy * push * 0.9) / pxY));
+        b.y = Math.min(88, Math.max(14, b.y - (dy * push * 0.9) / pxY));
       }
     }
   }
 }
 
-function buildSky(nodes: MemoryNode[]): SkyModel {
-  const dayMap = new Map<string, DayCluster>();
+/**
+ * 从全量日子中精选 28~32 颗高光与温情漫游星辰：
+ * 1. 优先保全重要高光日（多瞬间与里程碑）；
+ * 2. 分段等距随机采样各时期的岁月瞬间（实现随机回忆与时空偶遇）；
+ * 3. 严格控制全屏数量在 30 颗左右，彻底消除密集感与拥挤。
+ */
+function sampleConstellation(
+  days: MemorySkyDay[],
+  target = 30,
+  seed = 0
+): MemorySkyDay[] {
+  if (days.length <= target) return days;
+  const priority = days.filter((d) => d.count >= 3 || d.weight >= 2);
+  const prioritySet = new Set(priority.map((d) => d.date));
+  const remaining = days.filter((d) => !prioritySet.has(d.date));
 
-  for (const node of nodes) {
-    const date = formatDate(node.occurredAt);
-    const existing = dayMap.get(date);
-    if (existing) {
-      existing.count += 1;
-      existing.weight = Math.max(existing.weight, node.weight);
-      existing.nodes.push(node);
-      continue;
+  let picked: MemorySkyDay[] = [];
+  if (priority.length >= target) {
+    // 高光日过多时，分桶等距抽样 target 颗，确保全时间段覆盖
+    const bucketSize = priority.length / target;
+    for (let i = 0; i < target; i++) {
+      const idx = Math.min(priority.length - 1, Math.floor(i * bucketSize));
+      picked.push(priority[idx]);
     }
-    dayMap.set(date, {
-      date,
-      count: 1,
-      weight: node.weight,
-      dominantType: node.contentType,
-      nodes: [node],
-      x: 0,
-      y: 12 + hash01(date) * 72,
-      phase: hash01(date, 7),
-    });
+  } else {
+    picked = [...priority];
+    const needed = target - picked.length;
+    if (needed > 0 && remaining.length > 0) {
+      const bucketSize = remaining.length / needed;
+      for (let i = 0; i < needed; i++) {
+        const start = Math.floor(i * bucketSize);
+        const end = Math.min(remaining.length, Math.floor((i + 1) * bucketSize));
+        // 使用种子加权取样，实现随机漫步偶遇回忆
+        const offset = hash01(`${seed}-${i}`, 79);
+        const idx = Math.min(
+          end - 1,
+          start + Math.floor(offset * Math.max(1, end - start))
+        );
+        picked.push(remaining[idx]);
+      }
+    }
   }
 
-  const days = [...dayMap.values()].sort((a, b) => a.date.localeCompare(b.date));
-  if (days.length === 0) return { days, yearTicks: [] };
+  return picked.sort((a, b) => a.date.localeCompare(b.date));
+}
 
-  for (const day of days) {
-    const counts: Record<string, number> = {};
-    for (const node of day.nodes) {
-      counts[node.contentType] = (counts[node.contentType] ?? 0) + 1;
-    }
-    day.dominantType = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
-    day.nodes.sort((a, b) => b.occurredAt - a.occurredAt);
-  }
+function buildSky(rawDays: MemorySkyDay[], seed = 0): SkyModel {
+  if (rawDays.length === 0) return { days: [] };
 
-  // x：时间轴左旧右新，加一点 hash 抖动避免排成直线
-  const minT = Date.parse(days[0].date);
-  const maxT = Date.parse(days[days.length - 1].date);
+  const sampledDays = sampleConstellation(rawDays, 30, seed);
+
+  const days: DayCluster[] = sampledDays.map((day) => ({
+    ...day,
+    x: 0,
+    y: 16 + hash01(day.date) * 66,
+    phase: hash01(day.date, 7),
+  }));
+
+  const minT = Date.parse(rawDays[0].date);
+  const maxT = Date.parse(rawDays[rawDays.length - 1].date);
   const span = Math.max(maxT - minT, DAY_MS);
-  for (const day of days) {
-    const t = (Date.parse(day.date) - minT) / span;
+  const N = days.length;
+
+  for (let i = 0; i < N; i++) {
+    const day = days[i];
+    const tTime = (Date.parse(day.date) - minT) / span;
+    const tRank = N > 1 ? i / (N - 1) : 0.5;
+    // 50% 时间线性 + 50% 序号分位数，严格保序（左旧右新）同时平滑舒展
+    const tBlend = 0.5 * tTime + 0.5 * tRank;
     const jitter = (hash01(day.date, 13) - 0.5) * 2.4;
-    day.x = Math.min(97, Math.max(3, 3 + t * 94 + jitter));
+    day.x = Math.min(96, Math.max(4, 4 + tBlend * 92 + jitter));
+    // 避让右上角圆月区域
+    if (day.x > 84 && day.y < 28) {
+      day.y = 28 + hash01(day.date, 11) * 54;
+    }
   }
 
-  relaxOverlaps(days);
+  // 物理碰撞松弛（30 颗星在 100% 容器内，间距极其充裕舒朗）
+  relaxOverlaps(days, 3.6, 3.2);
 
-  const yearTicks: { label: string; x: number }[] = [];
-  const firstYear = Number(days[0].date.slice(0, 4));
-  const lastYear = Number(days[days.length - 1].date.slice(0, 4));
-  for (let year = firstYear + 1; year <= lastYear; year++) {
-    const t = (Date.parse(`${year}-01-01`) - minT) / span;
-    const x = 3 + t * 94;
-    if (x >= 6 && x <= 94) yearTicks.push({ label: `${year}`, x });
-  }
-
-  return { days, yearTicks };
+  return { days };
 }
 
 function DayStarButton({
@@ -182,7 +193,10 @@ function DayStarButton({
           "--star-rot": `${((day.phase - 0.5) * 36).toFixed(0)}deg`,
         } as React.CSSProperties
       }
-      onClick={onSelect}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect();
+      }}
       aria-pressed={active}
       aria-label={`${day.date}，${day.count} 个瞬间`}
       title={`${day.date} · ${day.count} 个瞬间`}
@@ -236,15 +250,6 @@ export function MemoriesPage() {
   const [celebrateItems, setCelebrateItems] = useState<MilestoneUnlock[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  const [typeKey, setTypeKey] = useState<(typeof TYPE_TABS)[number]["key"]>("all");
-  const [year, setYear] = useState<number | "all">("all");
-
-  const years = useMemo(() => {
-    const current = getSpaceYear();
-    return [current, current - 1, current - 2, current - 3];
-  }, []);
-
-
   const dismissCelebrate = useCallback(() => {
     setCelebrateItems([]);
   }, []);
@@ -253,28 +258,13 @@ export function MemoriesPage() {
     setPageTitle("恋爱记忆");
   }, []);
 
-  const nodeType = typeKey === "all" ? undefined : typeKey;
-  const archiveParams = useMemo(
-    () => ({
-      limit: 60,
-      offset: 0,
-      type: nodeType,
-      year: year === "all" ? undefined : year,
-    }),
-    [nodeType, year]
-  );
-
   const summaryQuery = useQuery({
     queryKey: queryKeys.memorySummary,
     queryFn: fetchMemorySummary,
   });
-  const skyNodesQuery = useQuery({
-    queryKey: queryKeys.memoryNodes({ limit: 400, offset: 0 }),
-    queryFn: () => fetchMemoryNodes({ limit: 400, offset: 0 }),
-  });
-  const archiveQuery = useQuery({
-    queryKey: queryKeys.memoryNodes(archiveParams),
-    queryFn: () => fetchMemoryNodes(archiveParams),
+  const skyQuery = useQuery({
+    queryKey: queryKeys.memorySky,
+    queryFn: fetchMemorySky,
   });
   const milestonesQuery = useQuery({
     queryKey: queryKeys.memoryMilestones,
@@ -286,9 +276,9 @@ export function MemoriesPage() {
   });
 
   const loading =
-    summaryQuery.isPending || skyNodesQuery.isPending || milestonesQuery.isPending;
+    summaryQuery.isPending || skyQuery.isPending || milestonesQuery.isPending;
   const error =
-    summaryQuery.error || skyNodesQuery.error || milestonesQuery.error;
+    summaryQuery.error || skyQuery.error || milestonesQuery.error;
 
   useEffect(() => {
     if (!error || toastedError.current === error) return;
@@ -312,17 +302,11 @@ export function MemoriesPage() {
   }, [milestonesQuery.data, queryClient]);
 
   const summary = summaryQuery.data ?? null;
-  const skyNodes = skyNodesQuery.data?.nodes ?? [];
-  const total = skyNodesQuery.data?.total ?? 0;
-
-  const archiveNodes = archiveQuery.data?.nodes ?? [];
-  const archiveTotal = archiveQuery.data?.total ?? 0;
-  const archiveLoading = archiveQuery.isPending;
-
   const milestones = milestonesQuery.data?.milestones ?? [];
-
-  const sky = useMemo(() => buildSky(skyNodes), [skyNodes]);
-  const litDays = sky.days.length;
+  const skyDays = skyQuery.data?.days;
+  const [skySeed] = useState(() => Math.floor(Math.random() * 10000));
+  const sky = useMemo(() => buildSky(skyDays ?? [], skySeed), [skyDays, skySeed]);
+  const litDays = skyQuery.data?.totalDays ?? sky.days.length;
   const selectedDay = useMemo(
     () => sky.days.find((day) => day.date === selectedDate) ?? null,
     [sky, selectedDate]
@@ -334,12 +318,12 @@ export function MemoriesPage() {
         <MilestoneCelebrate items={celebrateItems} onDone={dismissCelebrate} />
       ) : null}
 
-      <Stack gap="2xl">
+      <Stack gap="xl">
         <MemoryHeader summary={summary} />
 
         {loading ? (
           <p className="orbit-muted">点亮星图中…</p>
-        ) : skyNodes.length === 0 ? (
+        ) : sky.days.length === 0 ? (
           <p className="orbit-muted">
             还没有瞬间。去写一篇日记或一封信，第一颗星就亮了。
           </p>
@@ -348,16 +332,17 @@ export function MemoriesPage() {
             {/* 1. 浪漫天幕星空 */}
             <Section
               title="记忆星空"
-              description={`我们一起点亮了 ${litDays} 个日子${
-                total > skyNodes.length
-                  ? `（展示最近 ${skyNodes.length} / 共 ${total} 篇）`
-                  : ""
-              }`}
+              description={
+                litDays > 0 ? `我们一起点亮了 ${litDays} 个日子` : undefined
+              }
             >
               <div className="orbit-memory-sky" aria-label="按日星图">
                 <div className="orbit-memory-sky-moon" aria-hidden />
 
-                <div className="orbit-memory-field">
+                <div
+                  className="orbit-memory-field"
+                  onClick={() => setSelectedDate(null)}
+                >
                   {sky.days.map((day) => (
                     <DayStarButton
                       key={day.date}
@@ -367,16 +352,6 @@ export function MemoriesPage() {
                         setSelectedDate(selectedDate === day.date ? null : day.date)
                       }
                     />
-                  ))}
-                  {sky.yearTicks.map((tick) => (
-                    <span
-                      key={tick.label}
-                      className="orbit-memory-year-tick"
-                      style={{ left: `${tick.x}%` }}
-                      aria-hidden
-                    >
-                      {tick.label}
-                    </span>
                   ))}
                 </div>
 
@@ -389,18 +364,18 @@ export function MemoriesPage() {
                       <span>{selectedDay.count} 个瞬间</span>
                     </div>
                     <ul className="orbit-list-plain orbit-memory-day-entries">
-                      {selectedDay.nodes.map((node) => (
-                        <li key={node.id}>
-                          <Link to={node.link} className="orbit-memory-focus-entry">
+                      {selectedDay.entries.map((entry) => (
+                        <li key={entry.id}>
+                          <Link to={entry.link} className="orbit-memory-focus-entry">
                             <span
-                              className={`orbit-memory-focus-dot orbit-memory-day-star--${node.contentType}`}
+                              className={`orbit-memory-focus-dot orbit-memory-day-star--${entry.contentType}`}
                               aria-hidden
                             />
                             <span className="orbit-memory-focus-type">
-                              {TYPE_LABEL[node.contentType] ?? node.contentType}
+                              {TYPE_LABEL[entry.contentType] ?? entry.contentType}
                             </span>
                             <span className="orbit-entry-title orbit-entry-title-truncate">
-                              {nodeLabel(node)}
+                              {entryLabel(entry)}
                             </span>
                           </Link>
                         </li>
@@ -411,106 +386,7 @@ export function MemoriesPage() {
               </div>
             </Section>
 
-            {/* 2. 记忆档案馆（亲密性：筛选控制器与档案列表紧密聚合） */}
-            <Section
-              title={`回忆档案${archiveLoading ? "" : ` · ${archiveTotal}`}`}
-            >
-              <div className="orbit-memory-filters">
-                <div className="orbit-memory-filter-row" role="tablist" aria-label="类型">
-                  {TYPE_TABS.map((tab) => (
-                    <button
-                      key={tab.key}
-                      type="button"
-                      className={`orbit-memory-chip${typeKey === tab.key ? " is-active" : ""}`}
-                      onClick={() => setTypeKey(tab.key)}
-                    >
-                      {tab.label}
-                      {tab.key !== "all" && summary?.byType[tab.key] != null
-                        ? ` ${summary.byType[tab.key]}`
-                        : ""}
-                    </button>
-                  ))}
-                </div>
-                <div className="orbit-memory-filter-row" role="tablist" aria-label="年份">
-                  <button
-                    type="button"
-                    className={`orbit-memory-chip${year === "all" ? " is-active" : ""}`}
-                    onClick={() => setYear("all")}
-                  >
-                    全部年份
-                  </button>
-                  {years.map((y) => (
-                    <button
-                      key={y}
-                      type="button"
-                      className={`orbit-memory-chip${year === y ? " is-active" : ""}`}
-                      onClick={() => setYear(y)}
-                    >
-                      {y}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {archiveLoading ? (
-                <p className="orbit-muted">加载档案中…</p>
-              ) : archiveNodes.length === 0 ? (
-                <p className="orbit-muted">这个分类下还没有内容</p>
-              ) : (
-                <ul className="orbit-memory-card-grid">
-                  {archiveNodes.map((node) => {
-                    const customTitle = node.title?.trim() || null;
-                    const snippet = node.snippet?.trim() || "";
-
-                    return (
-                      <li key={node.id}>
-                        <Link
-                          to={node.link}
-                          className={`orbit-memory-card${node.coverImage ? " has-cover" : ""}`}
-                        >
-                          {node.coverImage ? (
-                            <GalleryImage
-                              src={node.coverImage}
-                              blurhash={node.coverBlurhash}
-                              width={node.coverWidth}
-                              height={node.coverHeight}
-                              className="orbit-memory-card-cover"
-                            />
-                          ) : null}
-                          <div className="orbit-memory-card-body">
-                            <div className="orbit-memory-card-header">
-                              <span className="orbit-home-recent-type">
-                                {TYPE_LABEL[node.contentType] ?? node.contentType}
-                              </span>
-                              {node.author && (
-                                <span className="orbit-memory-card-author">@{node.author}</span>
-                              )}
-                            </div>
-                            {customTitle ? (
-                              <>
-                                <h4 className="orbit-memory-card-title">{customTitle}</h4>
-                                {snippet && (
-                                  <p className="orbit-memory-card-snippet">{snippet}</p>
-                                )}
-                              </>
-                            ) : (
-                              <p className="orbit-memory-card-body-text">
-                                {snippet || "（查看瞬间）"}
-                              </p>
-                            )}
-                            <span className="orbit-memory-card-date">
-                              {formatDate(node.occurredAt)}
-                            </span>
-                          </div>
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </Section>
-
-            {/* 3. 相伴成就与里程碑 */}
+            {/* 2. 相伴成就与里程碑 */}
             {milestones.length > 0 ? (
               <Section
                 title={`相伴成就与里程碑 · ${milestones.length}`}
@@ -532,7 +408,7 @@ export function MemoriesPage() {
               </Section>
             ) : null}
 
-            {/* 4. 总体记录热力图 */}
+            {/* 3. 总体记录热力图 */}
             {activityQuery.data?.days ? (
               <Section
                 title="总体记录热力"

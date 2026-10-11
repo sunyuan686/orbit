@@ -17,6 +17,7 @@ import {
   getTenantAccessToken,
   sendFeishuInteractiveCard,
 } from "../feishu/feishu-api.js";
+import { unixToDateKey } from "@orbit/shared";
 
 export const MEMORY_ENTRY_TYPES = ACTIVITY_ENTRY_TYPES;
 
@@ -79,6 +80,29 @@ export interface ListMemoryNodesResult {
   total: number;
   limit: number;
   offset: number;
+}
+
+export interface MemorySkyEntry {
+  id: string;
+  contentType: string;
+  title: string | null;
+  snippet: string;
+  occurredAt: number;
+  link: string;
+}
+
+export interface MemorySkyDay {
+  date: string;
+  count: number;
+  dominantType: string;
+  weight: MemoryWeight;
+  entries: MemorySkyEntry[];
+}
+
+export interface MemorySkyResult {
+  days: MemorySkyDay[];
+  totalDays: number;
+  totalEntries: number;
 }
 
 const SNIPPET_LEN = 80;
@@ -829,6 +853,94 @@ export function layoutTimeline(
   });
 
   return { width, height, nodes: laidOut };
+}
+
+/**
+ * 记忆星空（第一性原理全量天幕）：
+ * 按自然日聚合所有瞬间，轻量输出每个被点亮日子的统计与条目索引。
+ */
+export async function getMemorySky(db: any): Promise<MemorySkyResult> {
+  const rows = await db
+    .select({
+      id: entry.id,
+      type: entry.type,
+      title: entry.title,
+      snippetRaw: sql<string>`substr(coalesce(${entry.bodyText}, ''), 1, 60)`,
+      entryDate: entry.entryDate,
+      createdAt: entry.createdAt,
+    })
+    .from(entry)
+    .where(
+      and(
+        isNull(entry.deletedAt),
+        inArray(entry.type, [...MEMORY_ENTRY_TYPES])
+      )
+    )
+    .orderBy(
+      asc(sql`coalesce(${entry.entryDate}, ${entry.createdAt})`),
+      asc(entry.createdAt)
+    );
+
+  const dayMap = new Map<
+    string,
+    {
+      date: string;
+      typeCounts: Record<string, number>;
+      entries: MemorySkyEntry[];
+    }
+  >();
+
+  for (const row of rows) {
+    const occurredAt = row.entryDate ?? row.createdAt;
+    const date = unixToDateKey(occurredAt);
+    const item: MemorySkyEntry = {
+      id: `entry:${row.id}`,
+      contentType: row.type,
+      title: row.title?.trim() || null,
+      snippet: truncateSnippet(row.snippetRaw),
+      occurredAt,
+      link: `/${row.type}/${row.id}`,
+    };
+
+    let group = dayMap.get(date);
+    if (!group) {
+      group = {
+        date,
+        typeCounts: {},
+        entries: [],
+      };
+      dayMap.set(date, group);
+    }
+    group.entries.push(item);
+    group.typeCounts[row.type] = (group.typeCounts[row.type] ?? 0) + 1;
+  }
+
+  const days: MemorySkyDay[] = Array.from(dayMap.values()).map((group) => {
+    group.entries.sort((a, b) => b.occurredAt - a.occurredAt);
+
+    const dominantType =
+      Object.entries(group.typeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ??
+      "moment";
+
+    const count = group.entries.length;
+    const weight: MemoryWeight = count >= 4 ? 3 : count >= 2 ? 2 : 1;
+
+    return {
+      date: group.date,
+      count,
+      dominantType,
+      weight,
+      entries: group.entries,
+    };
+  });
+
+  days.sort((a, b) => a.date.localeCompare(b.date));
+
+  return {
+    days,
+    totalDays: days.length,
+    totalEntries: rows.length,
+  };
 }
 
 

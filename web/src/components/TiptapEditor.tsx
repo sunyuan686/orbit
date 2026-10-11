@@ -54,6 +54,7 @@ export interface TiptapEditorHandle {
   focusSelection: (selection?: EditorSelection | null) => void;
   getEditor: () => Editor | null;
   insertTextAtCursor: (text: string) => void;
+  hasPendingUploads: () => boolean;
 }
 
 interface Props {
@@ -87,6 +88,8 @@ interface Props {
   canEditAudioTranscript?: boolean;
   /** 语音转写文稿就地更新回调（详情页模式下触发后端持久化） */
   onUpdateAudioTranscript?: (options: { src: string; transcript: string; html: string }) => Promise<void> | void;
+  /** 媒体上传就绪状态变更回调 */
+  onUploadStateChange?: (uploading: boolean) => void;
 }
 
 export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function TiptapEditor(
@@ -114,6 +117,7 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
     onEditorCreate,
     canEditAudioTranscript,
     onUpdateAudioTranscript,
+    onUploadStateChange,
   },
   ref,
 ) {
@@ -146,6 +150,34 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
     onUpdateAudioTranscriptRef.current = onUpdateAudioTranscript;
   }, [onUpdateAudioTranscript]);
 
+  const onUploadStateChangeRef = useRef(onUploadStateChange);
+  useEffect(() => {
+    onUploadStateChangeRef.current = onUploadStateChange;
+  }, [onUploadStateChange]);
+
+  const pendingUploadsRef = useRef(0);
+  const startUpload = useCallback(() => {
+    pendingUploadsRef.current++;
+    if (pendingUploadsRef.current === 1) {
+      onUploadStateChangeRef.current?.(true);
+    }
+  }, []);
+
+  const endUpload = useCallback(() => {
+    pendingUploadsRef.current = Math.max(0, pendingUploadsRef.current - 1);
+    if (pendingUploadsRef.current === 0) {
+      onUploadStateChangeRef.current?.(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (pendingUploadsRef.current > 0) {
+        onUploadStateChangeRef.current?.(false);
+      }
+    };
+  }, []);
+
   const inlineCommentKey = useMemo(
     () =>
       inlineComments
@@ -156,74 +188,81 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
 
   const uploadMediaToEditor = useCallback(
     async (ed: Editor, file: File) => {
-      const mediaType = resolveMediaType({ file });
-      if (mediaType === "video") {
-        try {
-          const res = await uploadAsset(file, entryId);
-          if (!ed.isDestroyed) {
-            ed.chain().focus().setVideo({ src: res.url }).run();
-          }
-        } catch (err) {
-          toast.error(getApiErrorMessage(err, "视频上传失败"));
-        }
-        return;
-      }
-
-      if (mediaType === "audio") {
-        try {
-          const res = await uploadAsset(file, entryId);
-          if (!ed.isDestroyed) {
-            ed.chain().focus().setAudio({ src: res.url, transcript: res.transcript ?? undefined }).run();
-          }
-        } catch (err) {
-          toast.error(getApiErrorMessage(err, "音频上传失败"));
-        }
-        return;
-      }
-
-      const blobUrl = URL.createObjectURL(file);
-      ed.chain().focus().setImage({ src: blobUrl }).run();
-
+      startUpload();
       try {
-        const res = await uploadAsset(file, entryId);
-        // 先预加载正式 URL，再换 src，避免 blob→远程替换时闪白
-        // 用 createElement，避免与 TipTap Image 扩展同名冲突
-        await new Promise<void>((resolve) => {
-          const img = document.createElement("img");
-          img.onload = () => resolve();
-          img.onerror = () => resolve();
-          img.src = res.url;
-        });
-        if (ed.isDestroyed) return;
-        ed.view.state.doc.descendants((node, pos) => {
-          if (node.type.name === "image" && node.attrs.src === blobUrl) {
-            const tr = ed.view.state.tr.setNodeMarkup(pos, undefined, {
-              ...node.attrs,
-              src: res.url,
-              width: res.width ?? node.attrs.width,
-              height: res.height ?? node.attrs.height,
-              blurhash: res.blurhash ?? node.attrs.blurhash,
-            });
-            ed.view.dispatch(tr);
-            return false;
+        const mediaType = resolveMediaType({ file });
+        if (mediaType === "video") {
+          try {
+            const res = await uploadAsset(file, entryId);
+            if (!ed.isDestroyed) {
+              ed.chain().focus().setVideo({ src: res.url }).run();
+            }
+          } catch (err) {
+            toast.error(getApiErrorMessage(err, "视频上传失败"));
           }
-        });
-      } catch (err) {
-        if (!ed.isDestroyed) {
+          return;
+        }
+
+        if (mediaType === "audio") {
+          try {
+            const res = await uploadAsset(file, entryId);
+            if (!ed.isDestroyed) {
+              ed.chain().focus().setAudio({ src: res.url, transcript: res.transcript ?? undefined }).run();
+            }
+          } catch (err) {
+            toast.error(getApiErrorMessage(err, "音频上传失败"));
+          }
+          return;
+        }
+
+        const blobUrl = URL.createObjectURL(file);
+        ed.chain().focus().setImage({ src: blobUrl }).run();
+
+        try {
+          const res = await uploadAsset(file, entryId);
+          // 预加载正式 URL 避免闪白；设置 1500ms 超时，避免弱网下载原图无限阻塞替换
+          await Promise.race([
+            new Promise<void>((resolve) => {
+              const img = document.createElement("img");
+              img.onload = () => resolve();
+              img.onerror = () => resolve();
+              img.src = res.url;
+            }),
+            new Promise<void>((resolve) => setTimeout(resolve, 1500)),
+          ]);
+          if (ed.isDestroyed) return;
           ed.view.state.doc.descendants((node, pos) => {
             if (node.type.name === "image" && node.attrs.src === blobUrl) {
-              const tr = ed.view.state.tr.delete(pos, pos + node.nodeSize);
+              const tr = ed.view.state.tr.setNodeMarkup(pos, undefined, {
+                ...node.attrs,
+                src: res.url,
+                width: res.width ?? node.attrs.width,
+                height: res.height ?? node.attrs.height,
+                blurhash: res.blurhash ?? node.attrs.blurhash,
+              });
               ed.view.dispatch(tr);
               return false;
             }
           });
+        } catch (err) {
+          if (!ed.isDestroyed) {
+            ed.view.state.doc.descendants((node, pos) => {
+              if (node.type.name === "image" && node.attrs.src === blobUrl) {
+                const tr = ed.view.state.tr.delete(pos, pos + node.nodeSize);
+                ed.view.dispatch(tr);
+                return false;
+              }
+            });
+          }
+          toast.error(getApiErrorMessage(err, "图片上传失败"));
+        } finally {
+          URL.revokeObjectURL(blobUrl);
         }
-        toast.error(getApiErrorMessage(err, "图片上传失败"));
       } finally {
-        URL.revokeObjectURL(blobUrl);
+        endUpload();
       }
     },
-    [entryId, toast]
+    [entryId, toast, startUpload, endUpload]
   );
 
   const initialContent = useMemo(() => {
@@ -257,6 +296,7 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
   const handleMediaUpload = useCallback(
     async (file: File) => {
       if (mode === "note") {
+        startUpload();
         try {
           const res = await uploadAsset(file, entryId);
           const type = resolveMediaType({ file, mimeType: res.mimeType, url: res.url });
@@ -272,13 +312,15 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
           setAttachments((prev) => [...prev, newItem]);
         } catch (err) {
           toast.error(getApiErrorMessage(err, "文件上传失败"));
+        } finally {
+          endUpload();
         }
       } else {
         if (!editorRef.current) return;
         void uploadMediaToEditor(editorRef.current, file);
       }
     },
-    [mode, entryId, uploadMediaToEditor, toast]
+    [mode, entryId, uploadMediaToEditor, toast, startUpload, endUpload]
   );
 
   const emitChange = useCallback(
@@ -568,6 +610,7 @@ export const TiptapEditor = forwardRef<TiptapEditorHandle, Props>(function Tipta
         if (!currentEditor || currentEditor.isDestroyed) return;
         currentEditor.chain().focus().insertContent(text).run();
       },
+      hasPendingUploads: () => pendingUploadsRef.current > 0,
     }),
     [onChange, onJsonChange, readEditorSelection],
   );

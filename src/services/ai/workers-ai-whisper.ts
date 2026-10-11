@@ -63,6 +63,7 @@ export async function transcribeAudioWithWorkersAi(
         "Content-Type": "application/octet-stream",
       },
       body: audioBuffer,
+      signal: AbortSignal.timeout(20_000),
     });
     const fetchDurationMs = Date.now() - fetchStart;
     log.info(`[Whisper REST API Network] Cloudflare Workers AI HTTP fetch took ${fetchDurationMs}ms (size: ${audioBuffer.byteLength} bytes)`);

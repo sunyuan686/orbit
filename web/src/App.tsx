@@ -19,17 +19,8 @@ const Login = lazy(() =>
 const Join = lazy(() =>
   import("./pages/Join").then((m) => ({ default: m.Join }))
 );
-const HomePage = lazy(() =>
-  import("./pages/Home").then((m) => ({ default: m.HomePage }))
-);
-const AlbumsPage = lazy(() =>
-  import("./pages/Albums").then((m) => ({ default: m.AlbumsPage }))
-);
 const AlbumDetailPage = lazy(() =>
   import("./pages/AlbumDetail").then((m) => ({ default: m.AlbumDetailPage }))
-);
-const UsPage = lazy(() =>
-  import("./pages/Us").then((m) => ({ default: m.UsPage }))
 );
 const MemoriesPage = lazy(() =>
   import("./pages/Memories").then((m) => ({ default: m.MemoriesPage }))
@@ -57,7 +48,13 @@ function RootShell() {
       void import("./pages/Home");
       void import("./pages/ArticleView");
       void import("./pages/Albums");
+      void import("./pages/AlbumDetail");
       void import("./pages/Us");
+      void import("./pages/ArticleList");
+      void import("./pages/ArticleEdit");
+      void import("./pages/Memories");
+      void import("./pages/Search");
+      void import("./pages/Settings");
     };
     if (typeof window !== "undefined") {
       const win = window as Window & { requestIdleCallback?: (cb: () => void) => number };
@@ -99,21 +96,22 @@ const router = createBrowserRouter(
           </RequireAuth>
         }
       >
-        <Route index element={<HomePage />} />
+        <Route index element={null} />
         <Route path="/moment" element={<Navigate to="/" replace />} />
         <Route path="/diary" element={<Navigate to="/" replace />} />
         <Route path="/timeline" element={<Navigate to="/" replace />} />
         <Route path="/message" element={<Navigate to="/" replace />} />
         <Route path="/memo" element={<Navigate to="/us" replace />} />
-        <Route path="/albums" element={<AlbumsPage />} />
+        <Route path="/albums" element={null} />
         <Route path="/albums/:id" element={<AlbumDetailPage />} />
         <Route path="/gallery" element={<Navigate to="/albums" replace />} />
-        <Route path="/us" element={<UsPage />} />
+        <Route path="/us" element={null} />
         <Route path="/space" element={<Navigate to="/us" replace />} />
         <Route path="/memories" element={<MemoriesPage />} />
         <Route path="/activity" element={<Navigate to="/memories" replace />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/letter" element={null} />
         <Route path="/:type" element={<ArticleList />} />
         <Route path="/:type/new" element={<ArticleEdit />} />
         <Route path="/:type/:id" element={<ArticleView />} />

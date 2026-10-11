@@ -917,7 +917,7 @@ export function AiProvidersSettingsPanel() {
               id="settings-ai-bot-name"
               value={botName}
               onChange={(e) => setBotName(e.target.value)}
-              placeholder="小辛星"
+              placeholder="Orbit"
             />
           </Field>
 

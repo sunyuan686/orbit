@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { openMultiImageLightbox, type LightboxImageItem } from "../lib/lightbox";
+import { isImageCached, markImageCached } from "./GalleryImage";
 import { GalleryIcon, ChevronLeftIcon, ChevronRightIcon } from "./OrbitIcons";
 
 export interface MultiImageDeckItem extends LightboxImageItem {
@@ -162,7 +163,9 @@ export function MultiImageDeck({
                 src={nextItem2.src}
                 alt=""
                 className="w-full h-full object-cover rounded-xl opacity-60"
-                loading="lazy"
+                loading={isImageCached(nextItem2.src) ? "eager" : "lazy"}
+                decoding={isImageCached(nextItem2.src) ? "sync" : "async"}
+                onLoad={() => markImageCached(nextItem2.src)}
               />
             )}
           </div>
@@ -179,7 +182,9 @@ export function MultiImageDeck({
                 src={nextItem1.src}
                 alt=""
                 className="w-full h-full object-cover rounded-xl opacity-75"
-                loading="lazy"
+                loading={isImageCached(nextItem1.src) ? "eager" : "lazy"}
+                decoding={isImageCached(nextItem1.src) ? "sync" : "async"}
+                onLoad={() => markImageCached(nextItem1.src)}
               />
             )}
           </div>
@@ -198,8 +203,9 @@ export function MultiImageDeck({
             src={currentImage.src}
             alt={currentImage.alt || currentImage.caption || `图片 ${currentIndex + 1}`}
             className="orbit-image-deck-img"
-            loading="lazy"
-            decoding="async"
+            loading={isImageCached(currentImage.src) ? "eager" : "lazy"}
+            decoding={isImageCached(currentImage.src) ? "sync" : "async"}
+            onLoad={() => markImageCached(currentImage.src)}
           />
 
           {/* Top Badge: Photo count pill */}

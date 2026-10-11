@@ -1,12 +1,15 @@
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { Hono } from "hono";
 import { createArticlesRoutes } from "../src/api/articles.js";
-import { db } from "../src/db/index.js";
+import { createTestDb } from "./helpers/test-db.js";
+
+const { db, sqlite } = createTestDb();
+after(() => sqlite.close());
 
 const mockSession = {
-  userId: "rvIAlujiOgWfrEsCHZS3MZkMmEs21OVD",
-  author: "小圆子",
+  userId: "test-user",
+  author: "Test User",
 };
 
 describe("Single Draft Buffer API (单草稿断点模型回归测试)", () => {
@@ -83,5 +86,21 @@ describe("Single Draft Buffer API (单草稿断点模型回归测试)", () => {
     assert.equal(checkRes.status, 200);
     const list = (await checkRes.json()) as Array<{ id: string }>;
     assert.ok(!list.some((d) => d.id === draftId), "已删除的草稿不应存在");
+  });
+
+  it("POST /api/articles - 拦截带有 blob: 临时地址的正文提交", async () => {
+    const res = await app.request("/api/articles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "moment",
+        title: "错误包含blob的正文",
+        body: '<p>正文</p><img src="blob:https://example.com/123-abc">',
+        status: "published",
+      }),
+    });
+    assert.equal(res.status, 400);
+    const data = (await res.json()) as { error: string };
+    assert.ok(data.error.includes("blob"));
   });
 });

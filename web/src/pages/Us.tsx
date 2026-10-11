@@ -10,7 +10,7 @@ export function UsPage() {
   }, []);
 
   return (
-    <Container size="standard" className="space-y-6">
+    <Container size="standard" className="space-y-4">
       <SpaceHeroCard />
       <MemoryScratchCard />
     </Container>

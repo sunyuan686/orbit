@@ -1,12 +1,15 @@
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { Hono } from "hono";
 import { createTagsRoutes } from "../src/api/tags.js";
-import { db } from "../src/db/index.js";
+import { createTestDb } from "./helpers/test-db.js";
+
+const { db, sqlite } = createTestDb();
+after(() => sqlite.close());
 
 const mockSession = {
-  userId: "rvIAlujiOgWfrEsCHZS3MZkMmEs21OVD",
-  author: "小圆子",
+  userId: "test-user",
+  author: "Test User",
 };
 
 describe("Tags API Routes (独立实体与单一数据源回归测试)", () => {

@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { TabItem } from "./TabItem";
+import { getActiveTabKey } from "../../lib/tabNavigation";
 import {
   MomentIcon,
   AlbumIcon,
@@ -15,13 +16,13 @@ export interface TabBarProps {
 
 export function TabBar({ onComposeClick, unreadLetterCount }: TabBarProps) {
   const location = useLocation();
-  const path = location.pathname;
+  const activeTabKey = getActiveTabKey(location.pathname);
 
-  // 判断是否处于各支柱页面
-  const isMoment = path === "/" || path.startsWith("/moment");
-  const isAlbum = path.startsWith("/albums");
-  const isLetter = path.startsWith("/letter");
-  const isUs = path.startsWith("/us") || path.startsWith("/settings") || path.startsWith("/memories");
+  // 由单一真相源判断当前激活支柱
+  const isMoment = activeTabKey === "moment";
+  const isAlbum = activeTabKey === "albums";
+  const isLetter = activeTabKey === "letter";
+  const isUs = activeTabKey === "us";
 
   return (
     <nav
@@ -37,12 +38,14 @@ export function TabBar({ onComposeClick, unreadLetterCount }: TabBarProps) {
           label="动态"
           icon={<MomentIcon size="md" />}
           isActiveOverride={isMoment}
+          tabKey="moment"
         />
         <TabItem
           to="/albums"
           label="相册"
           icon={<AlbumIcon size="md" />}
           isActiveOverride={isAlbum}
+          tabKey="albums"
         />
 
         {/* 核心中央即时创建按钮 */}
@@ -52,7 +55,7 @@ export function TabBar({ onComposeClick, unreadLetterCount }: TabBarProps) {
             onClick={onComposeClick}
             aria-label={isLetter ? "写信" : "新建"}
             title={isLetter ? "写信" : "新建"}
-            className="w-11 h-11 rounded-full bg-[var(--color-text-primary)] text-[var(--color-surface)] flex items-center justify-center shadow-md active:scale-95 transition-[transform,background-color,box-shadow] duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+            className="w-10 h-10 rounded-full bg-[var(--color-text-primary)] text-[var(--color-surface)] dark:bg-[var(--color-surface-raised)] dark:border dark:border-[var(--color-border)] dark:text-[var(--color-text-primary)] flex items-center justify-center shadow-xs active:scale-95 transition-all duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
           >
             <PlusIcon size="md" className="stroke-[2.2]" />
           </button>
@@ -64,12 +67,14 @@ export function TabBar({ onComposeClick, unreadLetterCount }: TabBarProps) {
           icon={<LetterIcon size="md" />}
           badge={unreadLetterCount}
           isActiveOverride={isLetter}
+          tabKey="letter"
         />
         <TabItem
           to="/us"
           label="我们"
           icon={<UsIcon size="md" />}
           isActiveOverride={isUs}
+          tabKey="us"
         />
       </div>
     </nav>

@@ -515,7 +515,9 @@ export function gallerySourceHref(source: GallerySource): string {
 export function gallerySourceLabel(source: GallerySource): string {
   const typeLabel = TYPE_LABEL[source.type] ?? source.type;
   const title = source.title?.trim();
-  return title ? `${typeLabel} · ${title}` : typeLabel;
+  if (title) return `${typeLabel} · ${title}`;
+  if (source.entryDate) return `${typeLabel} · ${formatDate(source.entryDate)}`;
+  return typeLabel;
 }
 
 export async function fetchComments(
@@ -572,7 +574,6 @@ export async function deleteComment(id: string): Promise<void> {
 
 export interface SpaceProfile {
   anniversaryDate: string | null;
-  slogan: string | null;
   daysTogether: number | null;
   rules?: string | null;
 }
@@ -580,6 +581,7 @@ export interface SpaceProfile {
 export interface SpaceAuthor {
   id: string;
   name: string;
+  image?: string | null;
   about?: string | null;
   birthdaySolarMonth?: number | null;
   birthdaySolarDay?: number | null;
@@ -597,14 +599,17 @@ export async function fetchSpaceStatus(): Promise<SpaceStatus> {
   return res.json();
 }
 
-export async function updateProfile(name: string): Promise<{ name: string }> {
+export async function updateProfile(
+  payload: string | { name?: string; image?: string | null }
+): Promise<AccountProfile> {
+  const body = typeof payload === "string" ? { name: payload } : payload;
   const res = await fetch(`${BASE}/api/account/profile`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(body),
   });
-  await assertOk(res, "更新爱称失败");
+  await assertOk(res, "更新个人资料失败");
   return res.json();
 }
 
@@ -621,6 +626,7 @@ export interface AccountBirthday {
 
 export interface AccountProfile {
   name: string;
+  image?: string | null;
   birthday: AccountBirthday | null;
   voiceTranscribeMode: VoiceTranscribeMode;
   about?: string | null;
@@ -728,7 +734,6 @@ export async function fetchSpace(): Promise<SpaceProfile> {
 
 export async function updateSpace(data: {
   anniversaryDate?: string | null;
-  slogan?: string | null;
   rules?: string | null;
 }): Promise<SpaceProfile> {
   const res = await fetch(`${BASE}/api/space`, {
@@ -770,6 +775,7 @@ export interface AlbumPhotoItem {
   blurhash: string | null;
   caption: string | null;
   createdAt: number;
+  sources?: GallerySource[];
 }
 
 export interface AlbumDetail extends AlbumSummary {
@@ -928,7 +934,7 @@ export const DEFAULT_WORKERS_AI_MODEL = "@cf/zai-org/glm-4.7-flash";
 export const DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash";
 export const DEFAULT_ALIBABA_MODEL = "qwen3.7-plus";
 
-export const DEFAULT_AI_BOT_NAME = "小辛星";
+export const DEFAULT_AI_BOT_NAME = "Orbit";
 export const DEFAULT_AI_BOT_PERSONA =
   "你的性格温暖、真诚、细腻且富有亲和力。你的任务是陪空间内的成员聊天、帮他们回忆温馨时刻、解答日常疑问或提供生活建议。";
 
@@ -1592,13 +1598,12 @@ export async function fetchAuditLogs(opts?: {
 
 const DEFAULT_SPACE_TAGLINE = "两个人的时间轨道";
 
-/** Sidebar tagline: days together, custom slogan, or default */
+/** Sidebar tagline: days together, or default */
 export function formatSpaceTagline(profile: SpaceProfile | null | undefined): string {
   if (!profile) return DEFAULT_SPACE_TAGLINE;
   if (profile.daysTogether != null && profile.daysTogether > 0) {
     return `在一起第 ${profile.daysTogether.toLocaleString("zh-CN")} 天`;
   }
-  if (profile.slogan) return profile.slogan;
   return DEFAULT_SPACE_TAGLINE;
 }
 
@@ -1736,7 +1741,36 @@ export interface MemoryNodesPage {
   offset: number;
 }
 
+export interface MemorySkyEntry {
+  id: string;
+  contentType: string;
+  title: string | null;
+  snippet: string;
+  occurredAt: number;
+  link: string;
+}
 
+export interface MemorySkyDay {
+  date: string;
+  count: number;
+  dominantType: string;
+  weight: number;
+  entries: MemorySkyEntry[];
+}
+
+export interface MemorySkyResponse {
+  days: MemorySkyDay[];
+  totalDays: number;
+  totalEntries: number;
+}
+
+export async function fetchMemorySky(): Promise<MemorySkyResponse> {
+  const res = await fetch(`${BASE}/api/memories/sky`, {
+    credentials: "include",
+  });
+  await assertOk(res, "加载记忆星空失败");
+  return res.json();
+}
 
 export async function fetchMemorySummary(): Promise<MemorySummary> {
   const res = await fetch(`${BASE}/api/memories/summary`, {

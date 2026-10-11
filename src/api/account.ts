@@ -36,6 +36,7 @@ export interface AccountBirthday {
 
 export interface AccountProfile {
   name: string;
+  image?: string | null;
   birthday: AccountBirthday | null;
   voiceTranscribeMode: VoiceTranscribeMode;
   about: string | null;
@@ -71,6 +72,7 @@ async function loadAccountProfile(
   const row = await db
     .select({
       name: user.name,
+      image: user.image,
       birthdaySolarMonth: user.birthdaySolarMonth,
       birthdaySolarDay: user.birthdaySolarDay,
       birthdayLunarMonth: user.birthdayLunarMonth,
@@ -91,6 +93,7 @@ async function loadAccountProfile(
       : "smooth";
   return {
     name: row.name,
+    image: row.image ?? null,
     birthday: presentBirthday(birthdayFromRow(row)),
     voiceTranscribeMode,
     about: row.about ?? null,
@@ -119,6 +122,7 @@ export function createAccountRoutes(
 
     let body: {
       name?: string;
+      image?: string | null;
       birthday?: unknown;
       voiceTranscribeMode?: unknown;
       about?: unknown;
@@ -131,10 +135,11 @@ export function createAccountRoutes(
     }
 
     const hasName = typeof body.name === "string";
+    const hasImage = body.image !== undefined;
     const hasBirthday = body.birthday !== undefined;
     const hasVoiceMode = typeof body.voiceTranscribeMode === "string";
     const hasAbout = body.about !== undefined;
-    if (!hasName && !hasBirthday && !hasVoiceMode && !hasAbout) {
+    if (!hasName && !hasImage && !hasBirthday && !hasVoiceMode && !hasAbout) {
       return c.json({ error: "请提供要修改的个人信息" }, 400);
     }
 
@@ -146,6 +151,21 @@ export function createAccountRoutes(
       if (hasName) {
         name = await updateUserDisplayName(db, session.userId, body.name!);
         changed.push("name");
+      }
+
+      if (hasImage) {
+        const imageVal =
+          typeof body.image === "string" && body.image.trim()
+            ? body.image.trim()
+            : null;
+        await db
+          .update(user)
+          .set({
+            image: imageVal,
+            updatedAt: new Date(),
+          })
+          .where(eq(user.id, session.userId));
+        changed.push("image");
       }
 
       if (hasBirthday) {

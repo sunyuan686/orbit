@@ -1,6 +1,6 @@
 # 动画与手势交互系统重构施工索引 (Animation Plans Index)
 
-本目录记录 Orbit 动效交互重构施工计划。遵循 [Emil Kowalski 的设计工程哲学](file:///Users/sunyuan/Desktop/project/orbit/.agents/skills/review-animations/STANDARDS.md) 与 Orbit [DESIGN.md](file:///Users/sunyuan/Desktop/project/orbit/DESIGN.md)「刊物文学温度、克制留白、拒绝装饰性动效胶水」原则。
+本目录记录 Orbit 动效交互重构施工计划。遵循 [Emil Kowalski 的设计工程哲学](../../.agents/skills/review-animations/STANDARDS.md) 与 Orbit [DESIGN.md](../../DESIGN.md)「刊物文学温度、克制留白、拒绝装饰性动效胶水」原则。
 
 ## 计划全景与执行状态
 

@@ -2,7 +2,7 @@
 
 > 版本记录 [CHANGELOG.md](./CHANGELOG.md) · 架构 [ARCHITECTURE.md](ARCHITECTURE.md)
 >
-> 最后更新：2026-08-28
+> 最后更新：2026-10-11
 
 ## 状态说明
 
@@ -35,6 +35,7 @@
 
 - 组件细节打磨（动效 / 按钮 / 图标 / 字体 / 配色 ）— Phase A
 - 性能：Smart Placement、鉴权减 D1 往返、列表可选分页 ✅；列表 480 WebP 缩略图 + 封面 Blurhash ✅；缓存机制待评估 — Phase A
+- 移动端：主导航页面保活与返回滚动恢复、动态与信箱下拉刷新 ✅
 
 ---
 
@@ -47,7 +48,7 @@
 | -------------- | --- | -------------------- |
 | 动态 / 随想 / 足迹 / 感谢 | ✅   | `entry` 核心条目收敛为 `moment`，单标签（`tag`）分类支撑足迹、感谢、随想等，纯正文无冗余语音卡泄露 |
 | 信箱 / 信件        | ✅   | `letter` 主信 + 回信树，拟物信封火漆印，列表折叠往来与呼吸留白 |
-| 主题相册          | ✅   | 独立 `album` 与 `album_asset` 架构，首卡系统全量《生活留影》流 + 自建主题画册 |
+| 主题相册          | ✅   | 独立 `album` 与 `album_asset` 架构，首卡系统全量《全部照片》流 + 自建主题画册；照片来源关联与灯箱跳转 |
 | 内容模板           | 📋  | 按类型复用模板，新建快速填充       |
 | 信件仪式感呈现        | ✅   | 拟物信封探出卡片 + 移动端无面包屑极简沉浸阅读体验 |
 
@@ -71,7 +72,8 @@
 | ------------------- | --- | -------------------------------------------------------------------------------- |
 | 空间开通与身份             | ✅   | 一人注册 → 邀请加入，≤2 账号，可配置爱称；详见 [009-space-onboarding.md](docs/features/009-space-onboarding.md) |
 | 邀请邮件                | 📋  | MVP 仅复制链接                                                                        |
-| 空间档案                | ✅   | 纪念日、slogan 等，`/settings?tab=space`                                               |
+| 个人头像                | ✅   | 自定义上传、8 款内置头像与恢复默认，复用 `user.image` |
+| 空间档案                | ✅   | 纪念日、约定等，`/settings?tab=space`                                                 |
 | 首页                  | 🚧  | MVP + 记忆摘要已落地；每日刮刮乐见 [016-daily-scratch-card.md](docs/features/016-daily-scratch-card.md)；封面图、统计卡待做 |
 | 设置页                 | ✅   | 账户 / 界面 / 空间 / 集成 / 通知 / AI / API Token                                          |
 | 认证与权限               | ✅   | better-auth；软删除；按类型作者归属校验                                                        |
@@ -117,7 +119,7 @@
 | -------- | --- | --------------------------------------------------------------------- |
 | 飞书 Bot   | ✅   | 入站写日记/图片、指令查询、出站通知；见 [003-feishu.md](docs/features/003-feishu.md)                |
 | 飞书第二期    | ✅   | `留言：` / `信：` 前缀、`/` 指令写入、AI `/summary` 月报等；见 [003-feishu.md](docs/features/003-feishu.md) |
-| 飞书陪伴与对话 | 🚧  | 飞书内 AI 多轮聊天（CardKit 流式打字机 + Thread 会话）已落地；主动陪伴 MVP 已接入 DO Alarm、飞书卡片与设置页；见 [011-feishu-companion.md](docs/features/011-feishu-companion.md)、[012-proactive-companion.md](docs/features/012-proactive-companion.md) |
+| 飞书陪伴与对话 | 🚧  | 飞书内 AI 多轮聊天（CardKit 流式打字机 + Thread 会话）已落地；主动陪伴 MVP 已接入每小时 Cron、飞书卡片与设置页；见 [011-feishu-companion.md](docs/features/011-feishu-companion.md)、[012-proactive-companion.md](docs/features/012-proactive-companion.md) |
 | Telegram | 📋  | 优先级低；与飞书同类连接器                                                         |
 | 更多平台     | 📋  | 微信、Discord 等                                                          |
 
@@ -138,7 +140,7 @@
 | 飞书出站通知    | ✅   | 关键事件推送（纯文本），复用飞书凭证                    |
 | 飞书通知卡片    | 🚧  | 恋爱记忆里程碑已用 interactive card；通用出站事件仍待改卡片；统一方案见 [011-feishu-companion.md](docs/features/011-feishu-companion.md) |
 | 通知偏好      | ✅   | 按事件类型开关，`/settings?tab=notifications` |
-| 主动触达飞书卡片  | 🚧  | DO Alarm 动态调度陪伴/回顾类卡片，支持设置页配置触达窗口与安静时段；见 [012-proactive-companion.md](docs/features/012-proactive-companion.md) |
+| 主动触达飞书卡片  | 🚧  | Cron 每小时检查陪伴/回顾类卡片，支持设置页配置触达窗口与安静时段；见 [012-proactive-companion.md](docs/features/012-proactive-companion.md) |
 | 飞书 AI 对话   | 🚧  | Bot 内多轮流式聊天，基于 CardKit 卡片与空间记录；见 [011-feishu-companion.md](docs/features/011-feishu-companion.md) |
 | AI 摘要就绪通知 | 📋  | 智能总结完成后触达；可复用飞书卡片通道                   |
 | 节日提醒      | 📋  | 生日、纪念日、周年纪念、自定义特殊日；临近提醒，可并入定时卡片推送   |
@@ -171,7 +173,7 @@
 | ------- | --- | --------------------------------------------------- |
 | 写作热力图   | ✅   | `/activity`，见 [006-activity.md](docs/features/006-activity.md) |
 | 电子相册    | ✅   | `/gallery`，列表缩略图与引用解绑见 [005-gallery.md](docs/features/005-gallery.md) |
-| 恋爱记忆星图  | ✅   | `/memories` 按日星图；每日刮刮乐见 [016-daily-scratch-card.md](docs/features/016-daily-scratch-card.md)；见 [010-love-memories.md](docs/features/010-love-memories.md) |
+| 恋爱记忆星图  | ✅   | `/memories` 按日聚合、单屏抽样星空与滑动选星；已移除重复回忆档案列表；每日刮刮乐见 [016-daily-scratch-card.md](docs/features/016-daily-scratch-card.md)；见 [010-love-memories.md](docs/features/010-love-memories.md) |
 | 恋爱记忆图鉴  | ✅   | `/memories/atlas`；主题分册 + 星座；地图/爱好待模块接入             |
 | 记忆里程碑   | ✅   | `milestone_unlock` + 庆祝动效 + 飞书卡片；含星座彩蛋               |
 | 恋爱地图    | 📋  | 地点实体 + 地图可视化；星图节点可挂坐标                                   |

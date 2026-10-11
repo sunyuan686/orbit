@@ -134,6 +134,7 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
   const inlineCommentsRef = useRef<CommentItem[]>(serverComments?.inline ?? []);
   const editorRef = useRef<TiptapEditorHandle>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // 当 query 首次返回数据时（key 重建后组件挂载时 serverEntry 尚未就绪），注入编辑器内容
   const injectedRef = useRef(false);
@@ -268,6 +269,15 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
   const handleSave = async () => {
     if (!displayAuthor) {
       toast.error("无法识别作者身份，请重新登录");
+      return;
+    }
+    if (isUploading || editorRef.current?.hasPendingUploads?.()) {
+      toast.error("媒体正在上传中，请稍候…");
+      return;
+    }
+    const currentHtml = editorRef.current?.getEditor()?.getHTML() || bodyRef.current || body;
+    if (/\bsrc=["']blob:/i.test(currentHtml)) {
+      toast.error("媒体正在上传中，请稍候…");
       return;
     }
     if (isEmptyBody(bodyRef.current)) {
@@ -422,6 +432,13 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
 
   const saveDraftContent = useCallback(async (): Promise<boolean> => {
     if (!type) return false;
+    if (isUploading || editorRef.current?.hasPendingUploads?.()) {
+      return false;
+    }
+    const currentHtml = editorRef.current?.getEditor()?.getHTML() || bodyRef.current || body;
+    if (/\bsrc=["']blob:/i.test(currentHtml)) {
+      return false;
+    }
     const hasText = checkHasContent();
     if (!hasText && !isDraft) {
       return true;
@@ -457,7 +474,7 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
       toast.error(getApiErrorMessage(err, "草稿保存失败"));
       return false;
     }
-  }, [type, checkHasContent, isDraft, isNew, id, title, entryDate, toast, invalidateDrafts, tag]);
+  }, [type, checkHasContent, isDraft, isNew, id, title, entryDate, toast, invalidateDrafts, tag, isUploading]);
 
   const needsDraftPrompt = useCallback(
     () => checkHasContent() || isDraft,
@@ -561,10 +578,10 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
             <button
               type="button"
               onClick={() => void handleSave()}
-              disabled={saving}
+              disabled={saving || isUploading}
               className="orbit-btn orbit-btn-sm orbit-btn-primary"
             >
-              {saving ? "保存中…" : isDraft ? "发布" : "保存"}
+              {saving ? "保存中…" : isUploading ? "上传中…" : isDraft ? "发布" : "保存"}
             </button>
           </div>
         </div>
@@ -680,6 +697,7 @@ function ArticleEditInner({ type, id }: ArticleEditInnerProps) {
               });
             }
           }}
+          onUploadStateChange={setIsUploading}
         />
       </Container>
 

@@ -16,11 +16,6 @@ export function MomentCard({ entry, layout = "feed" }: MomentCardProps) {
   const displayText = entryDisplayLabel(entry);
   const snippet = entry.snippet?.trim() || "";
   const title = entry.title?.trim() || null;
-  const initial = entry.author ? entry.author.charAt(0) : "★";
-  const isToneB = Boolean(
-    entry.author &&
-      (entry.author.includes("麟") || entry.author.toLowerCase().includes("lin"))
-  );
 
   const renderTagBadge = (tagId: string | null | undefined) => {
     if (!tagId) return null;
@@ -44,14 +39,7 @@ export function MomentCard({ entry, layout = "feed" }: MomentCardProps) {
         className="group block p-4 sm:p-5 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border-light)] shadow-xs hover:border-[var(--color-accent)]/40 hover:shadow-sm transition-[border-color,box-shadow,background-color] duration-150 text-inherit no-underline"
       >
         {/* 顶部作者与时间栏（同组聚集，遵循亲密性法则） */}
-        <div className="flex items-center gap-2 mb-2.5 text-xs">
-          <span
-            className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium text-white shrink-0 ${
-              isToneB ? "bg-amber-600/90" : "bg-[var(--color-accent)]"
-            }`}
-          >
-            {initial}
-          </span>
+        <div className="flex items-center gap-1.5 mb-2.5 text-xs text-[var(--color-text-muted)]">
           {entry.author && (
             <span className="font-medium text-[var(--color-text-secondary)]">
               {entry.author}
@@ -59,16 +47,16 @@ export function MomentCard({ entry, layout = "feed" }: MomentCardProps) {
           )}
           {entry.entryDate != null && (
             <>
-              <span className="text-[var(--color-text-muted)] text-[10px]" aria-hidden>
+              <span className="text-[10px]" aria-hidden>
                 ·
               </span>
-              <span className="font-mono text-[11px] text-[var(--color-text-muted)] tracking-tight">
+              <span className="font-mono text-[11px] tracking-tight">
                 {formatDate(entry.entryDate)}
               </span>
             </>
           )}
           {hasVoice && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] text-[var(--color-accent)] font-mono ml-1">
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-[var(--color-text-muted)] font-mono ml-1">
               <MicIcon size="sm" className="w-3 h-3" />
               <span>语音</span>
             </span>
@@ -158,7 +146,7 @@ export function MomentCard({ entry, layout = "feed" }: MomentCardProps) {
   return (
     <Link
       to={`/moment/${entry.id}`}
-      className="group flex flex-col rounded-xl bg-[var(--color-surface)] border border-[var(--color-border-light)] shadow-xs hover:border-[var(--color-border)] hover:shadow-sm transition-[border-color,box-shadow] duration-150 text-inherit no-underline overflow-hidden"
+      className="group flex flex-col rounded-[14px] bg-[var(--color-surface)] border border-[var(--color-border-light)] shadow-xs hover:border-[var(--color-border)] hover:shadow-sm transition-[border-color,box-shadow] duration-150 text-inherit no-underline overflow-hidden"
     >
       {/* 顶部封面大图（置顶展示，小红书视觉优先） */}
       {hasCover && (
@@ -183,45 +171,48 @@ export function MomentCard({ entry, layout = "feed" }: MomentCardProps) {
       {/* 卡片内容区 */}
       <div
         className={`flex flex-col flex-1 justify-between ${
-          hasCover ? "p-2.5 sm:p-3" : "p-3.5 sm:p-4 min-h-[130px]"
+          hasCover ? "p-2.5 sm:p-3" : "p-3 sm:p-3.5"
         }`}
       >
         <div>
           {/* 无图卡片：展示微便签与语音指示 */}
           {!hasCover && hasVoice && (
-            <div className="mb-1.5 flex items-center gap-1 text-[11px] text-[var(--color-accent)] font-mono">
+            <div className="mb-1.5 flex items-center gap-1 text-[11px] text-[var(--color-text-muted)] font-mono">
               <MicIcon size="sm" className="w-3.5 h-3.5" />
               <span>语音动态</span>
             </div>
           )}
 
           {title && (
-            <h3 className="font-heading text-[13px] sm:text-sm font-medium text-[var(--color-text-primary)] line-clamp-2 leading-snug mb-1">
+            <h3
+              className={`font-heading font-medium text-[var(--color-text-primary)] line-clamp-2 leading-snug ${
+                hasCover ? "text-[13px] sm:text-sm mb-1" : "text-sm sm:text-[15px] mb-1.5"
+              }`}
+            >
               {title}
             </h3>
           )}
 
           <p
-            className={`font-sans text-[11px] sm:text-xs leading-relaxed text-[var(--color-text-secondary)] whitespace-pre-wrap break-words ${
-              hasCover ? "line-clamp-2 mb-2" : "line-clamp-4 mb-3"
+            className={`font-sans whitespace-pre-wrap break-words ${
+              hasCover
+                ? "text-[11px] sm:text-xs leading-relaxed line-clamp-2 mb-2"
+                : "text-[12.5px] sm:text-[13px] leading-[1.65] line-clamp-4 mb-2"
+            } ${
+              title
+                ? "text-[var(--color-text-secondary)]"
+                : "text-[var(--color-text-primary)]"
             }`}
           >
             {snippet || displayText || "（查看动态详情）"}
           </p>
         </div>
 
-        {/* 底部作者与时间栏（小红书经典下置排版） */}
-        <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-[var(--color-border-light)]/60 text-[11px] text-[var(--color-text-muted)] mt-auto">
+        {/* 底部作者与时间栏（随文轻量落款，干净纯粹） */}
+        <div className="flex items-center justify-between gap-1 pt-1 mt-auto text-[11px] text-[var(--color-text-muted)]">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span
-              className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-medium text-white shrink-0 ${
-                isToneB ? "bg-amber-600/90" : "bg-[var(--color-accent)]"
-              }`}
-            >
-              {initial}
-            </span>
             {entry.author && (
-              <span className="truncate max-w-[56px] sm:max-w-[72px] text-[var(--color-text-secondary)]">
+              <span className="truncate max-w-[72px] sm:max-w-[96px] text-[var(--color-text-secondary)] font-medium">
                 {entry.author}
               </span>
             )}

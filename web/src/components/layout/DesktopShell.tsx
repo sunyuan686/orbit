@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
-import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useTheme, type Theme } from "../../hooks/useTheme";
 import { useAiArticleMeta } from "../../contexts/aiArticleContext";
 import { UserAccount } from "../UserAccount";
@@ -19,12 +19,11 @@ import { NotificationBell } from "../NotificationBell";
 import { SearchModal } from "../SearchModal";
 import { AiChatFab } from "../AiChatFab";
 import { AiChatPanel, type AiChatContext } from "../AiChatPanel";
-import { RouteErrorBoundary } from "../RouteErrorBoundary";
 import { PwaInstallGuideModal } from "../PwaInstallGuideModal";
 import { usePwaInstall } from "../../hooks/usePwaInstall";
 import { useLayer } from "../../hooks/useLayer";
-import { useScrollRestoration } from "../../hooks/useScrollRestoration";
 import { setPageTitle } from "../../lib/pageTitle";
+import { TabKeepAliveHost } from "./TabKeepAliveHost";
 
 const COLLAPSED_KEY = "orbit-sidebar-collapsed";
 const WIDTH_KEY = "orbit-sidebar-width";
@@ -44,8 +43,6 @@ export function DesktopShell() {
   const { isOpen: aiOpen, open: openAi, close: closeAi } = useLayer("ai");
   const [aiMounted, setAiMounted] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const mainRef = useRef<HTMLElement>(null);
-  useScrollRestoration(mainRef);
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
@@ -53,14 +50,16 @@ export function DesktopShell() {
   const { guideOpen, closeGuide } = usePwaInstall();
 
   const segments = location.pathname.split("/").filter(Boolean);
+  const isAlbumDetailRoute = segments.length === 2 && segments[0] === "albums";
   const isEntryDetailRoute =
     segments.length === 2 &&
-    (segments[0] === "moment" || segments[0] === "letter") &&
+    segments[0] !== "albums" &&
+    segments[0] !== "settings" &&
     segments[1] !== "new";
   const isEditorRoute =
     location.pathname.endsWith("/edit") ||
     (segments.length >= 2 && segments[1] === "new");
-  const isImmersiveRoute = isEditorRoute || isEntryDetailRoute;
+  const isImmersiveRoute = isEditorRoute || isEntryDetailRoute || isAlbumDetailRoute;
 
   const aiContext: AiChatContext = isEntryDetailRoute
     ? { mode: "article", articleId: segments[1] }
@@ -254,22 +253,71 @@ export function DesktopShell() {
 
           {/* 四大主干导航项 */}
           <nav className="flex-1 px-2 py-3 space-y-1 overflow-y-auto">
-            <NavLink to="/" end className={navClass} title={collapsed ? "动态" : undefined}>
+            <NavLink
+              to="/"
+              end
+              replace
+              className={navClass}
+              title={collapsed ? "动态" : undefined}
+              onClick={() => {
+                if (location.pathname === "/" || location.pathname === "/moment") {
+                  window.dispatchEvent(
+                    new CustomEvent("orbit:scroll-tab-to-top", { detail: { tab: "moment" } })
+                  );
+                }
+              }}
+            >
               <MomentIcon size="nav" />
               {!collapsed && <span>动态</span>}
             </NavLink>
 
-            <NavLink to="/albums" className={navClass} title={collapsed ? "相册" : undefined}>
+            <NavLink
+              to="/albums"
+              replace
+              className={navClass}
+              title={collapsed ? "相册" : undefined}
+              onClick={() => {
+                if (location.pathname === "/albums" || location.pathname === "/gallery") {
+                  window.dispatchEvent(
+                    new CustomEvent("orbit:scroll-tab-to-top", { detail: { tab: "albums" } })
+                  );
+                }
+              }}
+            >
               <AlbumIcon size="nav" />
               {!collapsed && <span>相册</span>}
             </NavLink>
 
-            <NavLink to="/letter" className={navClass} title={collapsed ? "信箱" : undefined}>
+            <NavLink
+              to="/letter"
+              replace
+              className={navClass}
+              title={collapsed ? "信箱" : undefined}
+              onClick={() => {
+                if (location.pathname === "/letter") {
+                  window.dispatchEvent(
+                    new CustomEvent("orbit:scroll-tab-to-top", { detail: { tab: "letter" } })
+                  );
+                }
+              }}
+            >
               <LetterIcon size="nav" />
               {!collapsed && <span>信箱</span>}
             </NavLink>
 
-            <NavLink to="/us" className={navClass} title={collapsed ? "我们" : undefined}>
+            <NavLink
+              to="/us"
+              replace
+              className={navClass}
+              title={collapsed ? "我们" : undefined}
+              onClick={() => {
+                if (location.pathname === "/us" || location.pathname === "/space" || location.pathname === "/memo") {
+                  window.dispatchEvent(
+                    new CustomEvent("orbit:scroll-tab-to-top", { detail: { tab: "us" } })
+                  );
+                }
+              }}
+            >
               <UsIcon size="nav" />
               {!collapsed && <span>我们</span>}
             </NavLink>
@@ -282,7 +330,7 @@ export function DesktopShell() {
         {/* 主内容区域（包含顶部工具栏与主画布） */}
         <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
           {!isImmersiveRoute && (
-            <header className="orbit-header-bar shrink-0 flex items-center justify-between px-4 bg-[var(--color-surface)] border-b border-[var(--color-border-light)] min-h-[3.5rem]">
+            <header className="h-14 shrink-0 flex items-center justify-between px-4 bg-[var(--color-surface)] border-b border-[var(--color-border-light)] select-none">
               <div className="flex items-center gap-2.5 min-w-0">
                 {currentTitle && (
                   <span className="font-heading font-medium text-sm text-[var(--color-text-primary)] tracking-wide truncate select-none">
@@ -314,19 +362,9 @@ export function DesktopShell() {
             </header>
           )}
 
-          {/* 内容主画布 */}
-          <main
-            ref={mainRef}
-            className={[
-              "flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-y-auto",
-              isImmersiveRoute ? "bg-[var(--color-surface)]" : "bg-[var(--color-bg)]",
-            ].join(" ")}
-          >
-            <RouteErrorBoundary>
-              <Suspense fallback={null}>
-                <Outlet />
-              </Suspense>
-            </RouteErrorBoundary>
+          {/* 内容主画布（四主支柱保活与子页面视口独立隔离） */}
+          <main className="flex-1 relative min-w-0 min-h-0 h-full overflow-hidden">
+            <TabKeepAliveHost isMobile={false} isImmersive={isImmersiveRoute} />
           </main>
         </div>
       </div>

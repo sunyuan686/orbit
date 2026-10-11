@@ -5,7 +5,7 @@ import { fetchAlbums, createAlbum, type AlbumSummary } from "../lib/api";
 import { GalleryImage } from "../components/GalleryImage";
 import { Button, Container } from "../components/ui";
 import { Modal } from "../components/ui/Modal";
-import { AlbumIcon, PlusIcon } from "../components/OrbitIcons";
+import { AlbumIcon } from "../components/OrbitIcons";
 import { useToast } from "../hooks/useToast";
 import { useLayer } from "../hooks/useLayer";
 import { setPageTitle } from "../lib/pageTitle";
@@ -56,26 +56,14 @@ export function AlbumsPage() {
 
   return (
     <Container size="standard">
-      {/* 顶部标题、统计与新建操作 */}
-      <div className="flex items-center justify-between mb-5 pb-3 border-b border-[var(--color-border-light)]">
-        <div className="flex items-baseline gap-2">
-          <h1 className="font-heading font-medium text-xl md:text-2xl text-[var(--color-text-primary)]">
-            相册
-          </h1>
-          {!isLoading && (
-            <span className="text-xs text-[var(--color-text-muted)] font-mono">
-              {albums.length} 本
-            </span>
-          )}
-        </div>
-
+      {/* 操作区：右侧保留新建操作 */}
+      <div className="flex items-center justify-end mb-4">
         <Button
           variant="secondary"
           size="sm"
-          icon={<PlusIcon size="sm" />}
           onClick={openCreateModal}
         >
-          新建
+          新建相册
         </Button>
       </div>
 
@@ -106,8 +94,6 @@ export function AlbumsPage() {
           <Button
             variant="primary"
             size="sm"
-            shape="pill"
-            icon={<PlusIcon size="sm" />}
             onClick={openCreateModal}
           >
             新建相册

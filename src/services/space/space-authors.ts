@@ -8,6 +8,7 @@ export const INVALID_SESSION_ERROR =
 export interface SpaceAuthor {
   id: string;
   name: string;
+  image?: string | null;
   about?: string | null;
   birthdaySolarMonth?: number | null;
   birthdaySolarDay?: number | null;
@@ -23,6 +24,7 @@ export async function getSpaceAuthors(db: any): Promise<SpaceAuthor[]> {
     .select({
       id: user.id,
       name: user.name,
+      image: user.image,
       about: user.about,
       birthdaySolarMonth: user.birthdaySolarMonth,
       birthdaySolarDay: user.birthdaySolarDay,
@@ -55,6 +57,7 @@ export async function getUserById(
     .select({
       id: user.id,
       name: user.name,
+      image: user.image,
       about: user.about,
       birthdaySolarMonth: user.birthdaySolarMonth,
       birthdaySolarDay: user.birthdaySolarDay,

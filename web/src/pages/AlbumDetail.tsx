@@ -16,7 +16,6 @@ import { Button, Container } from "../components/ui";
 import { Modal } from "../components/ui/Modal";
 import {
   ArrowLeftIcon,
-  PlusIcon,
   TrashIcon,
   EditIcon,
   AlbumIcon,
@@ -64,10 +63,16 @@ export function AlbumDetailPage() {
   useEffect(() => {
     if (album?.title) {
       setPageTitle(album.title);
+    }
+  }, [album?.title]);
+
+  const handleOpenEditModal = () => {
+    if (album) {
       setEditTitle(album.title);
       setEditDesc(album.description || "");
     }
-  }, [album]);
+    openEditModal();
+  };
 
   const handleUploadPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -160,14 +165,29 @@ export function AlbumDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="py-8 px-4 max-w-5xl mx-auto w-full animate-pulse">
-        <div className="h-8 w-48 bg-[var(--color-surface-raised)] rounded-lg mb-4" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((n) => (
-            <div key={n} className="aspect-square bg-[var(--color-surface)] rounded-xl" />
+      <Container size="standard">
+        {/* 顶部操作导航栏骨架 */}
+        <div className="flex items-center justify-between mb-4 animate-pulse">
+          <div className="w-8 h-8 rounded-lg bg-[var(--color-surface-raised)]" />
+          <div className="w-20 h-8 rounded-lg bg-[var(--color-surface-raised)]" />
+        </div>
+
+        {/* 相册头图与介绍骨架 */}
+        <div className="mb-5 sm:mb-6 pb-3 sm:pb-4 border-b border-transparent sm:border-[var(--color-border-light)] animate-pulse space-y-2">
+          <div className="h-7 w-44 bg-[var(--color-surface-raised)] rounded-lg" />
+          <div className="h-3.5 w-24 bg-[var(--color-surface-raised)] rounded" />
+        </div>
+
+        {/* 照片画廊网格骨架（与真实网格完全同构） */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+            <div
+              key={n}
+              className="aspect-square rounded-xl bg-[var(--color-surface)] border border-[var(--color-border-light)] animate-pulse"
+            />
           ))}
         </div>
-      </div>
+      </Container>
     );
   }
 
@@ -213,11 +233,9 @@ export function AlbumDetailPage() {
             onChange={handleUploadPhotos}
           />
           <Button
-            variant="primary"
+            variant="secondary"
             size="sm"
-            shape="pill"
             disabled={uploading}
-            icon={<PlusIcon size="sm" />}
             onClick={() => fileInputRef.current?.click()}
           >
             {uploading ? "上传中…" : "添加照片"}
@@ -228,19 +246,16 @@ export function AlbumDetailPage() {
               <Button
                 variant="secondary"
                 size="sm"
-                shape="pill"
                 icon={<EditIcon size="sm" />}
-                onClick={openEditModal}
+                onClick={handleOpenEditModal}
                 aria-label="编辑信息"
               />
 
               <Button
-                variant="secondary"
+                variant="danger"
                 size="sm"
-                shape="pill"
                 icon={<TrashIcon size="sm" />}
                 onClick={openDeleteModal}
-                className="text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
                 aria-label="删除相册"
               />
             </>
@@ -248,8 +263,8 @@ export function AlbumDetailPage() {
         </div>
       </div>
 
-      {/* 相册头图与介绍 */}
-      <div className="mb-6 pb-4 border-b border-[var(--color-border-light)]">
+      {/* 相册头图与介绍（移动端无硬横线，由自然留白构建层级；桌面端保持优雅书卷线） */}
+      <div className="mb-5 sm:mb-6 pb-3 sm:pb-4 border-b border-transparent sm:border-[var(--color-border-light)]">
         <div className="flex items-center gap-2">
           <h1 className="font-heading font-medium text-2xl text-[var(--color-text-primary)]">
             {album.title}
@@ -283,12 +298,10 @@ export function AlbumDetailPage() {
           <Button
             variant="primary"
             size="sm"
-            shape="pill"
             disabled={uploading}
-            icon={<PlusIcon size="sm" />}
             onClick={() => fileInputRef.current?.click()}
           >
-            立即添加照片
+            {uploading ? "上传中…" : "添加照片"}
           </Button>
         </div>
       ) : (

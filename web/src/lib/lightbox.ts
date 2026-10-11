@@ -324,11 +324,19 @@ export function mountLightboxDialog(
   dialog.appendChild(content);
 
   document.body.appendChild(dialog);
+  document.documentElement.classList.add("orbit-lightbox-active");
   updateView();
   dialog.showModal();
   content.focus();
 
+  const preventScroll = (e: TouchEvent) => {
+    if (e.cancelable) e.preventDefault();
+  };
+  dialog.addEventListener("touchmove", preventScroll, { passive: false });
+
   return () => {
+    document.documentElement.classList.remove("orbit-lightbox-active");
+    dialog.removeEventListener("touchmove", preventScroll);
     document.removeEventListener("keydown", onKeyDown, true);
     if (dialog.open) dialog.close();
     dialog.remove();

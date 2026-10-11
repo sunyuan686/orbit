@@ -4,7 +4,6 @@ import {
   SPACE_SETTING_KEYS,
   buildSpaceProfile,
   formatAnniversaryForStorage,
-  normalizeSlogan,
   parseAnniversaryToIso,
   type SpaceProfile,
 } from "../space-profile.js";
@@ -69,7 +68,6 @@ export function createSpaceRoutes(
 
     let body: {
       anniversaryDate?: string | null;
-      slogan?: string | null;
       rules?: string | null;
     };
     try {
@@ -96,15 +94,6 @@ export function createSpaceRoutes(
         await upsertSetting(db, SPACE_SETTING_KEYS.anniversaryDate, stored);
       }
       changedFields.push("anniversaryDate");
-    }
-
-    if (body.slogan !== undefined) {
-      const slogan = normalizeSlogan(body.slogan);
-      if (slogan && slogan.length > 80) {
-        return c.json({ error: "一句话不能超过 80 字" }, 400);
-      }
-      await upsertSetting(db, SPACE_SETTING_KEYS.slogan, slogan ?? "");
-      changedFields.push("slogan");
     }
 
     if (body.rules !== undefined) {

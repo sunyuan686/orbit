@@ -7,13 +7,12 @@ import {
 import { useSpace } from "../contexts/spaceContext";
 import { useToast } from "../hooks/useToast";
 import { DatePicker } from "./DatePicker";
-import { Button, Input, Textarea, Field, Section } from "./ui";
+import { Button, Textarea, Field, Section } from "./ui";
 
 export function SpaceSettingsPanel() {
   const toast = useToast();
   const { profile, loading, setProfile } = useSpace();
   const [anniversaryDate, setAnniversaryDate] = useState("");
-  const [slogan, setSlogan] = useState("");
   const [rules, setRules] = useState("");
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -21,7 +20,6 @@ export function SpaceSettingsPanel() {
   useEffect(() => {
     if (!profile) return;
     setAnniversaryDate(profile.anniversaryDate ?? "");
-    setSlogan(profile.slogan ?? "");
     setRules(profile.rules ?? "");
     setDirty(false);
   }, [profile]);
@@ -32,7 +30,6 @@ export function SpaceSettingsPanel() {
     try {
       const next = await updateSpace({
         anniversaryDate: anniversaryDate || null,
-        slogan: slogan.trim() || null,
         rules: rules.trim() || null,
       });
       setProfile(next);
@@ -79,26 +76,8 @@ export function SpaceSettingsPanel() {
             </Field>
           </Section>
 
-          <Section title="侧栏展示">
-            <Field
-              htmlFor="settings-space-slogan"
-            >
-              <Input
-                id="settings-space-slogan"
-                value={slogan}
-                maxLength={80}
-                placeholder="两个人的时间轨道"
-                aria-label="侧栏展示"
-                className="orbit-settings-control"
-                onChange={(event) => {
-                  setSlogan(event.target.value);
-                  setDirty(true);
-                }}
-              />
-            </Field>
-          </Section>
 
-          <Section title="我们的约定">
+          <Section title="约定">
             <Field
               htmlFor="settings-space-rules"
             >
@@ -107,7 +86,7 @@ export function SpaceSettingsPanel() {
                 value={rules}
                 rows={8}
                 placeholder="写下属于两个人的约定，例如：不可以冷暴力、吵架不过夜..."
-                aria-label="我们的约定"
+                aria-label="约定"
                 onChange={(event) => {
                   setRules(event.target.value);
                   setDirty(true);
@@ -126,7 +105,7 @@ export function SpaceSettingsPanel() {
               disabled={saving || !dirty}
               loading={saving}
             >
-              保存空间档案
+              保存
             </Button>
           </div>
         </form>

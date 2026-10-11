@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   TYPE_LABEL,
   fetchSearch,
@@ -8,9 +9,11 @@ import {
   shouldToastApiError,
   type SearchResult,
 } from "../lib/api";
+import { queryKeys } from "../lib/queryKeys";
 import { useToast } from "../hooks/useToast";
 import { setPageTitle } from "../lib/pageTitle";
 import { SearchIcon, CloseIcon } from "../components/OrbitIcons";
+import { Container } from "../components/ui";
 
 function resultHref(result: SearchResult): string {
   return `/${result.type}/${result.id}`;
@@ -60,49 +63,34 @@ export function SearchPage() {
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
   const [input, setInput] = useState(query);
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
   const toast = useToast();
   const [prevQuery, setPrevQuery] = useState(query);
 
   if (query !== prevQuery) {
     setPrevQuery(query);
     setInput(query);
-    if (!query.trim()) {
-      setResults([]);
-      setLoading(false);
-    } else {
-      setLoading(true);
-    }
   }
 
   useEffect(() => {
     setPageTitle(query ? `搜索：${query}` : "搜索");
   }, [query]);
 
-  useEffect(() => {
-    if (!query.trim()) return;
+  const trimmedQuery = query.trim();
 
-    let cancelled = false;
-    fetchSearch(query)
-      .then((data) => {
-        if (!cancelled) setResults(data.results);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          if (shouldToastApiError(err)) {
-            toast.error(getApiErrorMessage(err, "搜索失败，请稍后重试"));
-          }
-          setResults([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [query, toast]);
+  const searchQuery = useQuery({
+    queryKey: queryKeys.search(trimmedQuery),
+    queryFn: () => fetchSearch(trimmedQuery),
+    enabled: Boolean(trimmedQuery),
+  });
+
+  const results = searchQuery.data?.results ?? [];
+  const loading = searchQuery.isPending;
+
+  useEffect(() => {
+    if (searchQuery.isError && searchQuery.error && shouldToastApiError(searchQuery.error)) {
+      toast.error(getApiErrorMessage(searchQuery.error, "搜索失败，请稍后重试"));
+    }
+  }, [searchQuery.isError, searchQuery.error, toast]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -112,7 +100,7 @@ export function SearchPage() {
   };
 
   return (
-    <div className="orbit-content" data-page="search">
+    <Container size="standard" data-page="search">
       <h1 className="orbit-page-title mb-6">搜索</h1>
 
       <form onSubmit={handleSubmit} className="mb-8">
@@ -167,6 +155,6 @@ export function SearchPage() {
           )}
         </div>
       )}
-    </div>
+    </Container>
   );
 }

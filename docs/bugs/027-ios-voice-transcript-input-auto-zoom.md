@@ -26,7 +26,7 @@
 
 不引入 \`!important\`，不修改 viewport 禁止用户缩放（遵循 WCAG 1.4.4 无障碍规范），而是将表单控件的字号语义彻底归位至控件规范 Token：
 
-1. **[web/src/index.css](file:///Users/sunyuan/Desktop/project/orbit/web/src/index.css)**：
+1. **[web/src/index.css](../../web/src/index.css)**：
    - \`.orbit-voice-textarea\`：将 \`font-size\` 从 \`var(--type-xs)\` 修正为 \`var(--type-control)\`（\`max(16px, 1rem)\`）。
    - 同时排查并清除其他散落的低于 16px 的输入控件硬编码（如 \`.orbit-compose-url-input\`、\`.orbit-compose-alt-input\`、\`.orbit-settings-bot-persona-textarea\`），统一接入 \`var(--type-control)\`。
 

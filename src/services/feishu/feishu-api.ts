@@ -33,7 +33,8 @@ async function feishuJson<T>(
   if (init.accessToken) {
     headers.set("Authorization", `Bearer ${init.accessToken}`);
   }
-  const res = await fetch(url, { ...init, headers });
+  const signal = init.signal ?? AbortSignal.timeout(10_000);
+  const res = await fetch(url, { ...init, headers, signal });
   const rawText = (await res.text()).trim();
   let data: { code?: number; msg?: string; data?: T } = {};
   if (rawText) {
@@ -68,6 +69,7 @@ export async function getTenantAccessToken(
       method: "POST",
       headers: { "Content-Type": "application/json; charset=utf-8" },
       body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+      signal: AbortSignal.timeout(10_000),
     }
   );
 
@@ -245,6 +247,7 @@ export async function downloadFeishuMessageImage(
   const url = `${FEISHU_API}/im/v1/messages/${messageId}/resources/${imageKey}?type=image`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) {
     throw new FeishuApiError(`download image failed (${res.status})`);

@@ -107,6 +107,7 @@ export async function sendWebPush(opts: {
         TTL: String(ttl),
         // 无 payload，不加 Content-Type
       },
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (res.ok || res.status === 201) return { ok: true, status: res.status };

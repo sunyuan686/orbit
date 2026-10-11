@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { generateText, streamText, type UIMessage } from "ai";
-import { createWorkersAI } from "workers-ai-provider";
 import { transcribeAudioWithWorkersAi } from "../services/ai/workers-ai-whisper.js";
 import { transcribeAudioWithDashScope } from "../services/ai/dashscope-voice.js";
 import { readProviderKey, resolveAlibabaApiKey, resolveModel } from "../services/ai/ai-model.js";

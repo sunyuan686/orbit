@@ -12,6 +12,7 @@ export const queryKeys = {
     ["gallery", filter, params ?? {}] as const,
   activityStats: (days: number) => ["activity-stats", days] as const,
   memorySummary: ["memory-summary"] as const,
+  memorySky: ["memory-sky"] as const,
   memoryNodes: (params?: Record<string, unknown>) =>
     ["memory-nodes", params ?? {}] as const,
   memoryMilestones: ["memory-milestones"] as const,

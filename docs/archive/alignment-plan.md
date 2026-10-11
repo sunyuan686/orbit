@@ -85,7 +85,7 @@ CREATE TABLE asset (
 ```sql
 CREATE TABLE memo (
   id           TEXT PRIMARY KEY,
-  key          TEXT NOT NULL UNIQUE,      -- about_sunyuan | about_linzhi | rules | ...
+  key          TEXT NOT NULL UNIQUE,      -- about_user_a | about_user_b | rules | ...
   title        TEXT NOT NULL,
   body         TEXT,
   body_html    TEXT,
@@ -103,8 +103,8 @@ CREATE TABLE settings (
 
 -- 预置 key：
 -- anniversary_date    纪念日
--- sunyuan_nickname    User A
--- linzhi_nickname     小辛星
+-- user_a_nickname    User A
+-- user_b_nickname     示例用户乙
 -- theme               主题色
 ```
 
@@ -276,7 +276,7 @@ Phase 6：扩展功能（暂不做）
 
 ## 六、参考资源
 
-- Jant 仓库：`/Users/sunyuan/Desktop/project/jant`
+- Jant 仓库：`../jant`
 - Jant 部署记录：`tasks/deployment-log.md`
 - better-auth 文档：[https://www.better-auth.com](https://www.better-auth.com)
 - TipTap 文档：[https://tiptap.dev](https://tiptap.dev)

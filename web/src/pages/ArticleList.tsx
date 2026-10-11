@@ -6,7 +6,6 @@ import {
   fetchEntries,
   fetchSpaceStatus,
   getSpaceYear,
-  TYPE_LABEL,
   formatDate,
   getApiErrorMessage,
   shouldToastApiError,
@@ -20,8 +19,13 @@ import {
 } from "../lib/letterThread";
 import { queryKeys } from "../lib/queryKeys";
 import { useToast } from "../hooks/useToast";
-import { useInfiniteScroll } from "../hooks";
-import { Container, FilterChipDropdown, InfiniteScrollSentinel } from "../components/ui";
+import { useInfiniteScroll, useIsMobileView } from "../hooks";
+import {
+  Container,
+  FilterChipDropdown,
+  InfiniteScrollSentinel,
+  PullToRefresh,
+} from "../components/ui";
 import { GalleryImage } from "../components/GalleryImage";
 import { LetterIcon, SortIcon } from "../components/OrbitIcons";
 import { LetterComposeCard } from "../components/letter/LetterComposeCard";
@@ -175,8 +179,9 @@ function TypedEntryList({
   );
 }
 
-export function ArticleList() {
-  const { type } = useParams<{ type: string }>();
+export function ArticleList({ typeOverride }: { typeOverride?: string } = {}) {
+  const { type: paramType } = useParams<{ type: string }>();
+  const type = typeOverride ?? paramType;
   const toast = useToast();
   const toastedError = useRef<unknown>(null);
 
@@ -196,11 +201,9 @@ export function ArticleList() {
   const letterParams = useMemo(
     () => ({
       roots: false,
-      year: year ?? undefined,
-      author: author ?? undefined,
       order,
     }),
-    [year, author, order]
+    [order]
   );
   const pageParams = useMemo(
     () => ({
@@ -245,20 +248,34 @@ export function ArticleList() {
     }
   }, [error, toast]);
 
+  const allLetterEntries: EntrySummary[] = useMemo(() => {
+    if (!isLetter) return [];
+    const data = letterQuery.data;
+    return Array.isArray(data) ? data : [];
+  }, [isLetter, letterQuery.data]);
+
   const entries: EntrySummary[] = useMemo(() => {
     if (isLetter) {
-      const data = letterQuery.data;
-      return Array.isArray(data) ? data : [];
+      return allLetterEntries.filter((e) => {
+        if (year != null) {
+          if (!e.entryDate) return false;
+          if (beijingDateParts(e.entryDate).y !== year) return false;
+        }
+        if (author != null && e.author !== author) {
+          return false;
+        }
+        return true;
+      });
     }
     return pagedQuery.data?.pages.flatMap((page) => page.items) ?? [];
-  }, [isLetter, letterQuery.data, pagedQuery.data]);
+  }, [isLetter, allLetterEntries, year, author, pagedQuery.data]);
 
   const currentYear = getSpaceYear();
   const earliestYear = useMemo(() => {
     if (isLetter) {
-      if (!entries.length) return currentYear;
+      if (!allLetterEntries.length) return currentYear;
       let minYear = currentYear;
-      for (const e of entries) {
+      for (const e of allLetterEntries) {
         if (e.entryDate) {
           const yr = beijingDateParts(e.entryDate).y;
           if (yr < minYear) minYear = yr;
@@ -267,7 +284,7 @@ export function ArticleList() {
       return minYear;
     }
     return pagedQuery.data?.pages[0]?.earliestYear ?? currentYear;
-  }, [isLetter, entries, pagedQuery.data?.pages, currentYear]);
+  }, [isLetter, allLetterEntries, pagedQuery.data?.pages, currentYear]);
 
   const startYear = Math.min(earliestYear, currentYear);
 
@@ -291,25 +308,26 @@ export function ArticleList() {
         if (a.name) set.add(a.name);
       }
     }
-    for (const e of entries) {
+    const source = isLetter ? allLetterEntries : entries;
+    for (const e of source) {
       if (e.author) set.add(e.author);
     }
     return Array.from(set).map((a) => ({ value: a, label: a }));
-  }, [statusQuery.data, entries]);
+  }, [statusQuery.data, isLetter, allLetterEntries, entries]);
 
   const loading = isLetter ? letterQuery.isPending : pagedQuery.isPending;
   const loadingMore = pagedQuery.isFetchingNextPage;
-  const label = TYPE_LABEL[type || ""] || type;
   const letterTree = useMemo(
     () => (isLetter ? buildLetterTree(entries, order) : []),
     [isLetter, entries, order]
   );
   const hasMore = paginated && pagedQuery.hasNextPage;
   const hasActiveFilter = year != null || author != null;
+  const isMobileView = useIsMobileView();
   const showLetterComposeCard = isLetter && !hasActiveFilter && order === "desc";
 
   const { leftLetterTree, rightLetterTree } = useMemo(() => {
-    if (!isLetter) return { leftLetterTree: [], rightLetterTree: [] };
+    if (!isLetter || isMobileView) return { leftLetterTree: [], rightLetterTree: [] };
     const left: LetterThread[] = [];
     const right: LetterThread[] = [];
 
@@ -325,7 +343,21 @@ export function ArticleList() {
     });
 
     return { leftLetterTree: left, rightLetterTree: right };
-  }, [isLetter, letterTree, showLetterComposeCard]);
+  }, [isLetter, isMobileView, letterTree, showLetterComposeCard]);
+
+
+
+  const handleRefresh = async () => {
+    if (isLetter) {
+      const [res, statusRes] = await Promise.all([letterQuery.refetch(), statusQuery.refetch()]);
+      if (res?.isError) throw res.error;
+      if (statusRes?.isError) throw statusRes.error;
+    } else {
+      const [res, statusRes] = await Promise.all([pagedQuery.refetch(), statusQuery.refetch()]);
+      if (res?.isError) throw res.error;
+      if (statusRes?.isError) throw statusRes.error;
+    }
+  };
 
   const { sentinelRef, retry } = useInfiniteScroll({
     hasNextPage: Boolean(hasMore),
@@ -337,10 +369,10 @@ export function ArticleList() {
 
   return (
     <Container size="standard" className={isLetter ? "orbit-content--desk" : undefined}>
-      <header className="orbit-page-header">
-        <h1 className="orbit-page-title">{label}</h1>
-      </header>
-
+      <PullToRefresh
+        tabKey={isLetter ? "letter" : undefined}
+        onRefresh={handleRefresh}
+      >
       <div className="orbit-content-toolbar">
         <div className="orbit-content-toolbar-group">
           <FilterChipDropdown
@@ -419,27 +451,42 @@ export function ArticleList() {
       ) : (
         <>
           {isLetter ? (
-            <div className="orbit-desk">
-              <div className="orbit-desk-col">
+            isMobileView ? (
+              <div className="orbit-desk orbit-desk--single">
                 {showLetterComposeCard && (
                   <div className="orbit-desk-item">
                     <LetterComposeCard />
                   </div>
                 )}
-                {leftLetterTree.map((thread) => (
+                {letterTree.map((thread) => (
                   <div key={thread.root.id} className="orbit-desk-item">
                     <LetterThreadItem thread={thread} />
                   </div>
                 ))}
               </div>
-              <div className="orbit-desk-col">
-                {rightLetterTree.map((thread) => (
-                  <div key={thread.root.id} className="orbit-desk-item">
-                    <LetterThreadItem thread={thread} />
-                  </div>
-                ))}
+            ) : (
+              <div className="orbit-desk orbit-desk--split">
+                <div className="orbit-desk-col">
+                  {showLetterComposeCard && (
+                    <div className="orbit-desk-item">
+                      <LetterComposeCard />
+                    </div>
+                  )}
+                  {leftLetterTree.map((thread) => (
+                    <div key={thread.root.id} className="orbit-desk-item">
+                      <LetterThreadItem thread={thread} />
+                    </div>
+                  ))}
+                </div>
+                <div className="orbit-desk-col">
+                  {rightLetterTree.map((thread) => (
+                    <div key={thread.root.id} className="orbit-desk-item">
+                      <LetterThreadItem thread={thread} />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )
           ) : (
             <TypedEntryList type={type || "moment"} entries={entries} />
           )}
@@ -457,6 +504,7 @@ export function ArticleList() {
           )}
         </>
       )}
+      </PullToRefresh>
     </Container>
   );
 }

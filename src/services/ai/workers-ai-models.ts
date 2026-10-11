@@ -200,6 +200,7 @@ async function fetchCatalogPage(
         Authorization: `Bearer ${credentials.apiToken}`,
         "Content-Type": "application/json",
       },
+      signal: AbortSignal.timeout(10_000),
     }
   );
 

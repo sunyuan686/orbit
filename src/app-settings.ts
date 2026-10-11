@@ -37,7 +37,7 @@ export const DEFAULT_WORKERS_AI_MODEL = "@cf/zai-org/glm-4.7-flash";
 export const DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash";
 export const DEFAULT_ALIBABA_MODEL = "qwen3.7-plus";
 
-export const DEFAULT_AI_BOT_NAME = "小辛星";
+export const DEFAULT_AI_BOT_NAME = "Orbit";
 export const DEFAULT_AI_BOT_PERSONA =
   "你的性格温暖、真诚、细腻且富有亲和力。你的任务是陪空间内的成员聊天、帮他们回忆温馨时刻、解答日常疑问或提供生活建议。";
 

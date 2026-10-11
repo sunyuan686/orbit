@@ -29,9 +29,16 @@ export function FilterChipDropdown<T extends string | number>({
 }: FilterChipDropdownProps<T>) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [isScrollable, setIsScrollable] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+
+    if (popoverRef.current) {
+      setIsScrollable(popoverRef.current.scrollHeight > popoverRef.current.clientHeight);
+    }
+
     const handlePointerDown = (e: PointerEvent) => {
       if (!containerRef.current?.contains(e.target as Node)) {
         setOpen(false);
@@ -40,20 +47,22 @@ export function FilterChipDropdown<T extends string | number>({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
-    const handleTouchMove = (e: TouchEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        e.preventDefault();
+    const handleScroll = (e: Event) => {
+      if (popoverRef.current && popoverRef.current.contains(e.target as Node)) {
+        return;
       }
+      setOpen(false);
     };
+
     window.addEventListener("pointerdown", handlePointerDown);
     window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
     return () => {
       window.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("scroll", handleScroll, { capture: true });
     };
-  }, [open]);
+  }, [open, options]);
 
   const activeOption = options.find((o) => o.value === value);
   const hasFilter = value !== null;
@@ -92,7 +101,11 @@ export function FilterChipDropdown<T extends string | number>({
       </button>
 
       {open && (
-        <div className="orbit-filter-popover" role="menu">
+        <div
+          ref={popoverRef}
+          className={`orbit-filter-popover ${isScrollable ? "is-scrollable" : ""}`.trim()}
+          role="menu"
+        >
           <button
             type="button"
             role="menuitem"

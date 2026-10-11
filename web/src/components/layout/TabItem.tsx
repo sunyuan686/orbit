@@ -7,15 +7,32 @@ export interface TabItemProps {
   icon: React.ReactNode;
   badge?: number;
   isActiveOverride?: boolean;
+  tabKey?: "moment" | "albums" | "letter" | "us";
 }
 
-export function TabItem({ to, label, icon, badge, isActiveOverride }: TabItemProps) {
+export function TabItem({
+  to,
+  label,
+  icon,
+  badge,
+  isActiveOverride,
+  tabKey,
+}: TabItemProps) {
   return (
     <NavLink
       to={to}
       // 底栏切换是「换地方」而非「往里走」：用 replace 不累积历史条目，
       // 否则每点一次底栏就多一条记录，返回手势会退化成「访问轨迹」而不是层级回退。
       replace
+      onClick={() => {
+        if (isActiveOverride && tabKey) {
+          window.dispatchEvent(
+            new CustomEvent("orbit:scroll-tab-to-top", {
+              detail: { tab: tabKey },
+            })
+          );
+        }
+      }}
       className={({ isActive }) => {
         const active = isActiveOverride !== undefined ? isActiveOverride : isActive;
         return [

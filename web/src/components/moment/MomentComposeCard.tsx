@@ -50,23 +50,23 @@ export function MomentComposeCard({
           onClick();
         }
       }}
-      className={`group flex flex-col justify-between p-3 sm:p-3.5 rounded-xl bg-[var(--color-surface)] border border-dashed border-[var(--color-border)] hover:border-[var(--color-accent)] shadow-xs hover:shadow-sm transition-all cursor-pointer select-none text-inherit no-underline min-h-[130px] sm:min-h-[150px] ${className}`}
+      className={`group flex flex-col justify-between p-3 sm:p-3.5 rounded-[14px] bg-[var(--color-surface)] border border-dashed border-[var(--color-border-light)] hover:border-[var(--color-accent)]/70 shadow-xs hover:shadow-sm transition-all cursor-pointer select-none text-inherit no-underline min-h-[105px] sm:min-h-[115px] ${className}`}
       aria-label="记录动态"
     >
       <div className="flex items-center justify-between text-[11px] text-[var(--color-text-muted)]">
         <span className="px-1.5 py-0.5 rounded bg-[var(--color-surface-raised)] font-mono text-[10px]">
           速记
         </span>
-        <SparklesIcon size="sm" className="group-hover:scale-110 transition-transform text-[var(--color-accent)]" />
+        <SparklesIcon size="sm" className="text-[var(--color-text-muted)] group-hover:scale-110 group-hover:text-[var(--color-accent)] transition-all" />
       </div>
 
       <div className="my-1.5">
-        <h3 className="font-heading text-[13px] sm:text-sm font-medium text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors">
+        <h3 className="font-heading text-sm font-medium text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors">
           记录动态…
         </h3>
       </div>
 
-      <span className="text-[11px] font-medium text-[var(--color-accent)] group-hover:underline self-end">
+      <span className="text-[11px] font-medium text-[var(--color-text-muted)] group-hover:text-[var(--color-accent)] group-hover:underline self-end transition-colors">
         开始记录 →
       </span>
     </div>

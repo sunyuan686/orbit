@@ -294,6 +294,7 @@ export async function listOpenAiCompatibleModels(
     headers: {
       Authorization: `Bearer ${apiKey}`,
     },
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!response.ok) {
@@ -317,6 +318,7 @@ export async function testOpenAiCompatibleConnection(
     headers: {
       Authorization: `Bearer ${apiKey}`,
     },
+    signal: AbortSignal.timeout(10_000),
   });
   if (!response.ok) {
     throw new Error(`连接失败（${response.status}）`);

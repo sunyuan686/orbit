@@ -59,7 +59,7 @@ npm run web:lint
 
 **部署到 Cloudflare（生产环境）**
 
-push 到 `main` 分支 → GitHub Actions 自动构建并部署到 Cloudflare Workers。
+公开版本默认不执行自动部署。配置 `wrangler.toml` 中的数据库 ID、域名和 `BETTER_AUTH_URL`，按需填写自己生成的 VAPID 公钥，并设置下列 Secrets 后，将仓库变量 `ENABLE_DEPLOY` 设为 `true`，即可在 push 到 `main` 时自动部署。
 
 首次部署需在 `wrangler.toml` 中替换 `REPLACE_WITH_YOUR_D1_DATABASE_ID`，并通过 `wrangler secret put BETTER_AUTH_SECRET` 设置密钥。
 

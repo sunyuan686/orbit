@@ -133,7 +133,7 @@ export function SpaceHeroCard({ onEditClick }: SpaceHeroCardProps) {
                 "我们的空间"
               )}
             </p>
-            <p className="orbit-home-hero-greeting">{profile?.slogan ?? tagline}</p>
+            <p className="orbit-home-hero-greeting">{tagline}</p>
             <p className="orbit-home-hero-sub">
               <button
                 type="button"
@@ -145,9 +145,6 @@ export function SpaceHeroCard({ onEditClick }: SpaceHeroCardProps) {
               ，让每一天都有计数
             </p>
           </>
-        )}
-        {hasAnniversary && profile?.slogan && (
-          <p className="orbit-home-hero-slogan">{profile.slogan}</p>
         )}
       </div>
       <div className="orbit-home-hero-side">

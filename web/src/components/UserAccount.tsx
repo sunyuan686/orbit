@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { authClient } from "../lib/api";
+import { getDefaultAvatar } from "../lib/presetAvatars";
 import { useToast } from "../hooks/useToast";
 import { usePwaUpdate } from "../hooks/usePwaUpdate";
 import { LogoutIcon, SettingsIcon } from "./OrbitIcons";
@@ -9,11 +10,28 @@ interface UserAccountProps {
   collapsed?: boolean;
 }
 
-function UserAvatar({ name, title }: { name: string; title?: string }) {
+function UserAvatar({
+  name,
+  image,
+  userId,
+  title,
+}: {
+  name: string;
+  image?: string | null;
+  userId?: string | null;
+  title?: string;
+}) {
+  const avatarSrc = image || getDefaultAvatar(userId);
   return (
-    <div className="orbit-avatar orbit-sidebar-account-avatar shrink-0" title={title} aria-hidden={!title}>
-      {name.slice(0, 1)}
-    </div>
+    <img
+      src={avatarSrc}
+      alt={name}
+      className="orbit-sidebar-account-avatar shrink-0 object-cover bg-[var(--color-surface-raised)] border border-[var(--color-border-light)]"
+      title={title}
+      onError={(e) => {
+        (e.currentTarget as HTMLImageElement).src = getDefaultAvatar(userId);
+      }}
+    />
   );
 }
 
@@ -80,7 +98,7 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
   const menu = menuOpen ? (
     <div id={menuId} className="orbit-sidebar-account-menu" role="menu" aria-label="账号菜单">
       <div className="orbit-sidebar-account-menu-header">
-        <UserAvatar name={user.name} />
+        <UserAvatar name={user.name} image={user.image} userId={user.id} />
         <div className="orbit-sidebar-account-meta min-w-0">
           <p className="orbit-sidebar-account-name truncate">{user.name}</p>
           <p className="orbit-sidebar-tagline truncate" title={user.email}>
@@ -137,7 +155,7 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
           title={profileTitle}
           onClick={() => setMenuOpen((open) => !open)}
         >
-          <UserAvatar name={user.name} />
+          <UserAvatar name={user.name} image={user.image} userId={user.id} />
           {needRefresh ? (
             <span
               className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-[var(--color-accent)] ring-2 ring-[var(--color-surface)] pointer-events-none"
@@ -160,7 +178,7 @@ export function UserAccount({ collapsed = false }: UserAccountProps) {
         aria-controls={menuOpen ? menuId : undefined}
         onClick={() => setMenuOpen((open) => !open)}
       >
-        <UserAvatar name={user.name} />
+        <UserAvatar name={user.name} image={user.image} userId={user.id} />
         <div className="orbit-sidebar-account-meta min-w-0 text-left flex-1">
           <p className="orbit-sidebar-account-name truncate">{user.name}</p>
           <p className="orbit-sidebar-tagline truncate" title={user.email}>

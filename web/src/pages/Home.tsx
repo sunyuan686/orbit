@@ -20,6 +20,7 @@ import {
   Container,
   FilterChipDropdown,
   InfiniteScrollSentinel,
+  PullToRefresh,
   Stack,
 } from "../components/ui";
 import { useInfiniteScroll } from "../hooks";
@@ -179,12 +180,23 @@ export function HomePage() {
     return { leftColMoments: left, rightColMoments: right };
   }, [moments, showComposeCard]);
 
+  const handleRefresh = async () => {
+    const [momentsRes, statusRes] = await Promise.all([
+      pagedMomentsQuery.refetch(),
+      statusQuery.refetch(),
+      queryClient.invalidateQueries({ queryKey: queryKeys.tags }),
+    ]);
+    if (momentsRes?.isError) throw momentsRes.error;
+    if (statusRes?.isError) throw statusRes.error;
+  };
+
   return (
     <Container size="narrow" className="orbit-home" data-page="home">
-      <Stack gap="md">
-        <section className="orbit-home-section" aria-label="动态流筛选与内容">
-          {/* 综合过滤工具栏 */}
-          <div className="orbit-content-toolbar">
+      <PullToRefresh tabKey="moment" onRefresh={handleRefresh}>
+        <Stack gap="md">
+          <section className="orbit-home-section" aria-label="动态流筛选与内容">
+            {/* 综合过滤工具栏 */}
+            <div className="orbit-content-toolbar">
             <div className="orbit-content-toolbar-group">
               <FilterChipDropdown
                 label="时间"
@@ -307,8 +319,8 @@ export function HomePage() {
                   ))}
                 </div>
               ) : (
-                <div className="flex gap-2.5 sm:gap-3.5 items-start">
-                  <div className="flex-1 min-w-0 flex flex-col gap-2.5 sm:gap-3.5">
+                <div className="flex gap-3 sm:gap-4 items-start">
+                  <div className="flex-1 min-w-0 flex flex-col gap-3 sm:gap-4">
                     {showComposeCard && (
                       <MomentComposeCard
                         layout="feed"
@@ -319,7 +331,7 @@ export function HomePage() {
                       <MomentCard key={item.id} entry={item} layout="feed" />
                     ))}
                   </div>
-                  <div className="flex-1 min-w-0 flex flex-col gap-2.5 sm:gap-3.5">
+                  <div className="flex-1 min-w-0 flex flex-col gap-3 sm:gap-4">
                     {rightColMoments.map((item) => (
                       <MomentCard key={item.id} entry={item} layout="feed" />
                     ))}
@@ -341,6 +353,7 @@ export function HomePage() {
           />
         </section>
       </Stack>
+    </PullToRefresh>
 
       <TagManageModal
         isOpen={tagManageOpen}

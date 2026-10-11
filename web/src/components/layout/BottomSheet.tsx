@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CloseIcon } from "../OrbitIcons";
 
 export interface BottomSheetProps {
@@ -151,7 +152,7 @@ export function BottomSheet({
 
   const backdropOpacity = translateY > 0 ? Math.max(0, 1 - translateY / 220) : 1;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex flex-col justify-end" role="dialog" aria-modal="true">
       {/* 遮罩背景 */}
       <div
@@ -236,6 +237,7 @@ export function BottomSheet({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

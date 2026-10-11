@@ -47,4 +47,32 @@ describe("Scroll Restoration Store (第一性原理滚动恢复映射测试)", (
     clearScrollPositions();
     assert.equal(getSavedScrollPosition("home"), undefined);
   });
+
+  it("当环境提供 sessionStorage 时同步持久化并可正确清理", () => {
+    const mockStorage = new Map<string, string>();
+    const originalWindow = (globalThis as any).window;
+
+    (globalThis as any).window = {
+      sessionStorage: {
+        getItem: (k: string) => mockStorage.get(k) ?? null,
+        setItem: (k: string, v: string) => mockStorage.set(k, v),
+        removeItem: (k: string) => mockStorage.delete(k),
+      },
+    };
+
+    try {
+      saveScrollPosition("session-home", 720);
+      assert.equal(getSavedScrollPosition("session-home"), 720);
+      const raw = mockStorage.get("orbit_scroll_positions");
+      assert.ok(raw);
+      const parsed = JSON.parse(raw);
+      assert.equal(parsed["session-home"], 720);
+
+      clearScrollPositions();
+      assert.equal(getSavedScrollPosition("session-home"), undefined);
+      assert.equal(mockStorage.get("orbit_scroll_positions"), undefined);
+    } finally {
+      (globalThis as any).window = originalWindow;
+    }
+  });
 });

@@ -997,6 +997,13 @@ h1, h2, h3, h4, h5, h6 {
   margin-top: 2.25rem;
 }
 
+/* 在 Stack 布局原语内，外部间距全权由父级 Stack 的 gap 统一驱动 */
+.orbit-ui-stack > .orbit-ui-section {
+  padding-bottom: 0;
+  border-bottom: none;
+  margin-top: 0;
+}
+
 .orbit-ui-section-header {
   margin-bottom: 0.875rem;
 }
@@ -1113,19 +1120,19 @@ h1, h2, h3, h4, h5, h6 {
   width: 100%;
   margin-left: auto;
   margin-right: auto;
-  padding: 1.5rem 1rem 3.5rem;
+  padding: 1.25rem 1rem 3.5rem;
   box-sizing: border-box;
 }
 
 @media (min-width: 640px) {
   .orbit-ui-container {
-    padding: 2rem 1.5rem 4rem;
+    padding: 1.5rem 1.5rem 4rem;
   }
 }
 
 @media (min-width: 1024px) {
   .orbit-ui-container {
-    padding: 2.5rem 2rem 5rem;
+    padding: 1.5rem 2rem 5rem;
   }
 }
 
@@ -1516,9 +1523,7 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   justify-content: space-between;
   gap: 0.625rem;
-  padding-bottom: 0.875rem;
-  margin-bottom: 1.5rem;
-  border-bottom: 1px solid var(--color-border-light);
+  margin-bottom: 0.875rem;
 }
 
 .orbit-content-toolbar-group {
@@ -1537,13 +1542,13 @@ h1, h2, h3, h4, h5, h6 {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  height: 30px;
+  height: 28px;
   padding: 0 0.625rem;
   font-size: var(--type-xs);
   font-family: var(--font-body);
   font-weight: 500;
-  border-radius: 6px;
-  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full, 9999px);
+  border: 1px solid var(--color-border-light);
   background: var(--color-surface);
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -1636,13 +1641,17 @@ h1, h2, h3, h4, h5, h6 {
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
+  touch-action: none;
   background: var(--color-surface);
   border: 1px solid var(--color-border-light);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   padding: 0.25rem;
   z-index: 50;
+}
+
+.orbit-filter-popover.is-scrollable {
+  touch-action: pan-y;
 }
 
 .orbit-filter-menu-item {
@@ -1692,13 +1701,13 @@ h1, h2, h3, h4, h5, h6 {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  height: 30px;
-  padding: 0 0.625rem;
+  height: 28px;
+  padding: 0 0.5rem;
   font-size: var(--type-xs);
   font-family: var(--font-body);
   font-weight: 500;
-  border-radius: 6px;
-  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full, 9999px);
+  border: 1px solid var(--color-border-light);
   background: var(--color-surface);
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -1723,8 +1732,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .orbit-filter-icon-btn {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -1884,12 +1893,6 @@ h1, h2, h3, h4, h5, h6 {
   object-fit: cover;
   border-radius: 4px;
   display: block;
-}
-
-.orbit-memory-card-cover.orbit-gallery-image-stack {
-  aspect-ratio: 16 / 10;
-  width: 100%;
-  height: auto;
 }
 
 /* —— diary: journal page —— */
@@ -2114,10 +2117,10 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   flex-direction: column;
   gap: 0.625rem;
-  padding: 0.95rem 1rem 0.85rem;
+  padding: 1.05rem 1.15rem 0.95rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border-light);
-  border-radius: 12px;
+  border-radius: var(--radius-lg, 14px);
   box-shadow: 0 1px 3px oklch(0 0 0 / 0.04);
   text-decoration: none;
   color: inherit;
@@ -2297,15 +2300,19 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .orbit-desk {
-  display: flex;
-  gap: var(--spacing-md, 1rem);
-  align-items: start;
+  width: 100%;
 }
 
-@media (min-width: 640px) {
-  .orbit-desk {
-    gap: var(--spacing-lg, 1.5rem);
-  }
+.orbit-desk--single {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.orbit-desk--split {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
 }
 
 .orbit-desk-col {
@@ -2313,13 +2320,7 @@ h1, h2, h3, h4, h5, h6 {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md, 1rem);
-}
-
-@media (min-width: 640px) {
-  .orbit-desk-col {
-    gap: var(--spacing-lg, 1.5rem);
-  }
+  gap: 1.25rem;
 }
 
 .orbit-desk-item {
@@ -11521,13 +11522,36 @@ html.orbit-ai-open body {
 .orbit-gallery-image-placeholder {
   position: absolute;
   inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity var(--motion-normal) ease;
+}
+
+.orbit-gallery-image-blurhash {
+  position: absolute;
+  inset: 0;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
 }
 
-.orbit-gallery-image-stack--lightbox .orbit-gallery-image-placeholder {
-  background-size: cover;
+.orbit-gallery-image-thumb-placeholder {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.orbit-gallery-image-stack--lightbox .orbit-gallery-image-thumb-placeholder {
+  object-fit: contain;
+}
+
+.orbit-gallery-image-stack[data-load-state="loaded"] .orbit-gallery-image-placeholder {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .orbit-gallery-image-img {
@@ -11537,19 +11561,29 @@ html.orbit-ai-open body {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0;
+  opacity: 1;
   transition: opacity var(--motion-normal) var(--motion-ease-enter);
+}
+
+/* 仅当存在占位图节点时，主图才在未加载完成前保持透明，以平滑呈现底下的占位图并交叉淡入 */
+.orbit-gallery-image-placeholder ~ .orbit-gallery-image-img {
+  opacity: 0;
 }
 
 .orbit-gallery-image-stack[data-load-state="loaded"] .orbit-gallery-image-img {
   opacity: 1;
+  transition: none;
 }
 
 .orbit-gallery-image-stack--lightbox {
   width: 100%;
   max-width: 100%;
+  min-height: min(40vh, 280px);
   max-height: min(72vh, 900px);
   margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--color-surface-raised);
 }
 
@@ -11598,7 +11632,7 @@ html.orbit-ai-open body {
 .orbit-gallery-lightbox {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -11606,6 +11640,14 @@ html.orbit-ai-open body {
   background: color-mix(in oklch, var(--color-bg) 20%, transparent);
   backdrop-filter: blur(8px);
   animation: orbit-lightbox-fade-in 180ms ease-out;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+/* 全屏模态视口滚动锁：冻结页面视口，杜绝穿透滚动 */
+html.orbit-lightbox-active,
+html.orbit-lightbox-active body {
+  overflow: hidden;
 }
 
 .orbit-gallery-lightbox-controls {
@@ -11614,9 +11656,10 @@ html.orbit-ai-open body {
   pointer-events: auto;
 }
 
-.orbit-gallery-lightbox-controls--hidden {
-  opacity: 0 !important;
-  pointer-events: none !important;
+.orbit-gallery-lightbox-controls--hidden,
+.orbit-gallery-lightbox-controls.orbit-gallery-lightbox-controls--hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .orbit-gallery-lightbox-panel {
@@ -11624,11 +11667,12 @@ html.orbit-ai-open body {
   width: min(960px, 100%);
   max-height: calc(100vh - 2rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   overflow: auto;
-  border-radius: 1rem;
-  border: 1px solid var(--color-border);
+  border-radius: 1.25rem;
   background: var(--color-surface);
-  box-shadow: var(--shadow-lg, 0 20px 40px rgba(0, 0, 0, 0.12));
+  box-shadow: var(--shadow-modal, 0 20px 48px rgba(0, 0, 0, 0.16));
   animation: orbit-lightbox-scale-in 180ms var(--motion-ease-enter);
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -11640,26 +11684,35 @@ html.orbit-ai-open body {
 
 .orbit-gallery-lightbox-close {
   position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  z-index: 10;
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
+  top: max(1.25rem, calc(1rem + env(safe-area-inset-top, 0px)));
+  right: max(1.25rem, calc(1rem + env(safe-area-inset-right, 0px)));
+  z-index: 50;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(0, 0, 0, 0.32);
   color: #ffffff;
   backdrop-filter: blur(8px);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: background var(--motion-fast), transform var(--motion-fast) var(--motion-ease-enter);
+  touch-action: manipulation;
+  cursor: pointer;
 }
 
 .orbit-gallery-lightbox-close:hover {
   background: rgba(0, 0, 0, 0.55);
   color: #ffffff;
   transform: scale(1.05);
+}
+
+.orbit-gallery-lightbox-close:active {
+  transform: scale(0.95);
 }
 
 .orbit-gallery-lightbox-counter {
@@ -11696,7 +11749,8 @@ html.orbit-ai-open body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background var(--motion-fast), transform var(--motion-fast) var(--motion-ease-enter), opacity var(--motion-fast);
+  transition: background var(--motion-fast), transform var(--motion-fast) var(--motion-ease-enter);
+  touch-action: manipulation;
   cursor: pointer;
 }
 
@@ -11720,11 +11774,10 @@ html.orbit-ai-open body {
 
 @media (max-width: 640px) {
   .orbit-gallery-lightbox-nav {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    min-height: 36px;
-    opacity: 0.85;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
   }
 }
 
@@ -11754,6 +11807,31 @@ html.orbit-ai-open body {
   color: var(--color-text-secondary);
 }
 
+.orbit-gallery-source-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: var(--type-xs, 12px);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
+  transition: background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast);
+  cursor: pointer;
+  text-decoration: none;
+  max-width: 100%;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.orbit-gallery-source-tag:hover {
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
 /* ──────────────────────────────────────────────────────────
    Home page — warm stone surfaces, hairline borders (DESIGN.md)
    ────────────────────────────────────────────────────────── */
@@ -11769,7 +11847,7 @@ html.orbit-ai-open body {
   gap: var(--space-lg);
   padding: var(--space-xl) var(--space-xl) var(--space-xl);
   border: 1px solid color-mix(in srgb, var(--color-accent) 14%, var(--color-border-light));
-  border-radius: 8px;
+  border-radius: var(--radius-lg, 14px);
   background:
     radial-gradient(ellipse at 85% -10%, color-mix(in srgb, var(--color-accent) 12%, transparent), transparent 60%),
     radial-gradient(ellipse at -5% 110%, oklch(0.85 0.05 18 / 0.14), transparent 55%),
@@ -11874,17 +11952,6 @@ html.orbit-ai-open body {
   color: var(--color-text-muted);
 }
 
-.orbit-home-hero-slogan {
-  margin: var(--space-md) 0 0;
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--color-border-light);
-  font-family: var(--font-heading);
-  font-size: var(--type-secondary);
-  line-height: var(--leading-body);
-  font-style: italic;
-  color: var(--color-text-secondary);
-  text-wrap: pretty;
-}
 
 .orbit-home-hero-link {
   display: inline-flex;
@@ -11914,10 +11981,12 @@ html.orbit-ai-open body {
 }
 
 @media (max-width: 640px) {
-  /* 动态列表流在移动端由外壳 px-4 统一管理 16px 视口边距，消除页面容器自身的横向二次边距 */
-  .orbit-home.orbit-ui-container {
+  /* 动态列表流与信箱在移动端由外壳 px-4 py-4 统一管理 16px 视口边距，消除页面容器自身的横向与顶部二次边距 */
+  .orbit-home.orbit-ui-container,
+  .orbit-content--desk.orbit-ui-container {
     padding-left: 0;
     padding-right: 0;
+    padding-top: 0;
   }
 }
 
@@ -11960,10 +12029,10 @@ html.orbit-ai-open body {
 
 .orbit-scratch-card {
   position: relative;
-  height: 180px;
-  min-height: 180px;
-  max-height: 180px;
-  border-radius: 16px;
+  height: 140px;
+  min-height: 140px;
+  max-height: 140px;
+  border-radius: var(--radius-lg, 14px);
   border: 1px solid var(--color-border-light);
   background: var(--color-surface);
   box-shadow: 0 4px 20px -6px color-mix(in srgb, var(--color-text-primary) 6%, transparent);
@@ -11975,8 +12044,8 @@ html.orbit-ai-open body {
   position: relative;
   overflow: hidden;
   width: 100%;
-  height: 180px;
-  border-radius: 16px;
+  height: 140px;
+  border-radius: var(--radius-lg, 14px);
   border: 1px solid var(--color-border-light);
   background: var(--color-surface-raised);
   box-sizing: border-box;
@@ -12055,8 +12124,8 @@ html.orbit-ai-open body {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 180px;
-  border-radius: 16px;
+  min-height: 140px;
+  border-radius: var(--radius-lg, 14px);
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -12095,8 +12164,8 @@ html.orbit-ai-open body {
 
 .orbit-scratch-underneath {
   height: 100%;
-  min-height: 180px;
-  padding: 1.125rem 1.375rem;
+  min-height: 140px;
+  padding: 0.875rem 1.125rem;
   background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 4%, var(--color-surface)), var(--color-surface));
   box-sizing: border-box;
   display: flex;
@@ -12109,7 +12178,7 @@ html.orbit-ai-open body {
   inset: 0;
   width: 100%;
   height: 100%;
-  border-radius: 16px;
+  border-radius: var(--radius-lg, 14px);
   cursor: pointer;
   transition: opacity 0.4s ease;
 }
@@ -12205,10 +12274,10 @@ html.orbit-ai-open body {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 180px;
-  border-radius: 16px;
+  min-height: 140px;
+  border-radius: var(--radius-lg, 14px);
   background: linear-gradient(135deg, var(--scratch-film-start), var(--scratch-film-mid), var(--scratch-film-end));
-  padding: 0.875rem 1.125rem;
+  padding: 0.75rem 1rem;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -12490,28 +12559,37 @@ html.orbit-ai-open body {
   .orbit-scratch-skeleton,
   .orbit-scratch-container,
   .orbit-scratch-feed-cover {
-    height: 186px;
-    min-height: 186px;
-    max-height: 186px;
+    height: 132px;
+    min-height: 132px;
+    max-height: 132px;
+  }
+
+  .orbit-scratch-feed-cover {
+    padding: 0.625rem 0.875rem;
+  }
+
+  .orbit-scratch-cover-astrolabe {
+    width: 44px;
+    height: 20px;
   }
 
   .orbit-scratch-underneath {
-    padding: 1rem 1.125rem;
-    min-height: 186px;
+    padding: 0.625rem 0.875rem;
+    min-height: 132px;
   }
 
   .orbit-scratch-title {
-    font-size: 1rem;
+    font-size: 0.9375rem;
   }
 
   .orbit-scratch-quote {
-    font-size: 0.875rem;
-    line-height: 1.5;
+    font-size: 0.8125rem;
+    line-height: 1.4;
   }
 
   .orbit-scratch-float-btn {
-    top: 1rem;
-    right: 1.125rem;
+    top: 0.75rem;
+    right: 0.875rem;
   }
 
   .orbit-scratch-modal-card {
@@ -12892,8 +12970,15 @@ html.orbit-ai-open body {
 @media (max-width: 519px) {
   .orbit-home-hero {
     flex-direction: column;
-    padding: var(--space-lg);
+    padding: var(--space-md) var(--space-lg);
+    gap: var(--space-md);
   }
+
+  .orbit-home-hero-days {
+    margin-top: var(--space-xs);
+    font-size: clamp(2.25rem, 7.5vw, 2.75rem);
+  }
+
 
   .orbit-home-hero-side {
     align-items: flex-start;
@@ -13176,7 +13261,6 @@ button.orbit-activity-cell:hover {
   justify-content: space-between;
   gap: var(--space-lg);
   flex-wrap: wrap;
-  margin-bottom: var(--space-md);
 }
 
 .orbit-memory-header-main {
@@ -13297,103 +13381,94 @@ button.orbit-activity-cell:hover {
 /* 极简中性圆月 */
 .orbit-memory-sky-moon {
   position: absolute;
-  top: 1.4rem;
-  right: 1.6rem;
-  width: 32px;
-  height: 32px;
+  top: 1.2rem;
+  right: 1.4rem;
+  width: 28px;
+  height: 28px;
   border-radius: 999px;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-light);
   box-shadow: var(--shadow-xs);
   pointer-events: none;
+  z-index: 2;
 }
 
-
-
-/* 一整幅天幕：时间从左（最早）到右（现在） */
+/* 一整幅天幕：时间从左（最早）到右（现在），单屏自适应舒展 */
 .orbit-memory-field {
   position: relative;
-  height: clamp(300px, 44vh, 400px);
+  width: 100%;
+  height: clamp(280px, 42vh, 380px);
   margin-top: var(--space-sm);
+  touch-action: pan-y;
+  user-select: none;
 }
 
 @media (max-width: 519px) {
   .orbit-memory-field {
-    height: 280px;
+    height: 290px;
   }
 }
 
-.orbit-memory-year-tick {
-  position: absolute;
-  bottom: 0;
-  transform: translateX(-50%);
-  padding-top: 2px;
-  font-family: var(--font-mono);
-  font-size: var(--type-xs);
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-muted);
-  border-top: 6px solid transparent;
-  pointer-events: none;
-}
-
-.orbit-memory-year-tick::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: -6px;
-  width: 1px;
-  height: 5px;
-  background: var(--color-border-light);
-}
-
+/* 璀璨星辰触摸热区与定位 */
 .orbit-memory-day-star {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--color-text-muted);
-  opacity: 0.65;
+  opacity: 0.72;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  touch-action: manipulation;
+  touch-action: pan-y;
   transition: opacity var(--motion-fast), color var(--motion-fast);
 }
 
-.orbit-memory-day-star--md {
-  color: var(--color-text-secondary);
-  opacity: 0.85;
+/* 四角闪光星芒 SVG 基础 */
+.orbit-memory-day-glyph {
+  fill: currentColor;
+  transform: rotate(var(--star-rot, 0deg));
+  transition: transform 0.2s var(--motion-ease-move), filter 0.2s ease;
 }
 
-.orbit-memory-day-star--featured,
+/* 一级星等：轻盈微光星芒 (1 个瞬间) */
+.orbit-memory-day-star--sm .orbit-memory-day-glyph {
+  width: 8px;
+  height: 8px;
+}
+
+/* 二级星等：相伴丰盛星芒 (2~3 个瞬间) */
+.orbit-memory-day-star--md {
+  color: var(--color-text-secondary);
+  opacity: 0.88;
+}
+
+.orbit-memory-day-star--md .orbit-memory-day-glyph {
+  width: 12px;
+  height: 12px;
+}
+
+/* 三级星等：璀璨高光大星芒 (≥4 个瞬间) */
 .orbit-memory-day-star--lg {
   color: var(--color-accent);
   opacity: 1;
 }
 
-/* 四角闪光星芒：典雅墨水与主题高光 */
-.orbit-memory-day-glyph {
-  width: 13px;
-  height: 13px;
-  fill: currentColor;
-  transform: rotate(var(--star-rot, 0deg));
-  transition: transform 0.2s var(--motion-ease-move);
-}
-
-.orbit-memory-day-star--md .orbit-memory-day-glyph {
-  width: 17px;
-  height: 17px;
-}
-
 .orbit-memory-day-star--lg .orbit-memory-day-glyph {
-  width: 21px;
-  height: 21px;
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-accent) 60%, transparent));
+  width: 16px;
+  height: 16px;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-accent) 55%, transparent));
+}
+
+/* 重点日 (featured) 增亮 */
+.orbit-memory-day-star--featured {
+  color: var(--color-accent);
+  opacity: 0.95;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -13431,17 +13506,19 @@ button.orbit-activity-cell:hover {
   border-radius: 4px;
   border: 1px solid var(--color-border-light);
   box-shadow: var(--shadow-sm);
+  z-index: 10;
 }
 
 .orbit-memory-day-star:hover,
 .orbit-memory-day-star.is-active {
   color: var(--color-accent);
   opacity: 1;
+  z-index: 8;
 }
 
 .orbit-memory-day-star:hover .orbit-memory-day-glyph,
 .orbit-memory-day-star.is-active .orbit-memory-day-glyph {
-  transform: rotate(var(--star-rot, 0deg)) scale(1.4);
+  transform: rotate(var(--star-rot, 0deg)) scale(1.45);
   animation: none;
   filter: drop-shadow(0 0 6px var(--color-accent));
 }
@@ -13459,6 +13536,7 @@ button.orbit-activity-cell:hover {
   border-radius: 999px;
   border: 1.5px solid var(--color-accent);
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 40%, transparent);
+  pointer-events: none;
 }
 
 .orbit-memory-day-star:focus-visible {
@@ -13473,6 +13551,7 @@ button.orbit-activity-cell:hover {
     animation: none;
   }
 }
+
 
 .orbit-memory-day-entries {
   margin-top: var(--space-xs);
@@ -13597,32 +13676,6 @@ button.orbit-activity-cell:hover {
   padding-top: 0.25rem;
 }
 
-.orbit-memory-themes .orbit-section-title {
-  margin-bottom: var(--space-xs);
-}
-
-.orbit-memory-themes .orbit-memory-caption {
-  margin-bottom: var(--space-lg);
-}
-
-.orbit-memory-theme-album {
-  margin-top: var(--space-xl);
-}
-
-.orbit-memory-theme-album:first-of-type {
-  margin-top: 0;
-}
-
-.orbit-memory-theme-title {
-  font-size: var(--type-md);
-  font-weight: 600;
-  margin: 0 0 var(--space-md);
-}
-
-.orbit-memory-upcoming .orbit-muted {
-  margin: 0;
-}
-
 .orbit-memory-celebrate {
   position: fixed;
   inset: 0;
@@ -13725,149 +13778,7 @@ button.orbit-activity-cell:hover {
   }
 }
 
-.orbit-memory-filters {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-lg);
-}
 
-.orbit-memory-filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.orbit-memory-chip {
-  border: 1px solid var(--color-border-light);
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  border-radius: var(--radius-full);
-  padding: 0.35rem 0.85rem;
-  font-size: var(--type-xs);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--motion-fast);
-}
-
-.orbit-memory-chip:hover {
-  border-color: var(--color-border);
-  color: var(--color-text-primary);
-}
-
-.orbit-memory-chip.is-active {
-  border-color: var(--color-accent);
-  background: var(--color-accent);
-  color: var(--color-on-primary);
-}
-
-.orbit-memory-card-grid {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.25rem;
-}
-
-.orbit-memory-card {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 160px;
-  text-decoration: none;
-  color: inherit;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid var(--color-border-light);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
-  transition:
-    transform var(--motion-fast),
-    box-shadow var(--motion-fast),
-    border-color var(--motion-fast);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .orbit-memory-card:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-md);
-    border-color: var(--color-border);
-  }
-}
-
-.orbit-memory-card-cover {
-  aspect-ratio: 16 / 10;
-  width: 100%;
-  object-fit: cover;
-  background: var(--color-surface-raised);
-}
-
-.orbit-memory-card-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  gap: 0.625rem;
-  padding: 1.125rem 1.25rem;
-}
-
-.orbit-memory-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: var(--type-xs);
-}
-
-.orbit-memory-card-author {
-  color: var(--color-text-muted);
-  font-weight: 500;
-}
-
-.orbit-memory-card-title {
-  font-family: var(--font-heading);
-  font-size: 1rem;
-  font-weight: 500;
-  line-height: 1.45;
-  color: var(--color-text-primary);
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.orbit-memory-card-body-text {
-  font-family: var(--font-body);
-  font-size: var(--type-body);
-  line-height: var(--leading-body);
-  letter-spacing: 0.015em;
-  color: var(--color-text-primary);
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.orbit-memory-card-snippet {
-  font-family: var(--font-body);
-  font-size: var(--type-secondary);
-  line-height: 1.6;
-  color: var(--color-text-secondary);
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.orbit-memory-card-date {
-  font-family: var(--font-mono);
-  font-size: var(--type-xs);
-  color: var(--color-text-muted);
-  margin-top: auto;
-  padding-top: 0.25rem;
-}
 
 /* ──────────────────────────────────────────────────────────
    Editor Enhancements: Slash Menu, Bubble Menu, Link Toolbar

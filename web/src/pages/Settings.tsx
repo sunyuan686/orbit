@@ -1,5 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "../lib/queryKeys";
 import {
   authClient,
   createInvite,
@@ -8,9 +10,14 @@ import {
   formatDateTime,
   getApiErrorMessage,
   shouldToastApiError,
-  updateProfile,
+  uploadAsset,
   type SpaceStatus,
 } from "../lib/api";
+import {
+  PRESET_AVATARS,
+  getDefaultAvatar,
+  type PresetAvatar,
+} from "../lib/presetAvatars";
 import {
   ACCENT_PRESET_LIST,
   CANVAS_BG_LIST,
@@ -45,7 +52,6 @@ import {
   AiIcon,
   BellIcon,
   CheckIcon,
-  ChevronLeftIcon,
   ChevronRightIcon,
   EyeIcon,
   EyeOffIcon,
@@ -127,7 +133,7 @@ const SETTINGS_NAV_GROUPS: {
       {
         id: "space",
         label: "档案",
-        description: "起始日与侧栏展示",
+        description: "起始日与约定",
         icon: (props) => <TimelineIcon {...props} />,
       },
     ],
@@ -251,6 +257,10 @@ export function SettingsPage() {
   const [displayNameDirty, setDisplayNameDirty] = useState(false);
   const [savingDisplayName, setSavingDisplayName] = useState(false);
 
+  const queryClient = useQueryClient();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
   const [spaceStatus, setSpaceStatus] = useState<SpaceStatus | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteExpiresAt, setInviteExpiresAt] = useState<number | null>(null);
@@ -309,11 +319,6 @@ export function SettingsPage() {
   const [grainOpacity, setGrainOpacityState] = useState<number>(() => getSavedGrainOpacity());
   const [fontMode, setFontModeState] = useState<FontMode>(() => getSavedFontMode());
   const [fontSize, setFontSizeState] = useState<ReadingFontSize>(() => getSavedFontSize());
-
-  function backToMobileMenu() {
-    // 与系统返回手势同源：弹掉 push 进来的面板条目，回到菜单条目。
-    navigate(-1);
-  }
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -395,8 +400,13 @@ export function SettingsPage() {
     }
     setSavingDisplayName(true);
     try {
-      await updateProfile(nextName);
-      await refetchSession();
+      const res = await authClient.updateUser({
+        name: nextName,
+      });
+      if (res.error) {
+        throw new Error(res.error.message || "更新爱称失败");
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.spaceStatus });
       setDisplayNameDirty(false);
       toast.success("爱称已更新");
     } catch (err) {
@@ -405,6 +415,77 @@ export function SettingsPage() {
       }
     } finally {
       setSavingDisplayName(false);
+    }
+  }
+
+  async function handleAvatarFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("头像文件大小不能超过 10MB");
+      return;
+    }
+    setUploadingAvatar(true);
+    try {
+      const asset = await uploadAsset(file);
+      const res = await authClient.updateUser({
+        image: asset.url,
+      });
+      if (res.error) {
+        throw new Error(res.error.message || "更新头像失败");
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.spaceStatus });
+      toast.success("头像已更新");
+    } catch (err) {
+      if (shouldToastApiError(err)) {
+        toast.error(getApiErrorMessage(err, "头像上传失败"));
+      }
+    } finally {
+      setUploadingAvatar(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  }
+
+  async function handleRemoveAvatar() {
+    if (uploadingAvatar) return;
+    setUploadingAvatar(true);
+    try {
+      const res = await authClient.updateUser({
+        image: null as any,
+      });
+      if (res.error) {
+        throw new Error(res.error.message || "移除头像失败");
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.spaceStatus });
+      toast.success("头像已恢复默认");
+    } catch (err) {
+      if (shouldToastApiError(err)) {
+        toast.error(getApiErrorMessage(err, "移除失败"));
+      }
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
+  async function handleSelectPresetAvatar(preset: PresetAvatar) {
+    if (uploadingAvatar) return;
+    if (session?.user?.image === preset.url) return;
+    setUploadingAvatar(true);
+    try {
+      const res = await authClient.updateUser({
+        image: preset.url,
+      });
+      if (res.error) {
+        throw new Error(res.error.message || "更新头像失败");
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.spaceStatus });
+      toast.success(`已换上「${preset.label}」手账头像`);
+    } catch (err) {
+      if (shouldToastApiError(err)) {
+        toast.error(getApiErrorMessage(err, "更换头像失败"));
+      }
+    } finally {
+      setUploadingAvatar(false);
     }
   }
 
@@ -481,19 +562,6 @@ export function SettingsPage() {
       {!(isMobile && showMobileDetail) ? (
         <header className="orbit-settings-page-header">
           <h1 className="orbit-page-title">设置</h1>
-        </header>
-      ) : null}
-
-      {showMobileDetail ? (
-        <header className="orbit-settings-mobile-toolbar">
-          <button
-            type="button"
-            className="orbit-settings-mobile-back"
-            onClick={backToMobileMenu}
-          >
-            <ChevronLeftIcon size="sm" />
-            设置
-          </button>
         </header>
       ) : null}
 
@@ -787,6 +855,101 @@ export function SettingsPage() {
               <header className="orbit-settings-panel-header">
                 <h2 className="orbit-settings-panel-title">个人资料</h2>
               </header>
+
+              <Section title="头像">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-full overflow-hidden bg-[var(--color-surface-raised)] border border-[var(--color-border)] flex items-center justify-center shrink-0 shadow-xs">
+                      <img
+                        src={session?.user?.image || getDefaultAvatar(session?.user?.id)}
+                        alt={session?.user?.name ?? "头像"}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = getDefaultAvatar(session?.user?.id);
+                        }}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Stack direction="row" gap="sm" align="center">
+                        <input
+                          ref={avatarInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleAvatarFileSelect}
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => avatarInputRef.current?.click()}
+                          loading={uploadingAvatar}
+                          disabled={uploadingAvatar}
+                        >
+                          上传照片
+                        </Button>
+                        {session?.user?.image ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => void handleRemoveAvatar()}
+                            disabled={uploadingAvatar}
+                          >
+                            恢复默认
+                          </Button>
+                        ) : null}
+                      </Stack>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t border-[var(--color-border-light)]">
+                    <p className="text-xs font-medium text-[var(--color-text-secondary)]">
+                      手账插画预设
+                    </p>
+                    <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                      {PRESET_AVATARS.map((preset) => {
+                        const isSelected =
+                          session?.user?.image === preset.url ||
+                          (!session?.user?.image && getDefaultAvatar(session?.user?.id) === preset.url);
+
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => void handleSelectPresetAvatar(preset)}
+                            disabled={uploadingAvatar}
+                            className={`group relative flex flex-col items-center gap-1.5 p-1.5 rounded-xl border transition-all cursor-pointer ${
+                              isSelected
+                                ? "border-[var(--color-accent)] bg-[var(--color-surface-raised)] ring-2 ring-[var(--color-accent)]/20"
+                                : "border-[var(--color-border-light)] hover:border-[var(--color-border)] hover:bg-[var(--color-surface-raised)]"
+                            }`}
+                            title={`选择「${preset.label}」`}
+                          >
+                            <div className="w-10 h-10 rounded-full overflow-hidden bg-[var(--color-surface)] border border-[var(--color-border-light)] shrink-0 flex items-center justify-center">
+                              <img
+                                src={preset.url}
+                                alt={preset.label}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            </div>
+                            <span
+                              className={`text-[11px] leading-tight ${
+                                isSelected
+                                  ? "font-medium text-[var(--color-text-primary)]"
+                                  : "text-[var(--color-text-muted)] group-hover:text-[var(--color-text-secondary)]"
+                              }`}
+                            >
+                              {preset.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </Section>
 
               <Section title="爱称">
                 <form

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { authClient } from "../lib/api";
+import { getDefaultAvatar } from "../lib/presetAvatars";
 import { useTheme, type Theme } from "../hooks/useTheme";
 import { usePwaInstall } from "../hooks/usePwaInstall";
 import {
@@ -45,7 +46,7 @@ export function UsMenuSheet({ isOpen, onClose }: UsMenuSheetProps) {
 
   const user = session?.user;
   const displayName = user?.name || user?.email?.split("@")[0] || "用户";
-  const avatarChar = displayName.slice(0, 1).toUpperCase();
+  const avatarSrc = user?.image || getDefaultAvatar(user?.id);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-start" role="dialog" aria-modal="true">
@@ -69,8 +70,15 @@ export function UsMenuSheet({ isOpen, onClose }: UsMenuSheetProps) {
         <div className="flex flex-col">
           {/* 1. 顶部：通透轻盈的个人身份卡片 */}
           <div className="px-5 pt-3 pb-5 border-b border-[var(--color-border-light)] flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[var(--color-surface-raised)] border border-[var(--color-border)] text-[var(--color-text-primary)] flex items-center justify-center font-heading font-medium text-sm shrink-0">
-              {avatarChar}
+            <div className="w-10 h-10 rounded-full bg-[var(--color-surface-raised)] border border-[var(--color-border)] flex items-center justify-center shrink-0 overflow-hidden">
+              <img
+                src={avatarSrc}
+                alt={displayName}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = getDefaultAvatar(user?.id);
+                }}
+              />
             </div>
             <div className="min-w-0 flex-1">
               <p className="font-heading font-medium text-[var(--color-text-primary)] truncate text-base leading-tight">

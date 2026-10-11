@@ -85,6 +85,10 @@ export function createAssetsRoutes(
       return c.json({ error: "no file" }, 400);
     }
 
+    const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50MB 上限，防止超大文件耗尽 Worker 内存与产生大额 R2 写入
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return c.json({ error: "文件体积过大，单文件不得超过 50MB" }, 413);
+    }
     const body = await file.arrayBuffer();
     const ext = normalizeExtension(file.name || "upload.jpg");
     const filename = `${await sha256Prefix(body)}${ext}`;

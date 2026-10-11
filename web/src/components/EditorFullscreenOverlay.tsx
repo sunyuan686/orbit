@@ -45,6 +45,7 @@ export function EditorFullscreenOverlay({
   const editorRef = useRef<TiptapEditorHandle>(null);
   const [title, setTitle] = useState(initialTitle);
   const [selection, setSelection] = useState<EditorSelection | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -91,8 +92,15 @@ export function EditorFullscreenOverlay({
   }, [buildCloseDetail, onClose]);
 
   const handleSaveClick = useCallback(() => {
-    onSave?.(buildCloseDetail());
-  }, [buildCloseDetail, onSave]);
+    if (isUploading || editorRef.current?.hasPendingUploads?.()) {
+      return;
+    }
+    const detail = buildCloseDetail();
+    if (/\bsrc=["']blob:/i.test(detail.html)) {
+      return;
+    }
+    onSave?.(detail);
+  }, [buildCloseDetail, isUploading, onSave]);
 
   const handleDialogCancel = useCallback(
     (event: Event) => {
@@ -162,10 +170,10 @@ export function EditorFullscreenOverlay({
             <button
               type="button"
               onClick={handleSaveClick}
-              disabled={saving}
+              disabled={saving || isUploading}
               className="orbit-btn orbit-btn-sm orbit-btn-primary"
             >
-              {saving ? "保存中…" : "保存"}
+              {saving ? "保存中…" : isUploading ? "上传中…" : "保存"}
             </button>
           )}
         </div>
@@ -195,6 +203,7 @@ export function EditorFullscreenOverlay({
             entryId={entryId}
             mode="article"
             hideFullscreenToggle
+            onUploadStateChange={setIsUploading}
           />
         </div>
       </div>

@@ -15,6 +15,7 @@ permissions:
 jobs:
   deploy:
     name: Build and Deploy
+    if: ${{ vars.ENABLE_DEPLOY == 'true' }}
     runs-on: ubuntu-latest
 
     env:

@@ -38,8 +38,8 @@ import { requestContext } from "./lib/request-context.js";
 import { createRequireAuth } from "./lib/request-auth.js";
 import { verifyTurnstileToken } from "./lib/turnstile.js";
 import type { NotifyRuntime } from "./services/notify/notify.js";
-import { CompanionScheduler } from "./services/companion/companion-scheduler.js";
-import { scanTestCandidate } from "./services/companion/companion-engine.js";
+import { runCompanionEngine, scanTestCandidate } from "./services/companion/companion-engine.js";
+import { deliverCompanionCard } from "./services/feishu/feishu-companion-card.js";
 import { thumbStorageKey } from "./lib/gallery-keys.js";
 
 export interface Env {
@@ -58,7 +58,6 @@ export interface Env {
   LANGFUSE_BASE_URL?: string;
   LANGFUSE_ENV?: string;
   LANGFUSE_PROJECT_ID?: string;
-  COMPANION_SCHEDULER: DurableObjectNamespace<CompanionScheduler>;
   VAPID_PUBLIC_KEY?: string;
   VAPID_PRIVATE_KEY?: string;
 }
@@ -73,10 +72,21 @@ function getDb(c: Context<HonoEnv>) {
   return drizzle(c.env.DB, { schema });
 }
 
+// 严格收紧 CORS，禁止全反射 origin，防止跨域读取情侣空间私密数据
+const LOCAL_ORIGINS = new Set([
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:5173",
+]);
+
 app.use(
   "*",
   cors({
-    origin: (origin) => origin,
+    origin: (origin, c) => {
+      const siteOrigin = new URL(c.env.BETTER_AUTH_URL).origin;
+      return origin === siteOrigin || LOCAL_ORIGINS.has(origin) ? origin : siteOrigin;
+    },
     allowHeaders: ["Content-Type", "Authorization", "x-turnstile-token"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
@@ -210,6 +220,8 @@ app.use("/api/stats/*", requireAuth);
 app.use("/api/stats", requireAuth);
 app.use("/api/memories/*", requireAuth);
 app.use("/api/memories", requireAuth);
+app.use("/api/albums/*", requireAuth);
+app.use("/api/albums", requireAuth);
 app.use("/api/integrations/*", async (c, next) => {
   const path = new URL(c.req.url).pathname;
   if (
@@ -426,29 +438,7 @@ app.get("/ai-attachments/:filename", requireAuth, async (c) => {
   return new Response(object.body, { headers });
 });
 
-// ─── Companion Scheduler API ─────────────────────────────────────────────────
-
-function getCompanionScheduler(c: Context<HonoEnv>) {
-  return c.env.COMPANION_SCHEDULER.getByName("companion");
-}
-
-// 首次部署后调用一次，启动 alarm 循环
-app.post("/api/companion/bootstrap", requireSession, async (c) => {
-  const result = await getCompanionScheduler(c).bootstrap();
-  return c.json(result);
-});
-
-// 用户改完配置（安静时段等）后调用，立即 reschedule
-app.post("/api/companion/reschedule", requireSession, async (c) => {
-  const result = await getCompanionScheduler(c).reschedule();
-  return c.json(result);
-});
-
-// 查询当前 alarm 状态，供设置页展示"下次推送时间"
-app.get("/api/companion/status", requireSession, async (c) => {
-  const result = await getCompanionScheduler(c).status();
-  return c.json(result);
-});
+// ─── Companion API ───────────────────────────────────────────────────────────
 
 // 手动触发一条测试陪伴推送（发送至站内通知与飞书）
 app.post("/api/companion/test", requireSession, async (c) => {
@@ -465,7 +455,6 @@ app.post("/api/companion/test", requireSession, async (c) => {
   };
 
   const candidate = await scanTestCandidate(db, sessionAuthor.userId, nowTs);
-  const { deliverCompanionCard } = await import("./services/feishu/feishu-companion-card.js");
   await deliverCompanionCard(
     candidate,
     {
@@ -480,6 +469,49 @@ app.post("/api/companion/test", requireSession, async (c) => {
   return c.json({ success: true, candidate });
 });
 
-export { CompanionScheduler };
+// ─── 无状态定时任务处理（Cron Trigger: 0 * * * *）─────────────────────────────
 
-export default app;
+async function handleScheduledCompanion(env: Env): Promise<void> {
+  try {
+    const db = drizzle(env.DB, { schema });
+    const nowTs = Math.floor(Date.now() / 1000);
+    const result = await runCompanionEngine(db, nowTs);
+
+    if (!result.dispatched.length) {
+      return;
+    }
+
+    const aiEnv = {
+      AI: env.AI,
+      BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
+      CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID,
+      CLOUDFLARE_API_TOKEN: env.CLOUDFLARE_API_TOKEN,
+    };
+
+    for (const candidate of result.dispatched) {
+      try {
+        await deliverCompanionCard(
+          candidate,
+          {
+            db,
+            secret: env.BETTER_AUTH_SECRET,
+            baseUrl: env.BETTER_AUTH_URL,
+            aiEnv,
+          },
+          nowTs
+        );
+      } catch (deliverErr) {
+        console.error("[scheduled] companion delivery failed:", deliverErr);
+      }
+    }
+  } catch (err) {
+    console.error("[scheduled] companion engine failed:", err);
+  }
+}
+
+export default {
+  fetch: app.fetch,
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(handleScheduledCompanion(env));
+  },
+};

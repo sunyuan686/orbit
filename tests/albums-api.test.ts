@@ -1,12 +1,15 @@
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { Hono } from "hono";
 import { createAlbumsRoutes } from "../src/api/albums.js";
-import { db } from "../src/db/index.js";
+import { createTestDb } from "./helpers/test-db.js";
+
+const { db, sqlite } = createTestDb();
+after(() => sqlite.close());
 
 const mockSession = {
-  userId: "rvIAlujiOgWfrEsCHZS3MZkMmEs21OVD",
-  author: "小圆子",
+  userId: "test-user",
+  author: "Test User",
 };
 
 describe("Albums API & System Photo Stream (方案B首卡系统相册回归测试)", () => {
@@ -20,7 +23,7 @@ describe("Albums API & System Photo Stream (方案B首卡系统相册回归测�
 
   let createdAlbumId: string;
 
-  it("GET /api/albums - 首卡必须为系统相册《生活留影》", async () => {
+  it("GET /api/albums - 首卡必须为系统相册《全部照片》", async () => {
     const res = await app.request("/api/albums");
     assert.equal(res.status, 200);
     const data = (await res.json()) as Array<{
@@ -36,7 +39,7 @@ describe("Albums API & System Photo Stream (方案B首卡系统相册回归测�
 
     const systemAlbum = data[0];
     assert.equal(systemAlbum.id, "all", "首卡 id 为 all");
-    assert.equal(systemAlbum.title, "生活留影", "首卡标题为生活留影");
+    assert.equal(systemAlbum.title, "全部照片", "首卡标题为全部照片");
     assert.equal(systemAlbum.isDefault, true, "isDefault 标记为 true");
     assert.ok(systemAlbum.photoCount >= 0, "photoCount 为非负数");
   });
@@ -53,7 +56,7 @@ describe("Albums API & System Photo Stream (方案B首卡系统相册回归测�
     };
 
     assert.equal(data.id, "all");
-    assert.equal(data.title, "生活留影");
+    assert.equal(data.title, "全部照片");
     assert.equal(data.isDefault, true);
     assert.ok(Array.isArray(data.photos), "包含照片流数组");
     assert.equal(data.photos.length, data.photoCount, "照片数组长度与统计一致");

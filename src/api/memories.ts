@@ -5,6 +5,7 @@ import type { NotifyRuntime } from "../services/notify/notify.js";
 import {
   MEMORY_ENTRY_TYPES,
   celebrateMilestones,
+  getMemorySky,
   getMemorySummary,
   layoutTimeline,
   listMemoryNodes,
@@ -72,6 +73,17 @@ export function createMemoriesRoutes(
     }
   });
 
+  memories.get("/sky", async (c) => {
+    const db = await getDb(c);
+    try {
+      const sky = await getMemorySky(db);
+      return c.json(sky);
+    } catch (err) {
+      log.error("sky failed", err);
+      return c.json({ error: "读取记忆星空失败" }, 500);
+    }
+  });
+
   memories.get("/nodes", async (c) => {
     const type = c.req.query("type");
     if (type && !MEMORY_ENTRY_TYPES.includes(type as any)) {
@@ -101,11 +113,14 @@ export function createMemoriesRoutes(
       return c.json({ error: "year 须为数字" }, 400);
     }
 
+    const safeLimit = limit != null ? Math.min(Math.max(1, limit), 100) : undefined;
+    const safeOffset = offset != null ? Math.max(0, offset) : undefined;
+
     const db = await getDb(c);
     try {
       const result = await listMemoryNodes(db, {
-        limit: limit ?? undefined,
-        offset: offset ?? undefined,
+        limit: safeLimit,
+        offset: safeOffset,
         type: type ?? undefined,
         from: from ?? undefined,
         to: to ?? undefined,

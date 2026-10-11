@@ -398,6 +398,10 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
       return bodyRequiredResponse(c);
     }
 
+    if (body && /\bsrc=["']blob:/i.test(body)) {
+      return c.json({ error: "正文包含未完成上传的临时资源 (blob URL)，请等待上传完成后再保存" }, 400);
+    }
+
     // 单草稿模型：同类型已存在草稿时就地原子更新，杜绝草稿垃圾堆积
     if (effectiveStatus === "draft" && sessionAuthor.userId) {
       const existingDraft = await db
@@ -507,6 +511,10 @@ export function createArticlesRoutes(getDb: DbProvider, options: ArticleRouteOpt
     }
     if (status !== "published" && body !== undefined && isEmptyBody(body)) {
       return bodyRequiredResponse(c);
+    }
+
+    if (body && /\bsrc=["']blob:/i.test(body)) {
+      return c.json({ error: "正文包含未完成上传的临时资源 (blob URL)，请等待上传完成后再保存" }, 400);
     }
 
     const spaceUserIds = await getSpaceUserIds(db);

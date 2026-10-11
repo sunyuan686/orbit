@@ -97,11 +97,17 @@ export function createAuth(db: any, options: { secret?: string; baseURL: string 
         update: {
           before: async (userData) => {
             if (typeof userData.name !== "string") return { data: userData };
-            const trimmed = normalizeDisplayName(userData.name);
-            if (!trimmed) {
-              throw new APIError("BAD_REQUEST", { message: "爱称不能为空" });
+            const authors = await getSpaceAuthors(db);
+            const others = authors
+              .filter((row) => (userData.id ? row.id !== userData.id : true))
+              .map((row) => row.name);
+            const validation = validateDisplayName(userData.name, {
+              otherNames: others,
+            });
+            if (!validation.ok) {
+              throw new APIError("BAD_REQUEST", { message: validation.error });
             }
-            return { data: { ...userData, name: trimmed } };
+            return { data: { ...userData, name: validation.name } };
           },
         },
       },

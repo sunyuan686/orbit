@@ -12,8 +12,8 @@
    在 `web/src/index.css:8402-8408` 中，Toast 弹出和收起时同时执行了 `opacity`、`translateY(-0.75rem)` 和 `scale(0.94)`。在无障碍规范中，针对开启了「减弱动态效果（Reduced Motion）」的用户，应去除剧烈的位置移动（Position offset），保留透明度反馈即可，但目前样式中未提供任何降级媒体查询。
 
 2. **移动端触控残留 Sticky Hover**：
-   - 底部导航栏 [TabItem.tsx:22](file:///Users/sunyuan/Desktop/project/orbit/web/src/components/layout/TabItem.tsx#L22)：使用原始 `hover:text-[var(--color-text-secondary)]`。在移动设备（如 iPhone）上轻触切换 Tab 后，该 Tab 会因触控伪悬停（Sticky Hover）而持续保留浅色未聚焦状态，直到点击其他位置才恢复。
-   - 相册封面缩略图 [Albums.tsx:127](file:///Users/sunyuan/Desktop/project/orbit/web/src/pages/Albums.tsx#L127) 与卡片 [MomentCard.tsx:164](file:///Users/sunyuan/Desktop/project/orbit/web/src/components/MomentCard.tsx#L164)：使用了 `group-hover:scale-103`。手机触摸滑动列表经过卡片时，可能误触发微缩放，引起视觉跳动。
+   - 底部导航栏 [TabItem.tsx:22](../../web/src/components/layout/TabItem.tsx#L22)：使用原始 `hover:text-[var(--color-text-secondary)]`。在移动设备（如 iPhone）上轻触切换 Tab 后，该 Tab 会因触控伪悬停（Sticky Hover）而持续保留浅色未聚焦状态，直到点击其他位置才恢复。
+   - 相册封面缩略图 [Albums.tsx:127](../../web/src/pages/Albums.tsx#L127) 与卡片 [MomentCard.tsx:164](../../web/src/components/MomentCard.tsx#L164)：使用了 `group-hover:scale-103`。手机触摸滑动列表经过卡片时，可能误触发微缩放，引起视觉跳动。
 
 ## Target
 

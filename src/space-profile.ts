@@ -1,12 +1,10 @@
 export const SPACE_SETTING_KEYS = {
   anniversaryDate: "anniversary_date",
-  slogan: "space_slogan",
   rules: "space_rules",
 } as const;
 
 export interface SpaceProfile {
   anniversaryDate: string | null;
-  slogan: string | null;
   daysTogether: number | null;
   rules: string | null;
 }
@@ -80,19 +78,12 @@ export function buildSpaceProfile(
   const anniversaryDate = parseAnniversaryToIso(
     settingsMap[SPACE_SETTING_KEYS.anniversaryDate]
   );
-  const slogan = normalizeSlogan(settingsMap[SPACE_SETTING_KEYS.slogan]);
   const rules = settingsMap[SPACE_SETTING_KEYS.rules]?.trim() || null;
   const daysTogether = anniversaryDate
     ? computeDaysTogether(anniversaryDate, referenceDate)
     : null;
 
-  return { anniversaryDate, slogan, daysTogether, rules };
-}
-
-export function normalizeSlogan(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const trimmed = raw.trim();
-  return trimmed || null;
+  return { anniversaryDate, daysTogether, rules };
 }
 
 function toIsoDate(year: number, month: number, day: number): string | null {
